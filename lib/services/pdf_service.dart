@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
@@ -14,6 +13,7 @@ import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../repositories/jugador_repository.dart';
 import '../repositories/partido_repository.dart';
+import '../services/mensaje_cobro_service.dart';
 import '../services/preferences_service.dart';
 import '../services/share_service.dart';
 import '../utils/formatters.dart';
@@ -33,9 +33,9 @@ class PdfService {
       .replaceAll('✓', 'OK')
       .replaceAll('·', ' - ');
 
-  String _fechaDisplay(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
+  String _fechaDisplay(DateTime d) => formatFecha(d);
 
-  String _fechaArchivo(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+  String _fechaArchivo(DateTime d) => formatFechaArchivo(d);
 
   String _nombreArchivo(String base) {
     final limpio = base
@@ -50,7 +50,7 @@ class PdfService {
     final banco = await _prefs.bancoNombre;
     final cuenta = await _prefs.cuentaNumero;
     final pdf = pw.Document();
-    final fecha = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    final fecha = formatFechaHora(DateTime.now());
     final totalDeuda = resumenes.fold(
       0.0,
       (s, r) => s + (r.saldoActual > 0 ? r.saldoActual : 0),
@@ -242,7 +242,6 @@ class PdfService {
     required DesgloseJugador desglose,
     Jugador? jugador,
   }) async {
-    final fecha = _fechaDisplay(completo.partido.fecha);
     final titular = await _prefs.titularNombre;
     final banco = await _prefs.bancoNombre;
     final cuenta = await _prefs.cuentaNumero;
@@ -251,64 +250,17 @@ class PdfService {
       partidoActualId: completo.partido.id!,
     );
 
-    final buffer = StringBuffer()
-      ..writeln('🎾 *Pádel — $fecha*');
-    if (completo.partido.recinto != null &&
-        completo.partido.recinto!.trim().isNotEmpty) {
-      buffer.writeln('📍 *${completo.partido.recinto!.trim()}*');
-    }
-    buffer
-      ..writeln('')
-      ..writeln('Hola ${desglose.nombre}, tu resumen del partido de hoy:')
-      ..writeln('')
-      ..writeln(
-        'Costo cancha/pelotas: ${_fmt(desglose.costoCanchaPelotas)}',
-      );
-
-    if (desglose.costoExtras > 0) {
-      buffer.writeln('Extras (Asado/Copete): ${_fmt(desglose.costoExtras)}');
-    }
-
-    if (desglose.saldoFavorAplicado > 0) {
-      buffer.writeln(
-        'Aplicación de saldo a favor: -${_fmt(desglose.saldoFavorAplicado)}',
-      );
-    }
-
-    if (desglose.saldoAnterior > 0) {
-      buffer.writeln('');
-      buffer.writeln(_bloqueDeudaAnteriorWa(desglose.saldoAnterior, deudasAnteriores));
-    }
-
-    buffer.writeln('');
-
-    if (desglose.pagado) {
-      if (desglose.generaSaldoAFavor) {
-        buffer.writeln(
-          '✅ *Al día* — Quedó saldo a favor: ${_fmt(-desglose.saldoRestante)}',
-        );
-      } else {
-        buffer.writeln('✅ *AL DÍA* — ¡Gracias!');
-      }
-    } else if (desglose.pagoParcial) {
-      buffer
-        ..writeln('💵 *Pagaste:* ${_fmt(desglose.montoPagado)}')
-        ..writeln('💰 *Total a transferir: ${_fmt(desglose.totalATransferir)}*');
-    } else {
-      buffer.writeln('💰 *Total a transferir: ${_fmt(desglose.totalATransferir)}*');
-    }
-
-    if (titular.isNotEmpty) {
-      buffer
-        ..writeln('')
-        ..writeln('*Transferencia:*')
-        ..writeln('Titular: $titular');
-      if (banco.isNotEmpty) buffer.writeln('Banco: $banco');
-      if (cuenta.isNotEmpty) buffer.writeln('Cuenta: $cuenta');
-    }
+    final mensaje = MensajeCobroService.construirDetallePartido(
+      partido: completo.partido,
+      desglose: desglose,
+      deudasAnteriores: deudasAnteriores,
+      titular: titular,
+      banco: banco,
+      cuenta: cuenta,
+    );
 
     await _share.compartirWhatsApp(
-      mensaje: buffer.toString(),
+      mensaje: mensaje,
       telefono: jugador?.telefono,
     );
   }
@@ -470,25 +422,6 @@ class PdfService {
     List<DeudaPartidoAnterior> deudas,
   ) =>
       _bloqueSaldoAnteriorPdf(saldoAnterior, deudas);
-
-  String _bloqueDeudaAnteriorWa(
-    double saldoAnterior,
-    List<DeudaPartidoAnterior> deudas,
-  ) {
-    if (saldoAnterior < 0) {
-      return 'Saldo a favor anterior: ${_fmt(-saldoAnterior)}';
-    }
-    final buffer = StringBuffer('Deuda anterior: ${_fmt(saldoAnterior)}');
-    if (deudas.isNotEmpty) {
-      buffer.writeln('\n*Partidos pendientes:*');
-      for (final d in deudas) {
-        buffer.writeln(
-          '• ${_lineaPartido(d.fecha, d.recinto)}: ${_fmt(d.montoPendiente)}',
-        );
-      }
-    }
-    return buffer.toString();
-  }
 
   pw.Widget _tablaItems(List<({String concepto, double monto})> lineas) {
     if (lineas.isEmpty) {

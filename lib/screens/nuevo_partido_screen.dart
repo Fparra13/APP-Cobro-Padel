@@ -6,14 +6,17 @@ import '../models/cobro_individual_entry.dart';
 import '../models/estado_pago_jugador.dart';
 import '../models/jugador.dart';
 import '../models/partido.dart';
+import '../repositories/convocatoria_repository.dart';
 import '../repositories/jugador_repository.dart';
 import '../repositories/partido_repository.dart';
 import '../repositories/saldo_repository.dart';
+import '../models/estado_partido.dart';
 import '../services/calculation_service.dart';
 import '../services/comprobante_service.dart';
 import '../services/preferences_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/comprobante_pago_tile.dart';
+import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/enviar_informes_sheet.dart';
 
 class NuevoPartidoScreen extends StatefulWidget {
@@ -31,6 +34,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   final _partidoRepo = PartidoRepository();
   final _jugadorRepo = JugadorRepository();
   final _saldoRepo = SaldoRepository();
+  final _convocatoriaRepo = ConvocatoriaRepository();
   final _prefs = PreferencesService();
 
   final _montos = {
@@ -52,6 +56,8 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   DateTime _fechaPartido = DateTime.now();
   bool _loading = true;
   bool _guardando = false;
+  bool _esOrganizando = false;
+  DateTime? _createdAtOriginal;
 
   @override
   void initState() {
@@ -66,13 +72,59 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
 
     if (widget.partidoId != null) {
       final completo = await _partidoRepo.getCompleto(widget.partidoId!);
+
+      if (completo != null && completo.partido.esConvocatoriaPendiente) {
+        final conv = await _convocatoriaRepo.getCompleta(widget.partidoId!);
+        if (conv != null) {
+          _esOrganizando = true;
+          _createdAtOriginal = conv.partido.createdAt;
+          _notasCtrl.text = conv.partido.notas ?? '';
+          _recintoCtrl.text = conv.partido.recinto ?? '';
+          _fechaPartido = conv.partido.fecha;
+
+          final confirmados = conv.jugadores
+              .where((e) => e.estado == EstadoConfirmacion.confirmado)
+              .map((e) => e.jugador.id!)
+              .toSet();
+
+          if (confirmados.isNotEmpty) {
+            _asistentes.addAll(confirmados);
+          } else {
+            for (final e in conv.jugadores) {
+              if (e.estado != EstadoConfirmacion.rechazado) {
+                _asistentes.add(e.jugador.id!);
+              }
+            }
+          }
+
+          for (final id in _asistentes) {
+            _pagos[id] = EstadoPagoJugador();
+          }
+
+          final todos = <int, Jugador>{for (final j in habituales) j.id!: j};
+          for (final e in conv.jugadores) {
+            todos[e.jugador.id!] = e.jugador;
+          }
+
+          if (mounted) {
+            setState(() {
+              _habituales = todos.values.toList()
+                ..sort((a, b) => a.nombre.compareTo(b.nombre));
+              _recintosSugeridos = recintos;
+              _loading = false;
+            });
+          }
+          return;
+        }
+      }
+
       final historicos = await _saldoRepo.getByPartido(widget.partidoId!);
 
       if (completo != null) {
         _montos[ConceptosCobro.cancha]!.text =
-            completo.partido.costoCancha.round().toString();
+            formatMoneyField(completo.partido.costoCancha);
         _montos[ConceptosCobro.pelotas]!.text =
-            completo.partido.costoPelotas.round().toString();
+            formatMoneyField(completo.partido.costoPelotas);
         _notasCtrl.text = completo.partido.notas ?? '';
         _recintoCtrl.text = completo.partido.recinto ?? '';
         _fechaPartido = completo.partido.fecha;
@@ -94,7 +146,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             _cobrosIndividuales[jugadorId]!.add(
               CobroIndividualEntry(
                 concepto: cv.concepto,
-                monto: asigs.first.monto.round().toString(),
+                monto: formatMoneyField(asigs.first.monto),
                 comprobantePath: cv.comprobantePath,
                 guardado: true,
               ),
@@ -103,7 +155,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           }
           if (!ConceptosCobro.variables.contains(cv.concepto)) continue;
           final key = cv.concepto;
-          _montos[key]!.text = cv.montoTotal.round().toString();
+          _montos[key]!.text = formatMoneyField(cv.montoTotal);
           _participantesVariable[key] =
               asigs.map((a) => a.jugadorId).toSet();
           if (cv.comprobantePath != null) {
@@ -122,7 +174,8 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             ep.tipo = TipoPago.total;
           } else if (d.montoPagado > 0) {
             ep.tipo = TipoPago.parcial;
-            ep.montoParcial.text = d.montoPagado.round().toString();
+            ep.montoParcial.text = formatMoneyField(d.montoPagado);
+            ep.abonoConfirmado = true;
           }
           _pagos[d.jugadorId] = ep;
         }
@@ -159,8 +212,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     }
   }
 
-  double _monto(String concepto) =>
-      double.tryParse(_montos[concepto]!.text) ?? 0;
+  double _monto(String concepto) => parseMoney(_montos[concepto]!.text);
 
   double _saldoAnterior(Jugador j) {
     if (widget.isEditing && _saldosSnapshot.containsKey(j.id)) {
@@ -261,19 +313,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     );
   }
 
-  void _autoAplicarSaldoFavor(int jugadorId) {
-    final j = _habituales.firstWhere((x) => x.id == jugadorId);
-    if (_totalDebido(j) <= 0) {
-      _pagoDe(jugadorId).tipo = TipoPago.total;
-    }
-  }
-
-  void _autoAplicarSaldoFavorTodos() {
-    for (final id in _asistentes) {
-      _autoAplicarSaldoFavor(id);
-    }
-  }
-
   double _totalDebido(Jugador j) {
     if (!_asistentes.contains(j.id)) return _saldoAnterior(j);
     return CalculationService.totalDebido(
@@ -324,7 +363,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         }
       } else {
         _asistentes.add(j.id!);
-        _autoAplicarSaldoFavor(j.id!);
       }
     });
   }
@@ -467,23 +505,57 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     if (_monto(concepto) <= 0) {
       _limpiarComprobanteGasto(concepto);
     }
-    setState(_autoAplicarSaldoFavorTodos);
+    setState(() {});
   }
 
   void _setTipoPago(int jugadorId, TipoPago tipo) {
     setState(() {
       final p = _pagoDe(jugadorId);
       p.tipo = tipo;
+      p.abonoConfirmado = false;
       if (tipo == TipoPago.parcial) {
         p.montoParcial.clear();
       }
     });
   }
 
+  void _confirmarAbonoJugador(Jugador j) {
+    final pago = _pagoDe(j.id!);
+    final m = roundMoney(parseMoney(pago.montoParcial.text)).toDouble();
+    if (m <= 0) {
+      _showError('${j.nombre}: indica el monto del abono');
+      return;
+    }
+
+    setState(() => pago.abonoConfirmado = true);
+
+    final restante = CalculationService.saldoDespuesPago(
+      saldoAnterior: _saldoAnterior(j),
+      cargoPartido: _cargoPartido(j),
+      montoPagado: m,
+    );
+
+    final msg = restante < 0
+        ? 'Abono ${formatMoney(m)} · Saldo a favor: ${formatMoney(-restante)} · ${j.nombre}'
+        : restante == 0
+            ? 'Abono ${formatMoney(m)} · Deuda saldada · ${j.nombre}'
+            : 'Abono ${formatMoney(m)} · Queda ${formatMoney(restante)} · ${j.nombre}';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.green.shade700),
+    );
+  }
+
+  void _editarAbonoJugador(int jugadorId) {
+    setState(() => _pagoDe(jugadorId).abonoConfirmado = false);
+  }
+
   void _marcarTodosPagados(bool pagaron) {
     setState(() {
       for (final id in _asistentes) {
-        _pagoDe(id).tipo = pagaron ? TipoPago.total : TipoPago.ninguno;
+        final p = _pagoDe(id);
+        p.tipo = pagaron ? TipoPago.total : TipoPago.ninguno;
+        p.abonoConfirmado = false;
       }
     });
   }
@@ -508,15 +580,13 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       final pago = _pagoDe(id);
       final total = _totalDebido(j);
       if (pago.tipo == TipoPago.parcial && total > 0) {
-        final m = pago.montoEfectivo(total);
+        final m = parseMoney(pago.montoParcial.text);
         if (m <= 0) {
-          _showError('${j.nombre}: indica cuánto pagó (pago parcial)');
+          _showError('${j.nombre}: indica el monto del abono');
           return;
         }
-        if (m >= total) {
-          _showError(
-            '${j.nombre}: el pago parcial debe ser menor al total (${formatMoney(total)})',
-          );
+        if (!pago.abonoConfirmado) {
+          _showError('${j.nombre}: pulsa "Confirmar abono" antes de guardar');
           return;
         }
       }
@@ -559,7 +629,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         comprobantePelotas: _monto(ConceptosCobro.pelotas) > 0
             ? _comprobantesGasto[ConceptosCobro.pelotas]
             : null,
-        createdAt: DateTime.now(),
+        createdAt: _createdAtOriginal ?? DateTime.now(),
       );
 
       if (recinto.isNotEmpty) {
@@ -567,7 +637,16 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       }
 
       int partidoId;
-      if (widget.isEditing) {
+      if (_esOrganizando && widget.partidoId != null) {
+        await _partidoRepo.completarPartidoOrganizado(
+          partidoId: widget.partidoId!,
+          partido: partido,
+          jugadoresAsistentes: _asistentes.toList(),
+          montoPagadoPorJugador: _montoPagadoMap,
+          costosVariables: _costosVariables(),
+        );
+        partidoId = widget.partidoId!;
+      } else if (widget.isEditing) {
         await _partidoRepo.actualizarPartido(
           partidoId: widget.partidoId!,
           partido: partido,
@@ -589,7 +668,11 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              widget.isEditing ? 'Partido actualizado' : 'Partido guardado',
+              _esOrganizando
+                  ? 'Partido registrado con cobros'
+                  : widget.isEditing
+                      ? 'Partido actualizado'
+                      : 'Partido guardado',
             ),
           ),
         );
@@ -611,11 +694,46 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     );
   }
 
+  Future<void> _eliminarPartido() async {
+    final id = widget.partidoId;
+    if (id == null) return;
+
+    final fecha = formatFecha(_fechaPartido);
+    final ok = await confirmarEliminarPartido(
+      context,
+      titulo: 'Eliminar partido',
+      mensaje: 'Vas a eliminar el partido del $fecha.',
+    );
+    if (!ok || !mounted) return;
+
+    await _partidoRepo.eliminarPartido(id);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Partido eliminado')),
+      );
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isEditing ? 'Editar partido' : 'Nuevo partido'),
+        title: Text(
+          _esOrganizando
+              ? 'Cobrar partido'
+              : widget.isEditing
+                  ? 'Editar partido'
+                  : 'Nuevo partido',
+        ),
+        actions: [
+          if (widget.isEditing && !_esOrganizando)
+            IconButton(
+              icon: const Icon(Icons.delete_forever_outlined),
+              tooltip: 'Eliminar partido',
+              onPressed: _eliminarPartido,
+            ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -629,10 +747,14 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                         children: [
                           if (widget.isEditing) _buildInfoEdicion(),
                           _buildDatosPartido(),
-                          const SizedBox(height: 12),
-                          _buildJugadoresPartido(),
+                          if (_esOrganizando) ...[
+                            const SizedBox(height: 12),
+                            _buildBannerCobro(),
+                          ],
                           const SizedBox(height: 12),
                           _buildItemsCobro(),
+                          const SizedBox(height: 12),
+                          _buildJugadoresPartido(),
                           const SizedBox(height: 12),
                           _buildResumen(),
                           const SizedBox(height: 12),
@@ -655,6 +777,62 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           FilledButton(
             onPressed: () => Navigator.pushNamed(context, '/jugadores'),
             child: const Text('Ir a Jugadores'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBannerCobro() {
+    final fechaStr =
+        '${_fechaPartido.day}/${_fechaPartido.month}/${_fechaPartido.year} · '
+        '${_fechaPartido.hour.toString().padLeft(2, '0')}:'
+        '${_fechaPartido.minute.toString().padLeft(2, '0')}';
+    final recinto = _recintoCtrl.text.trim();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.green.shade50, Colors.teal.shade50],
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.green.shade200),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: Colors.green.shade100,
+            child: Icon(Icons.sports_tennis, color: Colors.green.shade800),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Partido confirmado · ${_asistentes.length} jugador${_asistentes.length == 1 ? '' : 'es'}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  recinto.isNotEmpty ? '$fechaStr · $recinto' : fechaStr,
+                  style: TextStyle(fontSize: 12, color: Colors.green.shade800),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '1) Gastos → 2) Pagos de cada jugador',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.teal.shade800,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -791,106 +969,117 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     final totalVar = ConceptosCobro.variables
         .fold(0.0, (s, c) => s + _monto(c));
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildEncabezadoSeccion(
-          paso: 3,
-          titulo: 'Gastos del partido',
-          subtitulo: 'Cuánto costó y entre quién se reparte',
-          icono: Icons.receipt_long,
-          color: Colors.teal.shade700,
-        ),
-        const SizedBox(height: 10),
-        if (_asistentes.isEmpty)
-          _buildAvisoItems(
-            icono: Icons.person_add_alt_1,
-            color: Colors.amber.shade800,
-            fondo: Colors.amber.shade50,
-            borde: Colors.amber.shade200,
-            titulo: 'Primero marca quién jugó',
-            texto:
-                'En la sección de arriba elige los asistentes. '
-                'Así calculamos cuánto paga cada uno.',
-          )
-        else
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.teal.shade50, Colors.green.shade50],
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildEncabezadoSeccion(
+              paso: 2,
+              titulo: 'Gastos del partido',
+              subtitulo: 'Cuánto costó y cómo se reparte',
+              icono: Icons.receipt_long,
+              color: Colors.teal.shade700,
+            ),
+            const SizedBox(height: 10),
+            if (_asistentes.isEmpty)
+              _buildAvisoItems(
+                icono: Icons.edit_note,
+                color: Colors.teal.shade800,
+                fondo: Colors.teal.shade50,
+                borde: Colors.teal.shade200,
+                titulo: 'Ingresa los gastos aquí',
+                texto:
+                    'Cancha, pelotas u otros. Después, en el paso 3, '
+                    'marca quién jugó y cuánto pagó cada uno.',
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.teal.shade50, Colors.green.shade50],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.teal.shade100),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.teal.shade100,
+                      child: Text(
+                        '$nAsistentes',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal.shade900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        nAsistentes == 1
+                            ? '1 jugador reparte los gastos del grupo'
+                            : '$nAsistentes jugadores reparten los gastos del grupo',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.teal.shade900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.teal.shade100),
+            const SizedBox(height: 16),
+            _buildGrupoCobro(
+              titulo: 'Para todo el grupo',
+              subtitulo: 'Todos los asistentes pagan lo mismo',
+              icono: Icons.groups,
+              color: const Color(0xFF2E7D32),
+              hijos: ConceptosCobro.fijos.map(_buildTarjetaItemFijo).toList(),
             ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: Colors.teal.shade100,
-                  child: Text(
-                    '$nAsistentes',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade900,
-                    ),
-                  ),
+            if (nAsistentes > 0 && totalFijo > 0) ...[
+              const SizedBox(height: 8),
+              _buildChipProrrateo(
+                'Cancha ${formatMoney(_prorrateoCancha())} c/u · '
+                'Pelotas ${formatMoney(_prorrateoPelotas())} c/u',
+                color: Colors.green.shade700,
+              ),
+            ],
+            const SizedBox(height: 16),
+            _buildGrupoCobro(
+              titulo: 'Solo quienes participaron',
+              subtitulo: 'Asado, schop u otros — no todos se quedan',
+              icono: Icons.restaurant,
+              color: Colors.deepOrange.shade700,
+              hijos: ConceptosCobro.variables.map(_buildTarjetaItemVariable).toList(),
+            ),
+            if (totalVar > 0 && _asistentes.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: _buildAvisoItems(
+                  icono: Icons.touch_app,
+                  color: Colors.deepOrange.shade800,
+                  fondo: Colors.orange.shade50,
+                  borde: Colors.orange.shade200,
+                  titulo: 'Participantes en el paso 3',
+                  texto:
+                      'Marca quién jugó abajo para repartir asado, schop u otros.',
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    nAsistentes == 1
-                        ? '1 jugador reparte los gastos del grupo'
-                        : '$nAsistentes jugadores reparten los gastos del grupo',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.teal.shade900,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: 16),
-        _buildGrupoCobro(
-          titulo: 'Para todo el grupo',
-          subtitulo: 'Todos los asistentes pagan lo mismo',
-          icono: Icons.groups,
-          color: const Color(0xFF2E7D32),
-          hijos: ConceptosCobro.fijos.map(_buildTarjetaItemFijo).toList(),
+              ),
+            const SizedBox(height: 8),
+            _buildTipCobrosExtra(),
+          ],
         ),
-        if (nAsistentes > 0 && totalFijo > 0) ...[
-          const SizedBox(height: 8),
-          _buildChipProrrateo(
-            'Cancha ${formatMoney(_prorrateoCancha())} c/u · '
-            'Pelotas ${formatMoney(_prorrateoPelotas())} c/u',
-            color: Colors.green.shade700,
-          ),
-        ],
-        const SizedBox(height: 16),
-        _buildGrupoCobro(
-          titulo: 'Solo quienes participaron',
-          subtitulo: 'Asado, schop u otros — no todos se quedan',
-          icono: Icons.restaurant,
-          color: Colors.deepOrange.shade700,
-          hijos: ConceptosCobro.variables.map(_buildTarjetaItemVariable).toList(),
-        ),
-        if (totalVar > 0 && _asistentes.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: _buildAvisoItems(
-              icono: Icons.touch_app,
-              color: Colors.deepOrange.shade800,
-              fondo: Colors.orange.shade50,
-              borde: Colors.orange.shade200,
-              titulo: 'Falta elegir participantes',
-              texto: 'Marca asistentes arriba para repartir asado, schop u otros.',
-            ),
-          ),
-        const SizedBox(height: 8),
-        _buildTipCobrosExtra(),
-      ],
+      ),
     );
   }
 
@@ -1375,7 +1564,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                   keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  inputFormatters: moneyInputFormatters,
                   onChanged: (_) => onMontoChanged(),
                 ),
                 if (badge != null) ...[
@@ -1393,6 +1582,14 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
 
 
   Widget _buildJugadoresPartido() {
+    final jugadoresOrdenados = [..._habituales]
+      ..sort((a, b) {
+        final aAsistio = _asistentes.contains(a.id);
+        final bAsistio = _asistentes.contains(b.id);
+        if (aAsistio != bAsistio) return aAsistio ? -1 : 1;
+        return a.nombre.compareTo(b.nombre);
+      });
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -1405,9 +1602,11 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildEncabezadoSeccion(
-              paso: 2,
+              paso: 3,
               titulo: 'Jugadores y pagos',
-              subtitulo: 'Marca quién jugó y cuánto pagó',
+              subtitulo: _esOrganizando
+                  ? 'Confirmados listos — indica cuánto pagó cada uno'
+                  : 'Marca quién jugó y cuánto pagó',
               icono: Icons.people,
               color: Colors.indigo.shade700,
             ),
@@ -1419,8 +1618,11 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '1) Marca asistentes · 2) Indica si pagaron total, parcial o nada · '
-                '3) Define los gastos en el paso siguiente',
+                _esOrganizando
+                    ? 'Los confirmados ya están marcados. '
+                        'Indica pago total, abono (con confirmar) o sin pago.'
+                    : '1) Marca quién jugó · 2) Pago total, abono o sin pago · '
+                        'Los montos se calculan con los gastos del paso 2.',
                 style: TextStyle(fontSize: 12, color: Colors.indigo.shade900),
               ),
             ),
@@ -1457,7 +1659,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            ..._habituales.map((j) => _buildFilaJugador(j)),
+            ...jugadoresOrdenados.map((j) => _buildFilaJugador(j)),
           ],
         ),
       ),
@@ -1575,13 +1777,13 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                   ),
                   ButtonSegment(
                     value: TipoPago.total,
-                    label: Text('Total', style: TextStyle(fontSize: 11)),
+                    label: Text('Pago total', style: TextStyle(fontSize: 11)),
                     icon: Icon(Icons.check_circle, size: 16),
                   ),
                   ButtonSegment(
                     value: TipoPago.parcial,
-                    label: Text('Parcial', style: TextStyle(fontSize: 11)),
-                    icon: Icon(Icons.pie_chart, size: 16),
+                    label: Text('Abono', style: TextStyle(fontSize: 11)),
+                    icon: Icon(Icons.savings_outlined, size: 16),
                   ),
                 ],
                 selected: {pago.tipo},
@@ -1589,33 +1791,81 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
               ),
               if (pago.tipo == TipoPago.parcial) ...[
                 const SizedBox(height: 8),
-                TextField(
-                  controller: pago.montoParcial,
-                  decoration: InputDecoration(
-                    labelText: 'Monto que pagó ${j.nombre}',
-                    hintText: '0',
-                    border: const OutlineInputBorder(),
-                    isDense: true,
-                    suffixText: 'de ${formatMoney(totalDeb)}',
+                if (pago.abonoConfirmado) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle,
+                            color: Colors.green.shade700, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _textoEstadoPago(pago, totalDeb, restante, j),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade900,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => _editarAbonoJugador(j.id!),
+                          child: const Text('Editar'),
+                        ),
+                      ],
+                    ),
                   ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (_) => setState(() {}),
+                ] else ...[
+                  TextField(
+                    controller: pago.montoParcial,
+                    decoration: InputDecoration(
+                      labelText: 'Monto del abono',
+                      hintText: '0',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                      helperText:
+                          'Puede ser mayor al total para dejar saldo a favor',
+                      helperMaxLines: 2,
+                      suffixText: 'debe ${formatMoney(totalDeb)}',
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: moneyInputFormatters,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.icon(
+                    onPressed: () => _confirmarAbonoJugador(j),
+                    icon: const Icon(Icons.savings_outlined, size: 18),
+                    label: const Text('Confirmar abono'),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                    ),
+                  ),
+                ],
+              ],
+              if (pago.tipo != TipoPago.parcial) ...[
+                const SizedBox(height: 6),
+                Text(
+                  _textoEstadoPago(pago, totalDeb, restante, j),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: restante <= 0
+                        ? Colors.green.shade700
+                        : Colors.red.shade700,
+                  ),
                 ),
               ],
-              const SizedBox(height: 6),
-              Text(
-                _textoEstadoPago(pago, totalDeb, restante, j),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: restante <= 0
-                      ? Colors.green.shade700
-                      : pago.tipo == TipoPago.parcial
-                          ? Colors.orange.shade800
-                          : Colors.red.shade700,
-                ),
-              ),
               _buildCobrosIndividuales(j),
             ],
           ],
@@ -1764,7 +2014,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                     fillColor: Colors.white,
                   ),
                   keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  inputFormatters: moneyInputFormatters,
                   onChanged: (_) {
                     if (cobro.monto <= 0 && cobro.comprobantePath != null) {
                       ComprobanteService.instance.delete(cobro.comprobantePath);
@@ -1852,7 +2102,10 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         return '✓ A transferir: ${formatMoney(totalDeb > 0 ? totalDeb : 0)}';
       case TipoPago.parcial:
         final m = pago.montoEfectivo(totalDeb);
-        return 'Pagó ${formatMoney(m)} · Queda: ${formatMoney(restante > 0 ? restante : 0)}';
+        if (restante < 0) {
+          return 'Abono ${formatMoney(m)} · Saldo a favor: ${formatMoney(-restante)}';
+        }
+        return 'Abono ${formatMoney(m)} · Queda: ${formatMoney(restante > 0 ? restante : 0)}';
       case TipoPago.ninguno:
         return 'A transferir: ${formatMoney(restante > 0 ? restante : 0)}';
     }
@@ -1900,9 +2153,15 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                 estado = 'TRANSFIERE ${formatMoney(aTransferir)}';
                 color = Colors.green.shade700;
               } else if (pago.tipo == TipoPago.parcial) {
-                estado =
-                    'Parcial ${formatMoney(pago.montoEfectivo(totalDeb))} · Debe ${formatMoney(restante)}';
-                color = Colors.orange.shade800;
+                final m = pago.montoEfectivo(totalDeb);
+                if (restante < 0) {
+                  estado = 'ABONO ${formatMoney(m)} · A FAVOR ${formatMoney(-restante)}';
+                  color = Colors.blue.shade700;
+                } else {
+                  estado =
+                      'Abono ${formatMoney(m)} · Debe ${formatMoney(restante)}';
+                  color = Colors.orange.shade800;
+                }
               } else {
                 estado = 'Debe ${formatMoney(restante)}';
                 color = Colors.red.shade700;
@@ -1957,7 +2216,13 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                 )
               : const Icon(Icons.save),
-          label: Text(_guardando ? 'Guardando...' : 'Guardar partido'),
+          label: Text(
+            _guardando
+                ? 'Guardando...'
+                : _esOrganizando
+                    ? 'Confirmar cobros'
+                    : 'Guardar partido',
+          ),
           style: FilledButton.styleFrom(
             minimumSize: const Size.fromHeight(52),
             textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),

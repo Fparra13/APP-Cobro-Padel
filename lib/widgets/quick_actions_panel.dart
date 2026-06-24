@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
+import '../models/desglose_jugador.dart';
 import '../repositories/partido_repository.dart';
 import '../services/pdf_service.dart';
 import '../utils/formatters.dart';
@@ -26,74 +26,67 @@ class QuickActionsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Acceso rápido',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _QuickActionChip(
-                  icon: Icons.sports_tennis,
-                  label: 'Nuevo partido',
-                  color: Theme.of(context).colorScheme.primary,
-                  onTap: () async {
-                    await Navigator.pushNamed(context, '/nuevo-partido');
-                    onRefresh();
-                  },
-                ),
-                _QuickActionChip(
-                  icon: Icons.picture_as_pdf,
-                  label: 'PDF saldos',
-                  color: Colors.deepOrange,
-                  onTap: () async {
-                    await pdfService.generarReporteSaldos(resumenes);
-                  },
-                ),
-                _QuickActionChip(
-                  icon: Icons.history,
-                  label: 'Último partido',
-                  color: Colors.blue,
-                  onTap: () => _abrirUltimoPartido(context),
-                ),
-                if (_conDeuda > 0) ...[
-                  _QuickActionChip(
-                    icon: Icons.message,
-                    label: 'Recordar deudores',
-                    color: Colors.green.shade700,
-                    onTap: () => RecordatorioDeudoresSheet.show(
-                      context,
-                      resumenes: resumenes,
-                    ),
-                  ),
-                  _QuickActionChip(
-                    icon: Icons.warning_amber,
-                    label: 'Ver deudores ($_conDeuda)',
-                    color: Colors.red.shade700,
-                    onTap: () => _mostrarDeudores(context),
-                  ),
-                ],
-                _QuickActionChip(
-                  icon: Icons.person_add,
-                  label: 'Jugadores',
-                  color: Colors.teal,
-                  onTap: () {
-                    onNavigateTab?.call(1);
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
+    final acciones = <_AccionRapida>[
+      _AccionRapida(
+        icon: Icons.picture_as_pdf_rounded,
+        label: 'PDF saldos',
+        subtitulo: 'Informe del grupo',
+        color: Colors.deepOrange,
+        onTap: () => pdfService.generarReporteSaldos(resumenes),
       ),
+      _AccionRapida(
+        icon: Icons.history_rounded,
+        label: 'Último partido',
+        subtitulo: 'Ver o editar',
+        color: Colors.blue,
+        onTap: () => _abrirUltimoPartido(context),
+      ),
+      if (_conDeuda > 0)
+        _AccionRapida(
+          icon: Icons.chat_rounded,
+          label: 'Recordar deudores',
+          subtitulo: '$_conDeuda por WhatsApp',
+          color: Colors.green.shade700,
+          onTap: () => RecordatorioDeudoresSheet.show(
+            context,
+            resumenes: resumenes,
+          ),
+        ),
+      _AccionRapida(
+        icon: Icons.people_rounded,
+        label: 'Jugadores',
+        subtitulo: 'Gestionar grupo',
+        color: Colors.teal,
+        onTap: () => onNavigateTab?.call(1),
+      ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            'Herramientas',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.2,
+                ),
+          ),
+        ),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.55,
+          ),
+          itemCount: acciones.length,
+          itemBuilder: (_, i) => _AccionCard(accion: acciones[i]),
+        ),
+      ],
     );
   }
 
@@ -108,61 +101,95 @@ class QuickActionsPanel extends StatelessWidget {
       return;
     }
 
-    final fecha = DateFormat('dd/MM/yyyy').format(ultimo.partido.fecha);
-    showModalBottomSheet(
+    final desglose = await partidoRepo.getDesglose(ultimo.partido.id!);
+    if (!context.mounted) return;
+
+    await showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => _UltimoPartidoSheet(
+        completo: ultimo,
+        desglose: desglose,
+        onEditar: () {
+          Navigator.pop(ctx);
+          Navigator.pushNamed(
+            context,
+            '/editar-partido',
+            arguments: ultimo.partido.id,
+          ).then((_) => onRefresh());
+        },
+        onPdf: () {
+          Navigator.pop(ctx);
+          pdfService.generarReportePartido(ultimo);
+        },
+      ),
+    );
+  }
+}
+
+class _AccionRapida {
+  final IconData icon;
+  final String label;
+  final String subtitulo;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AccionRapida({
+    required this.icon,
+    required this.label,
+    required this.subtitulo,
+    required this.color,
+    required this.onTap,
+  });
+}
+
+class _AccionCard extends StatelessWidget {
+  final _AccionRapida accion;
+
+  const _AccionCard({required this.accion});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: accion.color.withValues(alpha: 0.07),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: accion.onTap,
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: accion.color.withValues(alpha: 0.18)),
+          ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Último partido — $fecha',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accion.color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(accion.icon, color: accion.color, size: 22),
               ),
-              const Divider(),
-              ...ultimo.detalles.where((d) => d.asistio).map(
-                    (d) => ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(d.nombreJugador ?? ''),
-                      trailing: Text(
-                        d.pagado ? 'Pagó ✓' : formatMoney(d.total),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: d.pagado ? Colors.green : Colors.red,
-                        ),
-                      ),
-                    ),
-                  ),
-              const SizedBox(height: 8),
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        Navigator.pushNamed(
-                          context,
-                          '/editar-partido',
-                          arguments: ultimo.partido.id,
-                        ).then((_) => onRefresh());
-                      },
-                      icon: const Icon(Icons.edit),
-                      label: const Text('Editar'),
+                  Text(
+                    accion.label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        pdfService.generarReportePartido(ultimo);
-                      },
-                      icon: const Icon(Icons.picture_as_pdf),
-                      label: const Text('PDF'),
+                  Text(
+                    accion.subtitulo,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
                     ),
                   ),
                 ],
@@ -173,64 +200,303 @@ class QuickActionsPanel extends StatelessWidget {
       ),
     );
   }
+}
 
-  void _mostrarDeudores(BuildContext context) {
-    final deudores = resumenes.where((r) => r.saldoActual > 0).toList();
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Jugadores con deuda',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-              ),
-            ),
-            ...deudores.map(
-              (r) => ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.red.shade100,
-                  child: Text(
-                    r.jugador.nombre[0].toUpperCase(),
-                    style: TextStyle(color: Colors.red.shade700),
+class _UltimoPartidoSheet extends StatelessWidget {
+  final PartidoCompleto completo;
+  final List<DesgloseJugador> desglose;
+  final VoidCallback onEditar;
+  final VoidCallback onPdf;
+
+  const _UltimoPartidoSheet({
+    required this.completo,
+    required this.desglose,
+    required this.onEditar,
+    required this.onPdf,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final partido = completo.partido;
+    final fecha = formatFecha(partido.fecha);
+    final recinto = partido.recinto?.trim();
+    final pagados = desglose.where((d) => d.pagado).length;
+    final parciales = desglose.where((d) => d.pagoParcial).length;
+    final deben = desglose.length - pagados;
+
+    final ordenados = List<DesgloseJugador>.from(desglose)
+      ..sort((a, b) {
+        int prio(DesgloseJugador d) {
+          if (d.pagoParcial) return 1;
+          if (!d.pagado) return 0;
+          return 2;
+        }
+        final cmp = prio(a).compareTo(prio(b));
+        if (cmp != 0) return cmp;
+        return a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase());
+      });
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.82,
+      minChildSize: 0.45,
+      maxChildSize: 0.95,
+      builder: (_, scrollController) => Column(
+        children: [
+          Expanded(
+            child: ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              children: [
+                Text(
+                  'Último partido',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  fecha,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade700,
                   ),
                 ),
-                title: Text(r.jugador.nombre),
-                subtitle: r.jugador.telefono?.trim().isNotEmpty ?? false
-                    ? Text('WhatsApp: ${r.jugador.telefono}')
-                    : const Text(
-                        'Sin WhatsApp',
-                        style: TextStyle(color: Colors.orange),
+                if (recinto != null && recinto.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.place_rounded,
+                          size: 16, color: Colors.grey.shade600),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          recinto,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
                       ),
-                trailing: Text(
-                  formatMoney(r.saldoActual),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue.shade700, Colors.blue.shade500],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      _ResumenChip(
+                        valor: '${desglose.length}',
+                        label: 'Jugadores',
+                      ),
+                      _ResumenChip(
+                        valor: '$pagados',
+                        label: 'Pagaron',
+                      ),
+                      if (parciales > 0)
+                        _ResumenChip(
+                          valor: '$parciales',
+                          label: 'Parcial',
+                        ),
+                      _ResumenChip(
+                        valor: '$deben',
+                        label: 'Pendientes',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Estado de pagos',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Colors.red.shade700,
+                    fontSize: 14,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...ordenados.map((d) => _JugadorPagoTile(desglose: d)),
+              ],
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onEditar,
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Editar'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: onPdf,
+                      icon: const Icon(Icons.picture_as_pdf_outlined),
+                      label: const Text('PDF'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResumenChip extends StatelessWidget {
+  final String valor;
+  final String label;
+
+  const _ResumenChip({required this.valor, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            valor,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 11,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _JugadorPagoTile extends StatelessWidget {
+  final DesgloseJugador desglose;
+
+  const _JugadorPagoTile({required this.desglose});
+
+  @override
+  Widget build(BuildContext context) {
+    final estado = _estadoPago(desglose);
+    final inicial = desglose.nombre.trim().isNotEmpty
+        ? desglose.nombre.trim()[0].toUpperCase()
+        : '?';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: estado.color.shade50.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: estado.color.shade100),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: estado.color.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  inicial,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: estado.color.shade800,
+                    fontSize: 16,
                   ),
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: FilledButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  RecordatorioDeudoresSheet.show(
-                    context,
-                    resumenes: resumenes,
-                  );
-                },
-                icon: const Icon(Icons.message),
-                label: const Text('Enviar recordatorio WhatsApp'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
-                  minimumSize: const Size.fromHeight(44),
-                ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    desglose.nombre,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                    ),
+                  ),
+                  if (estado.detalle != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      estado.detalle!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade700,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ],
               ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: estado.color.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(estado.icon, size: 13, color: estado.color.shade800),
+                      const SizedBox(width: 4),
+                      Text(
+                        estado.etiqueta,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: estado.color.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  estado.monto,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: estado.color.shade900,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -239,27 +505,80 @@ class QuickActionsPanel extends StatelessWidget {
   }
 }
 
-class _QuickActionChip extends StatelessWidget {
+class _EstadoPagoVisual {
+  final String etiqueta;
+  final String monto;
+  final String? detalle;
+  final MaterialColor color;
   final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
 
-  const _QuickActionChip({
-    required this.icon,
-    required this.label,
+  const _EstadoPagoVisual({
+    required this.etiqueta,
+    required this.monto,
     required this.color,
-    required this.onTap,
+    required this.icon,
+    this.detalle,
   });
+}
 
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(
-      avatar: Icon(icon, size: 18, color: color),
-      label: Text(label),
-      onPressed: onTap,
-      backgroundColor: color.withValues(alpha: 0.08),
-      side: BorderSide(color: color.withValues(alpha: 0.3)),
+_EstadoPagoVisual _estadoPago(DesgloseJugador d) {
+  if (d.pagado) {
+    if (d.generaSaldoAFavor) {
+      return _EstadoPagoVisual(
+        etiqueta: 'Pagado',
+        monto: 'A favor ${formatMoney(-d.saldoRestante)}',
+        detalle: d.montoPagado > 0
+            ? 'Abonó ${formatMoney(d.montoPagado)} · Partido ${formatMoney(d.totalPartido)}'
+            : 'Partido ${formatMoney(d.totalPartido)}',
+        color: Colors.blue,
+        icon: Icons.savings_rounded,
+      );
+    }
+    if (d.saldoFavorAplicado > 0 && d.montoPagado == 0) {
+      return _EstadoPagoVisual(
+        etiqueta: 'Pagado',
+        monto: 'Saldo a favor',
+        detalle:
+            '−${formatMoney(d.saldoFavorAplicado)} aplicado al partido',
+        color: Colors.green,
+        icon: Icons.check_circle_rounded,
+      );
+    }
+    return _EstadoPagoVisual(
+      etiqueta: 'Pagado',
+      monto: d.montoPagado > 0 ? formatMoney(d.montoPagado) : 'Al día',
+      detalle: 'Partido ${formatMoney(d.totalPartido)}'
+          '${d.saldoAnterior > 0 ? ' · Deuda ant. ${formatMoney(d.saldoAnterior)}' : ''}',
+      color: Colors.green,
+      icon: Icons.check_circle_rounded,
     );
   }
+
+  if (d.pagoParcial) {
+    return _EstadoPagoVisual(
+      etiqueta: 'Parcial',
+      monto: 'Debe ${formatMoney(d.saldoRestante)}',
+      detalle:
+          'Abonó ${formatMoney(d.montoPagado)} de ${formatMoney(d.totalDebido)}',
+      color: Colors.orange,
+      icon: Icons.payments_rounded,
+    );
+  }
+
+  final debe = d.saldoRestante > 0 ? d.saldoRestante : d.totalDebido;
+  final detalle = StringBuffer('Partido ${formatMoney(d.totalPartido)}');
+  if (d.saldoAnterior > 0) {
+    detalle.write(' · Deuda ant. ${formatMoney(d.saldoAnterior)}');
+  } else if (d.saldoAnterior < 0) {
+    detalle.write(' · Tenía a favor ${formatMoney(-d.saldoAnterior)}');
+  }
+
+  return _EstadoPagoVisual(
+    etiqueta: 'Debe',
+    monto: formatMoney(debe > 0 ? debe : d.totalPartido),
+    detalle: detalle.toString(),
+    color: Colors.red,
+    icon: Icons.warning_amber_rounded,
+  );
 }
+

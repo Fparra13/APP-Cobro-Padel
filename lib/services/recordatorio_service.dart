@@ -1,11 +1,10 @@
-import 'package:intl/intl.dart';
-
 import '../models/deuda_partido_anterior.dart';
+import '../models/desglose_jugador.dart';
 import '../models/jugador.dart';
 import '../repositories/partido_repository.dart';
+import '../services/mensaje_cobro_service.dart';
 import '../services/preferences_service.dart';
 import '../services/share_service.dart';
-import '../utils/formatters.dart';
 
 class RecordatorioResultado {
   final int enviados;
@@ -24,15 +23,6 @@ class RecordatorioService {
   final _share = ShareService();
   final _partidoRepo = PartidoRepository();
 
-  String _fmt(double v) => formatMoney(v);
-
-  String _lineaPartido(DateTime fecha, String? recinto) {
-    final f = DateFormat('dd/MM/yyyy').format(fecha);
-    final r = recinto?.trim();
-    if (r != null && r.isNotEmpty) return '$f - $r';
-    return f;
-  }
-
   Future<String> construirMensaje({
     required Jugador jugador,
     required double saldo,
@@ -45,35 +35,63 @@ class RecordatorioService {
     final partidos = partidosPendientes ??
         await _partidoRepo.getPartidosPendientesJugador(jugador.id!);
 
-    final buffer = StringBuffer()
-      ..writeln('🎾 *Recordatorio Pádel Cobro*')
-      ..writeln('')
-      ..writeln('Hola ${jugador.nombre}!')
-      ..writeln('')
-      ..writeln('Tienes un saldo pendiente de *${_fmt(saldo)}*.');
-
     if (partidos.isNotEmpty) {
-      buffer.writeln('');
-      buffer.writeln('*Partidos pendientes:*');
-      for (final p in partidos) {
-        buffer.writeln(
-          '• ${_lineaPartido(p.fecha, p.recinto)}: ${_fmt(p.montoPendiente)}',
+      for (var i = partidos.length - 1; i >= 0; i--) {
+        final detallado = await _construirMensajeDetallado(
+          jugador: jugador,
+          partidoPendiente: partidos[i],
+          titular: titular,
+          banco: banco,
+          cuenta: cuenta,
         );
+        if (detallado.isNotEmpty) return detallado;
       }
     }
 
-    if (titular.isNotEmpty) {
-      buffer
-        ..writeln('')
-        ..writeln('*Datos para transferir:*')
-        ..writeln('Titular: $titular');
-      if (banco.isNotEmpty) buffer.writeln('Banco: $banco');
-      if (cuenta.isNotEmpty) buffer.writeln('Cuenta: $cuenta');
-    }
+    return MensajeCobroService.construirRecordatorio(
+      nombreJugador: jugador.nombre,
+      saldo: saldo,
+      partidos: partidos,
+      titular: titular,
+      banco: banco,
+      cuenta: cuenta,
+    );
+  }
 
-    buffer.writeln('');
-    buffer.writeln('¡Gracias! 🙌');
-    return buffer.toString();
+  Future<String> _construirMensajeDetallado({
+    required Jugador jugador,
+    required DeudaPartidoAnterior partidoPendiente,
+    required String titular,
+    required String banco,
+    required String cuenta,
+  }) async {
+    final completo = await _partidoRepo.getCompleto(partidoPendiente.partidoId);
+    if (completo == null) return '';
+
+    final desgloseList =
+        await _partidoRepo.getDesglose(partidoPendiente.partidoId);
+    DesgloseJugador? desglose;
+    for (final d in desgloseList) {
+      if (d.jugadorId == jugador.id) {
+        desglose = d;
+        break;
+      }
+    }
+    if (desglose == null) return '';
+
+    final deudasAnteriores = await _partidoRepo.getDeudasPartidosAnteriores(
+      jugadorId: jugador.id!,
+      partidoActualId: partidoPendiente.partidoId,
+    );
+
+    return MensajeCobroService.construirDetallePartido(
+      partido: completo.partido,
+      desglose: desglose,
+      deudasAnteriores: deudasAnteriores,
+      titular: titular,
+      banco: banco,
+      cuenta: cuenta,
+    );
   }
 
   Future<void> enviarIndividual({

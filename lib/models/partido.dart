@@ -1,3 +1,5 @@
+import 'estado_partido.dart';
+
 class Partido {
   final int? id;
   final DateTime fecha;
@@ -7,6 +9,8 @@ class Partido {
   final String? notas;
   final String? comprobanteCancha;
   final String? comprobantePelotas;
+  final EstadoPartido estado;
+  final int cuposMax;
   final DateTime createdAt;
 
   const Partido({
@@ -18,8 +22,16 @@ class Partido {
     this.notas,
     this.comprobanteCancha,
     this.comprobantePelotas,
+    this.estado = EstadoPartido.jugado,
+    this.cuposMax = 4,
     required this.createdAt,
   });
+
+  bool get esOrganizando => estado == EstadoPartido.organizando;
+
+  bool get esConfirmado => estado == EstadoPartido.confirmado;
+
+  bool get esConvocatoriaPendiente => esOrganizando || esConfirmado;
 
   double get costoFijoTotal => costoCancha + costoPelotas;
 
@@ -32,6 +44,8 @@ class Partido {
     String? notas,
     String? comprobanteCancha,
     String? comprobantePelotas,
+    EstadoPartido? estado,
+    int? cuposMax,
     DateTime? createdAt,
   }) {
     return Partido(
@@ -43,6 +57,8 @@ class Partido {
       notas: notas ?? this.notas,
       comprobanteCancha: comprobanteCancha ?? this.comprobanteCancha,
       comprobantePelotas: comprobantePelotas ?? this.comprobantePelotas,
+      estado: estado ?? this.estado,
+      cuposMax: cuposMax ?? this.cuposMax,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -56,6 +72,8 @@ class Partido {
         'notas': notas,
         'comprobante_cancha': comprobanteCancha,
         'comprobante_pelotas': comprobantePelotas,
+        'estado': estado.dbValue,
+        'cupos_max': cuposMax,
         'created_at': createdAt.toIso8601String(),
       };
 
@@ -68,6 +86,8 @@ class Partido {
         notas: map['notas'] as String?,
         comprobanteCancha: map['comprobante_cancha'] as String?,
         comprobantePelotas: map['comprobante_pelotas'] as String?,
+        estado: EstadoPartido.fromDb(map['estado'] as String?),
+        cuposMax: (map['cupos_max'] as int?) ?? 4,
         createdAt: DateTime.parse(map['created_at'] as String),
       );
 }

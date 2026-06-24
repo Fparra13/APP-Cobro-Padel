@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../repositories/partido_repository.dart';
 import '../services/pdf_service.dart';
 import '../utils/formatters.dart';
+import '../widgets/confirmar_eliminar_partido_dialog.dart';
 
 class PartidosScreen extends StatefulWidget {
   const PartidosScreen({super.key});
@@ -50,30 +50,14 @@ class _PartidosScreenState extends State<PartidosScreen> {
   }
 
   Future<void> _eliminar(PartidoCompleto pc) async {
-    final fecha = DateFormat('dd/MM/yyyy').format(pc.partido.fecha);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Eliminar partido'),
-        content: Text(
-          '¿Eliminar el partido del $fecha?\n'
-          'Los saldos se recalcularán automáticamente.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
+    final fecha = formatFecha(pc.partido.fecha);
+    final ok = await confirmarEliminarPartido(
+      context,
+      titulo: 'Eliminar partido',
+      mensaje: 'Vas a eliminar el partido del $fecha.',
     );
 
-    if (ok == true) {
+    if (ok) {
       await _repo.eliminarPartido(pc.partido.id!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -104,7 +88,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
                     itemBuilder: (_, i) {
                       final pc = _partidos[i];
                       final fecha =
-                          DateFormat('dd/MM/yyyy').format(pc.partido.fecha);
+                          formatFecha(pc.partido.fecha);
                       final asistentes =
                           pc.detalles.where((d) => d.asistio).length;
                       final total = pc.detalles
@@ -184,7 +168,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                DateFormat('dd/MM/yyyy').format(pc.partido.fecha),
+                formatFecha(pc.partido.fecha),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
               const Divider(),

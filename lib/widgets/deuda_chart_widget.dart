@@ -2,197 +2,219 @@ import 'package:flutter/material.dart';
 
 import '../repositories/partido_repository.dart';
 import '../utils/formatters.dart';
+import 'jugador_avatar.dart';
 
-/// Resumen de deudas: top 3 destacado + lista completa scrolleable.
-/// Mejor que un gráfico de barras cuando hay ~12 jugadores habituales.
-class DeudaChartWidget extends StatelessWidget {
+/// Resumen visual de deudas del grupo.
+class DeudaChartWidget extends StatefulWidget {
   final List<ResumenJugador> resumenes;
+  final VoidCallback? onRecordar;
 
-  const DeudaChartWidget({super.key, required this.resumenes});
+  const DeudaChartWidget({
+    super.key,
+    required this.resumenes,
+    this.onRecordar,
+  });
+
+  @override
+  State<DeudaChartWidget> createState() => _DeudaChartWidgetState();
+}
+
+class _DeudaChartWidgetState extends State<DeudaChartWidget> {
+  bool _expandido = false;
 
   @override
   Widget build(BuildContext context) {
-    final conDeuda = resumenes.where((r) => r.saldoActual > 0).toList()
+    final conDeuda = widget.resumenes.where((r) => r.saldoActual > 0).toList()
       ..sort((a, b) => b.saldoActual.compareTo(a.saldoActual));
-    final alDia = resumenes.where((r) => r.saldoActual <= 0).length;
-    final totalDeuda =
-        conDeuda.fold(0.0, (s, r) => s + r.saldoActual);
-    final maxSaldo =
-        conDeuda.isEmpty ? 1.0 : conDeuda.first.saldoActual;
+    final alDia = widget.resumenes.where((r) => r.saldoActual <= 0).length;
+    final totalDeuda = conDeuda.fold(0.0, (s, r) => s + r.saldoActual);
 
     if (conDeuda.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
+      return _SeccionCard(
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(Icons.celebration_rounded,
+                  color: Colors.green.shade700, size: 28),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '¡Todos al día!',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.green.shade800,
+                    ),
+                  ),
+                  Text(
+                    '$alDia jugador${alDia == 1 ? '' : 'es'} sin deuda pendiente',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final visibles = _expandido ? conDeuda : conDeuda.take(4).toList();
+    const medallas = ['🥇', '🥈', '🥉'];
+
+    return _SeccionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              const Text('🎉', style: TextStyle(fontSize: 32)),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.account_balance_wallet_rounded,
+                    color: Colors.red.shade700, size: 24),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      '¡Todos al día!',
+                      'Por cobrar',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
                     Text(
-                      '$alDia jugadores sin deuda pendiente',
+                      '${conDeuda.length} jugador${conDeuda.length == 1 ? '' : 'es'} · Total ${formatMoney(totalDeuda)}',
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: Colors.red.shade700,
                         fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final top3 = conDeuda.take(3).toList();
-    const medallas = ['🥇', '🥈', '🥉'];
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                const Text('💸', style: TextStyle(fontSize: 22)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Deudas del grupo',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        '${conDeuda.length} debiendo · Total ${formatMoney(totalDeuda)}'
-                        '${alDia > 0 ? ' · $alDia al día ✅' : ''}',
-                        style: TextStyle(
-                          color: Colors.red.shade700,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+              if (widget.onRecordar != null)
+                IconButton.filledTonal(
+                  onPressed: widget.onRecordar,
+                  icon: const Icon(Icons.chat_rounded, size: 20),
+                  tooltip: 'Recordar por WhatsApp',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.green.shade50,
+                    foregroundColor: Colors.green.shade800,
                   ),
                 ),
-              ],
-            ),
-            if (top3.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Top deudores',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                children: top3.asMap().entries.map((e) {
-                  final r = e.value;
-                  return Expanded(
-                    child: Container(
-                      margin: EdgeInsets.only(right: e.key < 2 ? 6 : 0),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _topColor(e.key).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: _topColor(e.key).withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(medallas[e.key], style: const TextStyle(fontSize: 20)),
-                          const SizedBox(height: 4),
-                          Text(
-                            _shortName(r.jugador.nombre),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            formatMoney(r.saldoActual),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: _topColor(e.key),
-                            ),
-                          ),
+            ],
+          ),
+          if (conDeuda.length >= 2) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: conDeuda.take(3).toList().asMap().entries.map((e) {
+                final r = e.value;
+                return Expanded(
+                  child: Container(
+                    margin: EdgeInsets.only(right: e.key < 2 ? 8 : 0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          _topColor(e.key).withValues(alpha: 0.12),
+                          _topColor(e.key).withValues(alpha: 0.04),
                         ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _topColor(e.key).withValues(alpha: 0.2),
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-            ],
-            const SizedBox(height: 14),
-            const Text(
-              'Todos los que deben',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: conDeuda.length > 6 ? 280 : conDeuda.length * 44.0,
-              ),
-              child: ListView.separated(
-                shrinkWrap: true,
-                physics: conDeuda.length > 6
-                    ? const BouncingScrollPhysics()
-                    : const NeverScrollableScrollPhysics(),
-                itemCount: conDeuda.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (_, i) {
-                  final r = conDeuda[i];
-                  final pct = maxSaldo > 0 ? r.saldoActual / maxSaldo : 0.0;
-                  return _DeudaFila(
-                    nombre: r.jugador.nombre,
-                    monto: r.saldoActual,
-                    progreso: pct,
-                    rank: i + 1,
-                  );
-                },
-              ),
+                    child: Column(
+                      children: [
+                        Text(medallas[e.key], style: const TextStyle(fontSize: 22)),
+                        const SizedBox(height: 6),
+                        Text(
+                          _shortName(r.jugador.nombre),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          formatMoney(r.saldoActual),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: _topColor(e.key),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ],
-        ),
+          const SizedBox(height: 14),
+          ...visibles.asMap().entries.map(
+                (e) => Padding(
+                  padding: EdgeInsets.only(
+                    bottom: e.key < visibles.length - 1 ? 8 : 0,
+                  ),
+                  child: _DeudaTile(
+                    resumen: e.value,
+                    rank: conDeuda.indexOf(e.value) + 1,
+                    esTop: conDeuda.indexOf(e.value) < 3,
+                  ),
+                ),
+              ),
+          if (conDeuda.length > 4)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: TextButton.icon(
+                onPressed: () => setState(() => _expandido = !_expandido),
+                icon: Icon(
+                  _expandido
+                      ? Icons.expand_less_rounded
+                      : Icons.expand_more_rounded,
+                ),
+                label: Text(
+                  _expandido
+                      ? 'Ver menos'
+                      : 'Ver ${conDeuda.length - 4} más',
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  String _shortName(String nombre) {
-    final parts = nombre.split(' ');
-    return parts.first;
-  }
+  String _shortName(String nombre) => nombre.split(' ').first;
 
   Color _topColor(int index) {
     const colors = [
@@ -204,75 +226,108 @@ class DeudaChartWidget extends StatelessWidget {
   }
 }
 
-class _DeudaFila extends StatelessWidget {
-  final String nombre;
-  final double monto;
-  final double progreso;
-  final int rank;
+class _SeccionCard extends StatelessWidget {
+  final Widget child;
 
-  const _DeudaFila({
-    required this.nombre,
-    required this.monto,
-    required this.progreso,
+  const _SeccionCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _DeudaTile extends StatelessWidget {
+  final ResumenJugador resumen;
+  final int rank;
+  final bool esTop;
+
+  const _DeudaTile({
+    required this.resumen,
     required this.rank,
+    required this.esTop,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 22,
-          child: Text(
-            '$rank.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
+    final j = resumen.jugador;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.red.shade100),
+      ),
+      child: Row(
+        children: [
+          JugadorAvatar(
+            nombre: j.nombre,
+            fotoPath: j.fotoPath,
+            size: 40,
+            borderRadius: 12,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  j.nombre,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  '${resumen.partidosJugados} partidos',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      nombre,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 13,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    formatMoney(monto),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: Colors.red.shade700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: progreso.clamp(0.05, 1.0),
-                  minHeight: 6,
-                  backgroundColor: Colors.red.shade50,
-                  color: Colors.red.shade400,
+              Text(
+                formatMoney(resumen.saldoActual),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: Colors.red.shade800,
                 ),
               ),
+              if (esTop)
+                Text(
+                  '#$rank',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.red.shade400,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
             ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -5,6 +5,7 @@ import '../models/deuda_partido_anterior.dart';
 import '../models/costo_variable.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
+import '../models/estado_partido.dart';
 import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../repositories/jugador_repository.dart';
@@ -43,11 +44,23 @@ class PartidoRepository {
   final DatabaseHelper _db = DatabaseHelper.instance;
   final JugadorRepository _jugadorRepo = JugadorRepository();
 
-  Future<List<Partido>> getAll() async {
+  Future<List<Partido>> getAll({EstadoPartido? soloEstado}) async {
     final db = await _db.database;
+    if (soloEstado != null) {
+      final rows = await db.query(
+        'partidos',
+        where: 'estado = ?',
+        whereArgs: [soloEstado.dbValue],
+        orderBy: 'fecha DESC',
+      );
+      return rows.map(Partido.fromMap).toList();
+    }
     final rows = await db.query('partidos', orderBy: 'fecha DESC');
     return rows.map(Partido.fromMap).toList();
   }
+
+  Future<List<Partido>> getJugados() =>
+      getAll(soloEstado: EstadoPartido.jugado);
 
   Future<List<String>> getRecintosRecientes({int limit = 8}) async {
     final db = await _db.database;
@@ -67,6 +80,8 @@ class PartidoRepository {
   Future<List<DeudaPartidoAnterior>> getPartidosPendientesJugador(
     int jugadorId,
   ) async {
+    await reconciliarDetallesJugador(jugadorId);
+
     final db = await _db.database;
     final rows = await db.rawQuery('''
       SELECT p.id AS partido_id, p.fecha, p.recinto, dp.total, dp.monto_pagado
@@ -257,7 +272,7 @@ class PartidoRepository {
   }
 
   Future<PartidoCompleto?> getUltimoPartido() async {
-    final partidos = await getAll();
+    final partidos = await getJugados();
     if (partidos.isEmpty) return null;
     return getCompleto(partidos.first.id!);
   }
@@ -457,6 +472,150 @@ class PartidoRepository {
     });
   }
 
+  /// Convierte un partido en organización a jugado con cobros.
+  Future<void> completarPartidoOrganizado({
+    required int partidoId,
+    required Partido partido,
+    required List<int> jugadoresAsistentes,
+    required Map<int, double> montoPagadoPorJugador,
+    required List<
+            ({
+              String concepto,
+              double montoTotal,
+              List<int> jugadores,
+              String? comprobantePath,
+            })>
+        costosVariables,
+    Map<int, double>? saldosAnterioresSnapshot,
+  }) async {
+    final db = await _db.database;
+    final asistentes = jugadoresAsistentes.toSet().toList();
+    final prorrateo = CalculationService.prorrateoFijo(
+      costoCancha: partido.costoCancha,
+      costoPelotas: partido.costoPelotas,
+      cantidadAsistentes: asistentes.length,
+    );
+
+    final variablesPorJugador = <int, double>{};
+    for (final id in asistentes) {
+      variablesPorJugador[id] = 0;
+    }
+
+    await db.transaction((txn) async {
+      final map = partido.copyWith(estado: EstadoPartido.jugado).toMap();
+      map.remove('id');
+      await txn.update('partidos', map, where: 'id = ?', whereArgs: [partidoId]);
+
+      await txn.delete(
+        'convocatoria_jugadores',
+        where: 'partido_id = ?',
+        whereArgs: [partidoId],
+      );
+
+      for (final cv in costosVariables) {
+        final costoId = await txn.insert('costos_variables', {
+          'partido_id': partidoId,
+          'concepto': cv.concepto,
+          'monto_total': cv.montoTotal,
+          'comprobante_path': cv.comprobantePath,
+        });
+
+        final participantes = cv.jugadores.isEmpty ? asistentes : cv.jugadores;
+        final montoIndividual = participantes.isEmpty
+            ? 0.0
+            : CalculationService.prorratear(cv.montoTotal, participantes.length);
+
+        for (final jugadorId in participantes) {
+          await txn.insert('asignaciones_costo', {
+            'costo_variable_id': costoId,
+            'jugador_id': jugadorId,
+            'monto': montoIndividual,
+          });
+          variablesPorJugador[jugadorId] =
+              (variablesPorJugador[jugadorId] ?? 0) + montoIndividual;
+        }
+      }
+
+      for (final jugadorId in asistentes) {
+        final jugadorRows = await txn.query(
+          'jugadores',
+          where: 'id = ?',
+          whereArgs: [jugadorId],
+        );
+        final saldoAnterior = saldosAnterioresSnapshot?[jugadorId] ??
+            (jugadorRows.first['saldo_acumulado'] as num).toDouble();
+
+        final totalVars = variablesPorJugador[jugadorId] ?? 0;
+        final cargo = CalculationService.cargoPartido(
+          prorrateoFijo: prorrateo,
+          totalVariables: totalVars,
+        );
+        final montoPagado =
+            roundMoney(montoPagadoPorJugador[jugadorId] ?? 0).toDouble();
+        final saldoNuevo = CalculationService.saldoDespuesPago(
+          saldoAnterior: saldoAnterior,
+          cargoPartido: cargo,
+          montoPagado: montoPagado,
+        );
+        final favorAplicado = CalculationService.saldoFavorAplicado(
+          saldoAnterior: saldoAnterior,
+          cargoPartido: cargo,
+        );
+        final pagado = saldoNuevo <= 0;
+        final ahora = DateTime.now();
+        final concepto = pagado
+            ? (montoPagado == 0 && favorAplicado > 0
+                ? 'Partido cubierto con saldo a favor'
+                : 'Partido pagado')
+            : montoPagado > 0
+                ? 'Pago parcial'
+                : 'Deuda acumulada';
+
+        await txn.insert('detalles_partido', {
+          'partido_id': partidoId,
+          'jugador_id': jugadorId,
+          'asistio': 1,
+          'prorrateo_fijo': prorrateo,
+          'total_variables': totalVars,
+          'total': cargo,
+          'pagado': pagado ? 1 : 0,
+          'monto_pagado': montoPagado,
+          'fecha_pago': pagado || montoPagado > 0
+              ? ahora.toIso8601String()
+              : null,
+        });
+
+        await txn.update(
+          'jugadores',
+          {'saldo_acumulado': saldoNuevo},
+          where: 'id = ?',
+          whereArgs: [jugadorId],
+        );
+
+        await txn.insert('saldos_historicos', {
+          'jugador_id': jugadorId,
+          'partido_id': partidoId,
+          'saldo_anterior': saldoAnterior,
+          'cargo_partido': cargo,
+          'abono': montoPagado,
+          'saldo_nuevo': saldoNuevo,
+          'fecha': montoPagado > 0
+              ? ahora.toIso8601String()
+              : partido.fecha.toIso8601String(),
+          'concepto': concepto,
+        });
+
+        await _sincronizarDetallesTrasPago(
+          db: txn,
+          jugadorId: jugadorId,
+          saldoNuevo: saldoNuevo,
+          montoAplicado: montoPagado,
+          fechaPago: ahora,
+        );
+      }
+    });
+  }
+
   /// Alinea detalles_partido con el saldo real tras un pago o abono.
   /// El ranking usa estos registros; sin esto quedan impagos fantasma.
   Future<void> _sincronizarDetallesTrasPago({
@@ -532,21 +691,136 @@ class PartidoRepository {
     }
   }
 
-  /// Repara datos antiguos donde el saldo ya está al día pero quedaron impagos.
+  Future<double> _sumPendienteDetalles(
+    DatabaseExecutor db,
+    int jugadorId,
+  ) async {
+    final rows = await db.rawQuery('''
+      SELECT dp.total, dp.monto_pagado
+      FROM detalles_partido dp
+      WHERE dp.jugador_id = ? AND dp.asistio = 1 AND dp.pagado = 0
+    ''', [jugadorId]);
+
+    var sum = 0.0;
+    for (final r in rows) {
+      final total = (r['total'] as num).toDouble();
+      final pagado = (r['monto_pagado'] as num?)?.toDouble() ?? 0;
+      sum += (total - pagado).clamp(0.0, double.infinity);
+    }
+    return roundMoney(sum).toDouble();
+  }
+
+  /// Alinea los detalles impagos de un jugador con su saldo_acumulado real.
+  Future<void> reconciliarDetallesJugador(int jugadorId) async {
+    final jugador = await _jugadorRepo.getById(jugadorId);
+    if (jugador == null) return;
+
+    final db = await _db.database;
+    await _reconciliarDetallesJugador(
+      db: db,
+      jugadorId: jugadorId,
+      saldo: jugador.saldoAcumulado,
+    );
+  }
+
+  Future<void> _reconciliarDetallesJugador({
+    required DatabaseExecutor db,
+    required int jugadorId,
+    required double saldo,
+  }) async {
+    final ahora = DateTime.now();
+
+    if (saldo <= 0) {
+      await _sincronizarDetallesTrasPago(
+        db: db,
+        jugadorId: jugadorId,
+        saldoNuevo: saldo,
+        montoAplicado: 0,
+        fechaPago: ahora,
+      );
+      return;
+    }
+
+    final sumPendiente = await _sumPendienteDetalles(db, jugadorId);
+    final diff = roundMoney(sumPendiente - saldo).toDouble();
+
+    if (diff > 0.01) {
+      await _sincronizarDetallesTrasPago(
+        db: db,
+        jugadorId: jugadorId,
+        saldoNuevo: saldo,
+        montoAplicado: diff,
+        fechaPago: ahora,
+      );
+      return;
+    }
+
+    if (diff < -0.01) {
+      await _reabrirDetallesPorDeficit(
+        db: db,
+        jugadorId: jugadorId,
+        deficit: roundMoney(saldo - sumPendiente).toDouble(),
+      );
+    }
+  }
+
+  /// Reabre partidos pagados (del más reciente al más antiguo) cuando
+  /// la suma de impagos quedó por debajo del saldo real.
+  Future<void> _reabrirDetallesPorDeficit({
+    required DatabaseExecutor db,
+    required int jugadorId,
+    required double deficit,
+  }) async {
+    if (deficit <= 0) return;
+
+    final rows = await db.rawQuery('''
+      SELECT dp.id, dp.total, dp.monto_pagado
+      FROM detalles_partido dp
+      JOIN partidos p ON p.id = dp.partido_id
+      WHERE dp.jugador_id = ? AND dp.asistio = 1 AND dp.pagado = 1
+      ORDER BY p.fecha DESC, dp.id DESC
+    ''', [jugadorId]);
+
+    var restante = deficit;
+    for (final row in rows) {
+      if (restante <= 0.01) break;
+
+      final id = row['id'] as int;
+      final total = (row['total'] as num).toDouble();
+      final yaPagado = (row['monto_pagado'] as num?)?.toDouble() ?? 0;
+      if (yaPagado <= 0) continue;
+
+      final reabrir = restante >= yaPagado ? yaPagado : restante;
+      final nuevoPagado = roundMoney(yaPagado - reabrir).toDouble();
+      final siguePagado = nuevoPagado >= total - 0.005;
+
+      final updates = <String, Object?>{
+        'monto_pagado': nuevoPagado,
+        'pagado': siguePagado ? 1 : 0,
+      };
+      if (!siguePagado) updates['fecha_pago'] = null;
+
+      await db.update(
+        'detalles_partido',
+        updates,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+
+      restante = roundMoney(restante - reabrir).toDouble();
+    }
+  }
+
+  /// Repara detalles_partido desalineados con el saldo acumulado de cada jugador.
   Future<void> repararDetallesInconsistentes() async {
     final db = await _db.database;
     final jugadores = await db.query('jugadores');
     for (final j in jugadores) {
-      final saldo = (j['saldo_acumulado'] as num?)?.toDouble() ?? 0;
-      if (saldo <= 0) {
-        await _sincronizarDetallesTrasPago(
-          db: db,
-          jugadorId: j['id'] as int,
-          saldoNuevo: saldo,
-          montoAplicado: 0,
-          fechaPago: DateTime.now(),
-        );
-      }
+      await _reconciliarDetallesJugador(
+        db: db,
+        jugadorId: j['id'] as int,
+        saldo: (j['saldo_acumulado'] as num?)?.toDouble() ?? 0,
+      );
     }
   }
 

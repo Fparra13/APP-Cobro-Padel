@@ -18,7 +18,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 6,
+      version: 8,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -35,6 +35,7 @@ class DatabaseHelper {
         activo INTEGER NOT NULL DEFAULT 1,
         saldo_acumulado REAL NOT NULL DEFAULT 0,
         telefono TEXT,
+        foto_path TEXT,
         created_at TEXT NOT NULL
       )
     ''');
@@ -49,7 +50,21 @@ class DatabaseHelper {
         notas TEXT,
         comprobante_cancha TEXT,
         comprobante_pelotas TEXT,
+        estado TEXT NOT NULL DEFAULT 'jugado',
+        cupos_max INTEGER NOT NULL DEFAULT 4,
         created_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE convocatoria_jugadores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        partido_id INTEGER NOT NULL,
+        jugador_id INTEGER NOT NULL,
+        estado_confirmacion TEXT NOT NULL DEFAULT 'invitado',
+        FOREIGN KEY (partido_id) REFERENCES partidos(id) ON DELETE CASCADE,
+        FOREIGN KEY (jugador_id) REFERENCES jugadores(id) ON DELETE RESTRICT,
+        UNIQUE(partido_id, jugador_id)
       )
     ''');
 
@@ -119,6 +134,9 @@ class DatabaseHelper {
     await db.execute(
       'CREATE INDEX idx_costos_variables_partido ON costos_variables(partido_id)',
     );
+    await db.execute(
+      'CREATE INDEX idx_convocatoria_partido ON convocatoria_jugadores(partido_id)',
+    );
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -151,6 +169,31 @@ class DatabaseHelper {
       await db.execute(
         'ALTER TABLE costos_variables ADD COLUMN comprobante_path TEXT',
       );
+    }
+    if (oldVersion < 7) {
+      await db.execute(
+        "ALTER TABLE partidos ADD COLUMN estado TEXT NOT NULL DEFAULT 'jugado'",
+      );
+      await db.execute(
+        'ALTER TABLE partidos ADD COLUMN cupos_max INTEGER NOT NULL DEFAULT 4',
+      );
+      await db.execute('''
+        CREATE TABLE convocatoria_jugadores (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          partido_id INTEGER NOT NULL,
+          jugador_id INTEGER NOT NULL,
+          estado_confirmacion TEXT NOT NULL DEFAULT 'invitado',
+          FOREIGN KEY (partido_id) REFERENCES partidos(id) ON DELETE CASCADE,
+          FOREIGN KEY (jugador_id) REFERENCES jugadores(id) ON DELETE RESTRICT,
+          UNIQUE(partido_id, jugador_id)
+        )
+      ''');
+      await db.execute(
+        'CREATE INDEX idx_convocatoria_partido ON convocatoria_jugadores(partido_id)',
+      );
+    }
+    if (oldVersion < 8) {
+      await db.execute('ALTER TABLE jugadores ADD COLUMN foto_path TEXT');
     }
   }
 

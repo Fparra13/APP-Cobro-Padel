@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
+import '../models/convocatoria_jugador.dart';
+import '../repositories/convocatoria_repository.dart';
 import '../repositories/partido_repository.dart';
 import '../repositories/ranking_repository.dart';
 import '../services/pdf_service.dart';
+import '../utils/app_navigation.dart';
 import '../utils/formatters.dart';
 import '../widgets/ayuda_tip.dart';
+import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/partido_detalle_sheet.dart';
 
 class HistorialPartidosScreen extends StatefulWidget {
@@ -20,10 +23,12 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
   final _partidoRepo = PartidoRepository();
+  final _convocatoriaRepo = ConvocatoriaRepository();
   final _rankingRepo = RankingRepository();
   final _pdfService = PdfService();
 
   List<PartidoCompleto> _partidos = [];
+  List<ConvocatoriaCompleta> _convocatorias = [];
   List<RankingJugador> _ranking = [];
   bool _loading = true;
 
@@ -42,7 +47,8 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final list = await _partidoRepo.getAll();
+    final list = await _partidoRepo.getJugados();
+    final convocatorias = await _convocatoriaRepo.getActivas();
     final completos = <PartidoCompleto>[];
     for (final p in list) {
       final c = await _partidoRepo.getCompleto(p.id!);
@@ -52,6 +58,7 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
     if (mounted) {
       setState(() {
         _partidos = completos;
+        _convocatorias = convocatorias;
         _ranking = ranking;
         _loading = false;
       });
@@ -104,11 +111,12 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
   }
 
   Widget _buildHistorial() {
-    if (_partidos.isEmpty) {
+    if (_partidos.isEmpty && _convocatorias.isEmpty) {
       return _EmptyTab(
         icon: Icons.sports_tennis_rounded,
         titulo: 'Sin partidos aún',
-        subtitulo: 'Registra tu primer partido desde el botón\n"Nuevo partido" en Inicio.',
+        subtitulo:
+            'Organiza una convocatoria o registra\nun partido jugado desde Inicio.',
         color: Colors.green,
       );
     }
@@ -124,30 +132,50 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
       child: ListView(
         padding: const EdgeInsets.only(bottom: 16),
         children: [
-          _buildStatsHeader(
-            icon: Icons.history_rounded,
-            titulo: '${_partidos.length} partidos',
-            subtitulo: pendientesTotal > 0
-                ? '$pendientesTotal cobros pendientes en total'
-                : 'Todos los cobros al día ✓',
-            color: Colors.green,
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(12, 4, 12, 8),
-            child: AyudaTip(
-              texto:
-                  'Toca un partido para ver el detalle. '
-                  'Arriba: PDF general · Abajo: WhatsApp/PDF individual.',
+          if (_convocatorias.isNotEmpty) ...[
+            _buildStatsHeader(
+              icon: Icons.campaign,
+              titulo: '${_convocatorias.length} convocatoria(s) activa(s)',
+              subtitulo: 'En espera o confirmadas · retoma desde Inicio',
+              color: Colors.blue,
             ),
-          ),
-          ..._partidos.map(
-            (pc) => _PartidoCard(
-              completo: pc,
-              partidoRepo: _partidoRepo,
-              pdfService: _pdfService,
-              onChanged: _load,
+            ..._convocatorias.map(
+              (c) => _ConvocatoriaCard(
+                convocatoria: c,
+                onTap: () async {
+                  await abrirOrganizarPartido(context, partidoId: c.partido.id);
+                  _load();
+                },
+              ),
             ),
-          ),
+            const SizedBox(height: 8),
+          ],
+          if (_partidos.isNotEmpty) ...[
+            _buildStatsHeader(
+              icon: Icons.history_rounded,
+              titulo: '${_partidos.length} partidos',
+              subtitulo: pendientesTotal > 0
+                  ? '$pendientesTotal cobros pendientes en total'
+                  : 'Todos los cobros al día ✓',
+              color: Colors.green,
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: AyudaTip(
+                texto:
+                    'Toca un partido para ver el detalle. '
+                    'Arriba: PDF general · Abajo: WhatsApp/PDF individual.',
+              ),
+            ),
+            ..._partidos.map(
+              (pc) => _PartidoCard(
+                completo: pc,
+                partidoRepo: _partidoRepo,
+                pdfService: _pdfService,
+                onChanged: _load,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -321,6 +349,96 @@ class _EmptyTab extends StatelessWidget {
   }
 }
 
+class _ConvocatoriaCard extends StatelessWidget {
+  final ConvocatoriaCompleta convocatoria;
+  final VoidCallback onTap;
+
+  const _ConvocatoriaCard({
+    required this.convocatoria,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = convocatoria.partido;
+    final fecha = formatFecha(p.fecha);
+    final hora = formatHora(p.fecha);
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      color: convocatoria.partido.esConfirmado
+          ? Colors.green.shade50
+          : Colors.blue.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: convocatoria.partido.esConfirmado
+                      ? Colors.green.shade100
+                      : Colors.blue.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  convocatoria.partido.esConfirmado
+                      ? Icons.check_circle
+                      : Icons.campaign,
+                  color: convocatoria.partido.esConfirmado
+                      ? Colors.green.shade800
+                      : Colors.blue.shade800,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      convocatoria.partido.esConfirmado
+                          ? 'Confirmado · $fecha · $hora'
+                          : '$fecha · $hora',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      p.recinto?.isNotEmpty ?? false
+                          ? p.recinto!
+                          : 'Sin recinto',
+                      style: TextStyle(color: Colors.grey.shade700),
+                    ),
+                    Text(
+                      '${convocatoria.confirmados}/${p.cuposMax} confirmados · '
+                      '${convocatoria.invitados} invitados',
+                      style: TextStyle(
+                        color: convocatoria.partido.esConfirmado
+                            ? Colors.green.shade800
+                            : Colors.blue.shade800,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: convocatoria.partido.esConfirmado
+                    ? Colors.green.shade700
+                    : Colors.blue.shade700,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PartidoCard extends StatelessWidget {
   final PartidoCompleto completo;
   final PartidoRepository partidoRepo;
@@ -336,8 +454,8 @@ class _PartidoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fecha = DateFormat('dd/MM/yyyy').format(completo.partido.fecha);
-    final hora = DateFormat('HH:mm').format(completo.partido.fecha);
+    final fecha = formatFecha(completo.partido.fecha);
+    final hora = formatHora(completo.partido.fecha);
     final asistentes = completo.detalles.where((d) => d.asistio).length;
     final pendientes =
         completo.detalles.where((d) => d.asistio && !d.pagado).length;
@@ -361,6 +479,25 @@ class _PartidoCard extends StatelessWidget {
               '/editar-partido',
               arguments: completo.partido.id,
             ).then((_) => onChanged());
+          },
+          onEliminar: () async {
+            final fecha = formatFecha(completo.partido.fecha);
+            final recinto = completo.partido.recinto?.trim();
+            final ok = await confirmarEliminarPartido(
+              context,
+              titulo: 'Eliminar partido',
+              mensaje:
+                  'Vas a eliminar el partido del $fecha'
+                  '${recinto != null && recinto.isNotEmpty ? ' en $recinto' : ''}.',
+            );
+            if (!ok || !context.mounted) return;
+            await partidoRepo.eliminarPartido(completo.partido.id!);
+            if (!context.mounted) return;
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Partido eliminado')),
+            );
+            onChanged();
           },
         ),
         child: Padding(

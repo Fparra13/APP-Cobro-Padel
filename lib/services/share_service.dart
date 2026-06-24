@@ -1,3 +1,4 @@
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ShareService {
@@ -14,18 +15,20 @@ class ShareService {
     required String mensaje,
     String? telefono,
   }) async {
-    final encoded = Uri.encodeComponent(mensaje);
-    final Uri uri;
-
+    final texto = mensaje.replaceAll('\r\n', '\n').trim();
     final numero = telefono != null ? _normalizarTelefono(telefono) : '';
-    if (numero.isNotEmpty) {
-      uri = Uri.parse('https://wa.me/$numero?text=$encoded');
-    } else {
-      uri = Uri.parse('https://wa.me/?text=$encoded');
-    }
+
+    final uri = numero.isNotEmpty
+        ? Uri.https('wa.me', numero, {'text': texto})
+        : Uri.https('wa.me', '', {'text': texto});
 
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       throw Exception('No se pudo abrir WhatsApp');
     }
+  }
+
+  /// Abre el selector del sistema (WhatsApp grupo, etc.) con el texto listo.
+  Future<void> compartirTexto(String mensaje) async {
+    await SharePlus.instance.share(ShareParams(text: mensaje));
   }
 }

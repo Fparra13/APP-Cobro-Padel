@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'screens/backup_screen.dart';
 import 'screens/configuracion_screen.dart';
 import 'screens/historial_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/jugadores_screen.dart';
+import 'screens/organizar_partido_screen.dart';
 import 'screens/nuevo_partido_screen.dart';
 import 'screens/historial_partidos_screen.dart';
 import 'services/notification_service.dart';
@@ -13,6 +16,8 @@ final _navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('es', null);
+  await initializeDateFormatting('es_CL', null);
   await NotificationService.instance.initialize(navKey: _navigatorKey);
   runApp(PadelCobroApp(navigatorKey: _navigatorKey));
 }
@@ -28,6 +33,13 @@ class PadelCobroApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       title: 'Pádel Cobro',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('es', 'CL'),
+      supportedLocales: const [Locale('es', 'CL'), Locale('es')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF2E7D32),
@@ -54,6 +66,7 @@ class PadelCobroApp extends StatelessWidget {
       routes: {
         '/jugadores': (_) => const JugadoresScreen(),
         '/nuevo-partido': (_) => const NuevoPartidoScreen(),
+        '/organizar-partido': (_) => const OrganizarPartidoScreen(),
         '/partidos': (_) => const HistorialPartidosScreen(),
         '/configuracion': (_) => const ConfiguracionScreen(),
         '/backup': (_) => const BackupScreen(),
@@ -66,6 +79,18 @@ class PadelCobroApp extends StatelessWidget {
           );
         }
         if (settings.name == '/editar-partido') {
+          final id = settings.arguments as int;
+          return MaterialPageRoute(
+            builder: (_) => NuevoPartidoScreen(partidoId: id),
+          );
+        }
+        if (settings.name == '/editar-convocatoria') {
+          final id = settings.arguments as int;
+          return MaterialPageRoute(
+            builder: (_) => OrganizarPartidoScreen(partidoId: id),
+          );
+        }
+        if (settings.name == '/registrar-partido') {
           final id = settings.arguments as int;
           return MaterialPageRoute(
             builder: (_) => NuevoPartidoScreen(partidoId: id),

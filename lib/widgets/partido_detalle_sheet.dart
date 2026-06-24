@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
 import '../models/desglose_jugador.dart';
 import '../models/jugador.dart';
 import '../repositories/jugador_repository.dart';
@@ -16,6 +14,7 @@ class PartidoDetalleSheet extends StatefulWidget {
   final List<DesgloseJugador> desglose;
   final PdfService pdfService;
   final VoidCallback? onEditar;
+  final VoidCallback? onEliminar;
 
   const PartidoDetalleSheet({
     super.key,
@@ -23,6 +22,7 @@ class PartidoDetalleSheet extends StatefulWidget {
     required this.desglose,
     required this.pdfService,
     this.onEditar,
+    this.onEliminar,
   });
 
   static Future<void> show(
@@ -31,6 +31,7 @@ class PartidoDetalleSheet extends StatefulWidget {
     required PartidoRepository partidoRepo,
     required PdfService pdfService,
     VoidCallback? onEditar,
+    VoidCallback? onEliminar,
   }) async {
     final desglose = await partidoRepo.getDesglose(completo.partido.id!);
     if (!context.mounted) return;
@@ -43,6 +44,7 @@ class PartidoDetalleSheet extends StatefulWidget {
         desglose: desglose,
         pdfService: pdfService,
         onEditar: onEditar,
+        onEliminar: onEliminar,
       ),
     );
   }
@@ -110,7 +112,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final fecha = DateFormat('dd/MM/yyyy HH:mm').format(completo.partido.fecha);
+    final fecha = formatFechaHora(completo.partido.fecha);
     final jugadorRepo = JugadorRepository();
 
     return DraggableScrollableSheet(
@@ -215,13 +217,31 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: widget.onEditar,
-                          icon: const Icon(Icons.edit),
-                          label: const Text('Editar partido'),
+                      if (widget.onEditar != null)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: widget.onEditar,
+                            icon: const Icon(Icons.edit_outlined),
+                            label: const Text('Editar'),
+                          ),
                         ),
-                      ),
+                      if (widget.onEditar != null && widget.onEliminar != null)
+                        const SizedBox(width: 10),
+                      if (widget.onEliminar != null)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: widget.onEliminar,
+                            icon: Icon(Icons.delete_forever_rounded,
+                                color: Colors.red.shade700),
+                            label: Text(
+                              'Eliminar',
+                              style: TextStyle(color: Colors.red.shade700),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.red.shade300),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 20),

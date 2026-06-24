@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
 import '../models/desglose_jugador.dart';
 import '../models/jugador.dart';
 import '../repositories/jugador_repository.dart';
@@ -59,7 +57,7 @@ class _EnviarInformesSheetState extends State<EnviarInformesSheet> {
   @override
   Widget build(BuildContext context) {
     final fecha = _completo != null
-        ? DateFormat('dd/MM/yyyy').format(_completo!.partido.fecha)
+        ? formatFecha(_completo!.partido.fecha)
         : '';
 
     return DraggableScrollableSheet(

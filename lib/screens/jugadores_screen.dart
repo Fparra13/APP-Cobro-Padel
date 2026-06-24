@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../models/jugador.dart';
 import '../repositories/jugador_repository.dart';
+import '../services/jugador_foto_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/ayuda_tip.dart';
+import '../widgets/jugador_avatar.dart';
+import 'estadisticas_jugadores_screen.dart';
 
 class JugadoresScreen extends StatefulWidget {
   const JugadoresScreen({super.key});
@@ -14,19 +17,9 @@ class JugadoresScreen extends StatefulWidget {
 
 class _JugadoresScreenState extends State<JugadoresScreen> {
   final _repo = JugadorRepository();
+  final _fotoService = JugadorFotoService.instance;
   List<Jugador> _jugadores = [];
   bool _loading = true;
-
-  static const _avatarColors = [
-    Color(0xFF2E7D32),
-    Color(0xFF1565C0),
-    Color(0xFF6A1B9A),
-    Color(0xFF00838F),
-    Color(0xFFEF6C00),
-    Color(0xFFC62828),
-    Color(0xFF4527A0),
-    Color(0xFF558B2F),
-  ];
 
   @override
   void initState() {
@@ -44,9 +37,6 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
       });
     }
   }
-
-  Color _colorDe(String nombre) =>
-      _avatarColors[nombre.hashCode.abs() % _avatarColors.length];
 
   Future<void> _showForm({Jugador? jugador}) async {
     final nombreCtrl = TextEditingController(text: jugador?.nombre ?? '');
@@ -165,6 +155,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
       ),
     );
     if (confirm == true) {
+      await _fotoService.delete(j.fotoPath);
       await _repo.delete(j.id!);
       _load();
     }
@@ -179,6 +170,16 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
       appBar: AppBar(
         title: const Text('👥 Jugadores'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bar_chart_rounded),
+            tooltip: 'Estadísticas',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const EstadisticasJugadoresScreen(),
+              ),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Actualizar',
@@ -304,12 +305,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
   }
 
   Widget _buildJugadorCard(Jugador j) {
-    final color = _colorDe(j.nombre);
     final deuda = j.saldoAcumulado > 0;
     final conFavor = j.saldoAcumulado < 0;
-    final inicial = j.nombre.trim().isNotEmpty
-        ? j.nombre.trim()[0].toUpperCase()
-        : '?';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -323,34 +320,11 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
           padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
           child: Row(
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [color, color.withValues(alpha: 0.75)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.35),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  inicial,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+            JugadorAvatar(
+              nombre: j.nombre,
+              fotoPath: j.fotoPath,
+              size: 52,
+              borderRadius: 14,
             ),
             const SizedBox(width: 12),
             Expanded(

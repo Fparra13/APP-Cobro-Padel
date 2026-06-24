@@ -4,6 +4,7 @@ class Jugador {
   final bool activo;
   final double saldoAcumulado;
   final String? telefono;
+  final String? fotoPath;
   final DateTime createdAt;
 
   const Jugador({
@@ -12,6 +13,7 @@ class Jugador {
     this.activo = true,
     this.saldoAcumulado = 0,
     this.telefono,
+    this.fotoPath,
     required this.createdAt,
   });
 
@@ -21,6 +23,8 @@ class Jugador {
     bool? activo,
     double? saldoAcumulado,
     String? telefono,
+    String? fotoPath,
+    bool clearFoto = false,
     DateTime? createdAt,
   }) {
     return Jugador(
@@ -29,6 +33,7 @@ class Jugador {
       activo: activo ?? this.activo,
       saldoAcumulado: saldoAcumulado ?? this.saldoAcumulado,
       telefono: telefono ?? this.telefono,
+      fotoPath: clearFoto ? null : (fotoPath ?? this.fotoPath),
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -39,6 +44,7 @@ class Jugador {
         'activo': activo ? 1 : 0,
         'saldo_acumulado': saldoAcumulado,
         'telefono': telefono,
+        'foto_path': fotoPath,
         'created_at': createdAt.toIso8601String(),
       };
 
@@ -48,6 +54,7 @@ class Jugador {
         activo: (map['activo'] as int? ?? 1) == 1,
         saldoAcumulado: (map['saldo_acumulado'] as num?)?.toDouble() ?? 0,
         telefono: map['telefono'] as String?,
+        fotoPath: map['foto_path'] as String?,
         createdAt: DateTime.parse(map['created_at'] as String),
       );
 }

@@ -8,9 +8,11 @@ enum TipoPago { ninguno, total, parcial }
 class EstadoPagoJugador {
   TipoPago tipo;
   final TextEditingController montoParcial;
+  bool abonoConfirmado;
 
   EstadoPagoJugador({
     this.tipo = TipoPago.ninguno,
+    this.abonoConfirmado = false,
     TextEditingController? montoParcial,
   }) : montoParcial = montoParcial ?? TextEditingController();
 
@@ -21,7 +23,8 @@ class EstadoPagoJugador {
       case TipoPago.total:
         return totalDebido > 0 ? totalDebido : 0;
       case TipoPago.parcial:
-        return roundMoney(double.tryParse(montoParcial.text) ?? 0).toDouble();
+        if (!abonoConfirmado) return 0;
+        return roundMoney(parseMoney(montoParcial.text)).toDouble();
     }
   }
 

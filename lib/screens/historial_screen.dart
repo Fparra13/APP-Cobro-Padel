@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
 import '../models/deuda_partido_anterior.dart';
 import '../models/jugador.dart';
 import '../models/saldo_historico.dart';
 import '../repositories/jugador_repository.dart';
 import '../repositories/partido_repository.dart';
 import '../repositories/saldo_repository.dart';
+import '../services/jugador_foto_service.dart';
+import '../services/recordatorio_service.dart';
 import '../services/share_service.dart';
 import '../utils/formatters.dart';
+import '../widgets/jugador_avatar.dart';
 
 class HistorialScreen extends StatefulWidget {
   final int jugadorId;
@@ -24,6 +25,8 @@ class _HistorialScreenState extends State<HistorialScreen> {
   final _jugadorRepo = JugadorRepository();
   final _partidoRepo = PartidoRepository();
   final _shareService = ShareService();
+  final _recordatorioService = RecordatorioService();
+  final _fotoService = JugadorFotoService.instance;
 
   Jugador? _jugador;
   List<SaldoHistorico> _historial = [];
@@ -34,17 +37,6 @@ class _HistorialScreenState extends State<HistorialScreen> {
   double _totalCargos = 0;
   _FiltroHistorial _filtro = _FiltroHistorial.todos;
   bool _loading = true;
-
-  static const _avatarColors = [
-    Color(0xFF2E7D32),
-    Color(0xFF1565C0),
-    Color(0xFF6A1B9A),
-    Color(0xFF00838F),
-    Color(0xFFEF6C00),
-    Color(0xFFC62828),
-    Color(0xFF4527A0),
-    Color(0xFF558B2F),
-  ];
 
   static const _meses = [
     'Enero',
@@ -118,8 +110,57 @@ class _HistorialScreenState extends State<HistorialScreen> {
     return map;
   }
 
-  Color _colorDe(String nombre) =>
-      _avatarColors[nombre.hashCode.abs() % _avatarColors.length];
+  Color _colorDe(String nombre) => JugadorAvatar.colorDe(nombre);
+
+  Future<void> _cambiarFoto() async {
+    final jugador = _jugador;
+    if (jugador == null) return;
+
+    final opcion = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.add_a_photo_outlined),
+              title: const Text('Elegir foto'),
+              onTap: () => Navigator.pop(ctx, 'elegir'),
+            ),
+            if (jugador.fotoPath != null)
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: Colors.red.shade700),
+                title: Text(
+                  'Quitar foto',
+                  style: TextStyle(color: Colors.red.shade700),
+                ),
+                onTap: () => Navigator.pop(ctx, 'quitar'),
+              ),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted || opcion == null) return;
+
+    if (opcion == 'quitar') {
+      await _fotoService.delete(jugador.fotoPath);
+      await _jugadorRepo.update(jugador.copyWith(clearFoto: true));
+      _mostrarSnack('Foto eliminada');
+      _load();
+      return;
+    }
+
+    final path = await _fotoService.pickAndSave(
+      context: context,
+      replacePath: jugador.fotoPath,
+    );
+    if (path == null || !mounted) return;
+
+    await _jugadorRepo.update(jugador.copyWith(fotoPath: path));
+    _mostrarSnack('Foto actualizada');
+    _load();
+  }
 
   String _etiquetaMes(String key) {
     final parts = key.split('-');
@@ -226,6 +267,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                       suffixText: 'debe ${formatMoney(saldo)}',
                     ),
                     autofocus: true,
+                    inputFormatters: moneyInputFormatters,
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -249,7 +291,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
 
     final monto = pagoTotal
         ? saldo
-        : roundMoney(double.tryParse(montoCtrl.text) ?? 0).toDouble();
+        : roundMoney(parseMoney(montoCtrl.text)).toDouble();
 
     if (monto <= 0) {
       _mostrarSnack('Ingresa un monto mayor a 0', esError: true);
@@ -290,39 +332,21 @@ class _HistorialScreenState extends State<HistorialScreen> {
       return;
     }
 
-    final buffer = StringBuffer()
-      ..writeln('Hola ${jugador.nombre} 👋')
-      ..writeln()
-      ..writeln('Te escribo por el saldo del grupo de pádel.');
-
-    if (jugador.saldoAcumulado > 0) {
-      buffer
-        ..writeln('Tu deuda actual es ${formatMoney(jugador.saldoAcumulado)}.')
-        ..writeln();
-      if (_pendientes.isNotEmpty) {
-        buffer.writeln('Partidos pendientes:');
-        for (final p in _pendientes) {
-          final fecha = DateFormat('dd/MM/yyyy').format(p.fecha);
-          final lugar = p.recinto?.trim().isNotEmpty == true
-              ? ' · ${p.recinto}'
-              : '';
-          buffer.writeln('• $fecha$lugar: ${formatMoney(p.montoPendiente)}');
-        }
-        buffer.writeln();
-      }
-      buffer.writeln('¿Nos puedes transferir cuando puedas? ¡Gracias! 🎾');
-    } else if (jugador.saldoAcumulado < 0) {
-      buffer.writeln(
-        'Tienes saldo a favor de ${formatMoney(-jugador.saldoAcumulado)}. '
-        'Se descontará en tu próximo partido. 🎾',
-      );
-    } else {
-      buffer.writeln('¡Estás al día con los pagos! 🎾');
-    }
-
     try {
+      final mensaje = jugador.saldoAcumulado > 0
+          ? await _recordatorioService.construirMensaje(
+              jugador: jugador,
+              saldo: jugador.saldoAcumulado,
+              partidosPendientes: _pendientes,
+            )
+          : jugador.saldoAcumulado < 0
+              ? 'Hola ${jugador.nombre}!\n\n'
+                  'Tienes saldo a favor de ${formatMoney(-jugador.saldoAcumulado)}. '
+                  'Se descontará en tu próximo partido. 🎾'
+              : 'Hola ${jugador.nombre}!\n\n¡Estás al día con los pagos! 🎾';
+
       await _shareService.compartirWhatsApp(
-        mensaje: buffer.toString(),
+        mensaje: mensaje,
         telefono: tel,
       );
     } catch (_) {
@@ -349,8 +373,6 @@ class _HistorialScreenState extends State<HistorialScreen> {
     final alDia = saldo <= 0;
     final conFavor = saldo < 0;
     final color = _colorDe(nombre);
-    final inicial =
-        nombre.trim().isNotEmpty ? nombre.trim()[0].toUpperCase() : '?';
     final mesesOrdenados = _historialPorMes.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return Scaffold(
@@ -364,7 +386,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  SliverToBoxAdapter(child: _buildFicha(jugador, color, inicial, alDia, conFavor, saldo)),
+                  SliverToBoxAdapter(child: _buildFicha(jugador, color, alDia, conFavor, saldo)),
                   SliverToBoxAdapter(child: _buildEstadisticas(alDia, conFavor)),
                   if (_pendientes.isNotEmpty)
                     SliverToBoxAdapter(child: _buildPendientes()),
@@ -413,7 +435,6 @@ class _HistorialScreenState extends State<HistorialScreen> {
   Widget _buildFicha(
     Jugador? jugador,
     Color color,
-    String inicial,
     bool alDia,
     bool conFavor,
     double saldo,
@@ -450,25 +471,41 @@ class _HistorialScreenState extends State<HistorialScreen> {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.35),
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      inicial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                GestureDetector(
+                  onTap: _cambiarFoto,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      JugadorAvatar(
+                        nombre: nombre,
+                        fotoPath: jugador?.fotoPath,
+                        size: 72,
+                        borderRadius: 18,
+                        showBorder: true,
                       ),
-                    ),
+                      Positioned(
+                        right: -4,
+                        bottom: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.15),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.camera_alt_rounded,
+                            size: 16,
+                            color: color,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -634,7 +671,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
               ),
               const SizedBox(height: 10),
               ..._pendientes.map((p) {
-                final fecha = DateFormat('dd/MM/yyyy').format(p.fecha);
+                final fecha = formatFecha(p.fecha);
                 final lugar = p.recinto?.trim().isNotEmpty == true
                     ? ' · ${p.recinto}'
                     : '';
@@ -664,6 +701,31 @@ class _HistorialScreenState extends State<HistorialScreen> {
                   ),
                 );
               }),
+              if (_pendientes.length > 1) ...[
+                Divider(color: Colors.orange.shade200, height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Total pendiente',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      formatMoney(_jugador?.saldoAcumulado ?? 0),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.orange.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -770,13 +832,12 @@ class _HistorialScreenState extends State<HistorialScreen> {
 
   Widget _buildMovimientoCard(SaldoHistorico h, {required bool esUltimo}) {
     final tipo = _tipoDe(h);
-    final fecha = DateFormat('dd/MM · HH:mm').format(h.fecha);
+    final fecha = formatMesDiaHora(h.fecha);
     final delta = h.abono > 0 && h.cargoPartido == 0
         ? h.abono
         : h.cargoPartido > 0 && h.abono == 0
             ? h.cargoPartido
             : 0.0;
-    final esIngreso = h.abono > 0 && h.cargoPartido == 0;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(12, 0, 12, esUltimo ? 4 : 0),
@@ -863,13 +924,11 @@ class _HistorialScreenState extends State<HistorialScreen> {
                           ),
                           if (delta != 0)
                             Text(
-                              '${esIngreso ? '-' : '+'}${formatMoney(delta)}',
+                              formatMoney(delta),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
-                                color: esIngreso
-                                    ? Colors.green.shade700
-                                    : Colors.red.shade700,
+                                color: tipo.color,
                               ),
                             ),
                         ],
