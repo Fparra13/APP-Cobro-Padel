@@ -13,6 +13,7 @@ import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../repositories/jugador_repository.dart';
 import '../repositories/partido_repository.dart';
+import '../services/calculation_service.dart';
 import '../services/mensaje_cobro_service.dart';
 import '../services/preferences_service.dart';
 import '../services/share_service.dart';
@@ -131,28 +132,65 @@ class PdfService {
       );
     }
 
+    final titular = await _prefs.titularNombre;
+    final banco = await _prefs.bancoNombre;
+    final cuenta = await _prefs.cuentaNumero;
+    final hayDeudores = desglose.any((d) => d.saldoRestante > 0);
+
     final pdf = pw.Document();
+    final ordenados = List<DesgloseJugador>.from(desglose)
+      ..sort((a, b) {
+        int prio(DesgloseJugador d) {
+          if (d.saldoRestante > 0) return 0;
+          if (d.pagoParcial) return 1;
+          return 2;
+        }
+        final cmp = prio(a).compareTo(prio(b));
+        if (cmp != 0) return cmp;
+        return a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase());
+      });
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 44),
         build: (context) => [
-          ..._encabezadoPartido(completo.partido),
-          pw.SizedBox(height: 4),
+          ..._encabezadoPartido(completo.partido, titulo: 'Informe del partido'),
+          pw.SizedBox(height: 6),
           pw.Text(
-            _pdf('Detalle de cobros por jugador e item'),
-            style: pw.TextStyle(fontSize: 12, color: PdfColors.grey700),
+            _pdf('Generado: ${formatFechaHora(DateTime.now())}'),
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
           ),
           pw.SizedBox(height: 16),
-          if (desglose.isEmpty)
-            pw.Text(_pdf('Sin jugadores asistentes en este partido'))
-          else
-            ...desglose.expand(
+          ..._resumenGastosPartido(completo, desglose.length),
+          pw.SizedBox(height: 18),
+          if (ordenados.isNotEmpty) ...[
+            _tituloSeccion('Resumen por jugador'),
+            pw.SizedBox(height: 8),
+            _tablaResumenJugadores(ordenados),
+            pw.SizedBox(height: 20),
+            _tituloSeccion('Detalle por jugador'),
+            pw.SizedBox(height: 4),
+            pw.Text(
+              _pdf(
+                'Cada bloque muestra: items del partido, deuda anterior, '
+                'total a pagar, abono y saldo pendiente.',
+              ),
+              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+            ),
+            pw.SizedBox(height: 10),
+            ...ordenados.expand(
               (d) => _seccionJugador(
                 d,
                 deudasAnteriores: deudasPorJugador[d.jugadorId] ?? [],
               ),
             ),
+          ] else
+            pw.Text(_pdf('Sin jugadores asistentes en este partido')),
+          if (hayDeudores && titular.isNotEmpty) ...[
+            pw.SizedBox(height: 8),
+            _bloqueTransferencia(titular, banco, cuenta),
+          ],
         ],
       ),
     );
@@ -190,40 +228,14 @@ class PdfService {
               _pdf('Hola ${desglose.nombre}!'),
               style: const pw.TextStyle(fontSize: 14),
             ),
-            pw.SizedBox(height: 20),
-            ..._bloqueDeudaAnteriorPdf(desglose.saldoAnterior, deudasAnteriores),
-            pw.Text(
-              _pdf('Detalle de este partido'),
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13),
-            ),
-            pw.SizedBox(height: 8),
-            _tablaItems(desglose.lineas),
-            pw.SizedBox(height: 12),
-            _filaTotal('Subtotal partido', desglose.totalPartido, bold: true),
-            pw.SizedBox(height: 8),
-            if (desglose.saldoAnterior > 0)
-              _filaTotal('Total con deuda anterior', desglose.totalDebido),
-            pw.Divider(thickness: 1),
-            pw.SizedBox(height: 8),
-            if (desglose.montoPagado > 0)
-              _filaTotal('Pagaste', desglose.montoPagado, color: PdfColors.green800),
-            pw.SizedBox(height: 4),
-            pw.Text(
-              _pdf(
-                desglose.pagado
-                    ? 'Estado: PAGADO'
-                    : desglose.pagoParcial
-                        ? 'Saldo pendiente: ${_fmt(desglose.saldoRestante)}'
-                        : 'Total a pagar: ${_fmt(desglose.saldoRestante)}',
-              ),
-              style: pw.TextStyle(
-                fontSize: 14,
-                fontWeight: pw.FontWeight.bold,
-                color: desglose.pagado ? PdfColors.green800 : PdfColors.red800,
-              ),
+            pw.SizedBox(height: 16),
+            ..._cuentaJugador(
+              desglose,
+              deudasAnteriores: deudasAnteriores,
+              compacto: false,
             ),
             if (titular.isNotEmpty) ...[
-              pw.SizedBox(height: 24),
+              pw.SizedBox(height: 20),
               _bloqueTransferencia(titular, banco, cuenta),
             ],
           ],
@@ -281,68 +293,394 @@ class PdfService {
     DesgloseJugador d, {
     List<DeudaPartidoAnterior> deudasAnteriores = const [],
   }) {
-    final estado = d.pagado
-        ? 'Pagado'
-        : d.pagoParcial
-            ? 'Pago parcial'
-            : 'Debe';
+    final estado = _estadoJugadorPdf(d);
 
     return [
       pw.Container(
-        padding: const pw.EdgeInsets.all(10),
         decoration: pw.BoxDecoration(
-          color: PdfColors.grey100,
-          borderRadius: pw.BorderRadius.circular(6),
+          border: pw.Border.all(color: PdfColors.grey300),
+          borderRadius: pw.BorderRadius.circular(8),
         ),
-        child: pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
           children: [
-            pw.Text(
-              _pdf(d.nombre),
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13),
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: pw.BoxDecoration(
+                color: estado.color,
+                borderRadius: const pw.BorderRadius.only(
+                  topLeft: pw.Radius.circular(7),
+                  topRight: pw.Radius.circular(7),
+                ),
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    _pdf(d.nombre),
+                    style: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 13,
+                      color: PdfColors.white,
+                    ),
+                  ),
+                  pw.Text(
+                    _pdf(estado.etiqueta),
+                    style: pw.TextStyle(
+                      fontWeight: pw.FontWeight.bold,
+                      fontSize: 11,
+                      color: PdfColors.white,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            pw.Text(
-              _pdf(estado),
-              style: pw.TextStyle(
-                fontWeight: pw.FontWeight.bold,
-                fontSize: 11,
-                color: d.pagado ? PdfColors.green800 : PdfColors.red800,
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(12),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                children: _cuentaJugador(
+                  d,
+                  deudasAnteriores: deudasAnteriores,
+                  compacto: true,
+                ),
               ),
             ),
           ],
         ),
       ),
-      pw.SizedBox(height: 6),
-      ..._bloqueSaldoAnteriorPdf(d.saldoAnterior, deudasAnteriores),
-      pw.SizedBox(height: 4),
-      pw.Text(
-        _pdf('Items cobrados'),
-        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-      ),
-      pw.SizedBox(height: 4),
-      _tablaItems(d.lineas),
-      pw.SizedBox(height: 6),
-      _filaTotal('Cancha/pelotas', d.costoCanchaPelotas),
-      if (d.costoExtras > 0)
-        _filaTotal('Extras', d.costoExtras),
-      if (d.saldoFavorAplicado > 0)
+      pw.SizedBox(height: 14),
+    ];
+  }
+
+  /// Bloque contable claro: partido → deuda anterior → total → abono → pendiente.
+  List<pw.Widget> _cuentaJugador(
+    DesgloseJugador d, {
+    List<DeudaPartidoAnterior> deudasAnteriores = const [],
+    required bool compacto,
+  }) {
+    final widgets = <pw.Widget>[];
+
+    if (!compacto) {
+      widgets.add(
+        pw.Text(
+          _pdf('Detalle de este partido'),
+          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
+        ),
+      );
+      widgets.add(pw.SizedBox(height: 6));
+    }
+
+    widgets.add(_tablaItems(d.lineas));
+    widgets.add(pw.SizedBox(height: 8));
+    widgets.add(_filaTotal('Subtotal partido', d.totalPartido, bold: true));
+
+    if (d.saldoAnterior != 0) {
+      widgets.add(pw.SizedBox(height: 6));
+      if (d.saldoAnterior > 0) {
+        widgets.add(
+          _filaTotal('Deuda anterior', d.saldoAnterior, color: PdfColors.orange800),
+        );
+        if (deudasAnteriores.isNotEmpty) {
+          for (final deuda in deudasAnteriores) {
+            widgets.add(
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(left: 12, top: 2),
+                child: pw.Text(
+                  _pdf(
+                    '  - ${_lineaPartido(deuda.fecha, deuda.recinto)}: '
+                    '${_fmt(deuda.montoPendiente)}',
+                  ),
+                  style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        widgets.add(
+          _filaTotal(
+            'Saldo a favor anterior',
+            -d.saldoAnterior,
+            color: PdfColors.blue800,
+          ),
+        );
+      }
+    }
+
+    if (d.saldoFavorAplicado > 0) {
+      widgets.add(
         _filaTotal(
-          'Saldo a favor aplicado',
+          'Descuento saldo a favor',
           -d.saldoFavorAplicado,
           color: PdfColors.blue800,
         ),
-      if (d.montoPagado > 0)
-        _filaTotal('Pago', d.montoPagado, color: PdfColors.green800),
-      _filaTotal(
-        d.pagado ? 'Estado' : 'Total a transferir',
-        d.pagado
-            ? (d.generaSaldoAFavor ? -d.saldoRestante : 0)
-            : d.totalATransferir,
-        bold: true,
-        color: d.pagado ? PdfColors.green800 : PdfColors.red800,
+      );
+    }
+
+    widgets.add(pw.SizedBox(height: 4));
+    widgets.add(
+      pw.Divider(color: PdfColors.grey400, thickness: 0.5),
+    );
+    widgets.add(pw.SizedBox(height: 4));
+
+    final totalAPagar = d.totalDebido > 0 ? d.totalDebido : 0.0;
+    widgets.add(
+      _filaTotal('Total a pagar', totalAPagar, bold: true),
+    );
+    if (d.totalDebido <= 0 && d.saldoAnterior < 0) {
+      widgets.add(
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(top: 2),
+          child: pw.Text(
+            _pdf('El saldo a favor anterior cubre este partido.'),
+            style: const pw.TextStyle(fontSize: 9, color: PdfColors.blue800),
+          ),
+        ),
+      );
+    }
+
+    if (d.montoPagado > 0) {
+      widgets.add(
+        _filaTotal('Abono / pago', -d.montoPagado, color: PdfColors.green800),
+      );
+    }
+
+    widgets.add(pw.SizedBox(height: 6));
+    widgets.add(_filaResultadoFinal(d));
+
+    return widgets;
+  }
+
+  pw.Widget _filaResultadoFinal(DesgloseJugador d) {
+    final estado = _estadoJugadorPdf(d);
+    return pw.Container(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: pw.BoxDecoration(
+        color: estado.color,
+        borderRadius: pw.BorderRadius.circular(6),
       ),
-      pw.SizedBox(height: 18),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(
+            _pdf(estado.tituloResultado),
+            style: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 11,
+              color: PdfColors.white,
+            ),
+          ),
+          pw.Text(
+            _pdf(estado.montoResultado),
+            style: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 12,
+              color: PdfColors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  ({String etiqueta, String tituloResultado, String montoResultado, PdfColor color})
+      _estadoJugadorPdf(DesgloseJugador d) {
+    if (d.saldoRestante > 0) {
+      return (
+        etiqueta: d.pagoParcial ? 'Abono parcial' : 'Debe',
+        tituloResultado: 'PENDIENTE',
+        montoResultado: _fmt(d.saldoRestante),
+        color: PdfColors.red800,
+      );
+    }
+    if (d.saldoRestante < 0) {
+      return (
+        etiqueta: 'Saldo a favor',
+        tituloResultado: 'SALDO A FAVOR',
+        montoResultado: _fmt(-d.saldoRestante),
+        color: PdfColors.blue800,
+      );
+    }
+    return (
+      etiqueta: 'Al dia',
+      tituloResultado: 'AL DIA',
+      montoResultado: d.montoPagado > 0 ? 'Pagado ${_fmt(d.montoPagado)}' : 'Sin deuda',
+      color: PdfColors.green800,
+    );
+  }
+
+  pw.Widget _tituloSeccion(String titulo) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: const pw.BoxDecoration(
+        color: PdfColors.green50,
+        border: pw.Border(
+          left: pw.BorderSide(color: PdfColors.green800, width: 3),
+        ),
+      ),
+      child: pw.Text(
+        _pdf(titulo),
+        style: pw.TextStyle(
+          fontWeight: pw.FontWeight.bold,
+          fontSize: 12,
+          color: PdfColors.green900,
+        ),
+      ),
+    );
+  }
+
+  List<pw.Widget> _resumenGastosPartido(
+    PartidoCompleto completo,
+    int nAsistentes,
+  ) {
+    final p = completo.partido;
+    final filas = <List<String>>[];
+    var totalGastos = 0.0;
+
+    if (p.costoCancha > 0) {
+      totalGastos += p.costoCancha;
+      final unit = nAsistentes > 0
+          ? CalculationService.prorrateoCancha(
+              costoCancha: p.costoCancha,
+              cantidadAsistentes: nAsistentes,
+            )
+          : 0.0;
+      filas.add([
+        'Cancha',
+        _fmt(p.costoCancha),
+        nAsistentes > 0
+            ? 'Entre $nAsistentes = ${_fmt(unit)} c/u'
+            : 'Sin asistentes',
+      ]);
+    }
+
+    if (p.costoPelotas > 0) {
+      totalGastos += p.costoPelotas;
+      final unit = nAsistentes > 0
+          ? CalculationService.prorrateoPelotas(
+              costoPelotas: p.costoPelotas,
+              cantidadAsistentes: nAsistentes,
+            )
+          : 0.0;
+      filas.add([
+        'Pelotas',
+        _fmt(p.costoPelotas),
+        nAsistentes > 0
+            ? 'Entre $nAsistentes = ${_fmt(unit)} c/u'
+            : 'Sin asistentes',
+      ]);
+    }
+
+    for (final cv in completo.costosVariables) {
+      if (cv.montoTotal <= 0) continue;
+      totalGastos += cv.montoTotal;
+      final nAsignados =
+          (completo.asignacionesPorCosto[cv.id] ?? []).length;
+      filas.add([
+        _pdf(cv.concepto),
+        _fmt(cv.montoTotal),
+        nAsignados > 0
+            ? 'Asignado a $nAsignados jugador${nAsignados == 1 ? '' : 'es'}'
+            : 'Sin asignar',
+      ]);
+    }
+
+    if (filas.isEmpty) {
+      return [
+        _tituloSeccion('Gastos del partido'),
+        pw.SizedBox(height: 8),
+        pw.Text(
+          _pdf('No hay gastos registrados en este partido.'),
+          style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+        ),
+      ];
+    }
+
+    return [
+      _tituloSeccion('Gastos del partido'),
+      pw.SizedBox(height: 4),
+      pw.Text(
+        _pdf(
+          nAsistentes > 0
+              ? '$nAsistentes jugador${nAsistentes == 1 ? '' : 'es'} asistieron. '
+                  'Cancha y pelotas se reparten en partes iguales.'
+              : 'Sin asistentes registrados.',
+        ),
+        style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
+      ),
+      pw.SizedBox(height: 8),
+      pw.TableHelper.fromTextArray(
+        headers: ['Concepto', 'Total pagado', 'Reparto'],
+        data: filas,
+        headerStyle: pw.TextStyle(
+          fontWeight: pw.FontWeight.bold,
+          fontSize: 10,
+          color: PdfColors.white,
+        ),
+        headerDecoration: const pw.BoxDecoration(color: PdfColors.green800),
+        cellStyle: const pw.TextStyle(fontSize: 10),
+        cellAlignment: pw.Alignment.centerLeft,
+        columnWidths: {
+          0: const pw.FlexColumnWidth(1.4),
+          1: const pw.FlexColumnWidth(1.2),
+          2: const pw.FlexColumnWidth(2.4),
+        },
+      ),
+      pw.SizedBox(height: 6),
+      _filaTotal('Total gastos del partido', totalGastos, bold: true),
     ];
+  }
+
+  pw.Widget _tablaResumenJugadores(List<DesgloseJugador> jugadores) {
+    return pw.TableHelper.fromTextArray(
+      headers: [
+        'Jugador',
+        'Partido',
+        'Deuda ant.',
+        'Abono',
+        'Pendiente',
+        'Estado',
+      ],
+      data: jugadores.map((d) {
+        final estado = _estadoJugadorPdf(d);
+        final deudaAnt = d.saldoAnterior > 0
+            ? _fmt(d.saldoAnterior)
+            : d.saldoAnterior < 0
+                ? 'Favor ${_fmt(-d.saldoAnterior)}'
+                : '-';
+        final pendiente = d.saldoRestante > 0
+            ? _fmt(d.saldoRestante)
+            : d.saldoRestante < 0
+                ? 'Favor ${_fmt(-d.saldoRestante)}'
+                : '-';
+        return [
+          _pdf(d.nombre),
+          _fmt(d.totalPartido),
+          deudaAnt,
+          d.montoPagado > 0 ? _fmt(d.montoPagado) : '-',
+          pendiente,
+          estado.etiqueta,
+        ];
+      }).toList(),
+      headerStyle: pw.TextStyle(
+        fontWeight: pw.FontWeight.bold,
+        fontSize: 9,
+        color: PdfColors.white,
+      ),
+      headerDecoration: const pw.BoxDecoration(color: PdfColors.green800),
+      cellStyle: const pw.TextStyle(fontSize: 9),
+      cellAlignment: pw.Alignment.centerLeft,
+      columnWidths: {
+        0: const pw.FlexColumnWidth(1.8),
+        1: const pw.FlexColumnWidth(1),
+        2: const pw.FlexColumnWidth(1),
+        3: const pw.FlexColumnWidth(0.9),
+        4: const pw.FlexColumnWidth(1),
+        5: const pw.FlexColumnWidth(0.9),
+      },
+    );
   }
 
   String _lineaPartido(DateTime fecha, String? recinto) {
@@ -369,59 +707,6 @@ class PdfService {
       ],
     ];
   }
-
-  List<pw.Widget> _bloqueSaldoAnteriorPdf(
-    double saldoAnterior,
-    List<DeudaPartidoAnterior> deudas,
-  ) {
-    if (saldoAnterior == 0) return [];
-
-    if (saldoAnterior < 0) {
-      return [
-        pw.Text(
-          _pdf('Saldo a favor anterior: ${_fmt(-saldoAnterior)}'),
-          style: pw.TextStyle(
-            fontWeight: pw.FontWeight.bold,
-            fontSize: 12,
-            color: PdfColors.blue800,
-          ),
-        ),
-        pw.SizedBox(height: 8),
-      ];
-    }
-
-    return [
-      pw.Text(
-        _pdf('Deuda anterior: ${_fmt(saldoAnterior)}'),
-        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
-      ),
-      if (deudas.isNotEmpty) ...[
-        pw.SizedBox(height: 4),
-        pw.Text(
-          _pdf('Partidos pendientes:'),
-          style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-        ),
-        ...deudas.map(
-          (d) => pw.Padding(
-            padding: const pw.EdgeInsets.only(top: 2),
-            child: pw.Text(
-              _pdf(
-                '- ${_lineaPartido(d.fecha, d.recinto)}: ${_fmt(d.montoPendiente)}',
-              ),
-              style: const pw.TextStyle(fontSize: 10),
-            ),
-          ),
-        ),
-      ],
-      pw.SizedBox(height: 8),
-    ];
-  }
-
-  List<pw.Widget> _bloqueDeudaAnteriorPdf(
-    double saldoAnterior,
-    List<DeudaPartidoAnterior> deudas,
-  ) =>
-      _bloqueSaldoAnteriorPdf(saldoAnterior, deudas);
 
   pw.Widget _tablaItems(List<({String concepto, double monto})> lineas) {
     if (lineas.isEmpty) {
