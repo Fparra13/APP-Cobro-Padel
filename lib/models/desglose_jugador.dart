@@ -7,6 +7,7 @@ import 'partido.dart';
 
 class DesgloseJugador {
   final int jugadorId;
+  final String? jugadorSupabaseId;
   final String nombre;
   final double saldoAnterior;
   final double cancha;
@@ -19,7 +20,8 @@ class DesgloseJugador {
   final bool pagado;
 
   const DesgloseJugador({
-    required this.jugadorId,
+    this.jugadorId = 0,
+    this.jugadorSupabaseId,
     required this.nombre,
     required this.saldoAnterior,
     required this.cancha,

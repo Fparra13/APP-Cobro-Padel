@@ -90,4 +90,32 @@ class Partido {
         cuposMax: (map['cupos_max'] as int?) ?? 4,
         createdAt: DateTime.parse(map['created_at'] as String),
       );
+
+  factory Partido.fromSupabaseMap(Map<String, dynamic> map) => Partido(
+        id: (map['id'] as num).toInt(),
+        fecha: DateTime.parse(map['fecha'] as String),
+        costoCancha: (map['costo_cancha'] as num?)?.toDouble() ?? 0,
+        costoPelotas: (map['costo_pelotas'] as num?)?.toDouble() ?? 0,
+        recinto: map['recinto'] as String?,
+        notas: map['notas'] as String?,
+        comprobanteCancha: map['comprobante_cancha_url'] as String?,
+        comprobantePelotas: map['comprobante_pelotas_url'] as String?,
+        estado: EstadoPartido.fromDb(map['estado'] as String?),
+        cuposMax: (map['cupos_max'] as int?) ?? 4,
+        createdAt: DateTime.parse(map['created_at'] as String),
+      );
+
+  Map<String, dynamic> toSupabaseMap({String? organizadorId}) => {
+        if (id != null) 'id': id,
+        'fecha': fecha.toIso8601String(),
+        'costo_cancha': costoCancha,
+        'costo_pelotas': costoPelotas,
+        'recinto': recinto,
+        'notas': notas,
+        'comprobante_cancha_url': comprobanteCancha,
+        'comprobante_pelotas_url': comprobantePelotas,
+        'estado': estado.dbValue,
+        'cupos_max': cuposMax,
+        if (organizadorId != null) 'organizador_id': organizadorId,
+      };
 }

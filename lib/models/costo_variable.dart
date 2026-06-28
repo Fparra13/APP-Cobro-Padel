@@ -13,6 +13,8 @@ class CostoVariable {
     this.comprobantePath,
   });
 
+  String? get comprobanteUrl => comprobantePath;
+
   Map<String, dynamic> toMap() => {
         'id': id,
         'partido_id': partidoId,
@@ -28,18 +30,29 @@ class CostoVariable {
         montoTotal: (map['monto_total'] as num).toDouble(),
         comprobantePath: map['comprobante_path'] as String?,
       );
+
+  factory CostoVariable.fromSupabaseMap(Map<String, dynamic> map) =>
+      CostoVariable(
+        id: (map['id'] as num).toInt(),
+        partidoId: (map['partido_id'] as num).toInt(),
+        concepto: map['concepto'] as String,
+        montoTotal: (map['monto_total'] as num).toDouble(),
+        comprobantePath: map['comprobante_url'] as String?,
+      );
 }
 
 class AsignacionCostoVariable {
   final int? id;
   final int costoVariableId;
   final int jugadorId;
+  final String? jugadorSupabaseId;
   final double monto;
 
   const AsignacionCostoVariable({
     this.id,
     required this.costoVariableId,
-    required this.jugadorId,
+    this.jugadorId = 0,
+    this.jugadorSupabaseId,
     required this.monto,
   });
 
@@ -55,6 +68,14 @@ class AsignacionCostoVariable {
         id: map['id'] as int?,
         costoVariableId: map['costo_variable_id'] as int,
         jugadorId: map['jugador_id'] as int,
+        monto: (map['monto'] as num).toDouble(),
+      );
+
+  factory AsignacionCostoVariable.fromSupabaseMap(Map<String, dynamic> map) =>
+      AsignacionCostoVariable(
+        id: (map['id'] as num?)?.toInt(),
+        costoVariableId: (map['costo_variable_id'] as num).toInt(),
+        jugadorSupabaseId: map['jugador_id'] as String,
         monto: (map['monto'] as num).toDouble(),
       );
 }
