@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/auth_service.dart';
+import 'core/supabase_config.dart';
+import 'screens/auth/login_screen.dart';
 import 'screens/backup_screen.dart';
 import 'screens/configuracion_screen.dart';
 import 'screens/historial_screen.dart';
@@ -18,6 +22,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es', null);
   await initializeDateFormatting('es_CL', null);
+  await SupabaseConfig.initialize();
   await NotificationService.instance.initialize(navKey: _navigatorKey);
   runApp(PadelCobroApp(navigatorKey: _navigatorKey));
 }
@@ -62,7 +67,7 @@ class PadelCobroApp extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      home: const MainShell(),
+      home: AuthGate(navigatorKey: navigatorKey),
       routes: {
         '/jugadores': (_) => const JugadoresScreen(),
         '/nuevo-partido': (_) => const NuevoPartidoScreen(),
@@ -97,6 +102,38 @@ class PadelCobroApp extends StatelessWidget {
           );
         }
         return null;
+      },
+    );
+  }
+}
+
+/// Redirige a LoginScreen o MainShell según la sesión de Supabase.
+class AuthGate extends StatelessWidget {
+  final GlobalKey<NavigatorState> navigatorKey;
+
+  const AuthGate({super.key, required this.navigatorKey});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!SupabaseConfig.isConfigured) {
+      return const LoginScreen();
+    }
+
+    return StreamBuilder<AuthState>(
+      stream: AuthService.instance.authStateChanges,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            snapshot.data == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final session = snapshot.data?.session;
+        if (session != null) {
+          return const MainShell();
+        }
+        return const LoginScreen();
       },
     );
   }
