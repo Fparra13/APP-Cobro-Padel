@@ -59,6 +59,7 @@ class EstadisticasRepository {
 
       stats.add(EstadisticasJugador(
         jugadorId: jugadorId,
+        jugadorKeyId: jugadorId.toString(),
         nombre: row['nombre'] as String,
         fotoPath: row['foto_path'] as String?,
         partidosJugados: row['partidos_jugados'] as int? ?? 0,

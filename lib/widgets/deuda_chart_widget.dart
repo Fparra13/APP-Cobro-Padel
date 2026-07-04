@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/matchpay_strings.dart';
 import '../repositories/partido_repository.dart';
 import '../utils/formatters.dart';
 import 'jugador_avatar.dart';
@@ -24,10 +25,11 @@ class _DeudaChartWidgetState extends State<DeudaChartWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final conDeuda = widget.resumenes.where((r) => r.saldoActual > 0).toList()
-      ..sort((a, b) => b.saldoActual.compareTo(a.saldoActual));
-    final alDia = widget.resumenes.where((r) => r.saldoActual <= 0).length;
-    final totalDeuda = conDeuda.fold(0.0, (s, r) => s + r.saldoActual);
+    final l10n = context.l10n;
+    final conDeuda = widget.resumenes.where((r) => r.tieneDeuda).toList()
+      ..sort((a, b) => b.deudaVisible.compareTo(a.deudaVisible));
+    final alDia = widget.resumenes.where((r) => !r.tieneDeuda).length;
+    final totalDeuda = conDeuda.fold(0.0, (s, r) => s + r.deudaVisible);
 
     if (conDeuda.isEmpty) {
       return _SeccionCard(
@@ -48,7 +50,7 @@ class _DeudaChartWidgetState extends State<DeudaChartWidget> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '¡Todos al día!',
+                    l10n.tr('debtChartAllUpToDate'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -56,7 +58,11 @@ class _DeudaChartWidgetState extends State<DeudaChartWidget> {
                     ),
                   ),
                   Text(
-                    '$alDia jugador${alDia == 1 ? '' : 'es'} sin deuda pendiente',
+                    alDia == 1
+                        ? l10n.tr('debtChartOnePlayerUpToDate',
+                            params: {'count': '$alDia'})
+                        : l10n.tr('debtChartPlayersUpToDate',
+                            params: {'count': '$alDia'}),
                     style: TextStyle(
                       color: Colors.grey.shade600,
                       fontSize: 13,
@@ -93,15 +99,21 @@ class _DeudaChartWidgetState extends State<DeudaChartWidget> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Por cobrar',
-                      style: TextStyle(
+                    Text(
+                      l10n.tr('debtChartToCollect'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
                     Text(
-                      '${conDeuda.length} jugador${conDeuda.length == 1 ? '' : 'es'} · Total ${formatMoney(totalDeuda)}',
+                      conDeuda.length == 1
+                          ? l10n.tr('debtChartOneDebtorLine',
+                              params: {'amount': formatMoney(totalDeuda)})
+                          : l10n.tr('debtChartDebtorsLine', params: {
+                              'count': '${conDeuda.length}',
+                              'amount': formatMoney(totalDeuda),
+                            }),
                       style: TextStyle(
                         color: Colors.red.shade700,
                         fontSize: 13,
@@ -115,7 +127,7 @@ class _DeudaChartWidgetState extends State<DeudaChartWidget> {
                 IconButton.filledTonal(
                   onPressed: widget.onRecordar,
                   icon: const Icon(Icons.chat_rounded, size: 20),
-                  tooltip: 'Recordar por WhatsApp',
+                  tooltip: l10n.tr('debtChartRemindPush'),
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.green.shade50,
                     foregroundColor: Colors.green.shade800,
@@ -165,7 +177,7 @@ class _DeudaChartWidgetState extends State<DeudaChartWidget> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          formatMoney(r.saldoActual),
+                          formatMoney(r.deudaVisible),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -204,8 +216,9 @@ class _DeudaChartWidgetState extends State<DeudaChartWidget> {
                 ),
                 label: Text(
                   _expandido
-                      ? 'Ver menos'
-                      : 'Ver ${conDeuda.length - 4} más',
+                      ? l10n.tr('debtChartShowLess')
+                      : l10n.tr('debtChartShowMore',
+                          params: {'count': '${conDeuda.length - 4}'}),
                 ),
               ),
             ),
@@ -278,6 +291,7 @@ class _DeudaTile extends StatelessWidget {
           JugadorAvatar(
             nombre: j.nombre,
             fotoPath: j.fotoPath,
+            fotoUrl: j.fotoUrl,
             size: 40,
             borderRadius: 12,
           ),
@@ -308,7 +322,7 @@ class _DeudaTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                formatMoney(resumen.saldoActual),
+                formatMoney(resumen.deudaVisible),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,

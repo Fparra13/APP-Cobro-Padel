@@ -5,6 +5,7 @@ import '../repositories/partido_repository.dart';
 
 class RankingJugador {
   final int jugadorId;
+  final String jugadorKeyId;
   final String nombre;
   final int partidosJugados;
   final int pagosAlDia;
@@ -15,6 +16,7 @@ class RankingJugador {
 
   const RankingJugador({
     required this.jugadorId,
+    this.jugadorKeyId = '',
     required this.nombre,
     required this.partidosJugados,
     required this.pagosAlDia,
@@ -72,6 +74,7 @@ class RankingRepository {
 
       rankings.add(RankingJugador(
         jugadorId: jugadorId,
+        jugadorKeyId: jugadorId.toString(),
         nombre: row['nombre'] as String,
         partidosJugados: row['partidos_jugados'] as int? ?? 0,
         pagosAlDia: row['pagos_al_dia'] as int? ?? 0,

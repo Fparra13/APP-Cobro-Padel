@@ -1,30 +1,27 @@
 import 'package:flutter/material.dart';
+import '../core/app_repositories.dart';
+import '../core/supabase_helpers.dart';
+import '../l10n/matchpay_strings.dart';
 import '../models/deuda_partido_anterior.dart';
 import '../models/jugador.dart';
 import '../models/saldo_historico.dart';
-import '../repositories/jugador_repository.dart';
-import '../repositories/partido_repository.dart';
-import '../repositories/saldo_repository.dart';
 import '../services/jugador_foto_service.dart';
 import '../services/recordatorio_service.dart';
-import '../services/share_service.dart';
+import '../services/supabase_storage_service.dart';
 import '../utils/formatters.dart';
+import '../utils/matchpay_context.dart';
 import '../widgets/jugador_avatar.dart';
 
 class HistorialScreen extends StatefulWidget {
-  final int jugadorId;
+  final String jugadorKey;
 
-  const HistorialScreen({super.key, required this.jugadorId});
+  const HistorialScreen({super.key, required this.jugadorKey});
 
   @override
   State<HistorialScreen> createState() => _HistorialScreenState();
 }
 
 class _HistorialScreenState extends State<HistorialScreen> {
-  final _saldoRepo = SaldoRepository();
-  final _jugadorRepo = JugadorRepository();
-  final _partidoRepo = PartidoRepository();
-  final _shareService = ShareService();
   final _recordatorioService = RecordatorioService();
   final _fotoService = JugadorFotoService.instance;
 
@@ -37,54 +34,65 @@ class _HistorialScreenState extends State<HistorialScreen> {
   double _totalCargos = 0;
   _FiltroHistorial _filtro = _FiltroHistorial.todos;
   bool _loading = true;
-
-  static const _meses = [
-    'Enero',
-    'Febrero',
-    'Marzo',
-    'Abril',
-    'Mayo',
-    'Junio',
-    'Julio',
-    'Agosto',
-    'Septiembre',
-    'Octubre',
-    'Noviembre',
-    'Diciembre',
-  ];
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
-    final jugador = await _jugadorRepo.getById(widget.jugadorId);
-    final historial = await _saldoRepo.getByJugador(widget.jugadorId);
-    final pendientes =
-        await _partidoRepo.getPartidosPendientesJugador(widget.jugadorId);
-    final resumen =
-        await _partidoRepo.getResumenPartidosJugador(widget.jugadorId);
+    try {
+      final repos = context.repos;
+      final data = await Future.wait([
+        repos.getJugador(widget.jugadorKey),
+        repos.getSaldosByJugador(widget.jugadorKey),
+        repos.getPartidosPendientesJugador(widget.jugadorKey),
+        repos.getResumenPartidosJugador(widget.jugadorKey),
+      ]);
 
-    final totalAbonos =
-        historial.fold(0.0, (s, h) => s + h.abono);
-    final totalCargos =
-        historial.fold(0.0, (s, h) => s + h.cargoPartido);
+      final jugador = data[0] as Jugador?;
+      final historial = data[1] as List<SaldoHistorico>;
+      final pendientes = data[2] as List<DeudaPartidoAnterior>;
+      final resumen =
+          data[3] as ({int partidosJugados, int partidosPagados, int partidosImpagos});
 
-    if (mounted) {
-      setState(() {
-        _jugador = jugador;
-        _historial = historial;
-        _pendientes = pendientes;
-        _partidosJugados = resumen.partidosJugados;
-        _partidosPagados = resumen.partidosPagados;
-        _totalAbonos = totalAbonos;
-        _totalCargos = totalCargos;
-        _loading = false;
-      });
+      if (jugador == null) {
+        throw Exception(
+          'Jugador no encontrado (id: ${widget.jugadorKey}). '
+          'Puede estar bloqueado por RLS en Supabase.',
+        );
+      }
+
+      final totalAbonos = historial.fold(0.0, (s, h) => s + h.abono);
+      final totalCargos = historial.fold(0.0, (s, h) => s + h.cargoPartido);
+
+      if (mounted) {
+        setState(() {
+          _jugador = jugador;
+          _historial = historial;
+          _pendientes = pendientes;
+          _partidosJugados = resumen.partidosJugados;
+          _partidosPagados = resumen.partidosPagados;
+          _totalAbonos = totalAbonos;
+          _totalCargos = totalCargos;
+          _loading = false;
+          _error = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = SupabaseHelpers.describeError(e);
+        });
+      }
     }
   }
 
@@ -124,14 +132,14 @@ class _HistorialScreenState extends State<HistorialScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.add_a_photo_outlined),
-              title: const Text('Elegir foto'),
+              title: Text(context.tr('pickPhoto')),
               onTap: () => Navigator.pop(ctx, 'elegir'),
             ),
             if (jugador.fotoPath != null)
               ListTile(
                 leading: Icon(Icons.delete_outline, color: Colors.red.shade700),
                 title: Text(
-                  'Quitar foto',
+                  context.tr('removePhoto'),
                   style: TextStyle(color: Colors.red.shade700),
                 ),
                 onTap: () => Navigator.pop(ctx, 'quitar'),
@@ -145,28 +153,51 @@ class _HistorialScreenState extends State<HistorialScreen> {
 
     if (opcion == 'quitar') {
       await _fotoService.delete(jugador.fotoPath);
-      await _jugadorRepo.update(jugador.copyWith(clearFoto: true));
-      _mostrarSnack('Foto eliminada');
+      if (context.repos.isCloud && jugador.fotoUrl != null) {
+        await SupabaseStorageService.instance.deleteAvatarPublicUrl(
+          jugador.fotoUrl,
+        );
+      }
+      if (!mounted) return;
+      await context.repos.updateJugador(jugador.copyWith(clearFoto: true));
+      if (!mounted) return;
+      _mostrarSnack(context.tr('photoRemoved'));
+      AppRepositories.notifyDataChanged();
       _load();
       return;
     }
 
-    final path = await _fotoService.pickAndSave(
+    final result = await _fotoService.pickSaveAndSync(
       context: context,
-      replacePath: jugador.fotoPath,
+      jugadorId: jugador.keyId,
+      replaceLocalPath: jugador.fotoPath,
+      replacePublicUrl: jugador.fotoUrl,
+      uploadToCloud: context.repos.isCloud,
     );
-    if (path == null || !mounted) return;
+    if (result == null || !mounted) return;
 
-    await _jugadorRepo.update(jugador.copyWith(fotoPath: path));
-    _mostrarSnack('Foto actualizada');
+    try {
+      await context.repos.updateJugador(
+        jugador.copyWith(
+          fotoPath: result.localPath,
+          fotoUrl: result.publicUrl,
+        ),
+      );
+    } catch (e) {
+      if (mounted) _mostrarSnack('$e', esError: true);
+      return;
+    }
+    if (!mounted) return;
+    _mostrarSnack(context.tr('photoUpdated'));
+    AppRepositories.notifyDataChanged();
     _load();
   }
 
-  String _etiquetaMes(String key) {
+  String _etiquetaMes(String key, BuildContext context) {
     final parts = key.split('-');
     final year = int.parse(parts[0]);
     final month = int.parse(parts[1]);
-    return '${_meses[month - 1]} $year';
+    return '${context.tr('month$month')} $year';
   }
 
   _MovimientoTipo _tipoDe(SaldoHistorico h) {
@@ -204,7 +235,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Registrar pago',
+                  context.tr('homeRegisterPaymentsTitle'),
                   style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -229,7 +260,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Deuda actual: ${formatMoney(saldo)}',
+                          context.tr(
+                            'currentDebt',
+                            params: {'amount': formatMoney(saldo)},
+                          ),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.red.shade800,
@@ -241,9 +275,15 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 ),
                 const SizedBox(height: 16),
                 SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: true, label: Text('Pago total')),
-                    ButtonSegment(value: false, label: Text('Abono')),
+                  segments: [
+                    ButtonSegment(
+                      value: true,
+                      label: Text(context.tr('homePayFull')),
+                    ),
+                    ButtonSegment(
+                      value: false,
+                      label: Text(context.tr('homePartialPayment')),
+                    ),
                   ],
                   selected: {pagoTotal},
                   onSelectionChanged: (s) {
@@ -260,11 +300,13 @@ class _HistorialScreenState extends State<HistorialScreen> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
-                      labelText: 'Monto del abono',
+                      labelText: context.tr('homePartialAmountLabel'),
                       prefixIcon: const Icon(Icons.payments_outlined),
-                      helperText:
-                          'Puede ser mayor a la deuda para dejar saldo a favor',
-                      suffixText: 'debe ${formatMoney(saldo)}',
+                      helperText: context.tr('homePartialAmountHelper'),
+                      suffixText: context.tr(
+                        'homeOwesSuffix',
+                        params: {'amount': formatMoney(saldo)},
+                      ),
                     ),
                     autofocus: true,
                     inputFormatters: moneyInputFormatters,
@@ -276,8 +318,11 @@ class _HistorialScreenState extends State<HistorialScreen> {
                   icon: const Icon(Icons.check_circle_outline),
                   label: Text(
                     pagoTotal
-                        ? 'Confirmar ${formatMoney(saldo)}'
-                        : 'Confirmar abono',
+                        ? context.tr(
+                            'confirmAmount',
+                            params: {'amount': formatMoney(saldo)},
+                          )
+                        : context.tr('confirmPartialPayment'),
                   ),
                 ),
               ],
@@ -294,18 +339,18 @@ class _HistorialScreenState extends State<HistorialScreen> {
         : roundMoney(parseMoney(montoCtrl.text)).toDouble();
 
     if (monto <= 0) {
-      _mostrarSnack('Ingresa un monto mayor a 0', esError: true);
+      _mostrarSnack(context.tr('errorAmountGreaterThanZero'), esError: true);
       return;
     }
 
     final concepto = monto > saldo
-        ? 'Abono con saldo a favor'
+        ? context.tr('paymentConceptWithCredit')
         : pagoTotal
-            ? 'Abono total'
-            : 'Abono parcial';
+            ? context.tr('paymentConceptFull')
+            : context.tr('paymentConceptPartial');
 
-    await _partidoRepo.registrarAbono(
-      jugadorId: jugador.id!,
+    await context.repos.registrarAbono(
+      jugadorId: jugador.keyId,
       monto: monto,
       concepto: concepto,
     );
@@ -313,45 +358,52 @@ class _HistorialScreenState extends State<HistorialScreen> {
     if (mounted) {
       final excedente = monto > saldo ? monto - saldo : 0.0;
       final msg = excedente > 0
-          ? 'Abono ${formatMoney(monto)} · Saldo a favor: ${formatMoney(excedente)}'
+          ? context.tr(
+              'snackPartialWithCredit',
+              params: {
+                'amount': formatMoney(monto),
+                'credit': formatMoney(excedente),
+              },
+            )
           : monto >= saldo
-              ? 'Deuda saldada'
-              : 'Abono ${formatMoney(monto)} · Queda ${formatMoney(saldo - monto)}';
+              ? context.tr('snackDebtClearedShort')
+              : context.tr(
+                  'snackPartialRemainingShort',
+                  params: {
+                    'amount': formatMoney(monto),
+                    'remaining': formatMoney(saldo - monto),
+                  },
+                );
       _mostrarSnack(msg);
       _load();
     }
   }
 
-  Future<void> _enviarWhatsApp() async {
+  Future<void> _enviarNotificacionPush() async {
     final jugador = _jugador;
     if (jugador == null) return;
 
-    final tel = jugador.telefono?.trim() ?? '';
-    if (tel.isEmpty) {
-      _mostrarSnack('Este jugador no tiene WhatsApp registrado', esError: true);
+    if (jugador.contactEmail == null) {
+      _mostrarSnack(context.tr('playerNoEmail'), esError: true);
       return;
     }
 
     try {
-      final mensaje = jugador.saldoAcumulado > 0
-          ? await _recordatorioService.construirMensaje(
-              jugador: jugador,
-              saldo: jugador.saldoAcumulado,
-              partidosPendientes: _pendientes,
-            )
-          : jugador.saldoAcumulado < 0
-              ? 'Hola ${jugador.nombre}!\n\n'
-                  'Tienes saldo a favor de ${formatMoney(-jugador.saldoAcumulado)}. '
-                  'Se descontará en tu próximo partido. 🎾'
-              : 'Hola ${jugador.nombre}!\n\n¡Estás al día con los pagos! 🎾';
-
-      await _shareService.compartirWhatsApp(
-        mensaje: mensaje,
-        telefono: tel,
+      await _recordatorioService.enviarIndividual(
+        jugador: jugador,
+        saldo: jugador.saldoAcumulado,
       );
-    } catch (_) {
       if (mounted) {
-        _mostrarSnack('No se pudo abrir WhatsApp', esError: true);
+        _mostrarSnack(
+          context.tr('pushSentTo', params: {'name': jugador.nombre}),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _mostrarSnack(
+          context.tr('pushSendFailed', params: {'error': '$e'}),
+          esError: true,
+        );
       }
     }
   }
@@ -377,11 +429,13 @@ class _HistorialScreenState extends State<HistorialScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ficha del jugador'),
+        title: Text(context.tr('homePlayerSheetTitle')),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
+          : _error != null
+              ? _buildErrorState()
+              : RefreshIndicator(
               onRefresh: _load,
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -399,13 +453,13 @@ class _HistorialScreenState extends State<HistorialScreen> {
                     )
                   else
                     ...mesesOrdenados.expand((mesKey) {
-                      final items = _historialPorMes[mesKey]!;
+                      final items = _historialPorMes[mesKey] ?? const [];
                       return [
                         SliverToBoxAdapter(
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                             child: Text(
-                              _etiquetaMes(mesKey),
+                              _etiquetaMes(mesKey, context),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
@@ -429,6 +483,50 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    final error = _error ?? context.tr('unknownError');
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_off_rounded, size: 56, color: Colors.red.shade400),
+            const SizedBox(height: 16),
+            Text(
+              context.tr('playerSheetLoadFailed'),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: SelectableText(
+                error,
+                style: TextStyle(fontSize: 13, color: Colors.red.shade900),
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh),
+              label: Text(context.tr('retry')),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -479,6 +577,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                       JugadorAvatar(
                         nombre: nombre,
                         fotoPath: jugador?.fotoPath,
+                        fotoUrl: jugador?.fotoUrl,
                         size: 72,
                         borderRadius: 18,
                         showBorder: true,
@@ -529,7 +628,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                           if (jugador?.activo ?? false)
                             _ChipFicha(
                               icon: Icons.star_rounded,
-                              label: 'Habitual',
+                              label: context.tr('statusRegular'),
                               color: Colors.amber.shade300,
                             ),
                           _ChipFicha(
@@ -539,16 +638,16 @@ class _HistorialScreenState extends State<HistorialScreen> {
                                     ? Icons.check_circle_rounded
                                     : Icons.warning_amber_rounded,
                             label: conFavor
-                                ? 'Saldo a favor'
+                                ? context.tr('statusCredit')
                                 : alDia
-                                    ? 'Al día'
-                                    : 'Con deuda',
+                                    ? context.tr('statusUpToDate')
+                                    : context.tr('withDebt'),
                             color: Colors.white,
                           ),
-                          if (jugador?.telefono?.trim().isNotEmpty ?? false)
+                          if (jugador?.contactEmail case final email?)
                             _ChipFicha(
-                              icon: Icons.phone_android,
-                              label: 'WhatsApp',
+                              icon: Icons.email_outlined,
+                              label: email,
                               color: Colors.white,
                             ),
                         ],
@@ -565,10 +664,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
               children: [
                 Text(
                   conFavor
-                      ? 'Saldo a favor'
+                      ? context.tr('statusCredit')
                       : alDia
-                          ? 'Saldo actual'
-                          : 'Deuda pendiente',
+                          ? context.tr('currentBalance')
+                          : context.tr('pendingDebtLabel'),
                   style: TextStyle(
                     fontSize: 13,
                     color: Colors.grey.shade600,
@@ -586,7 +685,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 if (!alDia && _pendientes.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Text(
-                    '${_pendientes.length} partido${_pendientes.length == 1 ? '' : 's'} sin pagar',
+                    context.tr(
+                      'unpaidMatchesCount',
+                      params: {'count': '${_pendientes.length}'},
+                    ),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.orange.shade800,
@@ -608,10 +710,13 @@ class _HistorialScreenState extends State<HistorialScreen> {
         children: [
           Expanded(
             child: _StatCard(
-              icon: Icons.sports_tennis_rounded,
-              label: 'Partidos',
+              icon: context.readSettings().sport.icon,
+              label: context.tr('tabMatches'),
               value: '$_partidosJugados',
-              subtitulo: '$_partidosPagados pagados',
+              subtitulo: context.tr(
+                'paidCountLabel',
+                params: {'count': '$_partidosPagados'},
+              ),
               color: Colors.blue,
             ),
           ),
@@ -619,9 +724,9 @@ class _HistorialScreenState extends State<HistorialScreen> {
           Expanded(
             child: _StatCard(
               icon: Icons.arrow_upward_rounded,
-              label: 'Cargos',
+              label: context.tr('movementCharge'),
               value: formatMoney(_totalCargos),
-              subtitulo: 'Total generado',
+              subtitulo: context.tr('totalGenerated'),
               color: Colors.red,
             ),
           ),
@@ -629,9 +734,13 @@ class _HistorialScreenState extends State<HistorialScreen> {
           Expanded(
             child: _StatCard(
               icon: Icons.arrow_downward_rounded,
-              label: 'Abonos',
+              label: context.tr('filterAbonos'),
               value: formatMoney(_totalAbonos),
-              subtitulo: conFavor ? 'Crédito disponible' : alDia ? 'Al día' : 'Pagado',
+              subtitulo: conFavor
+                  ? context.tr('creditAvailable')
+                  : alDia
+                      ? context.tr('statusUpToDate')
+                      : context.tr('paidLabel'),
               color: Colors.green,
             ),
           ),
@@ -661,7 +770,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                       color: Colors.orange.shade800, size: 22),
                   const SizedBox(width: 8),
                   Text(
-                    'Partidos pendientes',
+                    context.tr('pendingMatchesTitle'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.orange.shade900,
@@ -701,13 +810,13 @@ class _HistorialScreenState extends State<HistorialScreen> {
                   ),
                 );
               }),
-              if (_pendientes.length > 1) ...[
+              if (_pendientes.isNotEmpty) ...[
                 Divider(color: Colors.orange.shade200, height: 16),
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        'Total pendiente',
+                        context.tr('totalPending'),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -716,7 +825,12 @@ class _HistorialScreenState extends State<HistorialScreen> {
                       ),
                     ),
                     Text(
-                      formatMoney(_jugador?.saldoAcumulado ?? 0),
+                      formatMoney(
+                        _pendientes.fold<double>(
+                          0,
+                          (s, p) => s + p.montoPendiente,
+                        ),
+                      ),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -734,7 +848,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
   }
 
   Widget _buildAcciones(bool alDia, bool conFavor) {
-    final tieneWhatsApp = _jugador?.telefono?.trim().isNotEmpty ?? false;
+    final tieneEmail = _jugador?.contactEmail != null;
     final puedePagar = !alDia && !conFavor;
 
     return Padding(
@@ -746,16 +860,20 @@ class _HistorialScreenState extends State<HistorialScreen> {
               child: FilledButton.icon(
                 onPressed: _registrarPago,
                 icon: const Icon(Icons.payments_rounded),
-                label: const Text('Registrar pago'),
+                label: Text(context.tr('homeRegisterPaymentsTitle')),
               ),
             ),
-          if (puedePagar && tieneWhatsApp) const SizedBox(width: 8),
-          if (tieneWhatsApp)
+          if (puedePagar && tieneEmail) const SizedBox(width: 8),
+          if (tieneEmail)
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: _enviarWhatsApp,
-                icon: const Icon(Icons.chat_rounded, color: Colors.green),
-                label: Text(puedePagar ? 'Recordar' : 'WhatsApp'),
+                onPressed: _enviarNotificacionPush,
+                icon: const Icon(Icons.notifications_active_outlined),
+                label: Text(
+                  puedePagar
+                      ? context.tr('remind')
+                      : context.tr('notify'),
+                ),
               ),
             ),
         ],
@@ -769,9 +887,14 @@ class _HistorialScreenState extends State<HistorialScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Historial de movimientos',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          Text(
+            context.tr('movementHistory'),
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.tr('movementsAutoHint').replaceAll('\n', ' '),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 10),
           SingleChildScrollView(
@@ -782,7 +905,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
-                    label: Text(f.label),
+                    label: Text(context.tr(f.labelKey)),
                     selected: selected,
                     onSelected: (_) => setState(() => _filtro = f),
                     avatar: Icon(
@@ -811,8 +934,8 @@ class _HistorialScreenState extends State<HistorialScreen> {
           const SizedBox(height: 14),
           Text(
             _filtro == _FiltroHistorial.todos
-                ? 'Sin movimientos aún'
-                : 'Sin movimientos de este tipo',
+                ? context.tr('noMovementsYet')
+                : context.tr('noMovementsOfType'),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -821,7 +944,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Los cargos de partidos y abonos\naparecerán aquí automáticamente.',
+            context.tr('movementsAutoHint'),
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           ),
@@ -830,166 +953,162 @@ class _HistorialScreenState extends State<HistorialScreen> {
     );
   }
 
+  String _etiquetaTipo(_MovimientoTipo tipo) {
+    return switch (tipo) {
+      _MovimientoTipo.abono => context.tr('movementTypePayment'),
+      _MovimientoTipo.cargo => context.tr('movementTypeCharge'),
+      _MovimientoTipo.mixto => context.tr('movementTypeBoth'),
+      _MovimientoTipo.otro => context.tr('historicalMovement'),
+    };
+  }
+
+  String _etiquetaSaldoFinal(double saldo) {
+    if (saldo > 0.005) return context.tr('movementBalanceDebt');
+    if (saldo < -0.005) return context.tr('movementBalanceCredit');
+    return context.tr('movementBalanceZero');
+  }
+
+  String _montoConSigno(double monto, {required bool esCargo}) {
+    final abs = formatMoney(monto.abs());
+    if (monto.abs() < 0.005) return formatMoney(0);
+    return esCargo ? '+$abs' : '−$abs';
+  }
+
   Widget _buildMovimientoCard(SaldoHistorico h, {required bool esUltimo}) {
     final tipo = _tipoDe(h);
     final fecha = formatMesDiaHora(h.fecha);
-    final delta = h.abono > 0 && h.cargoPartido == 0
-        ? h.abono
-        : h.cargoPartido > 0 && h.abono == 0
-            ? h.cargoPartido
-            : 0.0;
+    final titulo = context.l10n.translateConcept(h.concepto);
+    final neto = h.cargoPartido - h.abono;
+    final montoPrincipal = switch (tipo) {
+      _MovimientoTipo.cargo => _montoConSigno(h.cargoPartido, esCargo: true),
+      _MovimientoTipo.abono => _montoConSigno(h.abono, esCargo: false),
+      _MovimientoTipo.mixto => _montoConSigno(neto.abs(), esCargo: neto >= 0),
+      _MovimientoTipo.otro => formatMoney(h.saldoNuevo - h.saldoAnterior),
+    };
 
     return Padding(
       padding: EdgeInsets.fromLTRB(12, 0, 12, esUltimo ? 4 : 0),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              width: 28,
-              child: Column(
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: tipo.color.withValues(alpha: 0.25)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 12,
-                    height: 12,
+                    padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: tipo.color,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: tipo.color.withValues(alpha: 0.4),
-                          blurRadius: 4,
+                      color: tipo.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(tipo.icono, color: tipo.color, size: 22),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: tipo.color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _etiquetaTipo(tipo),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: tipo.color,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          titulo,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          fecha,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  if (!esUltimo)
-                    Expanded(
-                      child: Container(
-                        width: 2,
-                        color: Colors.grey.shade300,
-                      ),
+                  Text(
+                    montoPrincipal,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: tipo.color,
                     ),
+                  ),
                 ],
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: Colors.grey.shade200),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: tipo.color.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(tipo.icono, color: tipo.color, size: 22),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  h.concepto,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  fecha,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (delta != 0)
-                            Text(
-                              formatMoney(delta),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                                color: tipo.color,
-                              ),
-                            ),
-                        ],
+                child: Column(
+                  children: [
+                    if (h.saldoAnterior.abs() > 0.005)
+                      _MovimientoLinea(
+                        label: h.saldoAnterior < 0
+                            ? context.tr('movementCreditBefore')
+                            : context.tr('movementOwedBefore'),
+                        value: formatMoney(h.saldoAnterior.abs()),
                       ),
-                      if (h.cargoPartido > 0 && h.abono > 0) ...[
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          children: [
-                            _MontoBadge(
-                              icon: Icons.arrow_upward_rounded,
-                              label: 'Cargo',
-                              monto: h.cargoPartido,
-                              color: Colors.red,
-                            ),
-                            _MontoBadge(
-                              icon: Icons.arrow_downward_rounded,
-                              label: 'Abono',
-                              monto: h.abono,
-                              color: Colors.green,
-                            ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 10),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Saldo después',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                            Text(
-                              formatMoney(h.saldoNuevo),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: colorSaldo(h.saldoNuevo),
-                              ),
-                            ),
-                          ],
-                        ),
+                    if (h.cargoPartido > 0.005)
+                      _MovimientoLinea(
+                        label: context.tr('movementMatchCharge'),
+                        value: _montoConSigno(h.cargoPartido, esCargo: true),
+                        valueColor: Colors.red.shade700,
                       ),
-                    ],
-                  ),
+                    if (h.abono > 0.005)
+                      _MovimientoLinea(
+                        label: context.tr('movementPaidAmount'),
+                        value: _montoConSigno(h.abono, esCargo: false),
+                        valueColor: Colors.green.shade700,
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Divider(height: 1, color: Colors.grey.shade300),
+                    ),
+                    _MovimientoLinea(
+                      label: _etiquetaSaldoFinal(h.saldoNuevo),
+                      value: formatMoney(
+                        h.saldoNuevo.abs() < 0.005 ? 0 : h.saldoNuevo.abs(),
+                      ),
+                      valueColor: colorSaldo(h.saldoNuevo),
+                      enfatizado: true,
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -997,19 +1116,19 @@ class _HistorialScreenState extends State<HistorialScreen> {
 }
 
 enum _FiltroHistorial {
-  todos('Todos', Icons.list_alt_rounded),
-  cargos('Partidos', Icons.sports_tennis_rounded),
-  abonos('Abonos', Icons.savings_rounded);
+  todos('all', Icons.list_alt_rounded),
+  cargos('filterCharges', Icons.receipt_long_rounded),
+  abonos('filterPayments', Icons.savings_rounded);
 
-  final String label;
+  final String labelKey;
   final IconData icono;
 
-  const _FiltroHistorial(this.label, this.icono);
+  const _FiltroHistorial(this.labelKey, this.icono);
 }
 
 enum _MovimientoTipo {
   abono(Icons.savings_rounded, Color(0xFF2E7D32)),
-  cargo(Icons.sports_tennis_rounded, Color(0xFFC62828)),
+  cargo(Icons.receipt_long_rounded, Color(0xFFC62828)),
   mixto(Icons.swap_horiz_rounded, Color(0xFFEF6C00)),
   otro(Icons.receipt_rounded, Color(0xFF546E7A));
 
@@ -1114,39 +1233,36 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _MontoBadge extends StatelessWidget {
-  final IconData icon;
+class _MovimientoLinea extends StatelessWidget {
   final String label;
-  final double monto;
-  final MaterialColor color;
+  final String value;
+  final Color? valueColor;
+  final bool enfatizado;
 
-  const _MontoBadge({
-    required this.icon,
+  const _MovimientoLinea({
     required this.label,
-    required this.monto,
-    required this.color,
+    required this.value,
+    this.valueColor,
+    this.enfatizado = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.shade200),
-      ),
+    final style = TextStyle(
+      fontSize: enfatizado ? 13 : 12,
+      fontWeight: enfatizado ? FontWeight.bold : FontWeight.w500,
+      color: enfatizado ? Colors.grey.shade900 : Colors.grey.shade700,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color.shade700),
-          const SizedBox(width: 4),
+          Expanded(child: Text(label, style: style)),
           Text(
-            '$label: ${formatMoney(monto)}',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color.shade800,
+            value,
+            style: style.copyWith(
+              color: valueColor ?? style.color,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],

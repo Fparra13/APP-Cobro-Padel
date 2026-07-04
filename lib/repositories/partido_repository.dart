@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 
+import '../core/sport_type.dart';
 import '../database/database_helper.dart';
 import '../models/deuda_partido_anterior.dart';
 import '../models/costo_variable.dart';
@@ -38,6 +39,14 @@ class ResumenJugador {
     required this.partidosJugados,
     required this.totalPendiente,
   });
+
+  /// Saldo acumulado o pendiente en partidos (el mayor), para la planilla.
+  double get deudaVisible {
+    final v = saldoActual > totalPendiente ? saldoActual : totalPendiente;
+    return v > 0.005 ? v : 0;
+  }
+
+  bool get tieneDeuda => deudaVisible > 0.005;
 }
 
 class PartidoRepository {
@@ -78,13 +87,15 @@ class PartidoRepository {
   }
 
   Future<List<DeudaPartidoAnterior>> getPartidosPendientesJugador(
-    int jugadorId,
-  ) async {
-    await reconciliarDetallesJugador(jugadorId);
+    int jugadorId, {
+    bool reconciliar = false,
+  }) async {
+    if (reconciliar) await reconciliarDetallesJugador(jugadorId);
 
     final db = await _db.database;
     final rows = await db.rawQuery('''
-      SELECT p.id AS partido_id, p.fecha, p.recinto, dp.total, dp.monto_pagado
+      SELECT p.id AS partido_id, p.fecha, p.recinto, p.sport_type,
+             dp.total, dp.monto_pagado
       FROM detalles_partido dp
       JOIN partidos p ON p.id = dp.partido_id
       WHERE dp.jugador_id = ?
@@ -101,6 +112,7 @@ class PartidoRepository {
         fecha: DateTime.parse(r['fecha'] as String),
         recinto: r['recinto'] as String?,
         montoPendiente: (total - pagado).clamp(0.0, double.infinity),
+        sportType: SportType.fromDb(r['sport_type'] as String?),
       );
     }).where((d) => d.montoPendiente > 0).toList();
   }
@@ -108,18 +120,57 @@ class PartidoRepository {
   /// Jugadores con al menos un partido impago cuya fecha supera [diasMinimos].
   Future<List<ResumenJugador>> getDeudoresVencidos(int diasMinimos) async {
     final resumenes = await getResumenJugadores();
-    final vencidos = <ResumenJugador>[];
-    final ahora = DateTime.now();
+    final deudores = resumenes.where((r) => r.tieneDeuda).toList();
+    if (deudores.isEmpty) return [];
 
-    for (final r in resumenes) {
-      if (r.saldoActual <= 0) continue;
-      final pendientes = await getPartidosPendientesJugador(r.jugador.id!);
-      final impagoVencido = pendientes.any((p) {
-        final dias = ahora.difference(p.fecha).inDays;
-        return dias >= diasMinimos;
-      });
-      if (impagoVencido) vencidos.add(r);
+    final db = await _db.database;
+    final ids = deudores
+        .map((r) => r.jugador.id)
+        .whereType<int>()
+        .toList();
+    if (ids.isEmpty) return [];
+
+    final placeholders = List.filled(ids.length, '?').join(',');
+    final rows = await db.rawQuery('''
+      SELECT dp.jugador_id, p.id AS partido_id, p.fecha, p.recinto, p.sport_type,
+             dp.total, dp.monto_pagado
+      FROM detalles_partido dp
+      JOIN partidos p ON p.id = dp.partido_id
+      WHERE dp.jugador_id IN ($placeholders)
+        AND dp.asistio = 1
+        AND dp.pagado = 0
+      ORDER BY p.fecha ASC
+    ''', ids);
+
+    final pendientesPorJugador = <int, List<DeudaPartidoAnterior>>{
+      for (final id in ids) id: [],
+    };
+    for (final r in rows) {
+      final jid = r['jugador_id'] as int;
+      final total = (r['total'] as num).toDouble();
+      final pagado = (r['monto_pagado'] as num?)?.toDouble() ?? 0;
+      final monto = (total - pagado).clamp(0.0, double.infinity);
+      if (monto <= 0.005) continue;
+      pendientesPorJugador.putIfAbsent(jid, () => []).add(
+            DeudaPartidoAnterior(
+              partidoId: r['partido_id'] as int,
+              fecha: DateTime.parse(r['fecha'] as String),
+              recinto: r['recinto'] as String?,
+              montoPendiente: monto,
+              sportType: SportType.fromDb(r['sport_type'] as String?),
+            ),
+          );
     }
+
+    final ahora = DateTime.now();
+    final vencidos = deudores.where((r) {
+      final jid = r.jugador.id;
+      if (jid == null) return false;
+      final pendientes = pendientesPorJugador[jid] ?? [];
+      return pendientes.any(
+        (p) => ahora.difference(p.fecha).inDays >= diasMinimos,
+      );
+    }).toList();
 
     vencidos.sort(
       (a, b) => a.jugador.nombre.compareTo(b.jugador.nombre),
@@ -219,6 +270,18 @@ class PartidoRepository {
     );
   }
 
+  Future<List<PartidoCompleto>> getCompletosListaResumen(
+    List<int> partidoIds,
+  ) async {
+    if (partidoIds.isEmpty) return [];
+    final result = <PartidoCompleto>[];
+    for (final id in partidoIds) {
+      final completo = await getCompleto(id);
+      if (completo != null) result.add(completo);
+    }
+    return result;
+  }
+
   Future<List<DesgloseJugador>> getDesglose(int partidoId) async {
     final completo = await getCompleto(partidoId);
     if (completo == null) return [];
@@ -266,7 +329,7 @@ class PartidoRepository {
     }
 
     resumenes.sort(
-      (a, b) => b.saldoActual.compareTo(a.saldoActual),
+      (a, b) => b.deudaVisible.compareTo(a.deudaVisible),
     );
     return resumenes;
   }
@@ -313,6 +376,7 @@ class PartidoRepository {
               double montoTotal,
               List<int> jugadores,
               String? comprobantePath,
+              String? iconKey,
             })>
         costosVariables,
   }) async {
@@ -346,6 +410,7 @@ class PartidoRepository {
               double montoTotal,
               List<int> jugadores,
               String? comprobantePath,
+              String? iconKey,
             })>
         costosVariables,
     Map<int, double>? saldosAnterioresSnapshot,
@@ -373,6 +438,7 @@ class PartidoRepository {
           'concepto': cv.concepto,
           'monto_total': cv.montoTotal,
           'comprobante_path': cv.comprobantePath,
+          if (cv.iconKey != null) 'icon_key': cv.iconKey,
         });
         costoIds.add(costoId);
 
@@ -484,6 +550,7 @@ class PartidoRepository {
               double montoTotal,
               List<int> jugadores,
               String? comprobantePath,
+              String? iconKey,
             })>
         costosVariables,
     Map<int, double>? saldosAnterioresSnapshot,
@@ -518,6 +585,7 @@ class PartidoRepository {
           'concepto': cv.concepto,
           'monto_total': cv.montoTotal,
           'comprobante_path': cv.comprobantePath,
+          if (cv.iconKey != null) 'icon_key': cv.iconKey,
         });
 
         final participantes = cv.jugadores.isEmpty ? asistentes : cv.jugadores;

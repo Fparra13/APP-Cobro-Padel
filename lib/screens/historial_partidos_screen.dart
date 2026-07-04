@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_repositories.dart';
+import '../core/supabase_helpers.dart';
 import '../models/convocatoria_jugador.dart';
-import '../repositories/convocatoria_repository.dart';
+import '../models/partido.dart';
 import '../repositories/partido_repository.dart';
 import '../repositories/ranking_repository.dart';
 import '../services/pdf_service.dart';
+import '../l10n/matchpay_strings.dart';
 import '../utils/app_navigation.dart';
 import '../utils/formatters.dart';
 import '../widgets/ayuda_tip.dart';
 import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/partido_detalle_sheet.dart';
+import '../utils/nav_shell_layout.dart';
+import '../widgets/sport_icon.dart';
 
 class HistorialPartidosScreen extends StatefulWidget {
   const HistorialPartidosScreen({super.key});
@@ -22,58 +27,140 @@ class HistorialPartidosScreen extends StatefulWidget {
 class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
-  final _partidoRepo = PartidoRepository();
-  final _convocatoriaRepo = ConvocatoriaRepository();
-  final _rankingRepo = RankingRepository();
   final _pdfService = PdfService();
 
   List<PartidoCompleto> _partidos = [];
   List<ConvocatoriaCompleta> _convocatorias = [];
   List<RankingJugador> _ranking = [];
   bool _loading = true;
+  bool _rankingLoading = false;
+  bool _rankingLoaded = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
-    _load();
+    _tabs.addListener(_onTabChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  void _onTabChanged() {
+    if (_tabs.index == 1 && !_rankingLoaded && !_rankingLoading) {
+      _loadRanking();
+    }
   }
 
   @override
   void dispose() {
+    _tabs.removeListener(_onTabChanged);
     _tabs.dispose();
     super.dispose();
   }
 
+  Future<void> _loadRanking() async {
+    if (_rankingLoading) return;
+    setState(() => _rankingLoading = true);
+    try {
+      final ranking = await context.repos.getRanking();
+      if (mounted) {
+        setState(() {
+          _ranking = ranking;
+          _rankingLoaded = true;
+          _rankingLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _rankingLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              SupabaseHelpers.describeError(e, operacion: 'Ranking'),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final list = await _partidoRepo.getJugados();
-    final convocatorias = await _convocatoriaRepo.getActivas();
-    final completos = <PartidoCompleto>[];
-    for (final p in list) {
-      final c = await _partidoRepo.getCompleto(p.id!);
-      if (c != null) completos.add(c);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final repos = context.repos;
+      final results = await Future.wait([
+        repos.getPartidosJugados(),
+        repos.getConvocatoriasActivas(),
+      ]);
+      final list = results[0] as List<Partido>;
+      final convocatorias = results[1] as List<ConvocatoriaCompleta>;
+      final ids = list.map((p) => p.id).whereType<int>().toList();
+      final completos = await repos.getPartidosCompletosListaResumen(ids);
+      if (mounted) {
+        setState(() {
+          _partidos = completos;
+          _convocatorias = convocatorias;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = SupabaseHelpers.describeError(
+            e,
+            operacion: 'Historial de partidos',
+          );
+        });
+      }
     }
-    final ranking = await _rankingRepo.getRanking();
-    if (mounted) {
-      setState(() {
-        _partidos = completos;
-        _convocatorias = convocatorias;
-        _ranking = ranking;
-        _loading = false;
-      });
-    }
+  }
+
+  Widget _buildErrorState() {
+    final l10n = context.l10n;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_off_outlined, size: 56, color: Colors.grey.shade600),
+            const SizedBox(height: 16),
+            Text(
+              l10n.tr('historyLoadFailed'),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _error ?? l10n.tr('unknownError'),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh),
+              label: Text(l10n.tr('retry')),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final l10n = context.l10n;
+    return ShellTabScaffold(
       appBar: AppBar(
-        title: const Text('📋 Historial y Ranking'),
+        title: Text('📋 ${l10n.tr('historyScreenTitle')}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, size: 26),
-            tooltip: 'Actualizar',
+            tooltip: l10n.tr('refreshTooltip'),
             onPressed: _load,
           ),
         ],
@@ -84,23 +171,25 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white.withValues(alpha: 0.65),
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-          tabs: const [
+          tabs: [
             Tab(
               height: 52,
-              icon: Icon(Icons.sports_tennis_rounded, size: 26),
-              text: 'Partidos',
+              icon: SportIcon(size: 26),
+              text: l10n.tr('tabMatches'),
             ),
             Tab(
               height: 52,
-              icon: Icon(Icons.emoji_events_rounded, size: 26),
-              text: 'Ranking',
+              icon: const Icon(Icons.emoji_events_rounded, size: 26),
+              text: l10n.tr('tabRanking'),
             ),
           ],
         ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
+          : _error != null && _partidos.isEmpty && _convocatorias.isEmpty
+              ? _buildErrorState()
+              : TabBarView(
               controller: _tabs,
               children: [
                 _buildHistorial(),
@@ -111,12 +200,12 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
   }
 
   Widget _buildHistorial() {
+    final l10n = context.l10n;
     if (_partidos.isEmpty && _convocatorias.isEmpty) {
       return _EmptyTab(
-        icon: Icons.sports_tennis_rounded,
-        titulo: 'Sin partidos aún',
-        subtitulo:
-            'Organiza una convocatoria o registra\nun partido jugado desde Inicio.',
+        iconWidget: SportIcon(size: 48, color: Colors.grey.shade400),
+        titulo: l10n.tr('historyEmptyMatchesTitle'),
+        subtitulo: l10n.tr('historyEmptyMatchesSubtitle'),
         color: Colors.green,
       );
     }
@@ -130,13 +219,16 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 16),
+        padding: NavShellScope.listPadding(context, bottom: 0),
         children: [
           if (_convocatorias.isNotEmpty) ...[
             _buildStatsHeader(
               icon: Icons.campaign,
-              titulo: '${_convocatorias.length} convocatoria(s) activa(s)',
-              subtitulo: 'En espera o confirmadas · retoma desde Inicio',
+              titulo: l10n.tr(
+                'historyActiveConvocatoriasTitle',
+                params: {'count': '${_convocatorias.length}'},
+              ),
+              subtitulo: l10n.tr('historyActiveConvocatoriasSubtitle'),
               color: Colors.blue,
             ),
             ..._convocatorias.map(
@@ -153,24 +245,26 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
           if (_partidos.isNotEmpty) ...[
             _buildStatsHeader(
               icon: Icons.history_rounded,
-              titulo: '${_partidos.length} partidos',
+              titulo: l10n.tr(
+                'historyMatchesCountTitle',
+                params: {'count': '${_partidos.length}'},
+              ),
               subtitulo: pendientesTotal > 0
-                  ? '$pendientesTotal cobros pendientes en total'
-                  : 'Todos los cobros al día ✓',
+                  ? l10n.tr(
+                      'historyPendingChargesSubtitle',
+                      params: {'count': '$pendientesTotal'},
+                    )
+                  : l10n.tr('historyAllChargesPaid'),
               color: Colors.green,
             ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(12, 4, 12, 8),
-              child: AyudaTip(
-                texto:
-                    'Toca un partido para ver el detalle. '
-                    'Arriba: PDF general · Abajo: WhatsApp/PDF individual.',
-              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: AyudaTip(texto: l10n.tr('historyTapMatchHelp')),
             ),
             ..._partidos.map(
               (pc) => _PartidoCard(
                 completo: pc,
-                partidoRepo: _partidoRepo,
+                repos: context.repos,
                 pdfService: _pdfService,
                 onChanged: _load,
               ),
@@ -182,35 +276,42 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
   }
 
   Widget _buildRanking() {
+    final l10n = context.l10n;
+    if (!_rankingLoaded && !_rankingLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadRanking());
+    }
+    if (_rankingLoading || (!_rankingLoaded && _ranking.isEmpty)) {
+      return const Center(child: CircularProgressIndicator());
+    }
     if (_ranking.isEmpty) {
       return _EmptyTab(
         icon: Icons.emoji_events_rounded,
-        titulo: 'Ranking vacío',
-        subtitulo: 'Juega algunos partidos para ver\nquién paga más rápido 🎾',
+        titulo: l10n.tr('rankingEmptyTitle'),
+        subtitulo: l10n.tr('rankingEmptySubtitle'),
         color: Colors.amber,
       );
     }
 
-    final mejores = _rankingRepo.mejoresPagadores(_ranking).take(5).toList();
-    final peores = _rankingRepo.peoresPagadores(_ranking).take(5).toList();
+    final repos = context.repos;
+    final mejores = repos.mejoresPagadores(_ranking).take(5).toList();
+    final peores = repos.peoresPagadores(_ranking).take(5).toList();
 
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: () async {
+        _rankingLoaded = false;
+        await _loadRanking();
+      },
       child: ListView(
-        padding: const EdgeInsets.all(12),
+        padding: NavShellScope.listPadding(context, left: 12, top: 12, right: 12),
         children: [
-          const AyudaTip(
-            texto:
-                'Ranking basado en pagos al día e impagos. '
-                '¡Solo para diversión entre amigos! 😄',
-          ),
+          AyudaTip(texto: l10n.tr('rankingHelpTip')),
           const SizedBox(height: 12),
           if (mejores.isNotEmpty)
             _RankingSection(
               icono: Icons.military_tech_rounded,
-              titulo: 'Mejores pagadores',
+              titulo: l10n.tr('rankingBestPayersTitle'),
               emoji: '🏆',
-              subtitulo: 'Los que pagan más rápido (¡cracks!)',
+              subtitulo: l10n.tr('rankingBestPayersSubtitle'),
               color: Colors.green,
               items: mejores,
               esBueno: true,
@@ -218,16 +319,16 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
           else
             _RankingEmptyHint(
               emoji: '🏆',
-              titulo: 'Sin mejores pagadores aún',
-              subtitulo: 'Aparecen quienes pagan al día sin impagos pendientes.',
+              titulo: l10n.tr('rankingNoBestYetTitle'),
+              subtitulo: l10n.tr('rankingNoBestYetSubtitle'),
             ),
           const SizedBox(height: 16),
           if (peores.isNotEmpty)
             _RankingSection(
               icono: Icons.hourglass_bottom_rounded,
-              titulo: 'Peores pagadores',
+              titulo: l10n.tr('rankingWorstPayersTitle'),
               emoji: '🐢',
-              subtitulo: 'Los que más demoran (sin rencores 😄)',
+              subtitulo: l10n.tr('rankingWorstPayersSubtitle'),
               color: Colors.orange,
               items: peores,
               esBueno: false,
@@ -235,8 +336,8 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
           else
             _RankingEmptyHint(
               emoji: '✅',
-              titulo: '¡Nadie en la lista negra!',
-              subtitulo: 'No hay jugadores con impagos ni pagos tardíos.',
+              titulo: l10n.tr('rankingNoWorstTitle'),
+              subtitulo: l10n.tr('rankingNoWorstSubtitle'),
             ),
         ],
       ),
@@ -300,13 +401,15 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
 }
 
 class _EmptyTab extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final Widget? iconWidget;
   final String titulo;
   final String subtitulo;
   final MaterialColor color;
 
   const _EmptyTab({
-    required this.icon,
+    this.icon,
+    this.iconWidget,
     required this.titulo,
     required this.subtitulo,
     required this.color,
@@ -326,7 +429,8 @@ class _EmptyTab extends StatelessWidget {
                 color: color.shade50,
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 64, color: color.shade700),
+              child: iconWidget ??
+                  Icon(icon!, size: 64, color: color.shade700),
             ),
             const SizedBox(height: 20),
             Text(
@@ -360,6 +464,7 @@ class _ConvocatoriaCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final p = convocatoria.partido;
     final fecha = formatFecha(p.fecha);
     final hora = formatHora(p.fecha);
@@ -399,21 +504,32 @@ class _ConvocatoriaCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    SportChargeChip(sport: p.sportType),
+                    const SizedBox(height: 6),
                     Text(
                       convocatoria.partido.esConfirmado
-                          ? 'Confirmado · $fecha · $hora'
+                          ? l10n.tr(
+                              'convocatoriaConfirmedLine',
+                              params: {'date': fecha, 'time': hora},
+                            )
                           : '$fecha · $hora',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Text(
                       p.recinto?.isNotEmpty ?? false
                           ? p.recinto!
-                          : 'Sin recinto',
+                          : l10n.tr('noVenue'),
                       style: TextStyle(color: Colors.grey.shade700),
                     ),
                     Text(
-                      '${convocatoria.confirmados}/${p.cuposMax} confirmados · '
-                      '${convocatoria.invitados} invitados',
+                      l10n.tr(
+                        'convocatoriaConfirmedCount',
+                        params: {
+                          'confirmed': '${convocatoria.confirmados}',
+                          'max': '${p.cuposMax}',
+                          'invited': '${convocatoria.invitados}',
+                        },
+                      ),
                       style: TextStyle(
                         color: convocatoria.partido.esConfirmado
                             ? Colors.green.shade800
@@ -441,19 +557,20 @@ class _ConvocatoriaCard extends StatelessWidget {
 
 class _PartidoCard extends StatelessWidget {
   final PartidoCompleto completo;
-  final PartidoRepository partidoRepo;
+  final AppRepositories repos;
   final PdfService pdfService;
   final VoidCallback onChanged;
 
   const _PartidoCard({
     required this.completo,
-    required this.partidoRepo,
+    required this.repos,
     required this.pdfService,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final fecha = formatFecha(completo.partido.fecha);
     final hora = formatHora(completo.partido.fecha);
     final asistentes = completo.detalles.where((d) => d.asistio).length;
@@ -470,7 +587,7 @@ class _PartidoCard extends StatelessWidget {
         onTap: () => PartidoDetalleSheet.show(
           context,
           completo: completo,
-          partidoRepo: partidoRepo,
+          repos: repos,
           pdfService: pdfService,
           onEditar: () {
             Navigator.pop(context);
@@ -485,17 +602,23 @@ class _PartidoCard extends StatelessWidget {
             final recinto = completo.partido.recinto?.trim();
             final ok = await confirmarEliminarPartido(
               context,
-              titulo: 'Eliminar partido',
-              mensaje:
-                  'Vas a eliminar el partido del $fecha'
-                  '${recinto != null && recinto.isNotEmpty ? ' en $recinto' : ''}.',
+              titulo: l10n.tr('deleteMatchTitle'),
+              mensaje: recinto != null && recinto.isNotEmpty
+                  ? l10n.tr(
+                      'deleteMatchMessageWithVenue',
+                      params: {'date': fecha, 'venue': recinto},
+                    )
+                  : l10n.tr(
+                      'deleteMatchMessage',
+                      params: {'date': fecha},
+                    ),
             );
             if (!ok || !context.mounted) return;
-            await partidoRepo.eliminarPartido(completo.partido.id!);
+            await repos.eliminarPartido(completo.partido.id!);
             if (!context.mounted) return;
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Partido eliminado')),
+              SnackBar(content: Text(l10n.tr('matchDeleted'))),
             );
             onChanged();
           },
@@ -533,6 +656,8 @@ class _PartidoCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    SportChargeChip(sport: completo.partido.sportType),
+                    const SizedBox(height: 6),
                     Text(
                       fecha,
                       style: const TextStyle(
@@ -581,7 +706,10 @@ class _PartidoCard extends StatelessWidget {
                       children: [
                         _InfoChip(
                           icon: Icons.people_alt_rounded,
-                          label: '$asistentes jugadores',
+                          label: l10n.tr(
+                            'matchPlayersCount',
+                            params: {'count': '$asistentes'},
+                          ),
                           color: Colors.blue,
                         ),
                         _InfoChip(
@@ -589,8 +717,11 @@ class _PartidoCard extends StatelessWidget {
                               ? Icons.verified_rounded
                               : Icons.warning_amber_rounded,
                           label: todosPagaron
-                              ? 'Todos pagaron'
-                              : '$pendientes sin pagar',
+                              ? l10n.tr('matchAllPaid')
+                              : l10n.tr(
+                                  'matchUnpaidCount',
+                                  params: {'count': '$pendientes'},
+                                ),
                           color: todosPagaron ? Colors.green : Colors.orange,
                         ),
                       ],
@@ -738,6 +869,7 @@ class _RankingSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -840,8 +972,22 @@ class _RankingSection extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   esBueno
-                                      ? '${r.pagosAlDia} pagos al día · ${r.porcentajePagoAlDia.toStringAsFixed(0)}%'
-                                      : '${r.partidosImpagos} impagos · Deuda ${formatMoney(r.saldoActual)}',
+                                      ? l10n.tr(
+                                          'rankingBestStat',
+                                          params: {
+                                            'onTime': '${r.pagosAlDia}',
+                                            'percent': r.porcentajePagoAlDia
+                                                .toStringAsFixed(0),
+                                          },
+                                        )
+                                      : l10n.tr(
+                                          'rankingWorstStat',
+                                          params: {
+                                            'unpaid': '${r.partidosImpagos}',
+                                            'amount':
+                                                formatMoney(r.saldoActual),
+                                          },
+                                        ),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade700,

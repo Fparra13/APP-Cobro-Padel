@@ -1,17 +1,30 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/app_repositories.dart';
+import '../core/app_settings_controller.dart';
+import '../models/desglose_jugador.dart';
+import '../models/detalle_partido.dart';
 import '../models/convocatoria_jugador.dart';
-import '../utils/formatters.dart';
+import '../models/mi_convocatoria.dart';
 import '../models/estado_pago_jugador.dart';
 import '../models/jugador.dart';
-import '../repositories/convocatoria_repository.dart';
-import '../repositories/jugador_repository.dart';
 import '../repositories/partido_repository.dart';
+import '../services/convocatoria_lista_espera_service.dart';
 import '../services/pdf_service.dart';
+import '../utils/formatters.dart';
 import '../utils/app_navigation.dart';
 import '../widgets/jugador_avatar.dart';
+import '../widgets/mis_invitaciones_panel.dart';
+import '../widgets/pagos_por_validar_panel.dart';
+import '../widgets/desglose_cobro_panel.dart';
 import '../widgets/quick_actions_panel.dart';
+import '../l10n/matchpay_strings.dart';
+import '../utils/matchpay_context.dart';
+import '../utils/nav_shell_layout.dart';
+import 'mis_cobros_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int tabIndex)? onNavigateTab;
@@ -23,16 +36,19 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _partidoRepo = PartidoRepository();
-  final _jugadorRepo = JugadorRepository();
-  final _convocatoriaRepo = ConvocatoriaRepository();
   final _pdfService = PdfService();
 
   List<ResumenJugador> _resumenes = [];
   List<Jugador> _jugadoresActivos = [];
   List<ConvocatoriaCompleta> _convocatorias = [];
+  List<MiConvocatoria> _misInvitaciones = [];
+  List<DetallePartido> _pagosPorValidar = [];
+  List<DetallePartido> _misDeudas = [];
+  final Map<int, DesgloseJugador?> _desglosePorPartido = {};
   bool _loading = true;
-  final Set<int> _planillaSeleccionados = {};
+  bool _primeraCarga = true;
+  Timer? _reloadDebounce;
+  final Set<String> _planillaSeleccionados = {};
   TipoPago _tipoPagoPlanilla = TipoPago.total;
   final _montoParcialController = TextEditingController();
 
@@ -40,39 +56,97 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _load();
+    AppRepositories.dataRevision.addListener(_onDataChanged);
   }
 
   @override
   void dispose() {
+    _reloadDebounce?.cancel();
+    AppRepositories.dataRevision.removeListener(_onDataChanged);
     _montoParcialController.dispose();
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final resumenes = await _partidoRepo.getResumenJugadores();
-    final activos = await _jugadorRepo.getAll(soloActivos: true);
-    final convocatorias = await _convocatoriaRepo.getActivas();
-    if (mounted) {
-      setState(() {
-        _resumenes = resumenes;
-        _jugadoresActivos = activos;
-        _convocatorias = convocatorias;
-        _loading = false;
-      });
+  void _onDataChanged() {
+    if (!mounted) return;
+    _reloadDebounce?.cancel();
+    _reloadDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _load(silent: true);
+    });
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent || _primeraCarga) {
+      setState(() => _loading = true);
+    }
+    try {
+      final repos = context.repos;
+      final results = await Future.wait([
+        repos.getResumenJugadores(),
+        repos.getJugadores(soloActivos: true),
+        repos.getConvocatoriasActivas(),
+        MisInvitacionesPanel.cargarPendientes(repos),
+        repos.isCloud
+            ? repos.getPagosPorValidar()
+            : Future<List<DetallePartido>>.value([]),
+        repos.isCloud
+            ? repos.getMisDeudasPendientes()
+            : Future<List<DetallePartido>>.value([]),
+      ]);
+      final convocatorias = results[2] as List<ConvocatoriaCompleta>;
+      if (mounted) {
+        setState(() {
+          _resumenes = results[0] as List<ResumenJugador>;
+          _jugadoresActivos = results[1] as List<Jugador>;
+          _convocatorias = convocatorias;
+          _misInvitaciones = results[3] as List<MiConvocatoria>;
+          _pagosPorValidar = results[4] as List<DetallePartido>;
+          _misDeudas = ordenarDeudasPorFecha(results[5] as List<DetallePartido>);
+          _desglosePorPartido.clear();
+          _primeraCarga = false;
+        });
+      }
+      unawaited(_cargarMisDesgloses(_misDeudas));
+      unawaited(
+        ConvocatoriaListaEsperaService().sincronizarPartidos(
+          convocatorias
+              .where((c) => c.partido.esOrganizando)
+              .map((c) => c.partido.id)
+              .whereType<int>(),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   double get _totalSaldos =>
-      _resumenes.fold(0.0, (sum, r) => sum + (r.saldoActual > 0 ? r.saldoActual : 0));
+      _resumenes.fold(0.0, (sum, r) => sum + r.deudaVisible);
 
-  int get _conDeuda => _resumenes.where((r) => r.saldoActual > 0).length;
+  int get _conDeuda => _resumenes.where((r) => r.tieneDeuda).length;
 
-  int get _alDia => _resumenes.where((r) => r.saldoActual <= 0).length;
+  int get _alDia => _resumenes.where((r) => !r.tieneDeuda).length;
 
   List<ResumenJugador> get _deudoresOrdenados {
-    return _resumenes.where((r) => r.saldoActual > 0).toList()
-      ..sort((a, b) => b.saldoActual.compareTo(a.saldoActual));
+    return _resumenes.where((r) => r.tieneDeuda).toList()
+      ..sort((a, b) => b.deudaVisible.compareTo(a.deudaVisible));
+  }
+
+  Future<void> _cargarMisDesgloses(List<DetallePartido> deudas) async {
+    if (deudas.isEmpty || !mounted) return;
+    try {
+      final repos = context.repos;
+      final ultimo = deudas.first;
+      final desgloseUltimo =
+          await repos.getMiDesglosePartido(ultimo.partidoId);
+      if (mounted) {
+        setState(() {
+          _desglosePorPartido[ultimo.partidoId] = desgloseUltimo;
+        });
+      }
+    } catch (_) {
+      // Desglose opcional en inicio admin.
+    }
   }
 
   List<ResumenJugador> get _todosOrdenados {
@@ -84,53 +158,122 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF2E7D32),
-        title: const Text('🎾 Pádel Cobro'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _load,
-            tooltip: 'Actualizar',
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
+    final l10n = context.l10n;
+    final palette = context.sportPalette;
+
+    return ShellTabScaffold(
+      backgroundColor: const Color(0xFFF5F4F0),
+      floatingActionButton: _PartidoFab(onPressed: _mostrarMenuPartido),
+      body: _loading && _primeraCarga
+          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
           : RefreshIndicator(
+              color: palette.primary,
               onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 16),
-                  QuickActionsPanel(
-                    partidoRepo: _partidoRepo,
-                    pdfService: _pdfService,
-                    resumenes: _resumenes,
-                    onRefresh: _load,
-                    onNavigateTab: widget.onNavigateTab,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    l10n.homeAdminTitle,
+                                    style: const TextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.6,
+                                      color: Color(0xFF111827),
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    l10n.tr('homeAdminTagline'),
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      height: 1.3,
+                                      color: Colors.grey.shade600,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: l10n.tr('appModeSwitchToPlayer'),
+                              onPressed: () {
+                                context.switchAppUiMode(AppUiMode.player);
+                              },
+                              icon: Icon(
+                                Icons.person_outline_rounded,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: l10n.refreshTooltip,
+                              onPressed: _load,
+                              icon: Icon(
+                                Icons.refresh_rounded,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  if (_convocatorias.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    _buildConvocatoriasActivas(),
-                  ],
-                  const SizedBox(height: 16),
-                  _buildPlanilla(),
+                  SliverPadding(
+                    padding: NavShellScope.listPadding(context, top: 16, bottom: 24),
+                    sliver: SliverList(
+                      delegate: // ignore: prefer_const_constructors
+                          SliverChildListDelegate([
+                        _buildHeader(),
+                        const SizedBox(height: 20),
+                        PagosPorValidarPanel(
+                          pagos: _pagosPorValidar,
+                          onValidado: _load,
+                        ),
+                        if (_pagosPorValidar.isNotEmpty)
+                          const SizedBox(height: 16),
+                        _buildMisCobrosOrganizer(),
+                        const SizedBox(height: 16),
+                        MisInvitacionesPanel(
+                          convocatorias: _misInvitaciones,
+                          onRespondido: _load,
+                        ),
+                        if (_convocatorias.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          _buildConvocatoriasActivas(),
+                          const SizedBox(height: 20),
+                        ] else
+                          const SizedBox(height: 8),
+                        QuickActionsPanel(
+                          repos: context.repos,
+                          pdfService: _pdfService,
+                          resumenes: _resumenes,
+                          onRefresh: _load,
+                          onNavigateTab: widget.onNavigateTab,
+                        ),
+                        const SizedBox(height: 20),
+                        _buildPlanilla(),
+                      ]),
+                    ),
+                  ),
                 ],
               ),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _mostrarMenuPartido,
-        elevation: 4,
-        icon: const Icon(Icons.sports_tennis_rounded),
-        label: const Text('Partido'),
-      ),
     );
   }
 
   Future<void> _mostrarMenuPartido() async {
+    final l10n = context.l10n;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -141,9 +284,9 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                '¿Qué quieres hacer?',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+              Text(
+                l10n.tr('homeMatchMenuTitle'),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
               ),
               const SizedBox(height: 12),
               ListTile(
@@ -151,10 +294,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   backgroundColor: Colors.blue.shade100,
                   child: Icon(Icons.campaign, color: Colors.blue.shade800),
                 ),
-                title: const Text('Organizar convocatoria'),
-                subtitle: const Text(
-                  'Confirmar jugadores antes del partido (sin cobros)',
-                ),
+                title: Text(l10n.tr('homeOrganizeConvocatoria')),
+                subtitle: Text(l10n.tr('homeOrganizeConvocatoriaSubtitle')),
                 onTap: () async {
                   Navigator.pop(ctx);
                   await abrirOrganizarPartido(context);
@@ -166,11 +307,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   backgroundColor: Colors.green.shade100,
                   child: Icon(Icons.payments, color: Colors.green.shade800),
                 ),
-                title: const Text('Registrar partido jugado'),
-                subtitle: const Text('Cobros, asistentes y pagos'),
+                title: Text(l10n.tr('homeRegisterPlayedMatch')),
+                subtitle: Text(l10n.tr('homeRegisterPlayedMatchSubtitle')),
                 onTap: () async {
                   Navigator.pop(ctx);
-                  await Navigator.pushNamed(context, '/nuevo-partido');
+                  await abrirNuevoPartidoJugado(context);
                   _load();
                 },
               ),
@@ -181,7 +322,157 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _abrirMisCobros() {
+    final goTab = widget.onNavigateTab;
+    if (goTab != null) {
+      goTab(1);
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MisCobrosScreen()),
+    ).then((_) => _load());
+  }
+
+  Widget _buildMisCobrosOrganizer() {
+    final l10n = context.l10n;
+    final alDia = _misDeudas.isEmpty;
+
+    if (alDia) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.green.shade100),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.check_circle_outline, color: Colors.green.shade800),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.tr('myCharges'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Colors.green.shade900,
+                        ),
+                      ),
+                      Text(
+                        l10n.tr('organizerPlayerUpToDate'),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.green.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _abrirMisCobros,
+              icon: const Icon(Icons.receipt_long_outlined),
+              label: Text(l10n.tr('viewMyChargesTab')),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(44),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final ultimo = _misDeudas.first;
+    final deudaTotal = _misDeudas.fold<double>(
+      0,
+      (s, d) => s + montoATransferirCobro(d, _desglosePorPartido[d.partidoId]),
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.orange.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.account_balance_wallet_outlined,
+                  color: Colors.orange.shade800),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.tr('myCharges'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.orange.shade900,
+                      ),
+                    ),
+                    Text(
+                      l10n.tr(
+                        'playerPendingAmount',
+                        params: {'amount': formatMoney(deudaTotal)},
+                      ),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.orange.shade800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          CobroPartidoCard(
+            detalle: ultimo,
+            desglose: _desglosePorPartido[ultimo.partidoId],
+            compact: true,
+            estadoExtra: estadoTextoCobro(ultimo, l10n),
+          ),
+          if (_misDeudas.length > 1) ...[
+            const SizedBox(height: 8),
+            Text(
+              l10n.tr(
+                'playerTotalPendingSummary',
+                params: {
+                  'amount': formatMoney(deudaTotal),
+                  'count': '${_misDeudas.length}',
+                },
+              ),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+          ],
+          const SizedBox(height: 10),
+          FilledButton.tonalIcon(
+            onPressed: _abrirMisCobros,
+            icon: const Icon(Icons.payments_outlined),
+            label: Text(l10n.tr('viewChargesAndPay')),
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildConvocatoriasActivas() {
+    final l10n = context.l10n;
     final enEspera =
         _convocatorias.where((c) => c.partido.esOrganizando).toList();
     final confirmadas =
@@ -190,9 +481,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.blue.shade100),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE8E6E1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,11 +493,11 @@ class _HomeScreenState extends State<HomeScreen> {
               Icon(Icons.campaign_rounded, color: Colors.blue.shade800),
               const SizedBox(width: 8),
               Text(
-                'Convocatorias activas',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
+                l10n.tr('homeActiveConvocatorias'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
                   fontSize: 15,
-                  color: Colors.blue.shade900,
+                  color: Color(0xFF111827),
                 ),
               ),
             ],
@@ -214,7 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 12),
           if (enEspera.isNotEmpty) ...[
             _ConvocatoriaGrupo(
-              titulo: 'En espera',
+              titulo: l10n.tr('homeWaiting'),
               icono: Icons.hourglass_top_rounded,
               color: Colors.blue,
               cantidad: enEspera.length,
@@ -233,7 +524,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (confirmadas.isNotEmpty) ...[
             if (enEspera.isNotEmpty) const SizedBox(height: 10),
             _ConvocatoriaGrupo(
-              titulo: 'Confirmados',
+              titulo: l10n.tr('homeConfirmed'),
               icono: Icons.check_circle_rounded,
               color: Colors.green,
               cantidad: confirmadas.length,
@@ -256,6 +547,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader() {
+    final l10n = context.l10n;
     final todosAlDia = _conDeuda == 0;
 
     return Column(
@@ -265,63 +557,78 @@ class _HomeScreenState extends State<HomeScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1B5E20), Color(0xFF388E3C)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(18),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE8E6E1)),
             boxShadow: [
               BoxShadow(
-                color: Colors.green.shade900.withValues(alpha: 0.2),
-                blurRadius: 10,
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Row(
             children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: todosAlDia
+                      ? const Color(0xFFD1FAE5)
+                      : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(
+                  todosAlDia
+                      ? Icons.check_circle_rounded
+                      : Icons.account_balance_wallet_rounded,
+                  color: todosAlDia
+                      ? const Color(0xFF065F46)
+                      : const Color(0xFF92400E),
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      todosAlDia ? '¡Grupo al día!' : 'Resumen del grupo',
+                      todosAlDia
+                          ? l10n.tr('homeGroupAllPaid')
+                          : l10n.tr('homeGroupSummary'),
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF111827),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
                       todosAlDia
-                          ? 'No hay deudas pendientes'
-                          : '${formatMoney(_totalSaldos)} por cobrar',
+                          ? l10n.tr('homeNoPendingDebts')
+                          : l10n.tr('homeAmountToCollect',
+                              params: {'amount': formatMoney(_totalSaldos)}),
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.92),
-                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                todosAlDia
-                    ? Icons.celebration_rounded
-                    : Icons.account_balance_wallet_rounded,
-                color: Colors.white.withValues(alpha: 0.9),
-                size: 32,
-              ),
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: _HeaderStat(
-                label: 'Jugadores',
+                label: l10n.tr('homeStatPlayers'),
                 value: '${_jugadoresActivos.length}',
                 icon: Icons.people_rounded,
                 color: Colors.orange,
@@ -330,7 +637,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: _HeaderStat(
-                label: 'Con deuda',
+                label: l10n.tr('homeStatWithDebt'),
                 value: '$_conDeuda',
                 icon: Icons.warning_amber_rounded,
                 color: Colors.red,
@@ -339,7 +646,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: _HeaderStat(
-                label: 'Al día',
+                label: l10n.tr('homeStatUpToDate'),
                 value: '$_alDia',
                 icon: Icons.check_circle_rounded,
                 color: Colors.green,
@@ -352,19 +659,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPlanilla() {
+    final l10n = context.l10n;
     if (_resumenes.isEmpty) {
       return _HomeSeccion(
-        titulo: 'Registrar pagos',
+        titulo: l10n.tr('homeManualPaymentsTitle'),
         icono: Icons.payments_rounded,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 24),
           child: Column(
             children: [
-              Icon(Icons.sports_tennis_rounded,
-                  size: 48, color: Colors.grey.shade400),
+              Icon(Icons.groups_outlined, size: 48, color: Colors.grey.shade400),
               const SizedBox(height: 12),
               Text(
-                'Sin datos aún',
+                l10n.tr('homeNoDataYet'),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.grey.shade700,
@@ -372,7 +679,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Toca el botón Partido abajo para empezar',
+                l10n.tr('homeTapMatchToStart'),
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
             ],
@@ -385,7 +692,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (deudores.isEmpty) {
       return _HomeSeccion(
-        titulo: 'Registrar pagos',
+        titulo: l10n.tr('homeRegisterPaymentsTitle'),
         icono: Icons.payments_rounded,
         child: Column(
           children: [
@@ -403,7 +710,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Nadie debe. Todos al día.',
+                      l10n.tr('homeNobodyOwes'),
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         color: Colors.green.shade900,
@@ -420,25 +727,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return _HomeSeccion(
-      titulo: 'Registrar pagos',
+      titulo: l10n.tr('homeManualPaymentsTitle'),
       icono: Icons.payments_rounded,
       accion: IconButton(
         icon: Icon(Icons.help_outline_rounded, color: Colors.grey.shade600),
-        tooltip: 'Ayuda',
+        tooltip: l10n.helpTooltip,
         onPressed: () {
           showDialog<void>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: const Text('Registrar pagos'),
-              content: const Text(
-                'Marca uno o más jugadores con deuda.\n\n'
-                '• Varios seleccionados → pago total de cada uno\n'
-                '• Un solo jugador → pago total o abono parcial',
-              ),
+              title: Text(l10n.tr('homeManualPaymentsHelpTitle')),
+              content: Text(l10n.tr('homeManualPaymentsHelpBody')),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Entendido'),
+                  child: Text(l10n.understood),
                 ),
               ],
             ),
@@ -448,8 +751,10 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         children: [
           Text(
-            '${deudores.length} jugador${deudores.length == 1 ? '' : 'es'} · '
-            'Total ${formatMoney(_totalSaldos)}',
+            l10n.tr('homeDebtorsSummary', params: {
+              'count': '${deudores.length}',
+              'amount': formatMoney(_totalSaldos),
+            }),
             style: TextStyle(
               fontSize: 13,
               color: Colors.red.shade700,
@@ -466,12 +771,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildVerFichaButton() {
+    final l10n = context.l10n;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: OutlinedButton.icon(
         onPressed: _mostrarSelectorFicha,
         icon: const Icon(Icons.person_search_rounded, size: 18),
-        label: const Text('Ver ficha de un jugador'),
+        label: Text(l10n.tr('homeViewPlayerProfile')),
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(44),
         ),
@@ -480,8 +786,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPlanillaFila(ResumenJugador r) {
-    final saldo = r.saldoActual;
-    final id = r.jugador.id!;
+    final l10n = context.l10n;
+    final saldo = r.deudaVisible;
+    final id = r.jugador.keyId;
     final seleccionado = _planillaSeleccionados.contains(id);
 
     return Padding(
@@ -507,6 +814,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 JugadorAvatar(
                   nombre: r.jugador.nombre,
                   fotoPath: r.jugador.fotoPath,
+                  fotoUrl: r.jugador.fotoUrl,
                   size: 40,
                   borderRadius: 12,
                 ),
@@ -523,7 +831,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       Text(
-                        '${r.partidosJugados} partidos',
+                        l10n.tr('matchesPlayedCount',
+                            params: {'count': '${r.partidosJugados}'}),
                         style: TextStyle(
                           fontSize: 11,
                           color: Colors.grey.shade600,
@@ -558,14 +867,15 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPlanillaAcciones() {
+    final l10n = context.l10n;
     final seleccionados = _resumenes
-        .where((r) => _planillaSeleccionados.contains(r.jugador.id))
+        .where((r) => _planillaSeleccionados.contains(r.jugador.keyId))
         .toList();
     final conDeuda =
-        seleccionados.where((r) => r.saldoActual > 0).toList();
+        seleccionados.where((r) => r.tieneDeuda).toList();
     final uno = conDeuda.length == 1 ? conDeuda.first : null;
     final totalAbono =
-        conDeuda.fold(0.0, (s, r) => s + r.saldoActual);
+        conDeuda.fold(0.0, (s, r) => s + r.deudaVisible);
 
     return Container(
       margin: const EdgeInsets.only(top: 10),
@@ -581,35 +891,41 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            '${conDeuda.length} jugador${conDeuda.length == 1 ? '' : 'es'} seleccionado${conDeuda.length == 1 ? '' : 's'}',
+            l10n.tr('homeSelectedPlayers',
+                params: {'count': '${conDeuda.length}'}),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           if (conDeuda.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                'Los seleccionados ya están al día.',
+                l10n.tr('homeSelectedAllUpToDate'),
                 style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
               ),
             )
           else if (uno != null) ...[
             const SizedBox(height: 10),
             Text(
-              '${uno.jugador.nombre} · Saldo ${formatMoney(uno.saldoActual)}',
+              l10n.tr('homePlayerBalanceLine', params: {
+                'name': uno.jugador.nombre,
+                'amount': formatMoney(uno.deudaVisible),
+              }),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
             ),
             const SizedBox(height: 10),
             SegmentedButton<TipoPago>(
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: TipoPago.total,
-                  label: Text('Pago total', style: TextStyle(fontSize: 12)),
-                  icon: Icon(Icons.check_circle, size: 16),
+                  label: Text(l10n.tr('homePayFull'),
+                      style: const TextStyle(fontSize: 12)),
+                  icon: const Icon(Icons.check_circle, size: 16),
                 ),
                 ButtonSegment(
                   value: TipoPago.parcial,
-                  label: Text('Abono', style: TextStyle(fontSize: 12)),
-                  icon: Icon(Icons.savings_outlined, size: 16),
+                  label: Text(l10n.tr('homePartialPayment'),
+                      style: const TextStyle(fontSize: 12)),
+                  icon: const Icon(Icons.savings_outlined, size: 16),
                 ),
               ],
               selected: {_tipoPagoPlanilla},
@@ -627,16 +943,16 @@ class _HomeScreenState extends State<HomeScreen> {
               TextField(
                 controller: _montoParcialController,
                 decoration: InputDecoration(
-                  labelText: 'Monto del abono',
+                  labelText: l10n.tr('homePartialAmountLabel'),
                   hintText: '0',
-                  helperText:
-                      'Puede ser mayor a la deuda para dejar saldo a favor',
+                  helperText: l10n.tr('homePartialAmountHelper'),
                   helperMaxLines: 2,
                   border: const OutlineInputBorder(),
                   isDense: true,
                   filled: true,
                   fillColor: Colors.white,
-                  suffixText: 'debe ${formatMoney(uno.saldoActual)}',
+                  suffixText: l10n.tr('homeOwesSuffix',
+                      params: {'amount': formatMoney(uno.deudaVisible)}),
                 ),
                 keyboardType: TextInputType.number,
                 inputFormatters: moneyInputFormatters,
@@ -648,22 +964,23 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: const Icon(Icons.payments),
               label: Text(
                 _tipoPagoPlanilla == TipoPago.total
-                    ? 'Registrar pago total'
-                    : 'Registrar abono',
+                    ? l10n.tr('homeRegisterFullPayment')
+                    : l10n.tr('homeRegisterPartialPayment'),
               ),
             ),
           ] else ...[
             const SizedBox(height: 8),
             Text(
-              'Se registrará el pago total de cada jugador '
-              '(${formatMoney(totalAbono)} en total).',
+              l10n.tr('homeBatchPaymentNote',
+                  params: {'amount': formatMoney(totalAbono)}),
               style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: () => _registrarPagoMultiple(conDeuda),
               icon: const Icon(Icons.done_all),
-              label: Text('Registrar pago total (${conDeuda.length})'),
+              label: Text(l10n.tr('homeRegisterFullPaymentCount',
+                  params: {'count': '${conDeuda.length}'})),
             ),
           ],
           TextButton(
@@ -674,14 +991,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 _montoParcialController.clear();
               });
             },
-            child: const Text('Cancelar selección'),
+            child: Text(l10n.tr('homeClearSelection')),
           ),
         ],
       ),
     );
   }
 
-  void _togglePlanillaSeleccion(int jugadorId) {
+  void _togglePlanillaSeleccion(String jugadorId) {
     setState(() {
       if (_planillaSeleccionados.contains(jugadorId)) {
         _planillaSeleccionados.remove(jugadorId);
@@ -694,25 +1011,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _registrarPagoUnJugador(ResumenJugador resumen) async {
-    final saldo = resumen.saldoActual;
+    final l10n = context.l10n;
+    final saldo = resumen.deudaVisible;
     final monto = _tipoPagoPlanilla == TipoPago.total
         ? saldo
         : roundMoney(parseMoney(_montoParcialController.text))
             .toDouble();
 
     if (monto <= 0) {
-      _mostrarError('Ingresa un monto mayor a 0');
+      _mostrarError(l10n.tr('errorAmountGreaterThanZero'));
       return;
     }
 
     final concepto = monto > saldo
-        ? 'Abono con saldo a favor'
+        ? l10n.tr('paymentConceptWithCredit')
         : monto == saldo
-            ? 'Abono total'
-            : 'Abono parcial';
+            ? l10n.tr('paymentConceptFull')
+            : l10n.tr('paymentConceptPartial');
 
-    await _partidoRepo.registrarAbono(
-      jugadorId: resumen.jugador.id!,
+    await context.repos.registrarAbono(
+      jugadorId: resumen.jugador.keyId,
       monto: monto,
       concepto: concepto,
     );
@@ -725,10 +1043,19 @@ class _HomeScreenState extends State<HomeScreen> {
       });
       final excedente = monto > saldo ? monto - saldo : 0.0;
       final msg = excedente > 0
-          ? 'Abono ${formatMoney(monto)} · Saldo a favor: ${formatMoney(excedente)} · ${resumen.jugador.nombre}'
+          ? l10n.tr('snackPaymentWithCredit', params: {
+              'amount': formatMoney(monto),
+              'credit': formatMoney(excedente),
+              'name': resumen.jugador.nombre,
+            })
           : monto >= saldo
-              ? 'Deuda saldada · ${resumen.jugador.nombre}'
-              : 'Abono ${formatMoney(monto)} · Queda ${formatMoney(saldo - monto)} · ${resumen.jugador.nombre}';
+              ? l10n.tr('snackDebtCleared',
+                  params: {'name': resumen.jugador.nombre})
+              : l10n.tr('snackPartialPayment', params: {
+                  'amount': formatMoney(monto),
+                  'remaining': formatMoney(saldo - monto),
+                  'name': resumen.jugador.nombre,
+                });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg)),
       );
@@ -737,11 +1064,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _registrarPagoMultiple(List<ResumenJugador> jugadores) async {
+    final l10n = context.l10n;
     for (final r in jugadores) {
-      await _partidoRepo.registrarAbono(
-        jugadorId: r.jugador.id!,
-        monto: r.saldoActual,
-        concepto: 'Abono total',
+      await context.repos.registrarAbono(
+        jugadorId: r.jugador.keyId,
+        monto: r.deudaVisible,
+        concepto: l10n.tr('paymentConceptFull'),
       );
     }
 
@@ -749,9 +1077,8 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _planillaSeleccionados.clear());
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Pago total registrado para ${jugadores.length} jugadores',
-          ),
+          content: Text(l10n.tr('snackFullPaymentMultiple',
+              params: {'count': '${jugadores.length}'})),
         ),
       );
       _load();
@@ -765,6 +1092,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _mostrarSelectorFicha() {
+    final l10n = context.l10n;
     final todos = _todosOrdenados;
     if (todos.isEmpty) return;
 
@@ -784,16 +1112,16 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Ficha del jugador',
-                    style: TextStyle(
+                  Text(
+                    l10n.tr('homePlayerSheetTitle'),
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Toca un jugador para ver su historial y saldo',
+                    l10n.tr('homePlayerSheetSubtitle'),
                     style: TextStyle(
                       fontSize: 13,
                       color: Colors.grey.shade600,
@@ -817,7 +1145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.pushNamed(
                         context,
                         '/historial',
-                        arguments: r.jugador.id,
+                        arguments: r.jugador.keyId,
                       );
                     },
                   );
@@ -851,13 +1179,13 @@ class _HomeSeccion extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE8E6E1)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -866,14 +1194,15 @@ class _HomeSeccion extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icono, size: 20, color: Theme.of(context).colorScheme.primary),
+              Icon(icono, size: 20, color: const Color(0xFF374151)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   titulo,
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w800,
                     fontSize: 15,
+                    color: Color(0xFF111827),
                   ),
                 ),
               ),
@@ -941,33 +1270,26 @@ class _HeaderStat extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
-        color: color.shade50,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.08),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8E6E1)),
       ),
       child: Column(
         children: [
-          Icon(icon, color: color.shade700, size: 22),
+          Icon(icon, color: color.shade700, size: 20),
           const SizedBox(height: 6),
           Text(
             value,
             style: TextStyle(
               color: color.shade900,
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w800,
               fontSize: 20,
             ),
           ),
           Text(
             label,
             style: TextStyle(
-              color: color.shade700,
+              color: Colors.grey.shade600,
               fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
@@ -990,14 +1312,16 @@ class _FichaSelectorTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final saldo = resumen.saldoActual;
+    final l10n = context.l10n;
+    final saldo = resumen.deudaVisible;
     final deuda = saldo > 0;
     final conFavor = saldo < 0;
 
     final (estado, estadoColor, monto) = switch ((deuda, conFavor)) {
-      (true, _) => ('Debe', Colors.red, formatMoney(saldo)),
-      (_, true) => ('A favor', Colors.blue, formatMoney(-saldo)),
-      _ => ('Al día', Colors.green, '—'),
+      (true, _) => (l10n.tr('statusOwes'), Colors.red, formatMoney(saldo)),
+      (_, true) =>
+        (l10n.tr('statusCredit'), Colors.blue, formatMoney(-saldo)),
+      _ => (l10n.tr('statusUpToDate'), Colors.green, '—'),
     };
 
     return Material(
@@ -1013,6 +1337,7 @@ class _FichaSelectorTile extends StatelessWidget {
               JugadorAvatar(
                 nombre: resumen.jugador.nombre,
                 fotoPath: resumen.jugador.fotoPath,
+                fotoUrl: resumen.jugador.fotoUrl,
                 size: 44,
                 borderRadius: 12,
               ),
@@ -1030,7 +1355,9 @@ class _FichaSelectorTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${resumen.partidosJugados} partidos · Toca para abrir ficha',
+                      l10n.tr('homePlayerRowSubtitle', params: {
+                        'count': '${resumen.partidosJugados}',
+                      }),
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey.shade600,
@@ -1095,9 +1422,18 @@ class _ConvocatoriaTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final c = convocatoria;
     final fecha = formatDiaCorto(c.partido.fecha);
     final pendientes = c.invitados - c.confirmados - c.rechazados;
+    final recinto = c.partido.recinto ?? l10n.tr('noVenue');
+    final confirmadosLine = l10n.tr('homeConvocatoriaConfirmedLine', params: {
+      'confirmed': '${c.confirmados}',
+      'max': '${c.partido.cuposMax}',
+    });
+    final pendientesLine = !confirmado && pendientes > 0
+        ? ' · ${l10n.tr('homeConvocatoriaPendingShort', params: {'count': '$pendientes'})}'
+        : '';
 
     return Material(
       color: confirmado ? Colors.green.shade50 : Colors.white,
@@ -1135,9 +1471,7 @@ class _ConvocatoriaTile extends StatelessWidget {
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     Text(
-                      '${c.partido.recinto ?? 'Sin recinto'} · '
-                      '${c.confirmados}/${c.partido.cuposMax} confirmados'
-                      '${!confirmado && pendientes > 0 ? ' · $pendientes pend.' : ''}',
+                      '$recinto · $confirmadosLine$pendientesLine',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -1148,6 +1482,75 @@ class _ConvocatoriaTile extends StatelessWidget {
               ),
               Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// FAB principal: neutro (sin deporte), pero más presente visualmente.
+class _PartidoFab extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _PartidoFab({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return Material(
+      color: Colors.transparent,
+      elevation: 0,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(28),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0F766E), Color(0xFF115E59), Color(0xFF134E4A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F766E).withValues(alpha: 0.45),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 22, 14),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  l10n.tr('homeMatchFab'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -20,46 +20,62 @@ class JugadorRepositoryRemote {
 
   Future<Jugador?> getById(String id) async {
     return SupabaseHelpers.guard('Obtener jugador', () async {
-      final row = await _client.from('profiles').select().eq('id', id).maybeSingle();
+      final row =
+          await _client.from('profiles').select().eq('id', id).maybeSingle();
       if (row == null) return null;
       return Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
     });
   }
 
-  Future<Jugador?> getByTelefono(String telefono) async {
-    return SupabaseHelpers.guard('Buscar jugador por teléfono', () async {
+  Future<Jugador?> getByEmail(String email) async {
+    final normalized = email.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+    return SupabaseHelpers.guard('Buscar jugador por email', () async {
       final row = await _client
           .from('profiles')
           .select()
-          .eq('telefono', telefono)
+          .eq('email', normalized)
           .maybeSingle();
       if (row == null) return null;
       return Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
     });
   }
 
-  /// Registra o actualiza un jugador existente.
-  /// Nota: el perfil se crea al iniciar sesión con OTP; el organizador
-  /// solo puede actualizar jugadores ya registrados.
+  /// Crea o actualiza un jugador por email (no requiere registro previo).
   Future<Jugador> crear({
     required String nombre,
-    required String telefono,
+    required String email,
     bool activo = true,
   }) async {
-    final existente = await getByTelefono(telefono);
+    final normalized = email.trim().toLowerCase();
+    if (!_esEmailValido(normalized)) {
+      throw Exception('Email inválido: $email');
+    }
+
+    final existente = await getByEmail(normalized);
     if (existente != null) {
       final actualizado = existente.copyWith(
         nombre: nombre.trim(),
         activo: activo,
+        email: normalized,
       );
       await actualizar(actualizado);
       return actualizado;
     }
 
-    throw Exception(
-      'El jugador con $telefono debe registrarse primero en la app (OTP). '
-      'Después el organizador puede editarlo.',
-    );
+    return SupabaseHelpers.guard('Crear jugador', () async {
+      final row = await _client
+          .from('profiles')
+          .insert({
+            'nombre': nombre.trim(),
+            'email': normalized,
+            'activo': activo,
+            'role': 'jugador',
+          })
+          .select()
+          .single();
+      return Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
+    });
   }
 
   Future<void> actualizar(Jugador jugador) async {
@@ -68,7 +84,22 @@ class JugadorRepositoryRemote {
       throw Exception('actualizar: jugador sin supabaseId');
     }
     await SupabaseHelpers.guard('Actualizar jugador', () async {
-      await _client.from('profiles').update(jugador.toSupabaseMap()).eq('id', id);
+      final payload = Map<String, dynamic>.from(jugador.toSupabaseMap())
+        ..remove('id')
+        ..remove('saldo_acumulado');
+      if (jugador.fotoUrl == null && jugador.fotoPath == null) {
+        payload['foto_url'] = null;
+      }
+      final rows = await _client
+          .from('profiles')
+          .update(payload)
+          .eq('id', id)
+          .select('id');
+      if ((rows as List).isEmpty) {
+        throw Exception(
+          'No se pudo guardar. Verifica permisos en Supabase (RLS organizador).',
+        );
+      }
     });
   }
 
@@ -87,11 +118,18 @@ class JugadorRepositoryRemote {
     });
   }
 
-  // Compatibilidad con firmas locales
+  bool _esEmailValido(String email) {
+    return RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email);
+  }
+
   Future<int> insert(Jugador jugador) async {
+    final email = jugador.contactEmail;
+    if (email == null || email.isEmpty) {
+      throw Exception('El jugador debe tener un email');
+    }
     final creado = await crear(
       nombre: jugador.nombre,
-      telefono: jugador.telefono ?? '',
+      email: email,
       activo: jugador.activo,
     );
     return creado.supabaseId.hashCode;

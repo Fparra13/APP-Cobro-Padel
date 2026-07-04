@@ -1,7 +1,9 @@
 class EstadisticasJugador {
   final int jugadorId;
+  final String jugadorKeyId;
   final String nombre;
   final String? fotoPath;
+  final String? fotoUrl;
   final int partidosJugados;
   final int pagosAlDia;
   final int pagosTardios;
@@ -14,8 +16,10 @@ class EstadisticasJugador {
 
   const EstadisticasJugador({
     required this.jugadorId,
+    this.jugadorKeyId = '',
     required this.nombre,
     this.fotoPath,
+    this.fotoUrl,
     required this.partidosJugados,
     required this.pagosAlDia,
     required this.pagosTardios,

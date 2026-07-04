@@ -7,6 +7,7 @@ import '../services/jugador_foto_service.dart';
 class JugadorAvatar extends StatefulWidget {
   final String nombre;
   final String? fotoPath;
+  final String? fotoUrl;
   final double size;
   final double borderRadius;
   final bool showBorder;
@@ -16,6 +17,7 @@ class JugadorAvatar extends StatefulWidget {
     super.key,
     required this.nombre,
     this.fotoPath,
+    this.fotoUrl,
     this.size = 52,
     this.borderRadius = 14,
     this.showBorder = false,
@@ -46,7 +48,9 @@ class JugadorAvatar extends StatefulWidget {
 }
 
 class _JugadorAvatarState extends State<JugadorAvatar> {
-  File? _file;
+  File? _localFile;
+  String? _networkUrl;
+  bool _networkFailed = false;
 
   @override
   void initState() {
@@ -57,21 +61,36 @@ class _JugadorAvatarState extends State<JugadorAvatar> {
   @override
   void didUpdateWidget(JugadorAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.fotoPath != widget.fotoPath) {
+    if (oldWidget.fotoPath != widget.fotoPath ||
+        oldWidget.fotoUrl != widget.fotoUrl) {
       _load();
     }
   }
 
   Future<void> _load() async {
+    _networkFailed = false;
     final file = await JugadorFotoService.instance.resolveFile(widget.fotoPath);
-    if (mounted) setState(() => _file = file);
+    final url = widget.fotoUrl?.trim();
+    if (mounted) {
+      setState(() {
+        _localFile = file;
+        _networkUrl =
+            (url != null && url.isNotEmpty && url.startsWith('http')) ? url : null;
+      });
+    }
+  }
+
+  void _onNetworkError() {
+    if (mounted) setState(() => _networkFailed = true);
   }
 
   @override
   Widget build(BuildContext context) {
     final color = JugadorAvatar.colorDe(widget.nombre);
     final inicial = JugadorAvatar.inicialDe(widget.nombre);
-    final hasPhoto = _file != null;
+    final hasLocal = _localFile != null;
+    final hasNetwork = _networkUrl != null && !_networkFailed;
+    final hasPhoto = hasLocal || hasNetwork;
 
     return Container(
       width: widget.size,
@@ -98,25 +117,54 @@ class _JugadorAvatarState extends State<JugadorAvatar> {
             offset: const Offset(0, 2),
           ),
         ],
-        image: hasPhoto
-            ? DecorationImage(
-                image: FileImage(_file!),
-                fit: BoxFit.cover,
-              )
-            : null,
       ),
-      child: hasPhoto
-          ? null
-          : Center(
-              child: Text(
-                inicial,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: widget.size * 0.42,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+      clipBehavior: Clip.antiAlias,
+      child: hasLocal
+          ? Image.file(_localFile!, fit: BoxFit.cover)
+          : hasNetwork
+              ? Image.network(
+                  _networkUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) {
+                    _onNetworkError();
+                    return _initials(inicial, color);
+                  },
+                  loadingBuilder: (context, child, progress) {
+                    if (progress == null) return child;
+                    return Center(
+                      child: SizedBox(
+                        width: widget.size * 0.35,
+                        height: widget.size * 0.35,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: color,
+                        ),
+                      ),
+                    );
+                  },
+                )
+              : _initials(inicial, color),
+    );
+  }
+
+  Widget _initials(String inicial, Color color) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color, color.withValues(alpha: 0.75)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        inicial,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: widget.size * 0.42,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }

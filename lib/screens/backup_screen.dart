@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../repositories/backup_repository.dart';
-import '../repositories/partido_repository.dart';
+import '../core/app_repositories.dart';
+import '../l10n/matchpay_strings.dart';
+import '../utils/nav_shell_layout.dart';
 import '../services/pdf_service.dart';
 
 class BackupScreen extends StatefulWidget {
@@ -12,9 +13,7 @@ class BackupScreen extends StatefulWidget {
 }
 
 class _BackupScreenState extends State<BackupScreen> {
-  final _backupRepo = BackupRepository();
   final _pdfService = PdfService();
-  final _partidoRepo = PartidoRepository();
   bool _busy = false;
 
   Future<void> _run(Future<void> Function() action) async {
@@ -24,7 +23,12 @@ class _BackupScreenState extends State<BackupScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(
+              context.l10n.tr('backupError', params: {'error': '$e'}),
+            ),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -34,80 +38,144 @@ class _BackupScreenState extends State<BackupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Respaldo y reportes')),
+    final l10n = context.l10n;
+    final cloud = context.repos.isCloud;
+    return ShellTabScaffold(
+      appBar: AppBar(
+        title: Text(
+          cloud ? l10n.tr('backupCloudTitle') : l10n.tr('backupLocalTitle'),
+        ),
+      ),
       body: _busy
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: NavShellScope.listPadding(context),
               children: [
-                const Text(
-                  'Exportar / Importar',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Sin nube: respalda manualmente antes de cambiar de celular. '
-                  'Puedes enviar el archivo por WhatsApp, Gmail o subirlo a Google Drive.',
-                  style: TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 16),
-                _ActionTile(
-                  icon: Icons.storage,
-                  title: 'Exportar base de datos (.db)',
-                  subtitle: 'Copia exacta de SQLite',
-                  onTap: () => _run(() async {
-                    final path = await _backupRepo.exportDatabase();
-                    await _backupRepo.shareFile(path);
-                    _showOk('Exportado: $path');
-                  }),
-                ),
-                _ActionTile(
-                  icon: Icons.data_object,
-                  title: 'Exportar JSON',
-                  subtitle: 'Formato legible, multiplataforma',
-                  onTap: () => _run(() async {
-                    final path = await _backupRepo.exportJson();
-                    await _backupRepo.shareFile(path);
-                    _showOk('Exportado: $path');
-                  }),
-                ),
-                _ActionTile(
-                  icon: Icons.upload_file,
-                  title: 'Importar .db',
-                  subtitle: 'Reemplaza la base de datos actual',
-                  onTap: () => _confirmAndRun(
-                    '¿Importar base de datos? Se reemplazarán todos los datos actuales.',
-                    () async {
-                      final ok = await _backupRepo.importDatabase();
-                      _showOk(ok ? 'Importación exitosa' : 'Cancelado');
-                    },
+                if (cloud)
+                  Card(
+                    color: Colors.blue.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.cloud_done,
+                                  color: Colors.blue.shade800),
+                              const SizedBox(width: 8),
+                              Text(
+                                l10n.tr('backupSupabaseTitle'),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            l10n.tr('backupSupabaseBody'),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue.shade900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else ...[
+                  Text(
+                    l10n.tr('backupExportImportTitle'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
-                ),
-                _ActionTile(
-                  icon: Icons.upload,
-                  title: 'Importar JSON',
-                  subtitle: 'Restaura desde respaldo JSON',
-                  onTap: () => _confirmAndRun(
-                    '¿Importar JSON? Se reemplazarán todos los datos actuales.',
-                    () async {
-                      final ok = await _backupRepo.importJson();
-                      _showOk(ok ? 'Importación exitosa' : 'Cancelado');
-                    },
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.tr('backupOfflineHint'),
+                    style: const TextStyle(color: Colors.grey),
                   ),
-                ),
-                const Divider(height: 32),
-                const Text(
-                  'Reportes PDF',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  const SizedBox(height: 16),
+                  _ActionTile(
+                    icon: Icons.storage,
+                    title: l10n.tr('backupExportDbTitle'),
+                    subtitle: l10n.tr('backupExportDbSubtitle'),
+                    onTap: () => _run(() async {
+                      final backup = context.repos.backup;
+                      final path = await backup.exportDatabase();
+                      await backup.shareFile(path);
+                      _showOk(
+                        l10n.tr('backupExported', params: {'path': path}),
+                      );
+                    }),
+                  ),
+                ],
+                if (!cloud) ...[
+                  _ActionTile(
+                    icon: Icons.data_object,
+                    title: l10n.tr('backupExportJsonTitle'),
+                    subtitle: l10n.tr('backupExportJsonSubtitle'),
+                    onTap: () => _run(() async {
+                      final backup = context.repos.backup;
+                      final path = await backup.exportJson();
+                      await backup.shareFile(path);
+                      _showOk(
+                        l10n.tr('backupExported', params: {'path': path}),
+                      );
+                    }),
+                  ),
+                  _ActionTile(
+                    icon: Icons.upload_file,
+                    title: l10n.tr('backupImportDbTitle'),
+                    subtitle: l10n.tr('backupImportDbSubtitle'),
+                    onTap: () => _confirmAndRun(
+                      l10n.tr('backupImportDbConfirm'),
+                      () async {
+                        final ok = await context.repos.backup.importDatabase();
+                        _showOk(
+                          ok
+                              ? l10n.tr('backupImportSuccess')
+                              : l10n.tr('backupCanceled'),
+                        );
+                      },
+                    ),
+                  ),
+                  _ActionTile(
+                    icon: Icons.upload,
+                    title: l10n.tr('backupImportJsonTitle'),
+                    subtitle: l10n.tr('backupImportJsonSubtitle'),
+                    onTap: () => _confirmAndRun(
+                      l10n.tr('backupImportJsonConfirm'),
+                      () async {
+                        final ok = await context.repos.backup.importJson();
+                        _showOk(
+                          ok
+                              ? l10n.tr('backupImportSuccess')
+                              : l10n.tr('backupCanceled'),
+                        );
+                      },
+                    ),
+                  ),
+                  const Divider(height: 32),
+                ],
+                if (cloud) const SizedBox(height: 16),
+                Text(
+                  l10n.tr('backupPdfReportsTitle'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _ActionTile(
                   icon: Icons.picture_as_pdf,
-                  title: 'Reporte de saldos',
-                  subtitle: 'Genera PDF y abre menú compartir',
+                  title: l10n.tr('backupBalanceReportTitle'),
+                  subtitle: l10n.tr('backupBalanceReportSubtitle'),
                   onTap: () => _run(() async {
-                    final resumenes = await _partidoRepo.getResumenJugadores();
+                    final resumenes = await context.repos.getResumenJugadores();
                     await _pdfService.generarReporteSaldos(resumenes);
                   }),
                 ),
@@ -123,14 +191,21 @@ class _BackupScreenState extends State<BackupScreen> {
   }
 
   Future<void> _confirmAndRun(String msg, Future<void> Function() action) async {
+    final l10n = context.l10n;
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Confirmar'),
+        title: Text(l10n.tr('confirm')),
         content: Text(msg),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Continuar')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: Text(l10n.tr('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(l10n.tr('continueBtn')),
+          ),
         ],
       ),
     );

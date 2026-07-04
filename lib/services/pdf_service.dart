@@ -7,11 +7,12 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../core/app_repositories.dart';
+import '../core/sport_theme.dart';
 import '../models/deuda_partido_anterior.dart';
 import '../models/desglose_jugador.dart';
 import '../models/jugador.dart';
 import '../models/partido.dart';
-import '../repositories/jugador_repository.dart';
 import '../repositories/partido_repository.dart';
 import '../services/calculation_service.dart';
 import '../services/mensaje_cobro_service.dart';
@@ -22,8 +23,9 @@ import '../utils/formatters.dart';
 class PdfService {
   final _prefs = PreferencesService();
   final _share = ShareService();
-  final _partidoRepo = PartidoRepository();
-  final _jugadorRepo = JugadorRepository();
+
+  AppRepositories get _repos =>
+      AppRepositories.isReady ? AppRepositories.I : AppRepositories.create();
 
   String _fmt(double v) => formatMoney(v);
 
@@ -121,13 +123,13 @@ class PdfService {
   }
 
   Future<void> generarReportePartido(PartidoCompleto completo) async {
-    final desglose = await _partidoRepo.getDesglose(completo.partido.id!);
+    final desglose = await _repos.getDesglose(completo.partido.id!);
     final partidoId = completo.partido.id!;
-    final deudasPorJugador = <int, List<DeudaPartidoAnterior>>{};
+    final deudasPorJugador = <String, List<DeudaPartidoAnterior>>{};
     for (final d in desglose) {
-      deudasPorJugador[d.jugadorId] =
-          await _partidoRepo.getDeudasPartidosAnteriores(
-        jugadorId: d.jugadorId,
+      deudasPorJugador[d.jugadorKeyId] =
+          await _repos.getDeudasPartidosAnteriores(
+        jugadorId: d.jugadorKeyId,
         partidoActualId: partidoId,
       );
     }
@@ -182,7 +184,7 @@ class PdfService {
             ...ordenados.expand(
               (d) => _seccionJugador(
                 d,
-                deudasAnteriores: deudasPorJugador[d.jugadorId] ?? [],
+                deudasAnteriores: deudasPorJugador[d.jugadorKeyId] ?? [],
               ),
             ),
           ] else
@@ -209,8 +211,8 @@ class PdfService {
     final titular = await _prefs.titularNombre;
     final banco = await _prefs.bancoNombre;
     final cuenta = await _prefs.cuentaNumero;
-    final deudasAnteriores = await _partidoRepo.getDeudasPartidosAnteriores(
-      jugadorId: desglose.jugadorId,
+    final deudasAnteriores = await _repos.getDeudasPartidosAnteriores(
+      jugadorId: desglose.jugadorKeyId,
       partidoActualId: completo.partido.id!,
     );
     final pdf = pw.Document();
@@ -222,7 +224,7 @@ class PdfService {
         build: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            ..._encabezadoPartido(completo.partido, titulo: 'Tu cuenta - Padel'),
+            ..._encabezadoPartido(completo.partido, titulo: 'Tu cuenta'),
             pw.SizedBox(height: 4),
             pw.Text(
               _pdf('Hola ${desglose.nombre}!'),
@@ -247,46 +249,6 @@ class PdfService {
         'cuenta_${_nombreArchivo(desglose.nombre)}_${_fechaArchivo(completo.partido.fecha)}';
     final bytes = await pdf.save();
     await _guardarYCompartirBytes(bytes, nombre);
-  }
-
-  Future<void> enviarWhatsAppPersonal({
-    required PartidoCompleto completo,
-    required DesgloseJugador desglose,
-    Jugador? jugador,
-  }) async {
-    final titular = await _prefs.titularNombre;
-    final banco = await _prefs.bancoNombre;
-    final cuenta = await _prefs.cuentaNumero;
-    final deudasAnteriores = await _partidoRepo.getDeudasPartidosAnteriores(
-      jugadorId: desglose.jugadorId,
-      partidoActualId: completo.partido.id!,
-    );
-
-    final mensaje = MensajeCobroService.construirDetallePartido(
-      partido: completo.partido,
-      desglose: desglose,
-      deudasAnteriores: deudasAnteriores,
-      titular: titular,
-      banco: banco,
-      cuenta: cuenta,
-    );
-
-    await _share.compartirWhatsApp(
-      mensaje: mensaje,
-      telefono: jugador?.telefono,
-    );
-  }
-
-  Future<void> enviarWhatsAppTodos(PartidoCompleto completo) async {
-    final desglose = await _partidoRepo.getDesglose(completo.partido.id!);
-    for (final d in desglose.where((x) => !x.pagado)) {
-      final jugador = await _jugadorRepo.getById(d.jugadorId);
-      await enviarWhatsAppPersonal(
-        completo: completo,
-        desglose: d,
-        jugador: jugador,
-      );
-    }
   }
 
   List<pw.Widget> _seccionJugador(
@@ -692,11 +654,18 @@ class PdfService {
 
   List<pw.Widget> _encabezadoPartido(Partido partido, {String? titulo}) {
     final fecha = _fechaDisplay(partido.fecha);
-    final encabezado = titulo ?? 'Partido $fecha';
+    final sportPalette = SportThemeConfig.paletteFor(partido.sportType);
+    final sportLabel = partido.sportType.labelEs;
+    final encabezado = titulo ?? 'Informe $sportLabel — $fecha';
     return [
       pw.Text(
         _pdf(encabezado.contains(fecha) ? encabezado : '$encabezado $fecha'),
         style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+      ),
+      pw.SizedBox(height: 2),
+      pw.Text(
+        _pdf('${sportPalette.emoji} $sportLabel'),
+        style: pw.TextStyle(fontSize: 12, color: PdfColors.grey800),
       ),
       if (partido.recinto != null && partido.recinto!.trim().isNotEmpty) ...[
         pw.SizedBox(height: 2),

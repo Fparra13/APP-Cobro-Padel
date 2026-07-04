@@ -2,7 +2,7 @@ import '../models/estado_partido.dart';
 import '../models/jugador.dart';
 
 class ResultadoImportacionConvocatoria {
-  final Map<int, EstadoConfirmacion> cambios;
+  final Map<String, EstadoConfirmacion> cambios;
   final List<String> noReconocidos;
 
   const ResultadoImportacionConvocatoria({
@@ -27,7 +27,7 @@ class ConvocatoriaParserService {
     required String texto,
     required List<Jugador> jugadoresInvitados,
   }) {
-    final cambios = <int, EstadoConfirmacion>{};
+    final cambios = <String, EstadoConfirmacion>{};
     final noReconocidos = <String>[];
     final lineas = texto.split(RegExp(r'[\r\n]+'));
 
@@ -39,8 +39,8 @@ class ConvocatoriaParserService {
       if (estado == null) continue;
 
       final jugador = _buscarJugador(limpia, jugadoresInvitados);
-      if (jugador?.id != null) {
-        cambios[jugador!.id!] = estado;
+      if (jugador != null && jugador.keyId.isNotEmpty) {
+        cambios[jugador.keyId] = estado;
       } else {
         final nombre = _extraerNombre(limpia);
         if (nombre != null && nombre.length >= 2) {

@@ -1,3 +1,4 @@
+import '../core/sport_theme.dart';
 import '../models/convocatoria_jugador.dart';
 import '../utils/formatters.dart';
 
@@ -10,8 +11,9 @@ class ConvocatoriaMessageService {
     final confirmados = convocatoria.confirmados;
     final cupos = p.cuposMax;
 
+    final sportPalette = SportThemeConfig.paletteFor(p.sportType);
     final buffer = StringBuffer()
-      ..writeln('🎾 *Convocatoria pádel*')
+      ..writeln('${sportPalette.emoji} *Convocatoria ${p.sportType.labelEs.toLowerCase()}*')
       ..writeln('📅 $fecha · $hora');
 
     if (recinto != null && recinto.isNotEmpty) {
@@ -20,6 +22,8 @@ class ConvocatoriaMessageService {
 
     buffer
       ..writeln('👥 Cupos: $cupos · Confirmados: $confirmados/$cupos')
+      ..writeln('⏱ Tiempo para confirmar: ${p.horasLimiteRespuesta}h')
+      ..writeln('📋 Lista de espera: ${convocatoria.enEspera} jugador(es)')
       ..writeln()
       ..writeln('Responde en este chat:')
       ..writeln('✅ Voy - [tu nombre]')

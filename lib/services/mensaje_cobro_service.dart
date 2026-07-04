@@ -1,10 +1,11 @@
+import '../core/sport_theme.dart';
+import '../core/sport_type.dart';
 import '../models/deuda_partido_anterior.dart';
 import '../models/desglose_jugador.dart';
 import '../models/partido.dart';
 import '../utils/formatters.dart';
 
-/// Mensajes de WhatsApp con detalle de cobros por jugador.
-/// Usa *negrita* (formato nativo de WhatsApp) y líneas en blanco entre bloques.
+/// Textos de notificaciones push / recordatorios de cobro por jugador.
 class MensajeCobroService {
   static String construirDetallePartido({
     required Partido partido,
@@ -14,8 +15,9 @@ class MensajeCobroService {
     required String banco,
     required String cuenta,
   }) {
+    final sportPalette = SportThemeConfig.paletteFor(partido.sportType);
     final lineas = <String>[
-      '🎾 *Pádel — ${formatFecha(partido.fecha)}*',
+      '${sportPalette.emoji} *${partido.sportType.labelEs} — ${formatFecha(partido.fecha)}*',
     ];
 
     if (partido.recinto != null && partido.recinto!.trim().isNotEmpty) {
@@ -82,7 +84,9 @@ class MensajeCobroService {
 
     lineas.add('');
     lineas.addAll(
-      desglose.pagado ? _lineasCierreAlDia : _lineasCierrePendiente,
+      desglose.pagado
+          ? _lineasCierreAlDia(partido.sportType)
+          : _lineasCierrePendiente(partido.sportType),
     );
 
     return lineas.join('\n');
@@ -98,7 +102,7 @@ class MensajeCobroService {
     required String cuenta,
   }) {
     final lineas = <String>[
-      '🎾 *Recordatorio Pádel Cobro*',
+      '🏆 *Recordatorio MatchPay*',
       '',
       'Hola ${formatNombreSaludo(nombreJugador)}!',
       '',
@@ -112,8 +116,10 @@ class MensajeCobroService {
       for (final p in partidos) {
         final f = formatFecha(p.fecha);
         final r = p.recinto?.trim();
-        final linea = r != null && r.isNotEmpty ? '$f - $r' : f;
-        lineas.add('• $linea: ${formatMoney(p.montoPendiente)}');
+        final sportEmoji = SportThemeConfig.paletteFor(p.sportType).emoji;
+        final sportLabel = p.sportType.labelEs;
+        final lugar = r != null && r.isNotEmpty ? '$f - $r' : f;
+        lineas.add('• $sportEmoji $sportLabel · $lugar: ${formatMoney(p.montoPendiente)}');
       }
     }
 
@@ -128,7 +134,9 @@ class MensajeCobroService {
 
     lineas
       ..add('')
-      ..addAll(_lineasCierrePendiente);
+      ..addAll(_lineasCierrePendiente(
+        partidos.isNotEmpty ? partidos.first.sportType : SportType.padel,
+      ));
 
     return lineas.join('\n');
   }
@@ -151,13 +159,19 @@ class MensajeCobroService {
     return lineas;
   }
 
-  static const _lineasCierrePendiente = [
-    'Cuando puedas nos transfieres y quedamos al día 🙌',
-    '¡Nos vemos en la cancha! 🎾🔥',
-  ];
+  static List<String> _lineasCierrePendiente(SportType sport) {
+    final emoji = SportThemeConfig.paletteFor(sport).emoji;
+    return [
+      'Cuando puedas nos transfieres y quedamos al día 🙌',
+      '¡Nos vemos pronto! $emoji🔥',
+    ];
+  }
 
-  static const _lineasCierreAlDia = [
-    '¡Gracias por estar al día! 🙌',
-    '¡Nos vemos en la cancha! 🎾🔥',
-  ];
+  static List<String> _lineasCierreAlDia(SportType sport) {
+    final emoji = SportThemeConfig.paletteFor(sport).emoji;
+    return [
+      '¡Gracias por estar al día! 🙌',
+      '¡Nos vemos pronto! $emoji🔥',
+    ];
+  }
 }

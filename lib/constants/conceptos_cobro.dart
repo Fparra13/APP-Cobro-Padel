@@ -1,4 +1,7 @@
-/// Conceptos predefinidos de cobro del partido.
+/// Conceptos de cobro del partido.
+///
+/// Los gastos compartidos (variables) usan texto libre guardado en Supabase;
+/// [variablesLegacy] solo sirve para migrar partidos antiguos.
 class ConceptosCobro {
   ConceptosCobro._();
 
@@ -8,9 +11,13 @@ class ConceptosCobro {
   static const barraSchop = 'Barra Schop';
   static const otros = 'Otros';
 
-  static const todos = [cancha, pelotas, asado, barraSchop, otros];
   static const fijos = [cancha, pelotas];
-  static const variables = [asado, barraSchop, otros];
+  static const variablesLegacy = [asado, barraSchop, otros];
+
+  @Deprecated('Usar gastos compartidos con texto libre')
+  static const variables = variablesLegacy;
+
+  static const todos = [cancha, pelotas, ...variablesLegacy];
 
   /// Sugerencias para cobros extra individuales por jugador.
   static const sugerenciasIndividuales = [
@@ -21,6 +28,12 @@ class ConceptosCobro {
   ];
 
   static bool esFijo(String concepto) => fijos.contains(concepto);
+
+  static bool esVariableLegacy(String concepto) =>
+      variablesLegacy.contains(concepto);
+
+  static bool esVariableCompartida(String concepto) =>
+      !esFijo(concepto);
 
   /// Texto corto para la UI del formulario de partido.
   static String ayudaUi(String concepto) => switch (concepto) {

@@ -18,7 +18,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 8,
+      version: 13,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -35,6 +35,7 @@ class DatabaseHelper {
         activo INTEGER NOT NULL DEFAULT 1,
         saldo_acumulado REAL NOT NULL DEFAULT 0,
         telefono TEXT,
+        email TEXT,
         foto_path TEXT,
         created_at TEXT NOT NULL
       )
@@ -52,6 +53,8 @@ class DatabaseHelper {
         comprobante_pelotas TEXT,
         estado TEXT NOT NULL DEFAULT 'jugado',
         cupos_max INTEGER NOT NULL DEFAULT 4,
+        horas_limite_respuesta INTEGER NOT NULL DEFAULT 24,
+        sport_type TEXT NOT NULL DEFAULT 'padel',
         created_at TEXT NOT NULL
       )
     ''');
@@ -62,6 +65,11 @@ class DatabaseHelper {
         partido_id INTEGER NOT NULL,
         jugador_id INTEGER NOT NULL,
         estado_confirmacion TEXT NOT NULL DEFAULT 'invitado',
+        es_suplente INTEGER NOT NULL DEFAULT 0,
+        orden_espera INTEGER,
+        tiempo_limite TEXT,
+        notificado_vencimiento INTEGER NOT NULL DEFAULT 0,
+        recordatorio_plazo_enviado INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (partido_id) REFERENCES partidos(id) ON DELETE CASCADE,
         FOREIGN KEY (jugador_id) REFERENCES jugadores(id) ON DELETE RESTRICT,
         UNIQUE(partido_id, jugador_id)
@@ -194,6 +202,44 @@ class DatabaseHelper {
     }
     if (oldVersion < 8) {
       await db.execute('ALTER TABLE jugadores ADD COLUMN foto_path TEXT');
+    }
+    if (oldVersion < 9) {
+      await db.execute('ALTER TABLE jugadores ADD COLUMN email TEXT');
+      await db.execute('''
+        UPDATE jugadores
+        SET email = telefono
+        WHERE email IS NULL AND telefono LIKE '%@%'
+      ''');
+    }
+    if (oldVersion < 10) {
+      await db.execute(
+        'ALTER TABLE partidos ADD COLUMN horas_limite_respuesta INTEGER NOT NULL DEFAULT 24',
+      );
+      await db.execute(
+        'ALTER TABLE convocatoria_jugadores ADD COLUMN es_suplente INTEGER NOT NULL DEFAULT 0',
+      );
+      await db.execute(
+        'ALTER TABLE convocatoria_jugadores ADD COLUMN orden_espera INTEGER',
+      );
+      await db.execute(
+        'ALTER TABLE convocatoria_jugadores ADD COLUMN tiempo_limite TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE convocatoria_jugadores ADD COLUMN notificado_vencimiento INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 11) {
+      await db.execute(
+        "ALTER TABLE partidos ADD COLUMN sport_type TEXT NOT NULL DEFAULT 'padel'",
+      );
+      await db.execute(
+        'ALTER TABLE costos_variables ADD COLUMN icon_key TEXT',
+      );
+    }
+    if (oldVersion < 13) {
+      await db.execute(
+        'ALTER TABLE convocatoria_jugadores ADD COLUMN recordatorio_plazo_enviado INTEGER NOT NULL DEFAULT 0',
+      );
     }
   }
 

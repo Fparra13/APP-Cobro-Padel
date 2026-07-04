@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/matchpay_strings.dart';
 import '../repositories/partido_repository.dart';
 import '../services/pdf_service.dart';
 import '../utils/formatters.dart';
@@ -53,15 +54,15 @@ class _PartidosScreenState extends State<PartidosScreen> {
     final fecha = formatFecha(pc.partido.fecha);
     final ok = await confirmarEliminarPartido(
       context,
-      titulo: 'Eliminar partido',
-      mensaje: 'Vas a eliminar el partido del $fecha.',
+      titulo: context.tr('deleteMatchTitle'),
+      mensaje: context.tr('deleteMatchMessage', params: {'date': fecha}),
     );
 
     if (ok) {
       await _repo.eliminarPartido(pc.partido.id!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Partido eliminado')),
+          SnackBar(content: Text(context.tr('matchDeleted'))),
         );
         _load();
       }
@@ -72,7 +73,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Historial de partidos'),
+        title: Text(context.tr('matchesHistoryTitle')),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
@@ -80,7 +81,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _partidos.isEmpty
-              ? const Center(child: Text('Sin partidos registrados'))
+              ? Center(child: Text(context.tr('noMatchesRegistered')))
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView.builder(
@@ -97,6 +98,12 @@ class _PartidosScreenState extends State<PartidosScreen> {
                       final pendientes = pc.detalles
                           .where((d) => d.asistio && !d.pagado)
                           .length;
+                      final unpaid = pendientes > 0
+                          ? context.tr(
+                              'matchUnpaidSuffix',
+                              params: {'count': '$pendientes'},
+                            )
+                          : '';
 
                       return Card(
                         margin: const EdgeInsets.symmetric(
@@ -106,8 +113,14 @@ class _PartidosScreenState extends State<PartidosScreen> {
                         child: ListTile(
                           title: Text(fecha),
                           subtitle: Text(
-                            '$asistentes jugadores · ${formatMoney(total)}'
-                            '${pendientes > 0 ? ' · $pendientes sin pagar' : ''}',
+                            context.tr(
+                              'matchListSubtitle',
+                              params: {
+                                'players': '$asistentes',
+                                'amount': formatMoney(total),
+                                'unpaid': unpaid,
+                              },
+                            ),
                           ),
                           trailing: PopupMenuButton<String>(
                             onSelected: (action) {
@@ -120,29 +133,31 @@ class _PartidosScreenState extends State<PartidosScreen> {
                                   _eliminar(pc);
                               }
                             },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
+                            itemBuilder: (ctx) => [
+                              PopupMenuItem(
                                 value: 'edit',
                                 child: ListTile(
-                                  leading: Icon(Icons.edit),
-                                  title: Text('Editar'),
+                                  leading: const Icon(Icons.edit),
+                                  title: Text(ctx.tr('editTooltip')),
                                   contentPadding: EdgeInsets.zero,
                                 ),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'pdf',
                                 child: ListTile(
-                                  leading: Icon(Icons.picture_as_pdf),
-                                  title: Text('PDF'),
+                                  leading: const Icon(Icons.picture_as_pdf),
+                                  title: Text(ctx.tr('pdfLabel')),
                                   contentPadding: EdgeInsets.zero,
                                 ),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'delete',
                                 child: ListTile(
-                                  leading: Icon(Icons.delete, color: Colors.red),
-                                  title: Text('Eliminar',
-                                      style: TextStyle(color: Colors.red)),
+                                  leading: const Icon(Icons.delete, color: Colors.red),
+                                  title: Text(
+                                    ctx.tr('deleteTooltip'),
+                                    style: const TextStyle(color: Colors.red),
+                                  ),
                                   contentPadding: EdgeInsets.zero,
                                 ),
                               ),
@@ -177,7 +192,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
                       dense: true,
                       title: Text(d.nombreJugador ?? ''),
                       trailing: Text(
-                        d.pagado ? 'Pagó' : formatMoney(d.total),
+                        d.pagado ? ctx.tr('paidVerb') : formatMoney(d.total),
                         style: TextStyle(
                           color: d.pagado ? Colors.green : Colors.red,
                           fontWeight: FontWeight.bold,
@@ -195,7 +210,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
                         _editar(pc);
                       },
                       icon: const Icon(Icons.edit),
-                      label: const Text('Editar'),
+                      label: Text(ctx.tr('editTooltip')),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -206,7 +221,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
                         _pdfService.generarReportePartido(pc);
                       },
                       icon: const Icon(Icons.picture_as_pdf),
-                      label: const Text('PDF'),
+                      label: Text(ctx.tr('pdfLabel')),
                     ),
                   ),
                 ],

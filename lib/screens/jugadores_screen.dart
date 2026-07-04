@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_repositories.dart';
+import '../l10n/matchpay_strings.dart';
 import '../models/jugador.dart';
-import '../repositories/jugador_repository.dart';
 import '../services/jugador_foto_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/ayuda_tip.dart';
+import '../utils/nav_shell_layout.dart';
 import '../widgets/jugador_avatar.dart';
 import 'estadisticas_jugadores_screen.dart';
 
@@ -16,7 +18,6 @@ class JugadoresScreen extends StatefulWidget {
 }
 
 class _JugadoresScreenState extends State<JugadoresScreen> {
-  final _repo = JugadorRepository();
   final _fotoService = JugadorFotoService.instance;
   List<Jugador> _jugadores = [];
   bool _loading = true;
@@ -29,7 +30,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
-    final list = await _repo.getAll();
+    final list = await context.repos.getJugadores();
     if (mounted) {
       setState(() {
         _jugadores = list;
@@ -40,41 +41,44 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
 
   Future<void> _showForm({Jugador? jugador}) async {
     final nombreCtrl = TextEditingController(text: jugador?.nombre ?? '');
-    final telefonoCtrl = TextEditingController(text: jugador?.telefono ?? '');
+    final emailCtrl = TextEditingController(text: jugador?.contactEmail ?? '');
     final activo = ValueNotifier(jugador?.activo ?? true);
 
     final saved = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) {
+        final l10n = ctx.l10n;
+        return AlertDialog(
         icon: Icon(
           jugador == null ? Icons.person_add_alt_1 : Icons.edit,
           color: Theme.of(ctx).colorScheme.primary,
           size: 32,
         ),
-        title: Text(jugador == null ? 'Nuevo jugador' : 'Editar jugador'),
+        title: Text(jugador == null ? l10n.tr('newPlayer') : l10n.tr('editPlayer')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nombreCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Nombre',
-                prefixIcon: Icon(Icons.badge_outlined),
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l10n.tr('nameLabel'),
+                prefixIcon: const Icon(Icons.badge_outlined),
+                border: const OutlineInputBorder(),
               ),
               textCapitalization: TextCapitalization.words,
               autofocus: true,
             ),
             const SizedBox(height: 12),
             TextField(
-              controller: telefonoCtrl,
-              decoration: const InputDecoration(
-                labelText: 'WhatsApp (opcional)',
-                hintText: '56912345678',
-                prefixIcon: Icon(Icons.phone_android, color: Colors.green),
-                border: OutlineInputBorder(),
+              controller: emailCtrl,
+              decoration: InputDecoration(
+                labelText: l10n.tr('emailLabel'),
+                hintText: l10n.tr('loginEmailHint'),
+                prefixIcon: const Icon(Icons.email_outlined),
+                border: const OutlineInputBorder(),
               ),
-              keyboardType: TextInputType.phone,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
             ),
             const SizedBox(height: 12),
             ValueListenableBuilder(
@@ -84,8 +88,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                   value ? Icons.star : Icons.star_border,
                   color: value ? Colors.amber.shade700 : Colors.grey,
                 ),
-                title: const Text('Jugador habitual'),
-                subtitle: const Text('Aparece al crear un partido'),
+                title: Text(l10n.tr('regularPlayer')),
+                subtitle: Text(l10n.tr('regularPlayerSubtitle')),
                 value: value,
                 onChanged: (v) => activo.value = v,
                 contentPadding: EdgeInsets.zero,
@@ -96,83 +100,118 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(l10n.tr('cancel')),
           ),
           FilledButton.icon(
             onPressed: () {
               if (nombreCtrl.text.trim().isEmpty) return;
+              if (emailCtrl.text.trim().isEmpty) return;
               Navigator.pop(ctx, true);
             },
             icon: const Icon(Icons.save),
-            label: const Text('Guardar'),
+            label: Text(l10n.tr('save')),
           ),
         ],
-      ),
+      );
+      },
     );
 
-    if (saved != true) return;
+    if (saved != true || !mounted) return;
 
     final now = DateTime.now();
-    if (jugador == null) {
-      await _repo.insert(Jugador(
-        nombre: nombreCtrl.text.trim(),
-        activo: activo.value,
-        telefono: telefonoCtrl.text.trim().isEmpty
-            ? null
-            : telefonoCtrl.text.trim(),
-        createdAt: now,
-      ));
-    } else {
-      await _repo.update(jugador.copyWith(
-        nombre: nombreCtrl.text.trim(),
-        activo: activo.value,
-        telefono: telefonoCtrl.text.trim().isEmpty
-            ? null
-            : telefonoCtrl.text.trim(),
-      ));
+    final email = emailCtrl.text.trim().toLowerCase();
+    try {
+      if (jugador == null) {
+        await context.repos.insertJugador(Jugador(
+          nombre: nombreCtrl.text.trim(),
+          activo: activo.value,
+          email: email,
+          createdAt: now,
+        ));
+      } else {
+        await context.repos.updateJugador(jugador.copyWith(
+          nombre: nombreCtrl.text.trim(),
+          activo: activo.value,
+          email: email,
+        ));
+      }
+      if (mounted) {
+        _load();
+        final l10n = context.l10n;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              jugador == null
+                  ? l10n.tr('playerAdded')
+                  : l10n.tr(
+                      'playerDataSaved',
+                      params: {'name': nombreCtrl.text.trim()},
+                    ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 12),
+            action: SnackBarAction(
+              label: context.l10n.tr('close'),
+              textColor: Colors.white,
+              onPressed: () {},
+            ),
+          ),
+        );
+      }
     }
-    _load();
   }
 
   Future<void> _confirmDelete(Jugador j) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (c) => AlertDialog(
+      builder: (c) {
+        final l10n = c.l10n;
+        return AlertDialog(
         icon: Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 36),
-        title: const Text('Eliminar jugador'),
-        content: Text('¿Eliminar a ${j.nombre}? Esta acción no se puede deshacer.'),
+        title: Text(l10n.tr('deletePlayerTitle')),
+        content: Text(l10n.tr('deletePlayerMessage', params: {'name': j.nombre})),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: const Text('No'),
+            child: Text(l10n.tr('no')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Sí, eliminar'),
+            child: Text(l10n.tr('yesDelete')),
           ),
         ],
-      ),
+      );
+      },
     );
     if (confirm == true) {
       await _fotoService.delete(j.fotoPath);
-      await _repo.delete(j.id!);
+      await context.repos.deleteJugador(j.keyId);
       _load();
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final activos = _jugadores.where((j) => j.activo).length;
     final conDeuda = _jugadores.where((j) => j.saldoAcumulado > 0).length;
 
-    return Scaffold(
+    return ShellTabScaffold(
       appBar: AppBar(
-        title: const Text('👥 Jugadores'),
+        title: Text('👥 ${l10n.tr('playersScreenTitle')}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.bar_chart_rounded),
-            tooltip: 'Estadísticas',
+            tooltip: l10n.tr('statsTooltip'),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -182,7 +221,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Actualizar',
+            tooltip: l10n.tr('refreshTooltip'),
             onPressed: _load,
           ),
         ],
@@ -198,15 +237,16 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                       ],
                     )
                   : ListView(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
+                      padding: NavShellScope.listPadding(
+                        context,
+                        left: 12,
+                        top: 12,
+                        right: 12,
+                      ),
                       children: [
                         _buildResumen(activos, conDeuda),
                         const SizedBox(height: 12),
-                        const AyudaTip(
-                          texto:
-                              'Los habituales ⭐ aparecen al crear un partido. '
-                              'Agrega WhatsApp para enviar informes directo.',
-                        ),
+                        AyudaTip(texto: l10n.tr('playersHelpTip')),
                         const SizedBox(height: 12),
                         ..._jugadores.map(_buildJugadorCard),
                       ],
@@ -215,12 +255,14 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showForm(),
         icon: const Icon(Icons.person_add),
-        label: const Text('Nuevo jugador'),
+        label: Text(l10n.tr('newPlayer')),
       ),
     );
   }
 
   Widget _buildEmptyState() {
+    final l10n = context.l10n;
+
     return Padding(
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -241,14 +283,14 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
           ),
           const SizedBox(height: 20),
           Text(
-            'Sin jugadores aún',
+            l10n.tr('playersEmptyTitle'),
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Agrega a tu grupo de pádel para empezar\na registrar partidos y cobros.',
+            l10n.tr('playersEmptySubtitle'),
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade600, height: 1.4),
           ),
@@ -256,7 +298,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
           FilledButton.icon(
             onPressed: () => _showForm(),
             icon: const Icon(Icons.person_add),
-            label: const Text('Agregar primer jugador'),
+            label: Text(l10n.tr('addFirstPlayer')),
           ),
         ],
       ),
@@ -264,6 +306,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
   }
 
   Widget _buildResumen(int activos, int conDeuda) {
+    final l10n = context.l10n;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -286,17 +330,17 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
         children: [
           _ResumenChip(
             icon: Icons.people_alt_rounded,
-            label: 'Total',
+            label: l10n.tr('total'),
             value: '${_jugadores.length}',
           ),
           _ResumenChip(
             icon: Icons.star_rounded,
-            label: 'Habituales',
+            label: l10n.tr('regulars'),
             value: '$activos',
           ),
           _ResumenChip(
             icon: Icons.account_balance_wallet_rounded,
-            label: 'Con deuda',
+            label: l10n.tr('withDebt'),
             value: '$conDeuda',
           ),
         ],
@@ -305,6 +349,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
   }
 
   Widget _buildJugadorCard(Jugador j) {
+    final l10n = context.l10n;
     final deuda = j.saldoAcumulado > 0;
     final conFavor = j.saldoAcumulado < 0;
 
@@ -314,7 +359,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => Navigator.pushNamed(context, '/historial', arguments: j.id),
+        onTap: () => Navigator.pushNamed(context, '/historial', arguments: j.keyId),
         onLongPress: () => _showForm(jugador: j),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
@@ -323,6 +368,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
             JugadorAvatar(
               nombre: j.nombre,
               fotoPath: j.fotoPath,
+              fotoUrl: j.fotoUrl,
               size: 52,
               borderRadius: 14,
             ),
@@ -357,13 +403,13 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                     children: [
                       _MiniChip(
                         icon: j.activo ? Icons.check_circle : Icons.pause_circle,
-                        label: j.activo ? 'Habitual' : 'Inactivo',
+                        label: j.activo ? l10n.tr('statusRegular') : l10n.tr('statusInactive'),
                         color: j.activo ? Colors.green : Colors.grey,
                       ),
-                      if (j.telefono != null && j.telefono!.isNotEmpty)
+                      if (j.contactEmail != null)
                         _MiniChip(
-                          icon: Icons.phone_android,
-                          label: 'WhatsApp',
+                          icon: Icons.email_outlined,
+                          label: j.contactEmail!,
                           color: Colors.teal,
                         ),
                     ],
@@ -371,7 +417,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                   if (deuda) ...[
                     const SizedBox(height: 6),
                     Text(
-                      'Debe: ${formatMoney(j.saldoAcumulado)}',
+                      '${l10n.tr('statusOwes')}: ${formatMoney(j.saldoAcumulado)}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.red.shade700,
@@ -381,7 +427,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                   ] else if (conFavor) ...[
                     const SizedBox(height: 6),
                     Text(
-                      'Saldo a favor: ${formatMoney(-j.saldoAcumulado)}',
+                      '${l10n.tr('statusCredit')}: ${formatMoney(-j.saldoAcumulado)}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.blue.shade700,
@@ -391,7 +437,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                   ] else ...[
                     const SizedBox(height: 4),
                     Text(
-                      'Toca para ver ficha',
+                      l10n.tr('tapToViewProfile'),
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey.shade500,
@@ -405,7 +451,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
               children: [
                 IconButton.filledTonal(
                   icon: const Icon(Icons.edit_rounded, size: 22),
-                  tooltip: 'Editar',
+                  tooltip: l10n.tr('editTooltip'),
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.blue.shade50,
                     foregroundColor: Colors.blue.shade700,
@@ -415,7 +461,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                 const SizedBox(height: 4),
                 IconButton.filledTonal(
                   icon: const Icon(Icons.delete_outline_rounded, size: 22),
-                  tooltip: 'Eliminar',
+                  tooltip: l10n.tr('deleteTooltip'),
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.red.shade50,
                     foregroundColor: Colors.red.shade700,

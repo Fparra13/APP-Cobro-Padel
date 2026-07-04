@@ -1,3 +1,5 @@
+import '../core/sport_type.dart';
+
 class DetallePartido {
   final int? id;
   final int partidoId;
@@ -10,7 +12,14 @@ class DetallePartido {
   final double total;
   final bool pagado;
   final double montoPagado;
+  final String? comprobanteUrl;
+  final bool? comprobanteValidado;
+  final double? montoPagoDeclarado;
+  final bool? pagoEsAbono;
   final String? nombreJugador;
+  final DateTime? fechaPartido;
+  final String? recintoPartido;
+  final SportType? sportType;
 
   const DetallePartido({
     this.id,
@@ -23,34 +32,84 @@ class DetallePartido {
     this.total = 0,
     this.pagado = false,
     this.montoPagado = 0,
+    this.comprobanteUrl,
+    this.comprobanteValidado,
+    this.montoPagoDeclarado,
+    this.pagoEsAbono,
     this.nombreJugador,
+    this.fechaPartido,
+    this.recintoPartido,
+    this.sportType,
   });
 
   bool get pagoParcial => montoPagado > 0 && !pagado;
+
+  /// Pago/abono declarado por el jugador, aún no validado por el organizador.
+  bool get comprobantePendienteValidacion {
+    if (pagado || comprobanteValidado == true) return false;
+    final url = comprobanteUrl?.trim() ?? '';
+    if (url.isNotEmpty) return true;
+    final declarado = montoPagoDeclarado ?? 0;
+    return declarado > 0.005;
+  }
+
+  /// Saldo pendiente en este cobro (incluye pagos parciales ya validados).
+  double get montoPendiente {
+    final restante = total - montoPagado;
+    if (restante <= 0.005) return 0;
+    return restante;
+  }
+
+  bool get tieneDeudaEnCobro => !pagado && montoPendiente > 0.005;
+
+  bool get puedeDeclararPago =>
+      !pagado && !comprobantePendienteValidacion;
+
+  bool get pendientePago =>
+      tieneDeudaEnCobro && !comprobantePendienteValidacion;
+
+  String get jugadorKeyId =>
+      jugadorSupabaseId ?? (jugadorId > 0 ? jugadorId.toString() : '');
 
   DetallePartido copyWith({
     int? id,
     int? partidoId,
     int? jugadorId,
+    String? jugadorSupabaseId,
     bool? asistio,
     double? prorrateoFijo,
     double? totalVariables,
     double? total,
     bool? pagado,
     double? montoPagado,
+    String? comprobanteUrl,
+    bool? comprobanteValidado,
+    double? montoPagoDeclarado,
+    bool? pagoEsAbono,
     String? nombreJugador,
+    DateTime? fechaPartido,
+    String? recintoPartido,
+    SportType? sportType,
   }) {
     return DetallePartido(
       id: id ?? this.id,
       partidoId: partidoId ?? this.partidoId,
       jugadorId: jugadorId ?? this.jugadorId,
+      jugadorSupabaseId: jugadorSupabaseId ?? this.jugadorSupabaseId,
       asistio: asistio ?? this.asistio,
       prorrateoFijo: prorrateoFijo ?? this.prorrateoFijo,
       totalVariables: totalVariables ?? this.totalVariables,
       total: total ?? this.total,
       pagado: pagado ?? this.pagado,
       montoPagado: montoPagado ?? this.montoPagado,
+      comprobanteUrl: comprobanteUrl ?? this.comprobanteUrl,
+      comprobanteValidado: comprobanteValidado ?? this.comprobanteValidado,
+      montoPagoDeclarado: montoPagoDeclarado ?? this.montoPagoDeclarado,
+      pagoEsAbono: pagoEsAbono ?? this.pagoEsAbono,
       nombreJugador: nombreJugador ?? this.nombreJugador,
+      fechaPartido: fechaPartido ?? this.fechaPartido,
+      recintoPartido: recintoPartido ?? this.recintoPartido,
+      sportType: sportType ?? this.sportType,
     );
   }
 
@@ -82,6 +141,9 @@ class DetallePartido {
   factory DetallePartido.fromSupabaseMap(
     Map<String, dynamic> map, {
     String? nombreJugador,
+    DateTime? fechaPartido,
+    String? recintoPartido,
+    SportType? sportType,
   }) =>
       DetallePartido(
         id: (map['id'] as num?)?.toInt(),
@@ -93,6 +155,13 @@ class DetallePartido {
         total: (map['total'] as num?)?.toDouble() ?? 0,
         pagado: map['pagado'] as bool? ?? false,
         montoPagado: (map['monto_pagado'] as num?)?.toDouble() ?? 0,
+        comprobanteUrl: map['comprobante_url'] as String?,
+        comprobanteValidado: map['comprobante_validado'] as bool?,
+        montoPagoDeclarado: (map['monto_pago_declarado'] as num?)?.toDouble(),
+        pagoEsAbono: map['pago_es_abono'] as bool?,
         nombreJugador: nombreJugador,
+        fechaPartido: fechaPartido,
+        recintoPartido: recintoPartido,
+        sportType: sportType,
       );
 }

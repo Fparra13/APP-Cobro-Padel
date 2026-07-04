@@ -2,21 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+/// Configuración global de formato monetario (actualizada por [AppSettingsController]).
+class MoneyFormatConfig {
+  static String locale = 'es_CL';
+  static String symbol = '\$';
+  static bool showSymbol = true;
+  static String dateLocale = 'es';
+
+  static NumberFormat get numberFormat => NumberFormat('#,##0', locale);
+}
+
 const _localeEs = 'es';
 
-final _numberFormat = NumberFormat('#,##0', 'es_CL');
+String get _activeDateLocale =>
+    MoneyFormatConfig.dateLocale.isNotEmpty
+        ? MoneyFormatConfig.dateLocale
+        : _localeEs;
 
-/// Monto redondeado con separador de miles, sin símbolo de peso.
-String formatMoney(double amount) =>
-    _numberFormat.format(amount.round());
+/// Monto redondeado con separador de miles; incluye símbolo si está configurado.
+String formatMoney(double amount) {
+  final formatted = MoneyFormatConfig.numberFormat.format(amount.round());
+  if (MoneyFormatConfig.showSymbol) {
+    return '${MoneyFormatConfig.symbol}$formatted';
+  }
+  return formatted;
+}
 
 /// Texto para campos editables (vacío si el monto es 0).
 String formatMoneyField(double amount) {
   if (amount == 0) return '';
-  return formatMoney(amount);
+  return MoneyFormatConfig.numberFormat.format(amount.round());
 }
 
-/// Parsea montos escritos con o sin separador de miles (es_CL).
+/// Parsea montos escritos con o sin separador de miles.
 double parseMoney(String text) {
   if (text.trim().isEmpty) return 0;
   final cleaned = text.replaceAll('.', '').replaceAll(',', '').trim();
@@ -42,7 +60,7 @@ class MoneyInputFormatter extends TextInputFormatter {
       );
     }
 
-    final formatted = _numberFormat.format(int.parse(digits));
+    final formatted = MoneyFormatConfig.numberFormat.format(int.parse(digits));
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),
@@ -53,38 +71,38 @@ class MoneyInputFormatter extends TextInputFormatter {
 const moneyInputFormatters = [MoneyInputFormatter()];
 
 String formatFecha(DateTime fecha) =>
-    DateFormat('dd/MM/yyyy', _localeEs).format(fecha);
+    DateFormat('dd/MM/yyyy', _activeDateLocale).format(fecha);
 
 String formatFechaCorta(DateTime fecha) =>
-    DateFormat('dd/MM/yy', _localeEs).format(fecha);
+    DateFormat('dd/MM/yy', _activeDateLocale).format(fecha);
 
 String formatHora(DateTime fecha) =>
-    DateFormat('HH:mm', _localeEs).format(fecha);
+    DateFormat('HH:mm', _activeDateLocale).format(fecha);
 
 String formatFechaHora(DateTime fecha) =>
-    DateFormat('dd/MM/yyyy HH:mm', _localeEs).format(fecha);
+    DateFormat('dd/MM/yyyy HH:mm', _activeDateLocale).format(fecha);
 
 String formatDiaCorto(DateTime fecha) =>
-    DateFormat('EEE d/M · HH:mm', _localeEs).format(fecha);
+    DateFormat('EEE d/M · HH:mm', _activeDateLocale).format(fecha);
 
 String formatDiaCompleto(DateTime fecha) =>
-    DateFormat('EEEE d MMM · HH:mm', _localeEs).format(fecha);
+    DateFormat('EEEE d MMM · HH:mm', _activeDateLocale).format(fecha);
 
 String formatDiaMensaje(DateTime fecha) =>
-    capitalize(DateFormat('EEEE d/M', _localeEs).format(fecha));
+    capitalize(DateFormat('EEEE d/M', _activeDateLocale).format(fecha));
 
 String formatFechaArchivo(DateTime fecha) =>
-    DateFormat('yyyy-MM-dd', _localeEs).format(fecha);
+    DateFormat('yyyy-MM-dd', _activeDateLocale).format(fecha);
 
 String formatMesDiaHora(DateTime fecha) =>
-    DateFormat('dd/MM · HH:mm', _localeEs).format(fecha);
+    DateFormat('dd/MM · HH:mm', _activeDateLocale).format(fecha);
 
 String capitalize(String text) {
   if (text.isEmpty) return text;
   return text[0].toUpperCase() + text.substring(1);
 }
 
-/// Saludo corto para WhatsApp (ej. "Francisco Parra" → "F. P.").
+/// Saludo corto para mensajes (ej. "Francisco Parra" → "F. P.").
 String formatNombreSaludo(String nombre) {
   final partes = nombre
       .trim()

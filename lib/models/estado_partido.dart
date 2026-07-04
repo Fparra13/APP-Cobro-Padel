@@ -20,7 +20,8 @@ enum EstadoPartido {
 enum EstadoConfirmacion {
   invitado,
   confirmado,
-  rechazado;
+  rechazado,
+  noRespondio;
 
   String get dbValue => name;
 
@@ -30,18 +31,29 @@ enum EstadoConfirmacion {
         return EstadoConfirmacion.confirmado;
       case 'rechazado':
         return EstadoConfirmacion.rechazado;
+      case 'no_respondio':
+        return EstadoConfirmacion.noRespondio;
       default:
         return EstadoConfirmacion.invitado;
     }
   }
 
-  EstadoConfirmacion siguiente() {
+  /// Titular activo: ocupa o puede ocupar un cupo.
+  bool get esTitularActivo =>
+      this == invitado || this == confirmado;
+
+  bool get liberaCupo =>
+      this == rechazado || this == noRespondio;
+
+  EstadoConfirmacion siguiente({bool esSuplente = false}) {
+    if (esSuplente) return invitado;
     switch (this) {
       case EstadoConfirmacion.invitado:
         return EstadoConfirmacion.confirmado;
       case EstadoConfirmacion.confirmado:
         return EstadoConfirmacion.rechazado;
       case EstadoConfirmacion.rechazado:
+      case EstadoConfirmacion.noRespondio:
         return EstadoConfirmacion.invitado;
     }
   }

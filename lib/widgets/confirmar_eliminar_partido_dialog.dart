@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/matchpay_strings.dart';
+
 /// Diálogo explícito antes de eliminar un partido o convocatoria.
 Future<bool> confirmarEliminarPartido(
   BuildContext context, {
@@ -7,11 +9,12 @@ Future<bool> confirmarEliminarPartido(
   required String mensaje,
   List<String>? consecuencias,
 }) async {
+  final l10n = context.l10n;
   final items = consecuencias ??
-      const [
-        'Se borrarán los datos del partido de forma permanente.',
-        'Los saldos del grupo se recalcularán sin este partido.',
-        'No podrás recuperar cobros, pagos ni comprobantes asociados.',
+      [
+        l10n.tr('deleteMatchConsequence1'),
+        l10n.tr('deleteMatchConsequence2'),
+        l10n.tr('deleteMatchConsequence3'),
       ];
 
   final ok = await showDialog<bool>(
@@ -39,7 +42,7 @@ Future<bool> confirmarEliminarPartido(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Esta acción NO se puede revertir',
+                    ctx.tr('actionIrreversible'),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.red.shade900,
@@ -77,12 +80,12 @@ Future<bool> confirmarEliminarPartido(
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Cancelar'),
+          child: Text(ctx.tr('cancel')),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
           style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
-          child: const Text('Sí, eliminar definitivamente'),
+          child: Text(ctx.tr('yesDeletePermanently')),
         ),
       ],
     ),

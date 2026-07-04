@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_repositories.dart';
+import '../l10n/matchpay_strings.dart';
 import '../models/desglose_jugador.dart';
 import '../repositories/partido_repository.dart';
 import '../services/pdf_service.dart';
@@ -7,7 +9,7 @@ import '../utils/formatters.dart';
 import 'recordatorio_deudores_sheet.dart';
 
 class QuickActionsPanel extends StatelessWidget {
-  final PartidoRepository partidoRepo;
+  final AppRepositories repos;
   final PdfService pdfService;
   final List<ResumenJugador> resumenes;
   final VoidCallback onRefresh;
@@ -15,37 +17,33 @@ class QuickActionsPanel extends StatelessWidget {
 
   const QuickActionsPanel({
     super.key,
-    required this.partidoRepo,
+    required this.repos,
     required this.pdfService,
     required this.resumenes,
     required this.onRefresh,
     this.onNavigateTab,
   });
 
-  int get _conDeuda => resumenes.where((r) => r.saldoActual > 0).length;
+  int get _conDeuda => resumenes.where((r) => r.tieneDeuda).length;
 
   @override
   Widget build(BuildContext context) {
     final acciones = <_AccionRapida>[
       _AccionRapida(
-        icon: Icons.picture_as_pdf_rounded,
-        label: 'PDF saldos',
-        subtitulo: 'Informe del grupo',
-        color: Colors.deepOrange,
-        onTap: () => pdfService.generarReporteSaldos(resumenes),
-      ),
-      _AccionRapida(
         icon: Icons.history_rounded,
-        label: 'Último partido',
-        subtitulo: 'Ver o editar',
+        label: context.tr('lastMatch'),
+        subtitulo: context.tr('viewPaymentStatus'),
         color: Colors.blue,
         onTap: () => _abrirUltimoPartido(context),
       ),
       if (_conDeuda > 0)
         _AccionRapida(
           icon: Icons.chat_rounded,
-          label: 'Recordar deudores',
-          subtitulo: '$_conDeuda por WhatsApp',
+          label: context.tr('remindDebtors'),
+          subtitulo: context.tr(
+            'remindDebtorsPush',
+            params: {'count': '$_conDeuda'},
+          ),
           color: Colors.green.shade700,
           onTap: () => RecordatorioDeudoresSheet.show(
             context,
@@ -54,10 +52,10 @@ class QuickActionsPanel extends StatelessWidget {
         ),
       _AccionRapida(
         icon: Icons.people_rounded,
-        label: 'Jugadores',
-        subtitulo: 'Gestionar grupo',
+        label: context.tr('navPlayers'),
+        subtitulo: context.tr('manageGroup'),
         color: Colors.teal,
-        onTap: () => onNavigateTab?.call(1),
+        onTap: () => onNavigateTab?.call(2),
       ),
     ];
 
@@ -67,11 +65,13 @@ class QuickActionsPanel extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 10),
           child: Text(
-            'Herramientas',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.2,
-                ),
+            context.tr('toolsTitle'),
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+              color: Color(0xFF111827),
+              letterSpacing: -0.2,
+            ),
           ),
         ),
         GridView.builder(
@@ -91,17 +91,17 @@ class QuickActionsPanel extends StatelessWidget {
   }
 
   Future<void> _abrirUltimoPartido(BuildContext context) async {
-    final ultimo = await partidoRepo.getUltimoPartido();
+    final ultimo = await repos.getUltimoPartido();
     if (!context.mounted) return;
 
     if (ultimo == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aún no hay partidos registrados')),
+        SnackBar(content: Text(context.tr('noMatchesYet'))),
       );
       return;
     }
 
-    final desglose = await partidoRepo.getDesglose(ultimo.partido.id!);
+    final desglose = await repos.getDesglose(ultimo.partido.id!);
     if (!context.mounted) return;
 
     await showModalBottomSheet<void>(
@@ -118,10 +118,6 @@ class QuickActionsPanel extends StatelessWidget {
             '/editar-partido',
             arguments: ultimo.partido.id,
           ).then((_) => onRefresh());
-        },
-        onPdf: () {
-          Navigator.pop(ctx);
-          pdfService.generarReportePartido(ultimo);
         },
       ),
     );
@@ -152,16 +148,16 @@ class _AccionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: accion.color.withValues(alpha: 0.07),
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         onTap: accion.onTap,
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: accion.color.withValues(alpha: 0.18)),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE8E6E1)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,13 +202,11 @@ class _UltimoPartidoSheet extends StatelessWidget {
   final PartidoCompleto completo;
   final List<DesgloseJugador> desglose;
   final VoidCallback onEditar;
-  final VoidCallback onPdf;
 
   const _UltimoPartidoSheet({
     required this.completo,
     required this.desglose,
     required this.onEditar,
-    required this.onPdf,
   });
 
   @override
@@ -249,7 +243,7 @@ class _UltimoPartidoSheet extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               children: [
                 Text(
-                  'Último partido',
+                  context.tr('lastMatch'),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -296,27 +290,27 @@ class _UltimoPartidoSheet extends StatelessWidget {
                     children: [
                       _ResumenChip(
                         valor: '${desglose.length}',
-                        label: 'Jugadores',
+                        label: context.tr('navPlayers'),
                       ),
                       _ResumenChip(
                         valor: '$pagados',
-                        label: 'Pagaron',
+                        label: context.tr('paidPlayersLabel'),
                       ),
                       if (parciales > 0)
                         _ResumenChip(
                           valor: '$parciales',
-                          label: 'Parcial',
+                          label: context.tr('partialLabel'),
                         ),
                       _ResumenChip(
                         valor: '$deben',
-                        label: 'Pendientes',
+                        label: context.tr('pendingLabel'),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Estado de pagos',
+                  context.tr('paymentStatusTitle'),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -332,24 +326,13 @@ class _UltimoPartidoSheet extends StatelessWidget {
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onEditar,
-                      icon: const Icon(Icons.edit_outlined),
-                      label: const Text('Editar'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: onPdf,
-                      icon: const Icon(Icons.picture_as_pdf_outlined),
-                      label: const Text('PDF'),
-                    ),
-                  ),
-                ],
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onEditar,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: Text(context.tr('editMatchTitle')),
+                ),
               ),
             ),
           ),
@@ -399,7 +382,7 @@ class _JugadorPagoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final estado = _estadoPago(desglose);
+    final estado = _estadoPago(context, desglose);
     final inicial = desglose.nombre.trim().isNotEmpty
         ? desglose.nombre.trim()[0].toUpperCase()
         : '?';
@@ -521,34 +504,55 @@ class _EstadoPagoVisual {
   });
 }
 
-_EstadoPagoVisual _estadoPago(DesgloseJugador d) {
+_EstadoPagoVisual _estadoPago(BuildContext context, DesgloseJugador d) {
   if (d.pagado) {
     if (d.generaSaldoAFavor) {
       return _EstadoPagoVisual(
-        etiqueta: 'Pagado',
-        monto: 'A favor ${formatMoney(-d.saldoRestante)}',
+        etiqueta: context.tr('paidStatus'),
+        monto: context.tr(
+          'creditAmountLabel',
+          params: {'amount': formatMoney(-d.saldoRestante)},
+        ),
         detalle: d.montoPagado > 0
-            ? 'Abonó ${formatMoney(d.montoPagado)} · Partido ${formatMoney(d.totalPartido)}'
-            : 'Partido ${formatMoney(d.totalPartido)}',
+            ? context.tr(
+                'paidDetailLine',
+                params: {
+                  'paid': formatMoney(d.montoPagado),
+                  'match': formatMoney(d.totalPartido),
+                },
+              )
+            : context.tr(
+                'matchAmountShort',
+                params: {'amount': formatMoney(d.totalPartido)},
+              ),
         color: Colors.blue,
         icon: Icons.savings_rounded,
       );
     }
     if (d.saldoFavorAplicado > 0 && d.montoPagado == 0) {
       return _EstadoPagoVisual(
-        etiqueta: 'Pagado',
-        monto: 'Saldo a favor',
-        detalle:
-            '−${formatMoney(d.saldoFavorAplicado)} aplicado al partido',
+        etiqueta: context.tr('paidStatus'),
+        monto: context.tr('creditBalanceLabel'),
+        detalle: context.tr(
+          'creditAppliedLine',
+          params: {'amount': formatMoney(d.saldoFavorAplicado)},
+        ),
         color: Colors.green,
         icon: Icons.check_circle_rounded,
       );
     }
     return _EstadoPagoVisual(
-      etiqueta: 'Pagado',
-      monto: d.montoPagado > 0 ? formatMoney(d.montoPagado) : 'Al día',
-      detalle: 'Partido ${formatMoney(d.totalPartido)}'
-          '${d.saldoAnterior > 0 ? ' · Deuda ant. ${formatMoney(d.saldoAnterior)}' : ''}',
+      etiqueta: context.tr('paidStatus'),
+      monto: d.montoPagado > 0
+          ? formatMoney(d.montoPagado)
+          : context.tr('statusUpToDate'),
+      detalle: context.tr(
+            'matchAmountShort',
+            params: {'amount': formatMoney(d.totalPartido)},
+          ) +
+          (d.saldoAnterior > 0
+              ? ' · ${context.tr('oldDebtShort', params: {'amount': formatMoney(d.saldoAnterior)})}'
+              : ''),
       color: Colors.green,
       icon: Icons.check_circle_rounded,
     );
@@ -556,25 +560,42 @@ _EstadoPagoVisual _estadoPago(DesgloseJugador d) {
 
   if (d.pagoParcial) {
     return _EstadoPagoVisual(
-      etiqueta: 'Parcial',
-      monto: 'Debe ${formatMoney(d.saldoRestante)}',
-      detalle:
-          'Abonó ${formatMoney(d.montoPagado)} de ${formatMoney(d.totalDebido)}',
+      etiqueta: context.tr('partialLabel'),
+      monto: context.tr(
+        'owesAmountLabel',
+        params: {'amount': formatMoney(d.saldoRestante)},
+      ),
+      detalle: context.tr(
+        'paidPartialDetail',
+        params: {
+          'paid': formatMoney(d.montoPagado),
+          'total': formatMoney(d.totalDebido),
+        },
+      ),
       color: Colors.orange,
       icon: Icons.payments_rounded,
     );
   }
 
   final debe = d.saldoRestante > 0 ? d.saldoRestante : d.totalDebido;
-  final detalle = StringBuffer('Partido ${formatMoney(d.totalPartido)}');
+  final detalle = StringBuffer(
+    context.tr(
+      'matchAmountShort',
+      params: {'amount': formatMoney(d.totalPartido)},
+    ),
+  );
   if (d.saldoAnterior > 0) {
-    detalle.write(' · Deuda ant. ${formatMoney(d.saldoAnterior)}');
+    detalle.write(
+      ' · ${context.tr('oldDebtShort', params: {'amount': formatMoney(d.saldoAnterior)})}',
+    );
   } else if (d.saldoAnterior < 0) {
-    detalle.write(' · Tenía a favor ${formatMoney(-d.saldoAnterior)}');
+    detalle.write(
+      ' · ${context.tr('hadCreditShort', params: {'amount': formatMoney(-d.saldoAnterior)})}',
+    );
   }
 
   return _EstadoPagoVisual(
-    etiqueta: 'Debe',
+    etiqueta: context.tr('owesStatusLabel'),
     monto: formatMoney(debe > 0 ? debe : d.totalPartido),
     detalle: detalle.toString(),
     color: Colors.red,

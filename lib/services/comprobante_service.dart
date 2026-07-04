@@ -5,6 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../l10n/matchpay_strings.dart';
+
 class ComprobanteService {
   ComprobanteService._();
   static final ComprobanteService instance = ComprobanteService._();
@@ -38,12 +40,12 @@ class ComprobanteService {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Galería'),
+              title: Text(ctx.l10n.tr('pickSourceGallery')),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Cámara'),
+              title: Text(ctx.l10n.tr('pickSourceCamera')),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
           ],
@@ -96,7 +98,7 @@ Future<void> showComprobanteViewer(
   if (!context.mounted || file == null) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se encontró la imagen del comprobante')),
+        SnackBar(content: Text(context.l10n.tr('receiptImageNotFound'))),
       );
     }
     return;
@@ -111,7 +113,7 @@ Future<void> showComprobanteViewer(
         mainAxisSize: MainAxisSize.min,
         children: [
           AppBar(
-            title: const Text('Comprobante del gasto'),
+            title: Text(ctx.l10n.tr('expenseReceiptLabel')),
             automaticallyImplyLeading: false,
             actions: [
               IconButton(

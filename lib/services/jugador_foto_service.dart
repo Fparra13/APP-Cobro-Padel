@@ -5,6 +5,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../core/supabase_config.dart';
+import '../l10n/matchpay_strings.dart';
+import 'supabase_storage_service.dart';
+
 class JugadorFotoService {
   JugadorFotoService._();
   static final JugadorFotoService instance = JugadorFotoService._();
@@ -38,12 +42,12 @@ class JugadorFotoService {
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Galería'),
+              title: Text(ctx.l10n.tr('pickSourceGallery')),
               onTap: () => Navigator.pop(ctx, ImageSource.gallery),
             ),
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Cámara'),
+              title: Text(ctx.l10n.tr('pickSourceCamera')),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
           ],
@@ -76,6 +80,42 @@ class JugadorFotoService {
     final dest = File(p.join(dir.path, name));
     await File(xFile.path).copy(dest.path);
     return p.join(subdir, name);
+  }
+
+  /// Guarda localmente y, si hay Supabase, sube a Storage.
+  Future<({String localPath, String? publicUrl})?> pickSaveAndSync({
+    required BuildContext context,
+    required String jugadorId,
+    String? replaceLocalPath,
+    String? replacePublicUrl,
+    bool uploadToCloud = false,
+  }) async {
+    final localPath = await pickAndSave(
+      context: context,
+      replacePath: replaceLocalPath,
+    );
+    if (localPath == null) return null;
+
+    if (!uploadToCloud || !SupabaseConfig.isConfigured) {
+      return (localPath: localPath, publicUrl: null);
+    }
+
+    final file = await resolveFile(localPath);
+    if (file == null) {
+      return (localPath: localPath, publicUrl: null);
+    }
+
+    if (replacePublicUrl != null && replacePublicUrl.isNotEmpty) {
+      await SupabaseStorageService.instance.deleteAvatarPublicUrl(
+        replacePublicUrl,
+      );
+    }
+
+    final publicUrl = await SupabaseStorageService.instance.uploadAvatar(
+      jugadorId: jugadorId,
+      file: file,
+    );
+    return (localPath: localPath, publicUrl: publicUrl);
   }
 
   Future<void> delete(String? relativePath) async {

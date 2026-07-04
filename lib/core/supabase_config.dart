@@ -27,7 +27,11 @@ class SupabaseConfig {
       publishableKey: supabaseAnonKey,
       authOptions: const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
+        detectSessionInUri: true,
       ),
     );
   }
+
+  /// URL de redirect para magic link (registrar también en Supabase Dashboard).
+  static const authRedirectUrl = 'padel-cobro://login-callback';
 }

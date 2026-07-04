@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../l10n/matchpay_strings.dart';
 import '../services/comprobante_service.dart';
 
 /// Adjuntar o ver foto de comprobante de pago.
@@ -68,7 +69,9 @@ class _ComprobantePagoTileState extends State<ComprobantePagoTile> {
               )
             : const Icon(Icons.receipt_long, size: 18),
         label: Text(
-          widget.compact ? 'Comprobante' : 'Foto comprobante del gasto (opcional)',
+          widget.compact
+              ? context.tr('receiptCompact')
+              : context.tr('expenseReceiptPhotoOptional'),
           style: const TextStyle(fontSize: 12),
         ),
       );
@@ -114,7 +117,7 @@ class _ComprobantePagoTileState extends State<ComprobantePagoTile> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Comprobante del gasto',
+                context.tr('expenseReceiptLabel'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -128,17 +131,23 @@ class _ComprobantePagoTileState extends State<ComprobantePagoTile> {
                       context,
                       relativePath: widget.comprobantePath!,
                     ),
-                    child: const Text('Ver', style: TextStyle(fontSize: 12)),
+                    child: Text(
+                      context.tr('viewBtn'),
+                      style: const TextStyle(fontSize: 12),
+                    ),
                   ),
                   if (showActions) ...[
                     TextButton(
                       onPressed: _cargando ? null : _adjuntar,
-                      child: const Text('Cambiar', style: TextStyle(fontSize: 12)),
+                      child: Text(
+                        context.tr('changeBtn'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                     TextButton(
                       onPressed: _quitar,
                       child: Text(
-                        'Quitar',
+                        context.tr('removeBtn'),
                         style: TextStyle(fontSize: 12, color: Colors.red.shade700),
                       ),
                     ),

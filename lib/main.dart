@@ -1,9 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/app_repositories.dart';
+import 'core/app_settings_controller.dart';
+import 'core/subscription_service.dart';
 import 'core/auth_service.dart';
+import 'core/firebase_config.dart';
 import 'core/supabase_config.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/backup_screen.dart';
@@ -11,20 +18,64 @@ import 'screens/configuracion_screen.dart';
 import 'screens/historial_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/jugadores_screen.dart';
+import 'screens/mis_cobros_screen.dart';
 import 'screens/organizar_partido_screen.dart';
 import 'screens/nuevo_partido_screen.dart';
 import 'screens/historial_partidos_screen.dart';
+import 'screens/onboarding/sport_selection_screen.dart';
+import 'screens/player_home_screen.dart';
+import 'services/fcm_service.dart';
 import 'services/notification_service.dart';
+import 'services/supabase_realtime_service.dart';
+import 'widgets/lazy_indexed_stack.dart';
+import 'utils/nav_shell_layout.dart';
+import 'widgets/mis_invitaciones_panel.dart';
+import 'utils/formatters.dart' show MoneyFormatConfig;
+import 'l10n/matchpay_strings.dart';
+import 'utils/matchpay_context.dart';
 
 final _navigatorKey = GlobalKey<NavigatorState>();
+final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es', null);
   await initializeDateFormatting('es_CL', null);
+  await initializeDateFormatting('en', null);
+  await initializeDateFormatting('pt_BR', null);
   await SupabaseConfig.initialize();
+  if (FirebaseConfig.isConfigured) {
+    unawaited(FirebaseConfig.ensureInitialized());
+  }
+  final settings = AppSettingsController();
+  await settings.load();
+  AuthService.instance.initializeAuthListener(
+    onSignedIn: () {
+      FcmService.instance.initialize();
+      unawaited(settings.syncLocaleToProfile());
+      _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+    },
+  );
   await NotificationService.instance.initialize(navKey: _navigatorKey);
-  runApp(PadelCobroApp(navigatorKey: _navigatorKey));
+  await NotificationService.instance.syncSchedule();
+  _syncMoneyFormat(settings);
+  await SubscriptionService.instance.load();
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: settings),
+        ChangeNotifierProvider.value(value: SubscriptionService.instance),
+      ],
+      child: PadelCobroApp(navigatorKey: _navigatorKey),
+    ),
+  );
+}
+
+void _syncMoneyFormat(AppSettingsController settings) {
+  final currency = settings.currency;
+  MoneyFormatConfig.locale = currency.locale;
+  MoneyFormatConfig.symbol = currency.symbol;
+  MoneyFormatConfig.dateLocale = settings.locale.languageCode;
 }
 
 class PadelCobroApp extends StatelessWidget {
@@ -34,40 +85,37 @@ class PadelCobroApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settings = context.watch<AppSettingsController>();
+    _syncMoneyFormat(settings);
+
     return MaterialApp(
       navigatorKey: navigatorKey,
-      title: 'Pádel Cobro',
+      scaffoldMessengerKey: _scaffoldMessengerKey,
+      title: 'MatchPay',
       debugShowCheckedModeBanner: false,
-      locale: const Locale('es', 'CL'),
-      supportedLocales: const [Locale('es', 'CL'), Locale('es')],
+      locale: settings.locale,
+      supportedLocales: AppSettingsController.supportedLocales,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E7D32),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: false,
-          foregroundColor: Colors.white,
-          backgroundColor: Color(0xFF2E7D32),
-          elevation: 2,
-          iconTheme: IconThemeData(color: Colors.white),
-          titleTextStyle: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
-        ),
+      theme: settings.theme,
+      builder: (context, child) {
+        final loggedIn = SupabaseConfig.isConfigured &&
+            AuthService.instance.isLoggedIn &&
+            AppRepositories.isReady;
+        if (loggedIn) {
+          return AppRepositoriesScope(
+            repos: AppRepositories.I,
+            child: child ?? const SizedBox.shrink(),
+          );
+        }
+        return child ?? const SizedBox.shrink();
+      },
+      home: SportOnboardingGate(
+        child: AuthGate(navigatorKey: navigatorKey),
       ),
-      home: AuthGate(navigatorKey: navigatorKey),
       routes: {
         '/jugadores': (_) => const JugadoresScreen(),
         '/nuevo-partido': (_) => const NuevoPartidoScreen(),
@@ -78,9 +126,9 @@ class PadelCobroApp extends StatelessWidget {
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/historial') {
-          final id = settings.arguments as int;
+          final key = settings.arguments as String;
           return MaterialPageRoute(
-            builder: (_) => HistorialScreen(jugadorId: id),
+            builder: (_) => HistorialScreen(jugadorKey: key),
           );
         }
         if (settings.name == '/editar-partido') {
@@ -119,11 +167,17 @@ class AuthGate extends StatelessWidget {
       return const LoginScreen();
     }
 
+    final initialSession = Supabase.instance.client.auth.currentSession;
+    final initialAuth = initialSession != null
+        ? AuthState(AuthChangeEvent.initialSession, initialSession)
+        : null;
+
     return StreamBuilder<AuthState>(
       stream: AuthService.instance.authStateChanges,
+      initialData: initialAuth,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
-            snapshot.data == null) {
+            !snapshot.hasData) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
@@ -131,7 +185,8 @@ class AuthGate extends StatelessWidget {
 
         final session = snapshot.data?.session;
         if (session != null) {
-          return const MainShell();
+          AppRepositories.create();
+          return const RoleAwareShell();
         }
         return const LoginScreen();
       },
@@ -139,35 +194,178 @@ class AuthGate extends StatelessWidget {
   }
 }
 
-class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+/// Shell según rol: organizador (gestión) o jugador (convocatorias/cobros).
+class RoleAwareShell extends StatefulWidget {
+  const RoleAwareShell({super.key});
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  State<RoleAwareShell> createState() => _RoleAwareShellState();
 }
 
-class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
-  int _index = 0;
+class _RoleAwareShellState extends State<RoleAwareShell> {
+  bool _loading = true;
+  bool _loadError = false;
+  bool _isOrganizer = false;
 
-  late final List<Widget> _screens = [
-    HomeScreen(onNavigateTab: (i) => setState(() => _index = i)),
-    const JugadoresScreen(),
-    const HistorialPartidosScreen(),
-    const BackupScreen(),
-    const ConfiguracionScreen(),
+  @override
+  void initState() {
+    super.initState();
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    final meta = AuthService.instance.currentUser?.userMetadata;
+    final metaRole = meta?['role'] as String?;
+    if (metaRole != null && mounted) {
+      setState(() {
+        _isOrganizer =
+            metaRole == 'organizer' || metaRole == 'organizador';
+        _loading = false;
+      });
+    } else if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = false;
+      });
+    }
+
+    var profileOk = false;
+    try {
+      profileOk = await AuthService.instance
+          .refreshProfile()
+          .timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      profileOk = false;
+    } catch (_) {
+      profileOk = false;
+    }
+
+    if (!mounted) return;
+
+    final role = AuthService.instance.profileRole;
+    setState(() {
+      _isOrganizer = AuthService.instance.isOrganizer;
+      _loadError = !profileOk && role == null;
+      _loading = false;
+    });
+
+    if (!_loadError) {
+      unawaited(FcmService.instance.initialize());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_loadError) {
+      final l10n = context.l10n;
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.cloud_off_outlined,
+                    size: 56,
+                    color: Colors.grey.shade600,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    l10n.tr('profileLoadFailedTitle'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    l10n.tr('profileLoadFailedBody'),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton.icon(
+                    onPressed: _loadRole,
+                    icon: const Icon(Icons.refresh),
+                    label: Text(l10n.retry),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () async {
+                      await AuthService.instance.signOut();
+                    },
+                    child: Text(l10n.signOut),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    // Organizador puede alternar vista; el rol de pago en BD no cambia.
+    // Leer isOrganizer en vivo (p. ej. tras "Quiero organizar").
+    final settings = context.watch<AppSettingsController>();
+    final isOrganizer = AuthService.instance.isOrganizer || _isOrganizer;
+    final showOrganizer = isOrganizer && settings.showOrganizerShell;
+    return showOrganizer ? const OrganizerShell() : const PlayerShell();
+  }
+}
+
+class OrganizerShell extends StatefulWidget {
+  const OrganizerShell({super.key});
+
+  @override
+  State<OrganizerShell> createState() => _OrganizerShellState();
+}
+
+class _OrganizerShellState extends State<OrganizerShell>
+    with WidgetsBindingObserver {
+  int _index = 0;
+  int _misCobrosCount = 0;
+
+  late final List<Widget Function()> _screenBuilders = [
+    () => HomeScreen(onNavigateTab: (i) => setState(() => _index = i)),
+    () => const MisCobrosScreen(),
+    () => const JugadoresScreen(),
+    () => const HistorialPartidosScreen(),
+    () => const BackupScreen(),
+    () => const ConfiguracionScreen(),
   ];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    NotificationService.instance.registerOrganizerHomeNavigation(() {
+      if (mounted) setState(() => _index = 0);
+    });
+    NotificationService.instance.registerOrganizerMisCobrosNavigation(() {
+      if (mounted) setState(() => _index = 1);
+    });
+    AppRepositories.dataRevision.addListener(_onDataChanged);
     _initNotificaciones();
   }
 
+  void _onDataChanged() {
+    if (mounted) unawaited(_refreshMisCobrosCount());
+  }
+
   Future<void> _initNotificaciones() async {
+    SupabaseRealtimeService.instance.subscribeAppRefresh();
     final plugin = NotificationService.instance;
+    await plugin.requestPermissions();
     await plugin.syncSchedule();
     await plugin.checkAndNotifyIfNeeded();
+    await _refreshMisCobrosCount();
 
     final launch = await plugin.getLaunchDetails();
     if (launch?.didNotificationLaunchApp ?? false) {
@@ -175,8 +373,20 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _refreshMisCobrosCount() async {
+    if (!AppRepositories.isReady || !AppRepositories.I.isCloud) return;
+    try {
+      final deudas = await AppRepositories.I.getMisDeudasPendientes();
+      if (mounted) setState(() => _misCobrosCount = deudas.length);
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
+    AppRepositories.dataRevision.removeListener(_onDataChanged);
+    NotificationService.instance.onNavigateOrganizerHome = null;
+    NotificationService.instance.onNavigateOrganizerMisCobros = null;
+    SupabaseRealtimeService.instance.unsubscribeAppRefresh();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -186,47 +396,233 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       NotificationService.instance.syncSchedule();
       NotificationService.instance.checkAndNotifyIfNeeded();
+      AppRepositories.notifyDataChanged();
+      unawaited(_refreshMisCobrosCount());
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final palette = context.sportPalette;
+    final settings = context.watchSettings();
+    final cacheKey = '${settings.sport.dbValue}_${settings.locale.languageCode}';
+
+    Widget misCobrosIcon({required bool selected}) {
+      final icon = Icon(
+        selected ? Icons.receipt_long : Icons.receipt_long_outlined,
+        color: selected ? palette.primary : null,
+      );
+      if (_misCobrosCount <= 0) return icon;
+      return Badge(label: Text('$_misCobrosCount'), child: icon);
+    }
+
     return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: _screens,
+      body: NavShellScope(
+        bottomInset: 72,
+        child: LazyIndexedStack(
+          index: _index,
+          cacheKey: cacheKey,
+          itemBuilders: _screenBuilders,
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
+        onDestinationSelected: (i) {
+          setState(() => _index = i);
+          if (i == 1) unawaited(_refreshMisCobrosCount());
+        },
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Inicio',
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home, color: palette.primary),
+            label: l10n.navHome,
           ),
           NavigationDestination(
-            icon: Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people),
-            label: 'Jugadores',
+            icon: misCobrosIcon(selected: false),
+            selectedIcon: misCobrosIcon(selected: true),
+            label: l10n.navMyCobros,
           ),
           NavigationDestination(
-            icon: Icon(Icons.history),
-            selectedIcon: Icon(Icons.history),
-            label: 'Historial',
+            icon: const Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people, color: palette.primary),
+            label: l10n.navPlayers,
           ),
           NavigationDestination(
-            icon: Icon(Icons.backup_outlined),
-            selectedIcon: Icon(Icons.backup),
-            label: 'Respaldo',
+            icon: const Icon(Icons.history),
+            selectedIcon: Icon(Icons.history, color: palette.primary),
+            label: l10n.navHistory,
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Config',
+            icon: const Icon(Icons.cloud_outlined),
+            selectedIcon: Icon(Icons.cloud, color: palette.primary),
+            label: l10n.navCloud,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings, color: palette.primary),
+            label: l10n.navConfig,
           ),
         ],
       ),
     );
   }
+}
+
+class PlayerShell extends StatefulWidget {
+  const PlayerShell({super.key});
+
+  @override
+  State<PlayerShell> createState() => _PlayerShellState();
+}
+
+class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
+  int _index = 0;
+  int _pendientesCount = 0;
+
+  late final List<Widget Function()> _screenBuilders = [
+    () => const PlayerHomeScreen(),
+    () => const MisCobrosScreen(),
+    () => const ConfiguracionScreen(),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initPlayer();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    SupabaseRealtimeService.instance.unsubscribeAppRefresh();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      AppRepositories.notifyDataChanged();
+      _refreshPendientes();
+    }
+  }
+
+  Future<void> _initPlayer() async {
+    SupabaseRealtimeService.instance.subscribeAppRefresh();
+    final plugin = NotificationService.instance;
+    await plugin.requestPermissions();
+    await _refreshPendientes();
+
+    final launch = await plugin.getLaunchDetails();
+    if (launch?.didNotificationLaunchApp ?? false) {
+      await plugin.handleLaunchPayload(launch?.notificationResponse?.payload);
+    }
+  }
+
+  Future<void> _refreshPendientes() async {
+    if (!AppRepositories.isReady) return;
+    final pendientes =
+        await MisInvitacionesPanel.cargarPendientes(AppRepositories.I);
+    if (mounted) setState(() => _pendientesCount = pendientes.length);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final settings = context.watchSettings();
+    final cacheKey = '${settings.sport.dbValue}_${settings.locale.languageCode}';
+
+    const inkMuted = Color(0xFF9CA3AF);
+    const ink = Color(0xFF141414);
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F6F3),
+      body: NavShellScope(
+        bottomInset: 72,
+        child: LazyIndexedStack(
+          index: _index,
+          cacheKey: cacheKey,
+          itemBuilders: _screenBuilders,
+        ),
+      ),
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          height: 68,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: Colors.transparent,
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return TextStyle(
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? ink : inkMuted,
+              letterSpacing: 0.1,
+            );
+          }),
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return IconThemeData(
+              size: 22,
+              color: selected ? ink : inkMuted,
+            );
+          }),
+        ),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFE8E6E1))),
+          ),
+          child: NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) async {
+              setState(() => _index = i);
+              if (i == 0) await _refreshPendientes();
+            },
+            destinations: [
+              NavigationDestination(
+                icon: _pendientesCount > 0
+                    ? Badge(
+                        label: Text(
+                          '$_pendientesCount',
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                        child: const Icon(Icons.home_outlined),
+                      )
+                    : const Icon(Icons.home_outlined),
+                selectedIcon: _pendientesCount > 0
+                    ? Badge(
+                        label: Text(
+                          '$_pendientesCount',
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                        child: const Icon(Icons.home_rounded),
+                      )
+                    : const Icon(Icons.home_rounded),
+                label: l10n.navHome,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.receipt_long_outlined),
+                selectedIcon: const Icon(Icons.receipt_long_rounded),
+                label: l10n.navMyCobros,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.settings_outlined),
+                selectedIcon: const Icon(Icons.settings_rounded),
+                label: l10n.navConfig,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// @deprecated Usar [OrganizerShell] vía [RoleAwareShell].
+class MainShell extends OrganizerShell {
+  const MainShell({super.key});
 }

@@ -36,6 +36,9 @@ class DesgloseJugador {
 
   bool get pagoParcial => montoPagado > 0 && !pagado;
 
+  String get jugadorKeyId =>
+      jugadorSupabaseId ?? (jugadorId > 0 ? jugadorId.toString() : '');
+
   /// Alias para compatibilidad con reportes existentes.
   double get totalConDeuda => saldoRestante > 0 ? saldoRestante : 0;
 

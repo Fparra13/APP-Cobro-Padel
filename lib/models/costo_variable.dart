@@ -4,6 +4,7 @@ class CostoVariable {
   final String concepto;
   final double montoTotal;
   final String? comprobantePath;
+  final String? iconKey;
 
   const CostoVariable({
     this.id,
@@ -11,6 +12,7 @@ class CostoVariable {
     required this.concepto,
     required this.montoTotal,
     this.comprobantePath,
+    this.iconKey,
   });
 
   String? get comprobanteUrl => comprobantePath;
@@ -21,6 +23,7 @@ class CostoVariable {
         'concepto': concepto,
         'monto_total': montoTotal,
         'comprobante_path': comprobantePath,
+        'icon_key': iconKey,
       };
 
   factory CostoVariable.fromMap(Map<String, dynamic> map) => CostoVariable(
@@ -29,6 +32,7 @@ class CostoVariable {
         concepto: map['concepto'] as String,
         montoTotal: (map['monto_total'] as num).toDouble(),
         comprobantePath: map['comprobante_path'] as String?,
+        iconKey: map['icon_key'] as String?,
       );
 
   factory CostoVariable.fromSupabaseMap(Map<String, dynamic> map) =>
@@ -38,6 +42,7 @@ class CostoVariable {
         concepto: map['concepto'] as String,
         montoTotal: (map['monto_total'] as num).toDouble(),
         comprobantePath: map['comprobante_url'] as String?,
+        iconKey: map['icon_key'] as String?,
       );
 }
 
@@ -55,6 +60,9 @@ class AsignacionCostoVariable {
     this.jugadorSupabaseId,
     required this.monto,
   });
+
+  String get jugadorKeyId =>
+      jugadorSupabaseId ?? (jugadorId > 0 ? jugadorId.toString() : '');
 
   Map<String, dynamic> toMap() => {
         'id': id,

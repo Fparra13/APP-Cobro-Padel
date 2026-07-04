@@ -1,6 +1,9 @@
+import '../core/supabase_parse.dart';
+
 class SaldoHistorico {
   final int? id;
   final int jugadorId;
+  final String? jugadorSupabaseId;
   final int? partidoId;
   final double saldoAnterior;
   final double cargoPartido;
@@ -12,7 +15,8 @@ class SaldoHistorico {
 
   const SaldoHistorico({
     this.id,
-    required this.jugadorId,
+    this.jugadorId = 0,
+    this.jugadorSupabaseId,
     this.partidoId,
     required this.saldoAnterior,
     required this.cargoPartido,
@@ -22,6 +26,9 @@ class SaldoHistorico {
     required this.concepto,
     this.nombreJugador,
   });
+
+  String get jugadorKeyId =>
+      jugadorSupabaseId ?? (jugadorId > 0 ? jugadorId.toString() : '');
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -46,5 +53,21 @@ class SaldoHistorico {
         fecha: DateTime.parse(map['fecha'] as String),
         concepto: map['concepto'] as String,
         nombreJugador: map['nombre_jugador'] as String?,
+      );
+
+  factory SaldoHistorico.fromSupabaseMap(Map<String, dynamic> map) =>
+      SaldoHistorico(
+        id: map['id'] is num ? (map['id'] as num).toInt() : null,
+        jugadorSupabaseId: SupabaseParse.toStringOrNull(map['jugador_id']),
+        partidoId: map['partido_id'] is num
+            ? (map['partido_id'] as num).toInt()
+            : null,
+        saldoAnterior: SupabaseParse.toDouble(map['saldo_anterior']),
+        cargoPartido: SupabaseParse.toDouble(map['cargo_partido']),
+        abono: SupabaseParse.toDouble(map['abono']),
+        saldoNuevo: SupabaseParse.toDouble(map['saldo_nuevo']),
+        fecha: SupabaseParse.toDateTime(map['fecha']),
+        concepto: SupabaseParse.asString(map['concepto'], fallback: 'Movimiento'),
+        nombreJugador: SupabaseParse.toStringOrNull(map['nombre_jugador']),
       );
 }

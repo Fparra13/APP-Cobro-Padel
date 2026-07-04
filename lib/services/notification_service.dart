@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../repositories/partido_repository.dart';
+import '../core/app_repositories.dart';
+import '../core/app_settings_controller.dart';
+import '../l10n/matchpay_strings.dart';
+import '../l10n/translation_maps.dart';
+import '../models/mi_convocatoria.dart';
+import '../screens/mis_cobros_screen.dart';
+import '../screens/organizar_partido_screen.dart';
+import '../screens/responder_convocatoria_screen.dart';
+import '../utils/formatters.dart';
+import '../widgets/mis_invitaciones_panel.dart';
 import '../widgets/recordatorio_deudores_sheet.dart';
 import 'preferences_service.dart';
 
@@ -14,18 +24,52 @@ class NotificationService {
   static final NotificationService instance = NotificationService._();
 
   static const channelId = 'recordatorio_deudores';
-  static const channelName = 'Recordatorios de cobro';
+  static const channelConvocatoriaId = 'convocatorias';
   static const payloadRecordatorio = 'recordatorio_deudores';
+  static const payloadConvocatoriaPrefix = 'convocatoria:';
+  static const payloadOrganizadorPartidoPrefix = 'organizador_partido:';
+  static const payloadCobroPrefix = 'cobro:';
+  static const payloadComprobantePrefix = 'comprobante:';
   static const idDeudores = 1001;
   static const idDiaria = 1002;
+  static const idConvocatoriaBase = 2000;
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
-  final _partidoRepo = PartidoRepository();
   final _prefs = PreferencesService();
+
+  AppRepositories get _repos =>
+      AppRepositories.isReady ? AppRepositories.I : AppRepositories.create();
 
   GlobalKey<NavigatorState>? navigatorKey;
   bool _initialized = false;
+  bool _launchPayloadHandledThisSession = false;
+  VoidCallback? onNavigateOrganizerHome;
+  VoidCallback? onNavigateOrganizerMisCobros;
+
+  static const _prefsLaunchPayload = 'notif_launch_payload_handled';
+  static const _prefsLaunchAt = 'notif_launch_payload_at';
+
+  void registerOrganizerHomeNavigation(VoidCallback callback) {
+    onNavigateOrganizerHome = callback;
+  }
+
+  void registerOrganizerMisCobrosNavigation(VoidCallback callback) {
+    onNavigateOrganizerMisCobros = callback;
+  }
+
+  Future<String> _languageCode() => AppSettingsController.readLanguageCode();
+
+  Future<String> _tr(
+    String key, {
+    Map<String, String> params = const {},
+  }) async {
+    return TranslationMaps.lookup(
+      await _languageCode(),
+      key,
+      params: params,
+    );
+  }
 
   Future<void> initialize({
     required GlobalKey<NavigatorState> navKey,
@@ -60,11 +104,23 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(
-          const AndroidNotificationChannel(
+          AndroidNotificationChannel(
             channelId,
-            channelName,
-            description: 'Avisos de jugadores con pagos pendientes',
+            await _tr('notifChannelRemindersName'),
+            description: await _tr('notifChannelRemindersDesc'),
             importance: Importance.high,
+          ),
+        );
+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(
+          AndroidNotificationChannel(
+            channelConvocatoriaId,
+            await _tr('notifChannelConvocatoriaName'),
+            description: await _tr('notifChannelConvocatoriaDesc'),
+            importance: Importance.max,
           ),
         );
 
@@ -72,8 +128,28 @@ class NotificationService {
   }
 
   void _onNotificationTap(NotificationResponse response) {
-    if (response.payload == payloadRecordatorio) {
+    final payload = response.payload;
+    if (payload == payloadRecordatorio) {
       _abrirRecordatorioDeudores();
+    } else if (payload != null && payload.startsWith(payloadCobroPrefix)) {
+      _abrirMisCobros();
+    } else if (payload != null &&
+        payload.startsWith(payloadComprobantePrefix)) {
+      _abrirOrganizerHomePagos();
+    } else if (payload != null &&
+        payload.startsWith(payloadOrganizadorPartidoPrefix)) {
+      final id = int.tryParse(
+        payload.substring(payloadOrganizadorPartidoPrefix.length),
+      );
+      if (id != null) _abrirPartidoOrganizador(id);
+    } else if (payload != null &&
+        payload.startsWith(payloadConvocatoriaPrefix)) {
+      final id = int.tryParse(
+        payload.substring(payloadConvocatoriaPrefix.length),
+      );
+      if (id != null) {
+        _abrirConvocatoria(id, soloSiPendiente: true);
+      }
     }
   }
 
@@ -116,17 +192,17 @@ class NotificationService {
     return true;
   }
 
-  NotificationDetails _details() {
-    return const NotificationDetails(
+  Future<NotificationDetails> _details() async {
+    return NotificationDetails(
       android: AndroidNotificationDetails(
         channelId,
-        channelName,
-        channelDescription: 'Avisos de jugadores con pagos pendientes',
+        await _tr('notifChannelRemindersName'),
+        channelDescription: await _tr('notifChannelRemindersDesc'),
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
       ),
-      iOS: DarwinNotificationDetails(
+      iOS: const DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
@@ -145,13 +221,14 @@ class NotificationService {
 
     final hora = await _prefs.recordatorioHora;
     final minuto = await _prefs.recordatorioMinuto;
+    final appName = await _tr('appName');
 
     await _plugin.zonedSchedule(
       idDiaria,
-      '🎾 Pádel Cobro',
-      'Revisa si hay jugadores con pagos pendientes',
+      appName,
+      await _tr('notifDailyBody'),
       _proximaHora(hora, minuto),
-      _details(),
+      await _details(),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
       payload: payloadRecordatorio,
@@ -182,7 +259,7 @@ class NotificationService {
     if (!activo && !force) return;
 
     final dias = await _prefs.recordatorioDias;
-    final deudores = await _partidoRepo.getDeudoresVencidos(dias);
+    final deudores = await _repos.getDeudoresVencidos(dias);
     if (deudores.isEmpty) return;
 
     if (!force) {
@@ -194,17 +271,28 @@ class NotificationService {
 
     final n = deudores.length;
     final titulo = n == 1
-        ? '1 jugador sin pagar'
-        : '$n jugadores sin pagar';
+        ? await _tr('notifOnePlayerUnpaidTitle')
+        : await _tr('notifNPlayersUnpaidTitle', params: {'count': '$n'});
     final cuerpo = n == 1
-        ? '${deudores.first.jugador.nombre} lleva más de $dias día${dias == 1 ? '' : 's'} sin pagar. Toca para enviar recordatorio.'
-        : 'Hay $n jugadores con deuda de más de $dias días. Toca para enviar recordatorios.';
+        ? await _tr(
+            dias == 1
+                ? 'notifOnePlayerUnpaidBodyOneDay'
+                : 'notifOnePlayerUnpaidBody',
+            params: {
+              'name': deudores.first.jugador.nombre,
+              'days': '$dias',
+            },
+          )
+        : await _tr(
+            'notifNPlayersUnpaidBody',
+            params: {'count': '$n', 'days': '$dias'},
+          );
 
     await _plugin.show(
       idDeudores,
       titulo,
       cuerpo,
-      _details(),
+      await _details(),
       payload: payloadRecordatorio,
     );
   }
@@ -212,9 +300,9 @@ class NotificationService {
   Future<void> showTestNotification() async {
     await _plugin.show(
       idDeudores,
-      '🎾 Recordatorio de prueba',
-      'Las notificaciones están activas. Toca para abrir recordatorios.',
-      _details(),
+      await _tr('notifTestTitle'),
+      await _tr('notifTestBody'),
+      await _details(),
       payload: payloadRecordatorio,
     );
   }
@@ -223,25 +311,332 @@ class NotificationService {
     return _plugin.getNotificationAppLaunchDetails();
   }
 
+  Future<NotificationDetails> _convocatoriaDetails() async {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        channelConvocatoriaId,
+        await _tr('notifChannelConvocatoriaName'),
+        channelDescription: await _tr('notifChannelConvocatoriaDesc'),
+        importance: Importance.max,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+      ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    );
+  }
+
+  /// Notificación local cuando te convocan (mismo dispositivo).
+  /// Push a otros teléfonos usa FCM vía [PushNotificationService].
+  Future<void> showConvocatoriaInvitacion({
+    required int partidoId,
+    required DateTime fecha,
+    required int horasLimite,
+    String? titulo,
+    String? cuerpo,
+  }) async {
+    if (!_initialized) return;
+    await requestPermissions();
+
+    final id = idConvocatoriaBase + (partidoId % 9000);
+    await _plugin.show(
+      id,
+      titulo ?? await _tr('notifConvocadoTitle'),
+      cuerpo ??
+          await _tr(
+            'notifConvocadoBody',
+            params: {
+              'date': formatDiaCompleto(fecha),
+              'hours': '$horasLimite',
+            },
+          ),
+      await _convocatoriaDetails(),
+      payload: '$payloadConvocatoriaPrefix$partidoId',
+    );
+  }
+
+  /// Abre la pantalla de respuesta a convocatoria (desde push o local).
+  Future<void> openConvocatoria(int partidoId) async {
+    await _abrirConvocatoria(partidoId, soloSiPendiente: true);
+  }
+
+  Future<void> showPromocionTitular({
+    required int partidoId,
+  }) async {
+    if (!_initialized) return;
+    await requestPermissions();
+    final id = idConvocatoriaBase + 500 + (partidoId % 8500);
+    await _plugin.show(
+      id,
+      await _tr('notifPromocionTitle'),
+      await _tr('notifPromocionBody'),
+      await _convocatoriaDetails(),
+      payload: '$payloadConvocatoriaPrefix$partidoId',
+    );
+  }
+
+  /// Recordatorio de plazo o aviso de vencimiento (mismo destino: responder).
+  Future<void> showConvocatoriaMensaje({
+    required int partidoId,
+    required String titulo,
+    required String cuerpo,
+    int idOffset = 0,
+  }) async {
+    if (!_initialized) return;
+    await requestPermissions();
+    final id = idConvocatoriaBase + idOffset + (partidoId % 8000);
+    await _plugin.show(
+      id,
+      titulo,
+      cuerpo,
+      await _convocatoriaDetails(),
+      payload: '$payloadConvocatoriaPrefix$partidoId',
+    );
+  }
+
+  /// Notificación local al organizador cuando un jugador responde.
+  Future<void> showRespuestaConvocatoriaOrganizador({
+    required int partidoId,
+    required String titulo,
+    required String cuerpo,
+  }) async {
+    if (!_initialized) return;
+    await requestPermissions();
+    final id = idConvocatoriaBase + 1000 + (partidoId % 8000);
+    await _plugin.show(
+      id,
+      titulo,
+      cuerpo,
+      await _convocatoriaDetails(),
+      payload: '$payloadOrganizadorPartidoPrefix$partidoId',
+    );
+  }
+
+  Future<void> openOrganizerHomePagos() async {
+    await _abrirOrganizerHomePagos();
+  }
+
+  Future<void> openPartidoOrganizador(int partidoId) async {
+    await _abrirPartidoOrganizador(partidoId);
+  }
+
+  Future<void> openMisCobros() async {
+    await _abrirMisCobros();
+  }
+
+  /// Notificación de cobro de partido al jugador.
+  Future<void> showCobroPartido({
+    required int partidoId,
+    required String titulo,
+    required String cuerpo,
+    String? detalle,
+  }) async {
+    if (!_initialized) return;
+    await requestPermissions();
+    final id = idConvocatoriaBase + 2000 + (partidoId % 7000);
+    await _plugin.show(
+      id,
+      titulo,
+      cuerpo,
+      await _convocatoriaDetails(),
+      payload: '$payloadCobroPrefix$partidoId',
+    );
+  }
+
+  /// Organizador: comprobante pendiente de validación.
+  Future<void> showComprobantePendiente({
+    required int partidoId,
+    required int detalleId,
+    required String titulo,
+    required String cuerpo,
+  }) async {
+    if (!_initialized) return;
+    await requestPermissions();
+    final id = idConvocatoriaBase + 3000 + (detalleId % 6000);
+    await _plugin.show(
+      id,
+      titulo,
+      cuerpo,
+      await _convocatoriaDetails(),
+      payload: '$payloadComprobantePrefix$partidoId:$detalleId',
+    );
+  }
+
+  /// Jugador: comprobante rechazado por el organizador.
+  Future<void> showComprobanteRechazado({
+    required int partidoId,
+    required String titulo,
+    required String cuerpo,
+  }) async {
+    if (!_initialized) return;
+    await requestPermissions();
+    final id = idConvocatoriaBase + 2500 + (partidoId % 6500);
+    await _plugin.show(
+      id,
+      titulo,
+      cuerpo,
+      await _convocatoriaDetails(),
+      payload: '$payloadCobroPrefix$partidoId',
+    );
+  }
+
+  /// Payload al abrir la app desde una notificación.
+  /// Android/hot restart a veces reenvían el mismo launch: lo consumimos una vez.
   Future<void> handleLaunchPayload(String? payload) async {
+    if (payload == null || payload.isEmpty) return;
+    if (_launchPayloadHandledThisSession) return;
+    if (await _wasLaunchPayloadHandledRecently(payload)) {
+      _launchPayloadHandledThisSession = true;
+      return;
+    }
+    _launchPayloadHandledThisSession = true;
+    await _markLaunchPayloadHandled(payload);
+
     if (payload == payloadRecordatorio) {
       await Future<void>.delayed(const Duration(milliseconds: 400));
       await _abrirRecordatorioDeudores();
+    } else if (payload.startsWith(payloadCobroPrefix)) {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await _abrirMisCobros();
+    } else if (payload.startsWith(payloadComprobantePrefix)) {
+      await _abrirOrganizerHomePagos();
+    } else if (payload.startsWith(payloadOrganizadorPartidoPrefix)) {
+      final id = int.tryParse(
+        payload.substring(payloadOrganizadorPartidoPrefix.length),
+      );
+      if (id != null) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        await _abrirPartidoOrganizador(id);
+      }
+    } else if (payload.startsWith(payloadConvocatoriaPrefix)) {
+      final id = int.tryParse(
+        payload.substring(payloadConvocatoriaPrefix.length),
+      );
+      if (id != null) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        // Solo si aún debe responder (no reabrir convocatorias ya contestadas).
+        await _abrirConvocatoria(id, soloSiPendiente: true);
+      }
     }
+  }
+
+  Future<bool> _wasLaunchPayloadHandledRecently(String payload) async {
+    final prefs = await SharedPreferences.getInstance();
+    final last = prefs.getString(_prefsLaunchPayload);
+    if (last != payload) return false;
+    final at = prefs.getInt(_prefsLaunchAt) ?? 0;
+    final age = DateTime.now().millisecondsSinceEpoch - at;
+    return age < const Duration(minutes: 30).inMilliseconds;
+  }
+
+  Future<void> _markLaunchPayloadHandled(String payload) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsLaunchPayload, payload);
+    await prefs.setInt(
+      _prefsLaunchAt,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  Future<void> _abrirConvocatoria(
+    int partidoId, {
+    bool soloSiPendiente = false,
+  }) async {
+    final ctx = navigatorKey?.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+
+    final repos = _repos;
+    MiConvocatoria? conv = await repos.getMiConvocatoria(partidoId);
+
+    if (conv == null) {
+      final pendientes = await MisInvitacionesPanel.cargarPendientes(repos);
+      for (final c in pendientes) {
+        if (c.entry.partidoId == partidoId) {
+          conv = c;
+          break;
+        }
+      }
+    }
+
+    if (conv == null) {
+      if (ctx.mounted && !soloSiPendiente) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(content: Text(ctx.l10n.tr('convocatoriaNotFoundSnack'))),
+        );
+      }
+      return;
+    }
+
+    // Ya respondió / suplente: no empujar la pantalla al arrancar ni por error.
+    if (soloSiPendiente && !conv.requiereRespuesta) return;
+
+    if (ctx.mounted) {
+      await Navigator.of(ctx, rootNavigator: true).push(
+        MaterialPageRoute(
+          builder: (_) => ResponderConvocatoriaScreen(
+            partidoId: partidoId,
+            convocatoria: conv,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _abrirMisCobros() async {
+    final goToTab = onNavigateOrganizerMisCobros;
+    if (goToTab != null) {
+      final ctx = navigatorKey?.currentContext;
+      if (ctx != null && ctx.mounted) {
+        Navigator.of(ctx).popUntil((route) => route.isFirst);
+      }
+      goToTab();
+      AppRepositories.notifyDataChanged();
+      return;
+    }
+
+    final ctx = navigatorKey?.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+
+    await Navigator.of(ctx, rootNavigator: true).push(
+      MaterialPageRoute(builder: (_) => const MisCobrosScreen()),
+    );
+  }
+
+  Future<void> _abrirOrganizerHomePagos() async {
+    final ctx = navigatorKey?.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    Navigator.of(ctx).popUntil((route) => route.isFirst);
+    onNavigateOrganizerHome?.call();
+    AppRepositories.notifyDataChanged();
+  }
+
+  Future<void> _abrirPartidoOrganizador(int partidoId) async {
+    final ctx = navigatorKey?.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+
+    await Navigator.of(ctx, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => OrganizarPartidoScreen(partidoId: partidoId),
+      ),
+    );
   }
 
   Future<void> _abrirRecordatorioDeudores() async {
     final ctx = navigatorKey?.currentContext;
     if (ctx == null || !ctx.mounted) return;
+    final l10n = ctx.l10n;
 
     final dias = await _prefs.recordatorioDias;
-    final deudores = await _partidoRepo.getDeudoresVencidos(dias);
+    final deudores = await _repos.getDeudoresVencidos(dias);
     if (deudores.isEmpty) {
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(
-          const SnackBar(
-            content: Text('No hay jugadores impagos que cumplan el plazo'),
-          ),
+          SnackBar(content: Text(l10n.tr('noUnpaidPlayersDeadline'))),
         );
       }
       return;
@@ -251,8 +646,11 @@ class NotificationService {
       await RecordatorioDeudoresSheet.show(
         ctx,
         resumenes: deudores,
-        titulo: 'Jugadores impagos',
-        subtitulo: 'Deuda de más de $dias día${dias == 1 ? '' : 's'}',
+        titulo: l10n.tr('unpaidPlayersTitle'),
+        subtitulo: l10n.tr(
+          dias == 1 ? 'debtOlderThanDay' : 'debtOlderThanDays',
+          params: {'days': '$dias'},
+        ),
       );
     }
   }

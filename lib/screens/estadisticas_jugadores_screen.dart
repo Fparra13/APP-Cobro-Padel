@@ -1,65 +1,67 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_repositories.dart';
+import '../core/supabase_helpers.dart';
+import '../l10n/matchpay_strings.dart';
 import '../models/estadisticas_jugador.dart';
-import '../repositories/estadisticas_repository.dart';
 import '../utils/formatters.dart';
 import '../widgets/ayuda_tip.dart';
 import '../widgets/jugador_avatar.dart';
 
 enum _MetricaEstadistica {
   participacion(
-    'Participación',
-    Icons.sports_tennis_rounded,
+    'statsMetricParticipation',
+    'statsMetricParticipationDesc',
+    Icons.groups_rounded,
     Colors.blue,
-    'Quién juega más partidos con el grupo',
   ),
   buenPagador(
-    'Buen pagador',
+    'statsMetricGoodPayer',
+    'statsMetricGoodPayerDesc',
     Icons.verified_rounded,
     Colors.green,
-    'Paga al día, sin impagos (mín. 2 partidos)',
   ),
   rapido(
-    'Pago rápido',
+    'statsMetricFastPayer',
+    'statsMetricFastPayerDesc',
     Icons.bolt_rounded,
     Colors.amber,
-    'Menor tiempo promedio para pagar',
   ),
   activoReciente(
-    'Activo (90 días)',
+    'statsMetricActive90',
+    'statsMetricActive90Desc',
     Icons.trending_up_rounded,
     Colors.teal,
-    'Más partidos en los últimos 3 meses',
   ),
   convocatoria(
-    'Convocatorias',
+    'statsMetricConvocatoria',
+    'statsMetricConvocatoriaDesc',
     Icons.campaign_rounded,
     Colors.indigo,
-    'Más confirmaciones en convocatorias',
   ),
   aportado(
-    'Total aportado',
+    'statsMetricContributed',
+    'statsMetricContributedDesc',
     Icons.payments_rounded,
     Colors.deepPurple,
-    'Mayor monto acumulado en partidos',
   ),
   deuda(
-    'Mayor deuda',
+    'statsMetricDebt',
+    'statsMetricDebtDesc',
     Icons.account_balance_wallet_rounded,
     Colors.red,
-    'Saldo pendiente actual (para seguimiento)',
   );
 
-  final String label;
+  final String labelKey;
+  final String descKey;
   final IconData icon;
   final MaterialColor color;
-  final String descripcion;
 
   const _MetricaEstadistica(
-    this.label,
+    this.labelKey,
+    this.descKey,
     this.icon,
     this.color,
-    this.descripcion,
   );
 }
 
@@ -73,128 +75,240 @@ class EstadisticasJugadoresScreen extends StatefulWidget {
 
 class _EstadisticasJugadoresScreenState
     extends State<EstadisticasJugadoresScreen> {
-  final _repo = EstadisticasRepository();
+  static const _metricas = _MetricaEstadistica.values;
+
   List<EstadisticasJugador> _stats = [];
-  _MetricaEstadistica _metrica = _MetricaEstadistica.participacion;
+  late final PageController _pageController;
+  late final Map<_MetricaEstadistica, GlobalKey> _chipKeys;
+  int _pageIndex = 0;
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _pageController = PageController();
+    _chipKeys = {
+      for (final m in _metricas) m: GlobalKey(),
+    };
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
-    final stats = await _repo.getAll();
-    if (mounted) {
-      setState(() {
-        _stats = stats;
-        _loading = false;
-      });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final stats = await context.repos.getEstadisticas();
+      if (mounted) {
+        setState(() {
+          _stats = stats;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = SupabaseHelpers.describeError(
+            e,
+            operacion: 'Estadísticas',
+          );
+        });
+      }
     }
   }
 
-  List<EstadisticasJugador> get _rankingActual {
-    switch (_metrica) {
-      case _MetricaEstadistica.participacion:
-        return _repo.masParticipacion(_stats);
-      case _MetricaEstadistica.buenPagador:
-        return _repo.mejoresPagadores(_stats);
-      case _MetricaEstadistica.rapido:
-        return _repo.pagadoresRapidos(_stats);
-      case _MetricaEstadistica.activoReciente:
-        return _repo.masActivosRecientes(_stats);
-      case _MetricaEstadistica.convocatoria:
-        return _repo.reyConvocatoria(_stats);
-      case _MetricaEstadistica.aportado:
-        return _repo.masAportado(_stats);
-      case _MetricaEstadistica.deuda:
-        return _repo.mayorDeuda(_stats);
+  List<EstadisticasJugador> _rankingPara(_MetricaEstadistica metrica) {
+    final repos = context.repos;
+    return switch (metrica) {
+      _MetricaEstadistica.participacion => repos.masParticipacion(_stats),
+      _MetricaEstadistica.buenPagador => repos.mejoresPagadoresStats(_stats),
+      _MetricaEstadistica.rapido => repos.pagadoresRapidos(_stats),
+      _MetricaEstadistica.activoReciente => repos.masActivosRecientes(_stats),
+      _MetricaEstadistica.convocatoria => repos.reyConvocatoria(_stats),
+      _MetricaEstadistica.aportado => repos.masAportado(_stats),
+      _MetricaEstadistica.deuda => repos.mayorDeuda(_stats),
+    };
+  }
+
+  void _irAMetrica(int index) {
+    if (index < 0 || index >= _metricas.length) return;
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _onPageChanged(int index) {
+    setState(() => _pageIndex = index);
+    final ctx = _chipKeys[_metricas[index]]?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 250),
+        alignment: 0.4,
+        curve: Curves.easeOutCubic,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final ranking = _rankingActual.take(10).toList();
-    final m = _metrica;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('📊 Estadísticas'),
+        title: Text(context.tr('statsScreenTitle')),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Actualizar',
+            tooltip: context.tr('refreshTooltip'),
             onPressed: _load,
           ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-                children: [
-                  const AyudaTip(
-                    texto:
-                        'Rankings del grupo basados en partidos reales. '
-                        '¡Solo para diversión entre amigos! 😄',
-                  ),
-                  const SizedBox(height: 12),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: _MetricaEstadistica.values.map((metrica) {
-                        final selected = _metrica == metrica;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(metrica.label),
-                            selected: selected,
-                            avatar: Icon(
-                              metrica.icon,
-                              size: 18,
-                              color: selected
-                                  ? Colors.white
-                                  : metrica.color.shade700,
-                            ),
-                            selectedColor: metrica.color,
-                            checkmarkColor: Colors.white,
-                            labelStyle: TextStyle(
-                              color: selected ? Colors.white : null,
-                              fontWeight:
-                                  selected ? FontWeight.bold : FontWeight.normal,
-                            ),
-                            onSelected: (_) =>
-                                setState(() => _metrica = metrica),
-                          ),
-                        );
-                      }).toList(),
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.cloud_off_outlined,
+                            size: 48, color: Colors.grey.shade600),
+                        const SizedBox(height: 12),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey.shade700),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: _load,
+                          icon: const Icon(Icons.refresh),
+                          label: Text(context.tr('retry')),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  _MetricaHeader(metrica: m),
-                  const SizedBox(height: 12),
-                  if (ranking.isEmpty)
-                    _EmptyRanking(metrica: m)
-                  else
-                    ...ranking.asMap().entries.map(
-                          (e) => _RankingTile(
-                            posicion: e.key + 1,
-                            stat: e.value,
-                            metrica: m,
-                            onTap: () => Navigator.pushNamed(
-                              context,
-                              '/historial',
-                              arguments: e.value.jugadorId,
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                      child: AyudaTip(texto: context.tr('statsHelpTip')),
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          for (var i = 0; i < _metricas.length; i++)
+                            Padding(
+                              key: _chipKeys[_metricas[i]],
+                              padding: const EdgeInsets.only(right: 8),
+                              child: FilterChip(
+                                label: Text(
+                                  context.tr(_metricas[i].labelKey),
+                                ),
+                                selected: _pageIndex == i,
+                                avatar: Icon(
+                                  _metricas[i].icon,
+                                  size: 18,
+                                  color: _pageIndex == i
+                                      ? Colors.white
+                                      : _metricas[i].color.shade700,
+                                ),
+                                selectedColor: _metricas[i].color,
+                                checkmarkColor: Colors.white,
+                                labelStyle: TextStyle(
+                                  color: _pageIndex == i ? Colors.white : null,
+                                  fontWeight: _pageIndex == i
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                                onSelected: (_) => _irAMetrica(i),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.swipe_rounded,
+                            size: 16,
+                            color: Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            context.tr('statsSwipeHint'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
                             ),
                           ),
-                        ),
-                ],
-              ),
-            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: _metricas.length,
+                        onPageChanged: _onPageChanged,
+                        itemBuilder: (context, index) {
+                          final m = _metricas[index];
+                          final ranking = _rankingPara(m).take(10).toList();
+                          return RefreshIndicator(
+                            onRefresh: _load,
+                            child: ListView(
+                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                _MetricaHeader(metrica: m),
+                                const SizedBox(height: 12),
+                                if (ranking.isEmpty)
+                                  _EmptyRanking(metrica: m)
+                                else
+                                  ...ranking.asMap().entries.map(
+                                        (e) => _RankingTile(
+                                          posicion: e.key + 1,
+                                          stat: e.value,
+                                          metrica: m,
+                                          onTap: () => Navigator.pushNamed(
+                                            context,
+                                            '/historial',
+                                            arguments:
+                                                e.value.jugadorKeyId.isNotEmpty
+                                                    ? e.value.jugadorKeyId
+                                                    : e.value.jugadorId
+                                                        .toString(),
+                                          ),
+                                        ),
+                                      ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
     );
   }
 }
@@ -225,7 +339,7 @@ class _MetricaHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  metrica.label,
+                  context.tr(metrica.labelKey),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -234,7 +348,7 @@ class _MetricaHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  metrica.descripcion,
+                  context.tr(metrica.descKey),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 13,
@@ -263,7 +377,7 @@ class _EmptyRanking extends StatelessWidget {
           Icon(metrica.icon, size: 56, color: Colors.grey.shade400),
           const SizedBox(height: 12),
           Text(
-            'Sin datos para este ranking',
+            context.tr('statsRankingEmpty'),
             style: TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.grey.shade700,
@@ -271,7 +385,7 @@ class _EmptyRanking extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Registra partidos y convocatorias\npara ver estadísticas aquí.',
+            context.tr('statsRankingEmptySubtitle'),
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.grey.shade600),
           ),
@@ -301,20 +415,35 @@ class _RankingTile extends StatelessWidget {
     return '$posicion°';
   }
 
-  String get _valor {
+  String _valor(BuildContext context) {
     switch (metrica) {
       case _MetricaEstadistica.participacion:
-        return '${stat.partidosJugados} partido${stat.partidosJugados == 1 ? '' : 's'}';
+        return context.tr(
+          'statMatchesCount',
+          params: {'count': '${stat.partidosJugados}'},
+        );
       case _MetricaEstadistica.buenPagador:
-        return '${stat.porcentajePagoAlDia.toStringAsFixed(0)}% al día';
+        return context.tr(
+          'statPercentOnTime',
+          params: {'percent': stat.porcentajePagoAlDia.toStringAsFixed(0)},
+        );
       case _MetricaEstadistica.rapido:
-        if (stat.promedioDiasPago <= 0) return 'Mismo día';
-        if (stat.promedioDiasPago < 1) return '< 1 día';
-        return '${stat.promedioDiasPago.toStringAsFixed(1)} días prom.';
+        if (stat.promedioDiasPago <= 0) return context.tr('statSameDay');
+        if (stat.promedioDiasPago < 1) return context.tr('statLessThanDay');
+        return context.tr(
+          'statDaysAvg',
+          params: {'days': stat.promedioDiasPago.toStringAsFixed(1)},
+        );
       case _MetricaEstadistica.activoReciente:
-        return '${stat.partidosUltimos90Dias} en 90 días';
+        return context.tr(
+          'statIn90Days',
+          params: {'count': '${stat.partidosUltimos90Dias}'},
+        );
       case _MetricaEstadistica.convocatoria:
-        return '${stat.convocatoriasConfirmadas} confirmada${stat.convocatoriasConfirmadas == 1 ? '' : 's'}';
+        return context.tr(
+          'statConfirmedCount',
+          params: {'count': '${stat.convocatoriasConfirmadas}'},
+        );
       case _MetricaEstadistica.aportado:
         return formatMoney(stat.totalGastado);
       case _MetricaEstadistica.deuda:
@@ -322,22 +451,46 @@ class _RankingTile extends StatelessWidget {
     }
   }
 
-  String get _detalle {
+  String _detalle(BuildContext context) {
     switch (metrica) {
       case _MetricaEstadistica.participacion:
-        return '${stat.pagosAlDia} pagados al día';
+        return context.tr(
+          'statPaidOnTime',
+          params: {'count': '${stat.pagosAlDia}'},
+        );
       case _MetricaEstadistica.buenPagador:
-        return '${stat.partidosJugados} partidos · ${stat.pagosTardios} tardíos';
+        return context.tr(
+          'statMatchesLate',
+          params: {
+            'count': '${stat.partidosJugados}',
+            'late': '${stat.pagosTardios}',
+          },
+        );
       case _MetricaEstadistica.rapido:
-        return '${stat.pagosAlDia} pagos al día';
+        return context.tr(
+          'statPaymentsOnTime',
+          params: {'count': '${stat.pagosAlDia}'},
+        );
       case _MetricaEstadistica.activoReciente:
-        return '${stat.partidosJugados} partidos en total';
+        return context.tr(
+          'statTotalMatches',
+          params: {'count': '${stat.partidosJugados}'},
+        );
       case _MetricaEstadistica.convocatoria:
-        return '${stat.partidosJugados} partidos jugados';
+        return context.tr(
+          'statMatchesPlayed',
+          params: {'count': '${stat.partidosJugados}'},
+        );
       case _MetricaEstadistica.aportado:
-        return '${stat.partidosJugados} partidos';
+        return context.tr(
+          'statMatchesCount',
+          params: {'count': '${stat.partidosJugados}'},
+        );
       case _MetricaEstadistica.deuda:
-        return '${stat.partidosImpagos} partido${stat.partidosImpagos == 1 ? '' : 's'} impago${stat.partidosImpagos == 1 ? '' : 's'}';
+        return context.tr(
+          'statUnpaidMatches',
+          params: {'count': '${stat.partidosImpagos}'},
+        );
     }
   }
 
@@ -368,6 +521,7 @@ class _RankingTile extends StatelessWidget {
               JugadorAvatar(
                 nombre: stat.nombre,
                 fotoPath: stat.fotoPath,
+                fotoUrl: stat.fotoUrl,
                 size: 44,
                 borderRadius: 12,
               ),
@@ -384,7 +538,7 @@ class _RankingTile extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      _detalle,
+                      _detalle(context),
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade600,
@@ -394,7 +548,7 @@ class _RankingTile extends StatelessWidget {
                 ),
               ),
               Text(
-                _valor,
+                _valor(context),
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: metrica.color.shade700,

@@ -1,28 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../l10n/matchpay_strings.dart';
 import '../repositories/partido_repository.dart';
 import '../services/recordatorio_service.dart';
 import '../utils/formatters.dart';
+import '../utils/single_action.dart';
 
 class RecordatorioDeudoresSheet extends StatefulWidget {
   final List<ResumenJugador> deudores;
-  final String titulo;
+  final String? titulo;
   final String? subtitulo;
 
   const RecordatorioDeudoresSheet({
     super.key,
     required this.deudores,
-    this.titulo = 'Recordatorio a deudores',
+    this.titulo,
     this.subtitulo,
   });
 
   static Future<void> show(
     BuildContext context, {
     required List<ResumenJugador> resumenes,
-    String titulo = 'Recordatorio a deudores',
+    String? titulo,
     String? subtitulo,
   }) {
-    final deudores = resumenes.where((r) => r.saldoActual > 0).toList();
+    final deudores = resumenes.where((r) => r.tieneDeuda).toList();
     if (deudores.isEmpty) {
       return Future.value();
     }
@@ -44,96 +47,173 @@ class RecordatorioDeudoresSheet extends StatefulWidget {
 
 class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
   final _service = RecordatorioService();
+  final _sheetMessengerKey = GlobalKey<ScaffoldMessengerState>();
   bool _enviando = false;
-  int? _enviandoJugadorId;
+  String? _enviandoJugadorKey;
+  String? _feedback;
+  bool _feedbackError = false;
 
-  int get _conWhatsApp => widget.deudores
-      .where((r) => (r.jugador.telefono?.trim().isNotEmpty ?? false))
+  int get _conApp => widget.deudores
+      .where((r) => r.jugador.keyId.isNotEmpty)
       .length;
 
-  int get _sinWhatsApp => widget.deudores.length - _conWhatsApp;
-
   double get _totalDeuda =>
-      widget.deudores.fold(0.0, (s, r) => s + r.saldoActual);
+      widget.deudores.fold(0.0, (s, r) => s + r.deudaVisible);
+
+  String _remindersSummary(BuildContext context, dynamic resultado) {
+    final noApp = resultado.sinApp > 0
+        ? context.tr(
+            'remindersNoAppSuffix',
+            params: {'count': '${resultado.sinApp}'},
+          )
+        : '';
+    final errors = resultado.errores > 0
+        ? context.tr(
+            'remindersErrorsSuffix',
+            params: {'count': '${resultado.errores}'},
+          )
+        : '';
+    return context.tr(
+      'remindersSentSummary',
+      params: {
+        'sent': '${resultado.enviados}',
+        'noApp': noApp,
+        'errors': errors,
+      },
+    );
+  }
 
   Future<void> _enviarTodos() async {
-    if (_conWhatsApp == 0) {
-      _mostrarSnack('Ningún deudor tiene WhatsApp registrado');
+    if (_conApp == 0) {
+      _mostrarFeedback(context.tr('noDebtorWithApp'), error: true);
       return;
     }
 
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: const Icon(Icons.message, color: Colors.green),
-        title: const Text('Enviar recordatorios'),
+        icon: const Icon(Icons.notifications_active, color: Colors.blue),
+        title: Text(ctx.tr('sendRemindersTitle')),
         content: Text(
-          'Se abrirá WhatsApp $_conWhatsApp vez${_conWhatsApp == 1 ? '' : 'es'}, '
-          'una por cada jugador con teléfono.\n\n'
-          'Debes confirmar y enviar cada mensaje en WhatsApp.',
+          ctx.tr('sendRemindersBody', params: {'count': '$_conApp'}),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar'),
+            child: Text(ctx.tr('cancel')),
           ),
           FilledButton.icon(
             onPressed: () => Navigator.pop(ctx, true),
             icon: const Icon(Icons.send),
-            label: const Text('Continuar'),
+            label: Text(ctx.tr('sendBtn')),
           ),
         ],
       ),
     );
     if (confirm != true || !mounted) return;
 
-    setState(() => _enviando = true);
-    final resultado = await _service.enviarATodos(widget.deudores);
-    if (!mounted) return;
-
-    setState(() => _enviando = false);
-    _mostrarSnack(
-      'Enviados: ${resultado.enviados}'
-      '${resultado.sinTelefono > 0 ? ' · Sin tel: ${resultado.sinTelefono}' : ''}'
-      '${resultado.errores > 0 ? ' · Errores: ${resultado.errores}' : ''}',
-    );
+    await runOnce('recordatorio-todos', () async {
+      setState(() => _enviando = true);
+      final resultado = await _service.enviarATodos(widget.deudores);
+      if (!mounted) return null;
+      setState(() => _enviando = false);
+      _mostrarFeedback(
+        _remindersSummary(context, resultado),
+        error: resultado.enviados == 0,
+      );
+      return null;
+    });
   }
 
   Future<void> _enviarUno(ResumenJugador r) async {
-    setState(() => _enviandoJugadorId = r.jugador.id);
-    try {
-      await _service.enviarIndividual(
-        jugador: r.jugador,
-        saldo: r.saldoActual,
+    final key = r.jugador.keyId;
+    if (key.isEmpty) {
+      _mostrarFeedback(
+        context.tr('noAppUseCopy', params: {'name': r.jugador.nombre}),
+        error: true,
       );
+      return;
+    }
+
+    await runOnce('recordatorio-$key', () async {
+      setState(() => _enviandoJugadorKey = key);
+      try {
+        await _service.enviarIndividual(
+          jugador: r.jugador,
+          saldo: r.deudaVisible,
+        );
+        if (mounted) {
+          _mostrarFeedback(
+            context.tr(
+              'reminderSentTo',
+              params: {'name': r.jugador.nombre},
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) _mostrarFeedback('$e', error: true);
+      } finally {
+        if (mounted) setState(() => _enviandoJugadorKey = null);
+      }
+      return null;
+    });
+  }
+
+  Future<void> _copiarMensaje(ResumenJugador r) async {
+    try {
+      final msg = await _service.construirMensaje(
+        jugador: r.jugador,
+        saldo: r.deudaVisible,
+      );
+      await Clipboard.setData(ClipboardData(text: msg));
       if (mounted) {
-        _mostrarSnack('WhatsApp abierto para ${r.jugador.nombre}');
+        _mostrarFeedback(context.tr('messageCopied'));
       }
     } catch (e) {
-      if (mounted) {
-        _mostrarSnack('Error: $e', error: true);
-      }
-    } finally {
-      if (mounted) setState(() => _enviandoJugadorId = null);
+      if (mounted) _mostrarFeedback('$e', error: true);
     }
   }
 
-  void _mostrarSnack(String msg, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: error ? Colors.red.shade700 : null,
-      ),
-    );
+  /// Feedback dentro del sheet: el SnackBar del home queda detrás del modal.
+  void _mostrarFeedback(String msg, {bool error = false}) {
+    if (!mounted) return;
+    setState(() {
+      _feedback = msg;
+      _feedbackError = error;
+    });
+    _sheetMessengerKey.currentState
+      ?..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+          backgroundColor: error ? Colors.red.shade700 : Colors.green.shade700,
+        ),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
+    final titulo = widget.titulo ?? context.tr('reminderDebtorsTitle');
+    final subtitulo = widget.subtitulo ??
+        context.tr(
+          'debtorsSummaryLine',
+          params: {
+            'count': '${widget.deudores.length}',
+            'amount': formatMoney(_totalDeuda),
+          },
+        );
+
+    return ScaffoldMessenger(
+      key: _sheetMessengerKey,
+      child: DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.75,
       maxChildSize: 0.92,
-      builder: (_, scroll) => SafeArea(
+      builder: (_, scroll) => Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -143,10 +223,11 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50,
+                      color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(Icons.message, color: Colors.green.shade700),
+                    child: Icon(Icons.notifications_active,
+                        color: Colors.blue.shade700),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -154,15 +235,14 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.titulo,
+                          titulo,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 17,
                           ),
                         ),
                         Text(
-                          widget.subtitulo ??
-                              '${widget.deudores.length} jugadores · Total ${formatMoney(_totalDeuda)}',
+                          subtitulo,
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey.shade700,
@@ -178,6 +258,44 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
                 ],
               ),
             ),
+            if (_feedback != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Material(
+                  color: _feedbackError
+                      ? Colors.red.shade50
+                      : Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _feedbackError
+                              ? Icons.error_outline
+                              : Icons.check_circle_outline,
+                          color: _feedbackError
+                              ? Colors.red.shade700
+                              : Colors.green.shade700,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _feedback!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: _feedbackError
+                                  ? Colors.red.shade900
+                                  : Colors.green.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Container(
@@ -189,11 +307,7 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
                   border: Border.all(color: Colors.blue.shade100),
                 ),
                 child: Text(
-                  _conWhatsApp > 0
-                      ? 'Toca "Enviar a todos" para abrir WhatsApp con cada deudor '
-                          '($_conWhatsApp con teléfono).'
-                          '${_sinWhatsApp > 0 ? ' $_sinWhatsApp sin WhatsApp: edítalos en Jugadores.' : ''}'
-                      : 'Nadie tiene WhatsApp. Agrega el teléfono en la pestaña Jugadores.',
+                  context.tr('reminderPushHint'),
                   style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
                 ),
               ),
@@ -206,23 +320,26 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
                 itemCount: widget.deudores.length,
                 itemBuilder: (_, i) {
                   final r = widget.deudores[i];
-                  final tieneWa =
-                      r.jugador.telefono?.trim().isNotEmpty ?? false;
-                  final enviando = _enviandoJugadorId == r.jugador.id;
+                  final tieneApp = r.jugador.keyId.isNotEmpty;
+                  final enviando = _enviandoJugadorKey == r.jugador.keyId;
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: tieneWa
-                            ? Colors.green.shade100
+                        backgroundColor: tieneApp
+                            ? Colors.blue.shade100
                             : Colors.orange.shade100,
-                        child: Icon(
-                          tieneWa ? Icons.phone_android : Icons.phone_disabled,
-                          color: tieneWa
-                              ? Colors.green.shade700
-                              : Colors.orange.shade800,
-                          size: 20,
+                        child: Text(
+                          r.jugador.nombre.isNotEmpty
+                              ? r.jugador.nombre[0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            color: tieneApp
+                                ? Colors.blue.shade800
+                                : Colors.orange.shade800,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       title: Text(
@@ -230,30 +347,51 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       subtitle: Text(
-                        tieneWa
-                            ? 'Debe ${formatMoney(r.saldoActual)}'
-                            : 'Sin WhatsApp · ${formatMoney(r.saldoActual)}',
+                        tieneApp
+                            ? context.tr(
+                                'owesAmountLabel',
+                                params: {
+                                  'amount': formatMoney(r.deudaVisible),
+                                },
+                              )
+                            : context.tr(
+                                'owesNoAppLine',
+                                params: {
+                                  'amount': formatMoney(r.deudaVisible),
+                                },
+                              ),
                         style: TextStyle(
                           fontSize: 12,
-                          color: tieneWa ? Colors.red.shade700 : Colors.orange.shade800,
+                          color: Colors.red.shade700,
                         ),
                       ),
-                      trailing: IconButton.filledTonal(
-                        icon: enviando
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : Icon(
-                                Icons.message,
-                                color: tieneWa ? Colors.green : Colors.grey,
-                              ),
-                        tooltip: 'Enviar recordatorio',
-                        onPressed: enviando || _enviando || !tieneWa
-                            ? null
-                            : () => _enviarUno(r),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.copy_outlined, size: 20),
+                            tooltip: context.tr('copyMessageTooltip'),
+                            onPressed: _enviando ? null : () => _copiarMensaje(r),
+                          ),
+                          IconButton.filledTonal(
+                            icon: enviando
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.notifications_active,
+                                    color: tieneApp ? Colors.blue : Colors.grey,
+                                  ),
+                            tooltip: context.tr('sendPushTooltip'),
+                            onPressed: enviando || _enviando || !tieneApp
+                                ? null
+                                : () => _enviarUno(r),
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -263,7 +401,7 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: FilledButton.icon(
-                onPressed: _enviando || _conWhatsApp == 0 ? null : _enviarTodos,
+                onPressed: _enviando || _conApp == 0 ? null : _enviarTodos,
                 icon: _enviando
                     ? const SizedBox(
                         width: 20,
@@ -276,17 +414,22 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
                     : const Icon(Icons.send),
                 label: Text(
                   _enviando
-                      ? 'Enviando recordatorios...'
-                      : 'Enviar a todos ($_conWhatsApp)',
+                      ? context.tr('sendingReminders')
+                      : context.tr(
+                          'sendToAll',
+                          params: {'count': '$_conApp'},
+                        ),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
+                  backgroundColor: Colors.blue.shade700,
                   minimumSize: const Size.fromHeight(48),
                 ),
               ),
             ),
           ],
         ),
+        ),
+      ),
       ),
     );
   }
