@@ -159,7 +159,7 @@ class _EnviarInformesSheetState extends State<EnviarInformesSheet> {
                           children: [
                             ...d.lineas.map(
                               (l) => Text(
-                                '${l.concepto}: ${formatMoney(l.monto)}',
+                                '${context.l10n.translateConcept(l.concepto)}: ${formatMoney(l.monto)}',
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ),

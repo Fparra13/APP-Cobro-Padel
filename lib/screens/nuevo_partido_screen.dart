@@ -13,6 +13,7 @@ import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../models/shared_expense_entry.dart';
 import '../core/app_repositories.dart';
+import '../core/matchpay_design_tokens.dart';
 import '../core/supabase_helpers.dart';
 import '../repositories/repository_types.dart';
 import '../models/estado_partido.dart';
@@ -894,6 +895,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     return Scaffold(
+      backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(
         title: Text(
           _esOrganizando

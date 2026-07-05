@@ -760,7 +760,11 @@ class _JugadorCobroCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            DesgloseCalculoPanel(desglose: desglose, compact: true),
+            DesgloseCalculoPanel(
+              desglose: desglose,
+              compact: true,
+              showLineasPartido: true,
+            ),
             const SizedBox(height: 10),
             Row(
               children: [

@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
+import '../core/matchpay_design_tokens.dart';
 import '../core/supabase_config.dart';
 import '../core/supabase_helpers.dart';
 import '../models/desglose_jugador.dart';
@@ -17,6 +18,8 @@ import '../utils/formatters.dart';
 import '../utils/nav_shell_layout.dart';
 import '../widgets/ayuda_tip.dart';
 import '../widgets/desglose_cobro_panel.dart';
+import '../widgets/matchpay_ui.dart';
+import '../widgets/shimmer_loading.dart';
 
 /// Deudas del jugador: declarar pago (total/abono) y subir comprobante obligatorio.
 class MisCobrosScreen extends StatefulWidget {
@@ -409,9 +412,19 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
     final otros = _deudas.length > 1 ? _deudas.sublist(1) : const <DetallePartido>[];
 
     return ShellTabScaffold(
+      backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(title: Text(l10n.tr('myChargesScreenTitle'))),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView(
+              padding: NavShellScope.listPadding(context),
+              children: const [
+                ShimmerLoading(height: 48, borderRadius: BorderRadius.all(Radius.circular(12))),
+                SizedBox(height: 16),
+                ShimmerLoading(height: 180, borderRadius: BorderRadius.all(Radius.circular(20))),
+                SizedBox(height: 12),
+                ShimmerLoading(height: 120, borderRadius: BorderRadius.all(Radius.circular(20))),
+              ],
+            )
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
@@ -444,32 +457,37 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
                   ],
                   const SizedBox(height: 12),
                   if (_deudas.isEmpty)
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          children: [
-                            Icon(Icons.check_circle_outline,
-                                size: 48, color: Colors.green.shade400),
-                            const SizedBox(height: 8),
-                            Text(
-                              l10n.tr('noPendingDebts'),
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
+                    MatchPaySurfaceCard(
+                      padding: const EdgeInsets.all(28),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline_rounded,
+                            size: 48,
+                            color: MatchPayTokens.accentSuccess,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            l10n.tr('noPendingDebts'),
+                            style: MatchPayTokens.titleSmallStyle(),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            l10n.tr('playerPaymentsUpToDate'),
+                            style: MatchPayTokens.bodySmallStyle(),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
                     )
                   else ...[
                     if (ultimo != null) ...[
-                      Text(
-                        _deudas.length > 1
+                      MatchPaySectionHeader(
+                        title: _deudas.length > 1
                             ? l10n.tr('lastMatch')
                             : l10n.tr('chargeDetail'),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
+                        accent: true,
                       ),
                       const SizedBox(height: 8),
                       CobroPartidoCard(
@@ -485,13 +503,8 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
                     ],
                     if (otros.isNotEmpty) ...[
                       const SizedBox(height: 16),
-                      Text(
-                        l10n.tr('otherPendingCharges'),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Colors.grey.shade800,
-                        ),
+                      MatchPaySectionHeader(
+                        title: l10n.tr('otherPendingCharges'),
                       ),
                       const SizedBox(height: 8),
                       ...otros.map((d) {

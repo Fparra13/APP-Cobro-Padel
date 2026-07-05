@@ -23,6 +23,7 @@ class ConvocatoriaSyncResult {
 /// Lógica automática: recordatorios de plazo, vencimientos, lista de espera y cierre.
 class ConvocatoriaListaEsperaService {
   final _notificaciones = ConvocatoriaNotificacionService();
+  final _syncInFlight = <int>{};
 
   /// Ventana para el aviso "te queda menos de 1 h".
   static const recordatorioAntes = Duration(hours: 1);
@@ -35,6 +36,18 @@ class ConvocatoriaListaEsperaService {
       .length;
 
   Future<ConvocatoriaSyncResult> sincronizar(int partidoId) async {
+    if (_syncInFlight.contains(partidoId)) {
+      return const ConvocatoriaSyncResult();
+    }
+    _syncInFlight.add(partidoId);
+    try {
+      return await _sincronizarInternal(partidoId);
+    } finally {
+      _syncInFlight.remove(partidoId);
+    }
+  }
+
+  Future<ConvocatoriaSyncResult> _sincronizarInternal(int partidoId) async {
     var conv = await _repos.getConvocatoriaCompleta(partidoId);
     if (conv == null || conv.partido.esConfirmado) {
       return const ConvocatoriaSyncResult();
@@ -73,6 +86,7 @@ class ConvocatoriaListaEsperaService {
 
     // 2) Vencidos: marcar no_respondio + aviso suave (una vez).
     for (final entry in conv.titulares) {
+      if (entry.estado == EstadoConfirmacion.noRespondio) continue;
       if (entry.estado != EstadoConfirmacion.invitado) continue;
       if (entry.tiempoLimite == null || !entry.tiempoLimite!.isBefore(now)) {
         continue;
@@ -82,7 +96,7 @@ class ConvocatoriaListaEsperaService {
       await _repos.marcarNoRespondio(
         partidoId: partidoId,
         jugadorId: entry.jugador.keyId,
-        notificadoVencimiento: avisar,
+        notificadoVencimiento: true,
       );
       if (avisar) {
         await _notificaciones.notificarPlazoVencido(

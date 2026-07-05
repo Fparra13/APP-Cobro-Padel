@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/app_repositories.dart';
 import 'core/app_settings_controller.dart';
+import 'core/matchpay_design_tokens.dart';
 import 'core/subscription_service.dart';
 import 'core/auth_service.dart';
 import 'core/firebase_config.dart';
@@ -532,12 +533,22 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
     final l10n = context.l10n;
     final settings = context.watchSettings();
     final cacheKey = '${settings.sport.dbValue}_${settings.locale.languageCode}';
+    final palette = context.sportPalette;
 
-    const inkMuted = Color(0xFF9CA3AF);
-    const ink = Color(0xFF141414);
+    Widget homeIcon({required bool selected}) {
+      final icon = Icon(
+        selected ? Icons.home_rounded : Icons.home_outlined,
+        color: selected ? palette.primary : null,
+      );
+      if (_pendientesCount <= 0) return icon;
+      return Badge(
+        label: Text('$_pendientesCount', style: const TextStyle(fontSize: 10)),
+        child: icon,
+      );
+    }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F6F3),
+      backgroundColor: MatchPayTokens.surfaceBase,
       body: NavShellScope(
         bottomInset: 72,
         child: LazyIndexedStack(
@@ -559,7 +570,7 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
             return TextStyle(
               fontSize: 11,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? ink : inkMuted,
+              color: selected ? palette.primaryDark : MatchPayTokens.inkMuted,
               letterSpacing: 0.1,
             );
           }),
@@ -567,7 +578,7 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
             final selected = states.contains(WidgetState.selected);
             return IconThemeData(
               size: 22,
-              color: selected ? ink : inkMuted,
+              color: selected ? palette.primary : MatchPayTokens.inkMuted,
             );
           }),
         ),
@@ -584,34 +595,18 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
             },
             destinations: [
               NavigationDestination(
-                icon: _pendientesCount > 0
-                    ? Badge(
-                        label: Text(
-                          '$_pendientesCount',
-                          style: const TextStyle(fontSize: 10),
-                        ),
-                        child: const Icon(Icons.home_outlined),
-                      )
-                    : const Icon(Icons.home_outlined),
-                selectedIcon: _pendientesCount > 0
-                    ? Badge(
-                        label: Text(
-                          '$_pendientesCount',
-                          style: const TextStyle(fontSize: 10),
-                        ),
-                        child: const Icon(Icons.home_rounded),
-                      )
-                    : const Icon(Icons.home_rounded),
+                icon: homeIcon(selected: false),
+                selectedIcon: homeIcon(selected: true),
                 label: l10n.navHome,
               ),
               NavigationDestination(
                 icon: const Icon(Icons.receipt_long_outlined),
-                selectedIcon: const Icon(Icons.receipt_long_rounded),
+                selectedIcon: Icon(Icons.receipt_long_rounded, color: palette.primary),
                 label: l10n.navMyCobros,
               ),
               NavigationDestination(
                 icon: const Icon(Icons.settings_outlined),
-                selectedIcon: const Icon(Icons.settings_rounded),
+                selectedIcon: Icon(Icons.settings_rounded, color: palette.primary),
                 label: l10n.navConfig,
               ),
             ],

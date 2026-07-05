@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/app_repositories.dart';
+import '../core/matchpay_design_tokens.dart';
+import '../core/organizer_nudge_service.dart';
 import '../core/sport_theme.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/convocatoria_jugador.dart';
@@ -11,6 +15,7 @@ import '../services/convocatoria_lista_espera_service.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/single_action.dart';
+import '../widgets/matchpay_ui.dart';
 import '../widgets/sport_icon.dart';
 
 /// Detalle de convocatoria con confirmación explícita (nunca automática).
@@ -159,6 +164,9 @@ class _ResponderConvocatoriaScreenState
             ),
           ),
         );
+        if (confirmo) {
+          unawaited(OrganizerNudgeService.maybeShowAfterConfirm(context));
+        }
         if (!_requiereRespuesta) {
           Navigator.pop(context, true);
         }
@@ -185,6 +193,7 @@ class _ResponderConvocatoriaScreenState
     final entry = _entry;
 
     return Scaffold(
+      backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(title: Text(context.l10n.tr('convocatoriaTitle'))),
       body: data == null && entry == null
           ? const Center(child: CircularProgressIndicator())
@@ -195,29 +204,9 @@ class _ResponderConvocatoriaScreenState
                     padding: const EdgeInsets.all(16),
                     children: [
                       if (_requiereRespuesta)
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.orange.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline,
-                                  color: Colors.orange.shade800),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  context.l10n.tr('respondMustAnswerBanner'),
-                                  style: TextStyle(
-                                    color: Colors.orange.shade900,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        MatchPayStatusBanner(
+                          icon: Icons.info_outline_rounded,
+                          message: context.l10n.tr('respondMustAnswerBanner'),
                         ),
                       if (_requiereRespuesta) const SizedBox(height: 16),
                       if (partido != null) _DetallePartidoCard(
@@ -230,49 +219,38 @@ class _ResponderConvocatoriaScreenState
                       ),
                       if (entry?.esSuplente ?? false) ...[
                         const SizedBox(height: 16),
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Text(
-                              context.l10n.tr('respondWaitlistBody'),
-                            ),
+                        MatchPaySurfaceCard(
+                          child: Text(
+                            context.l10n.tr('respondWaitlistBody'),
+                            style: MatchPayTokens.bodySmallStyle(),
                           ),
                         ),
                       ] else if (_yaRespondio && entry != null) ...[
                         const SizedBox(height: 16),
-                        Card(
-                          color: entry.estado == EstadoConfirmacion.confirmado
-                              ? Colors.green.shade50
-                              : Colors.red.shade50,
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  entry.estado == EstadoConfirmacion.confirmado
-                                      ? Icons.check_circle
-                                      : Icons.cancel,
-                                  color: entry.estado ==
+                        MatchPaySurfaceCard(
+                          child: Row(
+                            children: [
+                              Icon(
+                                entry.estado == EstadoConfirmacion.confirmado
+                                    ? Icons.check_circle_rounded
+                                    : Icons.cancel_rounded,
+                                color: entry.estado ==
+                                        EstadoConfirmacion.confirmado
+                                    ? MatchPayTokens.accentSuccess
+                                    : Colors.red.shade700,
+                                size: 32,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  entry.estado ==
                                           EstadoConfirmacion.confirmado
-                                      ? Colors.green.shade800
-                                      : Colors.red.shade800,
-                                  size: 32,
+                                      ? context.l10n.tr('respondConfirmedStatus')
+                                      : context.l10n.tr('respondDeclinedStatus'),
+                                  style: MatchPayTokens.titleMediumStyle(),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    entry.estado ==
-                                            EstadoConfirmacion.confirmado
-                                        ? context.l10n.tr('respondConfirmedStatus')
-                                        : context.l10n.tr('respondDeclinedStatus'),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

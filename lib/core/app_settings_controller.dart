@@ -26,6 +26,7 @@ enum AppUiMode {
 class AppSettingsController extends ChangeNotifier {
   static const _keySport = 'matchpay_sport';
   static const _keySportOnboarded = 'matchpay_sport_onboarded';
+  static const _keyIntroOnboarded = 'matchpay_intro_onboarded';
   static const _keyLocale = 'matchpay_locale';
   static const localePrefsKey = _keyLocale;
   static const _keyCurrency = 'matchpay_currency';
@@ -37,6 +38,7 @@ class AppSettingsController extends ChangeNotifier {
   AppUiMode _uiMode = AppUiMode.organizer;
   bool _loaded = false;
   bool _sportOnboardingComplete = false;
+  bool _introOnboardingComplete = false;
 
   SportType get sport => _sport;
   Locale get locale => _locale;
@@ -44,6 +46,7 @@ class AppSettingsController extends ChangeNotifier {
   AppUiMode get uiMode => _uiMode;
   bool get isLoaded => _loaded;
   bool get sportOnboardingComplete => _sportOnboardingComplete;
+  bool get introOnboardingComplete => _introOnboardingComplete;
 
   /// Shell a mostrar: organizadores pueden alternar; jugadores solo ven modo jugador.
   bool get showOrganizerShell {
@@ -63,6 +66,8 @@ class AppSettingsController extends ChangeNotifier {
     _sport = SportType.fromDb(prefs.getString(_keySport));
     _sportOnboardingComplete =
         prefs.getBool(_keySportOnboarded) ?? hadSportSaved;
+    _introOnboardingComplete =
+        prefs.getBool(_keyIntroOnboarded) ?? _sportOnboardingComplete;
     final savedLocale = prefs.getString(_keyLocale);
     if (savedLocale != null) {
       _locale = _parseLocale(savedLocale);
@@ -131,6 +136,15 @@ class AppSettingsController extends ChangeNotifier {
         'preferred_locale': _locale.languageCode,
       }).eq('id', uid);
     } catch (_) {}
+  }
+
+  /// Marca la intro de valor como vista (paso 1 del onboarding).
+  Future<void> completeIntroOnboarding() async {
+    if (_introOnboardingComplete) return;
+    _introOnboardingComplete = true;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyIntroOnboarded, true);
   }
 
   /// Guarda el deporte elegido en el onboarding inicial (obligatorio).

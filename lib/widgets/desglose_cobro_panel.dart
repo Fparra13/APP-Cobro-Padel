@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../utils/formatters.dart';
+import 'matchpay_ui.dart';
 import 'sport_icon.dart';
 
 /// Filas del cálculo: partido + deuda anterior − saldo a favor − abonado = a transferir.
@@ -30,10 +32,10 @@ class DesgloseCalculoPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (showLineasPartido && !compact) ...[
+        if (showLineasPartido) ...[
           ...d.lineas.map(
             (l) => _Fila(
-              label: l.concepto,
+              label: l10n.translateConcept(l.concepto),
               monto: l.monto,
               compact: compact,
             ),
@@ -125,10 +127,12 @@ class CobroPartidoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.only(bottom: compact ? 6 : 10),
-      child: Padding(
+    final pendingApproval = detalle.comprobantePendienteValidacion;
+    return Padding(
+      padding: EdgeInsets.only(bottom: compact ? 6 : 10),
+      child: MatchPaySurfaceCard(
         padding: EdgeInsets.all(compact ? 12 : 14),
+        urgent: pendingApproval,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -138,8 +142,7 @@ class CobroPartidoCard extends StatelessWidget {
             ],
             Text(
               _titulo(context),
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
+              style: MatchPayTokens.titleSmallStyle().copyWith(
                 fontSize: compact ? 14 : 16,
               ),
             ),
@@ -161,12 +164,11 @@ class CobroPartidoCard extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 estadoExtra!,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: detalle.comprobantePendienteValidacion
-                      ? Colors.orange.shade800
-                      : Colors.grey.shade700,
-                ),
+                style: MatchPayTokens.bodySmallStyle(
+                  color: pendingApproval
+                      ? MatchPayTokens.accentUrgent
+                      : MatchPayTokens.inkMuted,
+                ).copyWith(fontSize: 12),
               ),
             ],
             if (actions != null) ...[

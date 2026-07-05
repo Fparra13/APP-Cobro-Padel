@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_repositories.dart';
+import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/detalle_partido.dart';
 import '../services/supabase_storage_service.dart';
 import '../utils/formatters.dart';
 import '../utils/single_action.dart';
+import 'matchpay_ui.dart';
 
 /// Pagos enviados por jugadores pendientes de conciliación (organizador).
 class PagosPorValidarPanel extends StatelessWidget {
@@ -47,24 +49,27 @@ class PagosPorValidarPanel extends StatelessWidget {
             subtitulo: context.tr('paymentsToValidateSubtitle'),
           ),
           const SizedBox(height: 8),
-          ...cards,
+          ...cards.map(
+            (card) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: card,
+            ),
+          ),
         ],
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50.withValues(alpha: 0.85),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.orange.shade200),
-      ),
+    return MatchPaySurfaceCard(
+      urgent: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Icon(Icons.verified_user_outlined, color: Colors.orange.shade900),
+              const Icon(
+                Icons.verified_user_outlined,
+                color: MatchPayTokens.accentUrgent,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -72,10 +77,8 @@ class PagosPorValidarPanel extends StatelessWidget {
                   children: [
                     Text(
                       context.tr('paymentsToValidateTitle'),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.orange.shade900,
+                      style: MatchPayTokens.titleSmallStyle(
+                        color: MatchPayTokens.accentUrgent,
                       ),
                     ),
                     Text(
@@ -83,9 +86,8 @@ class PagosPorValidarPanel extends StatelessWidget {
                         'pendingReceiptsCount',
                         params: {'count': '${_pendientes.length}'},
                       ),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.orange.shade800,
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.accentUrgent,
                       ),
                     ),
                   ],
@@ -251,79 +253,76 @@ class _PagoPorValidarCardState extends State<PagoPorValidarCard> {
     final monto = d.montoPagoDeclarado;
     final esAbono = d.pagoEsAbono == true;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              d.nombreJugador ?? context.tr('playerDefaultName'),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+    return MatchPaySurfaceCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            d.nombreJugador ?? context.tr('playerDefaultName'),
+            style: MatchPayTokens.titleSmallStyle(),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _contextoPartido(context),
+            style: MatchPayTokens.bodySmallStyle(),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            monto != null && monto > 0
+                ? context.tr(
+                    esAbono ? 'partialDeclared' : 'paymentDeclared',
+                    params: {'amount': formatMoney(monto)},
+                  )
+                : context.tr(
+                    'matchAmountLabel',
+                    params: {'amount': formatMoney(d.total)},
+                  ),
+            style: MatchPayTokens.titleSmallStyle(
+              color: MatchPayTokens.accentUrgent,
             ),
-            const SizedBox(height: 2),
-            Text(
-              _contextoPartido(context),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              monto != null && monto > 0
-                  ? context.tr(
-                      esAbono ? 'partialDeclared' : 'paymentDeclared',
-                      params: {'amount': formatMoney(monto)},
-                    )
-                  : context.tr(
-                      'matchAmountLabel',
-                      params: {'amount': formatMoney(d.total)},
-                    ),
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.orange.shade900,
+          ),
+          const SizedBox(height: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _verComprobante,
+                icon: const Icon(Icons.image_outlined, size: 20),
+                label: Text(context.tr('viewReceipt')),
               ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _busy ? null : _verComprobante,
-                    icon: const Icon(Icons.image_outlined),
-                    label: Text(context.tr('viewReceipt')),
-                  ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: _busy
+                    ? null
+                    : () => _confirmarYValidar(aprobado: true),
+                icon: _busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check, size: 20),
+                label: Text(
+                  esAbono
+                      ? context.tr('partialReceived')
+                      : context.tr('paymentReceived'),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: _busy
-                        ? null
-                        : () => _confirmarYValidar(aprobado: true),
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.check),
-                    label: Text(
-                      esAbono
-                          ? context.tr('partialReceived')
-                          : context.tr('paymentReceived'),
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green.shade700,
-                    ),
-                  ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: MatchPayTokens.accentSuccess,
                 ),
-              ],
-            ),
-            TextButton(
-              onPressed: _busy ? null : () => _confirmarYValidar(aprobado: false),
-              child: Text(context.tr('rejectReceipt')),
-            ),
-          ],
-        ),
+              ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed:
+                      _busy ? null : () => _confirmarYValidar(aprobado: false),
+                  child: Text(context.tr('rejectReceipt')),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -365,26 +364,23 @@ class _ComprobanteValidacionDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: onRechazar,
-                    child: Text(context.tr('reject')),
-                  ),
+                OutlinedButton(
+                  onPressed: onRechazar,
+                  child: Text(context.tr('reject')),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: onAprobar,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.green.shade700,
-                    ),
-                    child: Text(
-                      esAbono
-                          ? context.tr('partialReceived')
-                          : context.tr('paymentReceived'),
-                    ),
+                const SizedBox(height: 8),
+                FilledButton(
+                  onPressed: onAprobar,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.green.shade700,
+                  ),
+                  child: Text(
+                    esAbono
+                        ? context.tr('partialReceived')
+                        : context.tr('paymentReceived'),
                   ),
                 ),
               ],
@@ -427,11 +423,11 @@ class _TituloSeccion extends StatelessWidget {
             children: [
               Text(
                 titulo,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                style: MatchPayTokens.titleSmallStyle(),
               ),
               Text(
                 subtitulo,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: MatchPayTokens.bodySmallStyle(),
               ),
             ],
           ),

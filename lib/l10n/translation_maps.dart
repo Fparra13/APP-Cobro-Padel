@@ -65,6 +65,8 @@ class TranslationMaps {
     'close': 'Cerrar',
     'retry': 'Reintentar',
     'signOut': 'Cerrar sesión',
+    'legalSectionTitle': 'Legal',
+    'privacyPolicy': 'Política de privacidad',
     'understood': 'Entendido',
     'continueBtn': 'Continuar',
     'yesDelete': 'Sí, eliminar',
@@ -113,6 +115,10 @@ class TranslationMaps {
     'homeRegisterPlayedMatch': 'Registrar partido jugado',
     'homeRegisterPlayedMatchSubtitle': 'Cobros, asistentes y pagos',
     'homeActiveConvocatorias': 'Convocatorias activas',
+    'homePastConvocatorias': 'Por registrar',
+    'homePastConvocatoriasHint':
+        'Ya pasó la fecha · registra cobros o elimina la convocatoria',
+    'convocatoriaPastDateBadge': 'Fecha pasada',
     'homeWaiting': 'En espera',
     'homeConfirmed': 'Confirmados',
     'homeGroupAllPaid': '¡Grupo al día!',
@@ -268,12 +274,19 @@ class TranslationMaps {
     'playerModePreviewChip': 'Vista previa · tocar para volver',
     'playerGreetingExcited': '¡Hola, {name}!',
     'playerWelcomeBack': 'Qué bueno verte por aquí',
+    'playerHeaderPendingInvite': 'Tienes convocatorias por responder',
+    'playerHeaderPendingPayment': 'Tienes pagos pendientes',
+    'playerHeaderNextMatch': 'Tu próximo partido está confirmado',
     'playerHeroAllGood': 'Todo al día',
     'playerHeroAllGoodSub': 'Sin invitaciones pendientes ni deudas',
+    'playerHeroWaitingInvite': 'Esperando convocatoria',
+    'playerHeroWaitingInviteSub':
+        'Cuando te convoquen a un partido aparecerá aquí',
     'playerHeroActionSub': 'Revisa invitaciones o declara tus pagos',
     'playerHeroNeedsReply': 'Por responder',
     'playerHeroNextMatch': 'Próximo partido',
     'playerHeroTapToReply': 'Toca para responder',
+    'playerHeroCuposLine': 'Hasta {max} jugadores',
     'playerPerformanceTitle': 'Tu rendimiento',
     'playerStatInvites': 'Por responder',
     'playerStatUpcoming': 'Confirmados',
@@ -304,6 +317,8 @@ class TranslationMaps {
     'becomeOrganizerBadge': 'Mejora tu experiencia',
     'becomeOrganizerHeadline': 'Lleva tus partidos al siguiente nivel',
     'becomeOrganizerShort': 'Hazte organizador',
+    'organizerNudgeSnack': '¿Y si la próxima la organizas tú?',
+    'organizerNudgeAction': 'Saber más',
     'payBtn': 'Pagar',
     'playerDefaultName': 'Jugador',
     'playerInvitedTitle': 'Te convocaron',
@@ -368,6 +383,8 @@ class TranslationMaps {
     'historyActiveConvocatoriasTitle': '{count} convocatoria(s) activa(s)',
     'historyActiveConvocatoriasSubtitle':
         'En espera o confirmadas · retoma desde Inicio',
+    'historyPastConvocatoriasSubtitle':
+        'Pasó la fecha del partido · registra cobros o elimina',
     'historyMatchesCountTitle': '{count} partidos',
     'historyPendingChargesSubtitle': '{count} cobros pendientes en total',
     'historyAllChargesPaid': 'Todos los cobros al día ✓',
@@ -485,6 +502,9 @@ class TranslationMaps {
         'Los jugadores responden desde su app. '
         'Esta pantalla se actualiza en tiempo real. '
         'Usa el fallback manual solo si alguien no tiene la app.',
+    'organizePastDateBanner':
+        'La fecha del partido ya pasó. Registra los cobros con quienes '
+        'jugaron o elimina la convocatoria si no se realizó.',
     'organizeHelpDraft':
         'Completa los datos, elige titulares y suplentes, '
         'y pulsa "Enviar convocatoria". Recibirán push.',
@@ -560,10 +580,24 @@ class TranslationMaps {
     'dateAndTime': 'Fecha y hora',
     'venueLabel': 'Recinto',
     'notesOptionalLabel': 'Notas (opcional)',
-    'sportOnboardingTitle': '¿Qué deporte juegas?',
+    'sportOnboardingStep': 'Paso 2 de 2',
+    'sportOnboardingTitle': 'Elige tu deporte principal',
     'sportOnboardingSubtitle':
-        'MatchPay adapta colores y la experiencia a tu deporte.',
+        'Personaliza colores e iconos. Siempre podrás jugar otros deportes.',
     'sportOnboardingContinue': 'Continuar',
+    'introOnboardingStep': 'Paso 1 de 2',
+    'introOnboardingTitle': 'Tu comunidad deportiva, simplificada',
+    'introOnboardingSubtitle':
+        'Organiza partidos, confirma asistencia y controla pagos — sin planillas.',
+    'introFeatureOrganize': 'Organiza partidos',
+    'introFeatureOrganizeSub': 'Crea convocatorias y elige quién juega',
+    'introFeatureConfirm': 'Confirma asistencia',
+    'introFeatureConfirmSub': 'Cada jugador responde desde la app',
+    'introFeaturePay': 'Controla pagos',
+    'introFeaturePaySub': 'Cobros claros con comprobantes',
+    'introFeatureGroups': 'Administra tu grupo',
+    'introFeatureGroupsSub': 'Historial, estadísticas y saldos',
+    'introOnboardingContinue': 'Empezar',
     'addExpense': 'Agregar gasto',
     'expenseLabelHint': 'Nombre del gasto',
     'groupExpensesTitle': 'Solo quienes participaron',
@@ -1140,6 +1174,8 @@ class TranslationMaps {
     'close': 'Close',
     'retry': 'Retry',
     'signOut': 'Sign out',
+    'legalSectionTitle': 'Legal',
+    'privacyPolicy': 'Privacy policy',
     'understood': 'Got it',
     'continueBtn': 'Continue',
     'yesDelete': 'Yes, delete',
@@ -1188,6 +1224,10 @@ class TranslationMaps {
     'homeRegisterPlayedMatch': 'Log played match',
     'homeRegisterPlayedMatchSubtitle': 'Charges, attendees, and payments',
     'homeActiveConvocatorias': 'Active invites',
+    'homePastConvocatorias': 'To register',
+    'homePastConvocatoriasHint':
+        'Match date passed · register charges or delete the invite',
+    'convocatoriaPastDateBadge': 'Date passed',
     'homeWaiting': 'Waiting',
     'homeConfirmed': 'Confirmed',
     'homeGroupAllPaid': 'Group is all caught up!',
@@ -1343,12 +1383,19 @@ class TranslationMaps {
     'playerModePreviewChip': 'Preview · tap to go back',
     'playerGreetingExcited': 'Hi, {name}!',
     'playerWelcomeBack': 'Great to see you',
+    'playerHeaderPendingInvite': 'You have invites to respond to',
+    'playerHeaderPendingPayment': 'You have pending payments',
+    'playerHeaderNextMatch': 'Your next match is confirmed',
     'playerHeroAllGood': 'All clear',
     'playerHeroAllGoodSub': 'No pending invites or debts',
+    'playerHeroWaitingInvite': 'Waiting for an invite',
+    'playerHeroWaitingInviteSub':
+        'When you are invited to a match it will appear here',
     'playerHeroActionSub': 'Check invites or declare your payments',
     'playerHeroNeedsReply': 'Needs reply',
     'playerHeroNextMatch': 'Next match',
     'playerHeroTapToReply': 'Tap to reply',
+    'playerHeroCuposLine': 'Up to {max} players',
     'playerPerformanceTitle': 'Your performance',
     'playerStatInvites': 'To reply',
     'playerStatUpcoming': 'Confirmed',
@@ -1378,6 +1425,8 @@ class TranslationMaps {
     'becomeOrganizerBadge': 'Level up',
     'becomeOrganizerHeadline': 'Take your matches further',
     'becomeOrganizerShort': 'Become organizer',
+    'organizerNudgeSnack': 'What if you organized the next one?',
+    'organizerNudgeAction': 'Learn more',
     'payBtn': 'Pay',
     'playerDefaultName': 'Player',
     'playerInvitedTitle': "You've been invited",
@@ -1441,6 +1490,8 @@ class TranslationMaps {
     'historyActiveConvocatoriasTitle': '{count} active invite(s)',
     'historyActiveConvocatoriasSubtitle':
         'Waiting or confirmed · resume from Home',
+    'historyPastConvocatoriasSubtitle':
+        'Match date passed · register charges or delete',
     'historyMatchesCountTitle': '{count} matches',
     'historyPendingChargesSubtitle': '{count} pending charges in total',
     'historyAllChargesPaid': 'All charges up to date ✓',
@@ -1558,6 +1609,9 @@ class TranslationMaps {
         'Players respond from their app. '
         'This screen updates in real time. '
         'Use manual fallback only if someone does not have the app.',
+    'organizePastDateBanner':
+        'The match date has passed. Register charges for those who '
+        'played or delete the invite if it was cancelled.',
     'organizeHelpDraft':
         'Fill in the details, choose starters and substitutes, '
         'and tap "Send invite". They will receive a push notification.',
@@ -1633,10 +1687,24 @@ class TranslationMaps {
     'dateAndTime': 'Date and time',
     'venueLabel': 'Venue',
     'notesOptionalLabel': 'Notes (optional)',
-    'sportOnboardingTitle': 'What sport do you play?',
+    'sportOnboardingStep': 'Step 2 of 2',
+    'sportOnboardingTitle': 'Choose your primary sport',
     'sportOnboardingSubtitle':
-        'MatchPay adapts colors and the experience to your sport.',
+        'Customize colors and icons. You can always play other sports.',
     'sportOnboardingContinue': 'Continue',
+    'introOnboardingStep': 'Step 1 of 2',
+    'introOnboardingTitle': 'Your sports community, simplified',
+    'introOnboardingSubtitle':
+        'Organize matches, confirm attendance, and track payments — no spreadsheets.',
+    'introFeatureOrganize': 'Organize matches',
+    'introFeatureOrganizeSub': 'Create invites and pick who plays',
+    'introFeatureConfirm': 'Confirm attendance',
+    'introFeatureConfirmSub': 'Each player responds from the app',
+    'introFeaturePay': 'Track payments',
+    'introFeaturePaySub': 'Clear charges with receipts',
+    'introFeatureGroups': 'Manage your group',
+    'introFeatureGroupsSub': 'History, stats, and balances',
+    'introOnboardingContinue': 'Get started',
     'addExpense': 'Add expense',
     'expenseLabelHint': 'Expense name',
     'groupExpensesTitle': 'Only participants',
@@ -2210,6 +2278,8 @@ class TranslationMaps {
     'close': 'Fechar',
     'retry': 'Tentar novamente',
     'signOut': 'Sair',
+    'legalSectionTitle': 'Legal',
+    'privacyPolicy': 'Política de privacidade',
     'understood': 'Entendi',
     'continueBtn': 'Continuar',
     'yesDelete': 'Sim, excluir',
@@ -2258,6 +2328,10 @@ class TranslationMaps {
     'homeRegisterPlayedMatch': 'Registrar partida jogada',
     'homeRegisterPlayedMatchSubtitle': 'Cobranças, participantes e pagamentos',
     'homeActiveConvocatorias': 'Convites ativos',
+    'homePastConvocatorias': 'A registrar',
+    'homePastConvocatoriasHint':
+        'Data já passou · registre cobranças ou exclua o convite',
+    'convocatoriaPastDateBadge': 'Data passada',
     'homeWaiting': 'Em espera',
     'homeConfirmed': 'Confirmados',
     'homeGroupAllPaid': 'Grupo em dia!',
@@ -2412,12 +2486,19 @@ class TranslationMaps {
     'playerModePreviewChip': 'Prévia · toque para voltar',
     'playerGreetingExcited': 'Olá, {name}!',
     'playerWelcomeBack': 'Que bom te ver por aqui',
+    'playerHeaderPendingInvite': 'Você tem convocatórias para responder',
+    'playerHeaderPendingPayment': 'Você tem pagamentos pendentes',
+    'playerHeaderNextMatch': 'Sua próxima partida está confirmada',
     'playerHeroAllGood': 'Tudo em dia',
     'playerHeroAllGoodSub': 'Sem convites pendentes nem dívidas',
+    'playerHeroWaitingInvite': 'Aguardando convocatória',
+    'playerHeroWaitingInviteSub':
+        'Quando você for convocado para uma partida, aparecerá aqui',
     'playerHeroActionSub': 'Veja convites ou declare seus pagamentos',
     'playerHeroNeedsReply': 'A responder',
     'playerHeroNextMatch': 'Próxima partida',
     'playerHeroTapToReply': 'Toque para responder',
+    'playerHeroCuposLine': 'Até {max} jogadores',
     'playerPerformanceTitle': 'Seu desempenho',
     'playerStatInvites': 'A responder',
     'playerStatUpcoming': 'Confirmados',
@@ -2448,6 +2529,8 @@ class TranslationMaps {
     'becomeOrganizerBadge': 'Melhore sua experiência',
     'becomeOrganizerHeadline': 'Leve suas partidas ao próximo nível',
     'becomeOrganizerShort': 'Seja organizador',
+    'organizerNudgeSnack': 'E se você organizasse a próxima?',
+    'organizerNudgeAction': 'Saiba mais',
     'payBtn': 'Pagar',
     'playerDefaultName': 'Jogador',
     'playerInvitedTitle': 'Você foi convocado',
@@ -2511,6 +2594,8 @@ class TranslationMaps {
     'historyActiveConvocatoriasTitle': '{count} convite(s) ativo(s)',
     'historyActiveConvocatoriasSubtitle':
         'Em espera ou confirmados · retome no Início',
+    'historyPastConvocatoriasSubtitle':
+        'Passou a data da partida · registre cobranças ou exclua',
     'historyMatchesCountTitle': '{count} partidas',
     'historyPendingChargesSubtitle': '{count} cobranças pendentes no total',
     'historyAllChargesPaid': 'Todas as cobranças em dia ✓',
@@ -2628,6 +2713,9 @@ class TranslationMaps {
         'Os jogadores respondem pelo app. '
         'Esta tela atualiza em tempo real. '
         'Use o fallback manual só se alguém não tiver o app.',
+    'organizePastDateBanner':
+        'A data da partida já passou. Registre as cobranças de quem '
+        'jogou ou exclua o convite se não aconteceu.',
     'organizeHelpDraft':
         'Preencha os dados, escolha titulares e suplentes '
         'e toque em "Enviar convite". Eles receberão push.',
@@ -2703,10 +2791,24 @@ class TranslationMaps {
     'dateAndTime': 'Data e hora',
     'venueLabel': 'Local',
     'notesOptionalLabel': 'Notas (opcional)',
-    'sportOnboardingTitle': 'Qual esporte você joga?',
+    'sportOnboardingStep': 'Passo 2 de 2',
+    'sportOnboardingTitle': 'Escolha seu esporte principal',
     'sportOnboardingSubtitle':
-        'O MatchPay adapta cores e a experiência ao seu esporte.',
+        'Personalize cores e ícones. Você sempre poderá jogar outros esportes.',
     'sportOnboardingContinue': 'Continuar',
+    'introOnboardingStep': 'Passo 1 de 2',
+    'introOnboardingTitle': 'Sua comunidade esportiva, simplificada',
+    'introOnboardingSubtitle':
+        'Organize partidas, confirme presença e controle pagamentos — sem planilhas.',
+    'introFeatureOrganize': 'Organize partidas',
+    'introFeatureOrganizeSub': 'Crie convocatórias e escolha quem joga',
+    'introFeatureConfirm': 'Confirme presença',
+    'introFeatureConfirmSub': 'Cada jogador responde pelo app',
+    'introFeaturePay': 'Controle pagamentos',
+    'introFeaturePaySub': 'Cobranças claras com comprovantes',
+    'introFeatureGroups': 'Administre seu grupo',
+    'introFeatureGroupsSub': 'Histórico, estatísticas e saldos',
+    'introOnboardingContinue': 'Começar',
     'addExpense': 'Adicionar despesa',
     'expenseLabelHint': 'Nome da despesa',
     'groupExpensesTitle': 'Só quem participou',

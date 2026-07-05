@@ -1,4 +1,5 @@
 import '../core/sport_type.dart';
+import '../core/supabase_parse.dart';
 
 class DetallePartido {
   final int? id;
@@ -148,14 +149,14 @@ class DetallePartido {
       DetallePartido(
         id: (map['id'] as num?)?.toInt(),
         partidoId: (map['partido_id'] as num).toInt(),
-        jugadorSupabaseId: map['jugador_id'] as String,
+        jugadorSupabaseId: SupabaseParse.toStringOrNull(map['jugador_id']),
         asistio: map['asistio'] as bool? ?? true,
         prorrateoFijo: (map['prorrateo_fijo'] as num?)?.toDouble() ?? 0,
         totalVariables: (map['total_variables'] as num?)?.toDouble() ?? 0,
         total: (map['total'] as num?)?.toDouble() ?? 0,
         pagado: map['pagado'] as bool? ?? false,
         montoPagado: (map['monto_pagado'] as num?)?.toDouble() ?? 0,
-        comprobanteUrl: map['comprobante_url'] as String?,
+        comprobanteUrl: SupabaseParse.toStringOrNull(map['comprobante_url']),
         comprobanteValidado: map['comprobante_validado'] as bool?,
         montoPagoDeclarado: (map['monto_pago_declarado'] as num?)?.toDouble(),
         pagoEsAbono: map['pago_es_abono'] as bool?,

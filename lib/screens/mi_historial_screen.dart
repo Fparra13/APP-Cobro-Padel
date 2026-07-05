@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_repositories.dart';
+import '../core/matchpay_design_tokens.dart';
 import '../core/supabase_helpers.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/detalle_partido.dart';
+import '../utils/matchpay_context.dart';
 import '../utils/formatters.dart';
+import '../widgets/matchpay_ui.dart';
 import '../widgets/player_match_history_tile.dart';
+import '../widgets/shimmer_loading.dart';
 import 'mis_cobros_screen.dart';
 
 /// Historial de partidos del jugador autenticado (no la ficha de admin).
@@ -61,18 +65,20 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final palette = context.sportPalette;
     final pagados = _partidos.where((p) => p.pagado).length;
     final pendientes = _partidos.where((p) => p.tieneDeudaEnCobro).length;
     final totalGastado =
         _partidos.fold<double>(0, (s, p) => s + p.total);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F4F0),
+      backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(
         title: Text(l10n.tr('playerMatchHistoryTitle')),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF111827),
+        backgroundColor: MatchPayTokens.surfaceCard,
+        foregroundColor: MatchPayTokens.ink,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
         actions: [
           TextButton(
             onPressed: _openMisCobros,
@@ -81,7 +87,25 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+          ? ListView(
+              padding: const EdgeInsets.all(16),
+              children: const [
+                ShimmerLoading(
+                  height: 108,
+                  borderRadius: BorderRadius.all(Radius.circular(16)),
+                ),
+                SizedBox(height: 14),
+                ShimmerLoading(
+                  height: 72,
+                  borderRadius: BorderRadius.all(Radius.circular(20)),
+                ),
+                SizedBox(height: 8),
+                ShimmerLoading(
+                  height: 72,
+                  borderRadius: BorderRadius.all(Radius.circular(20)),
+                ),
+              ],
+            )
           : _error != null
               ? Center(
                   child: Padding(
@@ -89,7 +113,11 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(_error!, textAlign: TextAlign.center),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: MatchPayTokens.bodySmallStyle(),
+                        ),
                         const SizedBox(height: 12),
                         FilledButton(
                           onPressed: _load,
@@ -100,71 +128,88 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
                   ),
                 )
               : RefreshIndicator(
+                  color: palette.primary,
                   onRefresh: _load,
                   child: _partidos.isEmpty
                       ? ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
                           children: [
                             const SizedBox(height: 80),
-                            Icon(
-                              Icons.event_busy_rounded,
-                              size: 48,
-                              color: Colors.grey.shade400,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              l10n.tr('playerMatchHistoryEmpty'),
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
+                            MatchPaySurfaceCard(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.event_busy_rounded,
+                                    size: 48,
+                                    color: MatchPayTokens.inkMuted,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    l10n.tr('playerMatchHistoryEmpty'),
+                                    textAlign: TextAlign.center,
+                                    style: MatchPayTokens.titleSmallStyle(),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         )
                       : ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            12,
+                            16,
+                            16 + MediaQuery.paddingOf(context).bottom,
+                          ),
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: const Color(0xFFE8E6E1),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  _ResumenChip(
-                                    label: l10n.tr('playerStatMatches'),
-                                    value: '${_partidos.length}',
-                                  ),
-                                  _ResumenChip(
-                                    label: l10n.tr('playerMatchPaid'),
-                                    value: '$pagados',
-                                  ),
-                                  _ResumenChip(
-                                    label: l10n.tr('pendingStatus'),
-                                    value: '$pendientes',
-                                  ),
-                                  _ResumenChip(
-                                    label: l10n.tr('playerStatSpent'),
-                                    value: formatMoney(totalGastado),
-                                    flex: 2,
-                                  ),
-                                ],
+                            SizedBox(
+                              height: 108,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: 4,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 10),
+                                itemBuilder: (context, index) {
+                                  final items = [
+                                    (
+                                      Icons.emoji_events_rounded,
+                                      const Color(0xFFF59E0B),
+                                      '${_partidos.length}',
+                                      l10n.tr('playerStatMatches'),
+                                    ),
+                                    (
+                                      Icons.check_circle_rounded,
+                                      MatchPayTokens.accentSuccess,
+                                      '$pagados',
+                                      l10n.tr('playerMatchPaid'),
+                                    ),
+                                    (
+                                      Icons.schedule_rounded,
+                                      MatchPayTokens.accentUrgent,
+                                      '$pendientes',
+                                      l10n.tr('pendingStatus'),
+                                    ),
+                                    (
+                                      Icons.payments_rounded,
+                                      palette.primary,
+                                      formatMoney(totalGastado),
+                                      l10n.tr('playerStatSpent'),
+                                    ),
+                                  ];
+                                  final e = items[index];
+                                  return MatchPayStatChip(
+                                    icon: e.$1,
+                                    iconColor: e.$2,
+                                    value: e.$3,
+                                    label: e.$4,
+                                  );
+                                },
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFFE8E6E1),
-                                ),
-                              ),
+                            const SizedBox(height: 16),
+                            MatchPaySurfaceCard(
+                              padding: EdgeInsets.zero,
                               child: Column(
                                 children: [
                                   for (var i = 0; i < _partidos.length; i++) ...[
@@ -184,52 +229,6 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
                           ],
                         ),
                 ),
-    );
-  }
-}
-
-class _ResumenChip extends StatelessWidget {
-  final String label;
-  final String value;
-  final int flex;
-
-  const _ResumenChip({
-    required this.label,
-    required this.value,
-    this.flex = 1,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      flex: flex,
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 14,
-              color: Color(0xFF111827),
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10.5,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
     );
   }
 }

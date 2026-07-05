@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_repositories.dart';
 import '../core/app_settings_controller.dart';
 import '../core/auth_service.dart';
+import '../core/legal_urls.dart';
 import '../models/jugador.dart';
+import '../core/matchpay_design_tokens.dart';
 import '../services/notification_service.dart';
 import '../services/preferences_service.dart';
 import '../widgets/app_mode_switch_panel.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/matchpay_preferences_panel.dart';
+import '../widgets/matchpay_ui.dart';
 import '../widgets/mis_recintos_panel.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/matchpay_context.dart';
@@ -219,6 +223,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
         _isOrganizer && context.watchSettings().showOrganizerShell;
 
     return ShellTabScaffold(
+      backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(title: Text(l10n.configScreenTitle)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -242,12 +247,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                   const SizedBox(height: 16),
                 ],
                 if (!_isOrganizer && AuthService.instance.isLoggedIn) ...[
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.auto_awesome_outlined),
-                    title: Text(context.l10n.tr('becomeOrganizerCardTitle')),
-                    subtitle: Text(context.l10n.tr('becomeOrganizerSoftSub')),
-                    trailing: const Icon(Icons.chevron_right),
+                  MatchPaySurfaceCard(
                     onTap: () async {
                       try {
                         await AuthService.instance.becomeOrganizer();
@@ -270,6 +270,44 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                         );
                       }
                     },
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: context.sportPalette.primary
+                                .withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.groups_rounded,
+                            color: context.sportPalette.primaryDark,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.l10n.tr('becomeOrganizerCardTitle'),
+                                style: MatchPayTokens.titleSmallStyle(),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                context.l10n.tr('becomeOrganizerSoftSub'),
+                                style: MatchPayTokens.bodySmallStyle(),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: context.sportPalette.primary,
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 28),
                   const Divider(),
@@ -284,10 +322,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                   const SizedBox(height: 28),
                   const Divider(),
                   const SizedBox(height: 16),
-                  Text(
-                    l10n.tr('configBankDataTitle'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
+                  MatchPaySectionHeader(title: l10n.tr('configBankDataTitle')),
                   const SizedBox(height: 16),
                   TextField(
                     controller: _titularCtrl,
@@ -336,7 +371,10 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                   const Divider(),
                   const SizedBox(height: 16),
                 ],
+                const SizedBox(height: 8),
+                _buildSeccionLegal(),
                 if (AuthService.instance.isLoggedIn) ...[
+                  const SizedBox(height: 24),
                   OutlinedButton.icon(
                     onPressed: () async {
                       AppRepositories.clear();
@@ -569,6 +607,39 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
               label: Text(l10n.tr('test')),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _abrirPoliticaPrivacidad() async {
+    final uri = Uri.parse(LegalUrls.privacyPolicy);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _buildSeccionLegal() {
+    final l10n = context.l10n;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.gavel_outlined, color: Colors.green.shade700),
+            const SizedBox(width: 8),
+            Text(
+              l10n.tr('legalSectionTitle'),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.privacy_tip_outlined),
+          title: Text(l10n.tr('privacyPolicy')),
+          trailing: const Icon(Icons.open_in_new, size: 18),
+          onTap: _abrirPoliticaPrivacidad,
         ),
       ],
     );

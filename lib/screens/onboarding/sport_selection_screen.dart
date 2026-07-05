@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_settings_controller.dart';
+import '../../core/matchpay_design_tokens.dart';
 import '../../core/sport_theme.dart';
 import '../../core/sport_type.dart';
 import '../../l10n/matchpay_strings.dart';
 import '../../utils/matchpay_context.dart';
+import 'intro_onboarding_screen.dart';
 
-/// Primera pantalla de la app: el usuario elige su deporte principal.
+/// Paso 2 del onboarding: el usuario elige su deporte principal (solo visual).
 class SportSelectionScreen extends StatefulWidget {
   const SportSelectionScreen({super.key});
 
@@ -36,6 +38,7 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
     return Theme(
       data: SportThemeConfig.themeFor(preview),
       child: Scaffold(
+        backgroundColor: MatchPayTokens.surfaceBase,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -43,24 +46,23 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
+                  l10n.tr('sportOnboardingStep'),
+                  style: MatchPayTokens.sectionLabelStyle(),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Text(
                   l10n.sportOnboardingTitle,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: palette.primaryDark,
-                      ),
+                  style: MatchPayTokens.displayStyle(color: palette.primaryDark),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   l10n.sportOnboardingSubtitle,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.grey.shade700,
-                    height: 1.4,
-                  ),
+                  style: MatchPayTokens.bodySmallStyle(),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 24),
                 Expanded(
                   child: ListView(
                     children: SportType.values.map(_buildSportCard).toList(),
@@ -71,6 +73,10 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
                   onPressed: _selected == null || _saving ? null : _continuar,
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(MatchPayTokens.radiusButton),
+                    ),
                   ),
                   child: _saving
                       ? const SizedBox(
@@ -105,7 +111,8 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
         child: InkWell(
           onTap: () => setState(() => _selected = sport),
           borderRadius: BorderRadius.circular(18),
-          child: Container(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
@@ -113,6 +120,15 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
                 color: selected ? palette.primary : Colors.grey.shade200,
                 width: selected ? 2 : 1,
               ),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: palette.primary.withValues(alpha: 0.12),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               children: [
@@ -124,7 +140,10 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
-                    child: Text(palette.emoji, style: const TextStyle(fontSize: 28)),
+                    child: Text(
+                      palette.emoji,
+                      style: const TextStyle(fontSize: 28),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -174,7 +193,7 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
   }
 }
 
-/// Muestra el selector de deporte antes que login o la app principal.
+/// Onboarding: intro de valor → deporte → login / app.
 class SportOnboardingGate extends StatelessWidget {
   final Widget child;
 
@@ -188,6 +207,10 @@ class SportOnboardingGate extends StatelessWidget {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
+    }
+
+    if (!settings.introOnboardingComplete) {
+      return const IntroOnboardingScreen();
     }
 
     if (!settings.sportOnboardingComplete) {

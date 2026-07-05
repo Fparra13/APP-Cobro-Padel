@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_repositories.dart';
+import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/jugador.dart';
 import '../services/jugador_foto_service.dart';
 import '../utils/formatters.dart';
+import '../utils/matchpay_context.dart';
 import '../widgets/ayuda_tip.dart';
 import '../utils/nav_shell_layout.dart';
 import '../widgets/jugador_avatar.dart';
+import '../widgets/matchpay_ui.dart';
+import '../widgets/shimmer_loading.dart';
 import 'estadisticas_jugadores_screen.dart';
 
 class JugadoresScreen extends StatefulWidget {
@@ -49,70 +53,74 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
       builder: (ctx) {
         final l10n = ctx.l10n;
         return AlertDialog(
-        icon: Icon(
-          jugador == null ? Icons.person_add_alt_1 : Icons.edit,
-          color: Theme.of(ctx).colorScheme.primary,
-          size: 32,
-        ),
-        title: Text(jugador == null ? l10n.tr('newPlayer') : l10n.tr('editPlayer')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nombreCtrl,
-              decoration: InputDecoration(
-                labelText: l10n.tr('nameLabel'),
-                prefixIcon: const Icon(Icons.badge_outlined),
-                border: const OutlineInputBorder(),
-              ),
-              textCapitalization: TextCapitalization.words,
-              autofocus: true,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: emailCtrl,
-              decoration: InputDecoration(
-                labelText: l10n.tr('emailLabel'),
-                hintText: l10n.tr('loginEmailHint'),
-                prefixIcon: const Icon(Icons.email_outlined),
-                border: const OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.emailAddress,
-              autocorrect: false,
-            ),
-            const SizedBox(height: 12),
-            ValueListenableBuilder(
-              valueListenable: activo,
-              builder: (_, value, _) => SwitchListTile(
-                secondary: Icon(
-                  value ? Icons.star : Icons.star_border,
-                  color: value ? Colors.amber.shade700 : Colors.grey,
+          icon: Icon(
+            jugador == null ? Icons.person_add_alt_1 : Icons.edit,
+            color: Theme.of(ctx).colorScheme.primary,
+            size: 32,
+          ),
+          title: Text(
+            jugador == null ? l10n.tr('newPlayer') : l10n.tr('editPlayer'),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nombreCtrl,
+                decoration: InputDecoration(
+                  labelText: l10n.tr('nameLabel'),
+                  prefixIcon: const Icon(Icons.badge_outlined),
+                  border: const OutlineInputBorder(),
                 ),
-                title: Text(l10n.tr('regularPlayer')),
-                subtitle: Text(l10n.tr('regularPlayerSubtitle')),
-                value: value,
-                onChanged: (v) => activo.value = v,
-                contentPadding: EdgeInsets.zero,
+                textCapitalization: TextCapitalization.words,
+                autofocus: true,
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailCtrl,
+                decoration: InputDecoration(
+                  labelText: l10n.tr('emailLabel'),
+                  hintText: l10n.tr('loginEmailHint'),
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  border: const OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                autocorrect: false,
+              ),
+              const SizedBox(height: 12),
+              ValueListenableBuilder(
+                valueListenable: activo,
+                builder: (_, value, _) => SwitchListTile(
+                  secondary: Icon(
+                    value ? Icons.star : Icons.star_border,
+                    color: value
+                        ? MatchPayTokens.accentUrgent
+                        : MatchPayTokens.inkMuted,
+                  ),
+                  title: Text(l10n.tr('regularPlayer')),
+                  subtitle: Text(l10n.tr('regularPlayerSubtitle')),
+                  value: value,
+                  onChanged: (v) => activo.value = v,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.tr('cancel')),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                if (nombreCtrl.text.trim().isEmpty) return;
+                if (emailCtrl.text.trim().isEmpty) return;
+                Navigator.pop(ctx, true);
+              },
+              icon: const Icon(Icons.save),
+              label: Text(l10n.tr('save')),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.tr('cancel')),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              if (nombreCtrl.text.trim().isEmpty) return;
-              if (emailCtrl.text.trim().isEmpty) return;
-              Navigator.pop(ctx, true);
-            },
-            icon: const Icon(Icons.save),
-            label: Text(l10n.tr('save')),
-          ),
-        ],
-      );
+        );
       },
     );
 
@@ -156,7 +164,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString()),
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: MatchPayTokens.accentError,
             duration: const Duration(seconds: 12),
             action: SnackBarAction(
               label: context.l10n.tr('close'),
@@ -175,21 +183,29 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
       builder: (c) {
         final l10n = c.l10n;
         return AlertDialog(
-        icon: Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 36),
-        title: Text(l10n.tr('deletePlayerTitle')),
-        content: Text(l10n.tr('deletePlayerMessage', params: {'name': j.nombre})),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: Text(l10n.tr('no')),
+          icon: const Icon(
+            Icons.warning_amber_rounded,
+            color: MatchPayTokens.accentError,
+            size: 36,
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
-            onPressed: () => Navigator.pop(c, true),
-            child: Text(l10n.tr('yesDelete')),
+          title: Text(l10n.tr('deletePlayerTitle')),
+          content: Text(
+            l10n.tr('deletePlayerMessage', params: {'name': j.nombre}),
           ),
-        ],
-      );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(l10n.tr('no')),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: MatchPayTokens.accentError,
+              ),
+              onPressed: () => Navigator.pop(c, true),
+              child: Text(l10n.tr('yesDelete')),
+            ),
+          ],
+        );
       },
     );
     if (confirm == true) {
@@ -202,12 +218,14 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final palette = context.sportPalette;
     final activos = _jugadores.where((j) => j.activo).length;
     final conDeuda = _jugadores.where((j) => j.saldoAcumulado > 0).length;
 
     return ShellTabScaffold(
+      backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(
-        title: Text('👥 ${l10n.tr('playersScreenTitle')}'),
+        title: Text(l10n.tr('playersScreenTitle')),
         actions: [
           IconButton(
             icon: const Icon(Icons.bar_chart_rounded),
@@ -227,11 +245,14 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const _JugadoresShimmer()
           : RefreshIndicator(
+              color: palette.primary,
               onRefresh: _load,
               child: _jugadores.isEmpty
                   ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: NavShellScope.listPadding(context),
                       children: [
                         _buildEmptyState(),
                       ],
@@ -239,22 +260,22 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                   : ListView(
                       padding: NavShellScope.listPadding(
                         context,
-                        left: 12,
-                        top: 12,
-                        right: 12,
+                        left: 16,
+                        top: 16,
+                        right: 16,
                       ),
                       children: [
                         _buildResumen(activos, conDeuda),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         AyudaTip(texto: l10n.tr('playersHelpTip')),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         ..._jugadores.map(_buildJugadorCard),
                       ],
                     ),
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showForm(),
-        icon: const Icon(Icons.person_add),
+        icon: const Icon(Icons.person_add_rounded),
         label: Text(l10n.tr('newPlayer')),
       ),
     );
@@ -264,41 +285,44 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
     final l10n = context.l10n;
 
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.symmetric(vertical: 48),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(height: 80),
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.green.shade50,
+              color: MatchPayTokens.accentSuccessBg,
               shape: BoxShape.circle,
             ),
-            child: Icon(
+            child: const Icon(
               Icons.groups_rounded,
               size: 72,
-              color: Colors.green.shade700,
+              color: MatchPayTokens.accentSuccess,
             ),
           ),
           const SizedBox(height: 20),
           Text(
             l10n.tr('playersEmptyTitle'),
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: MatchPayTokens.titleMediumStyle(),
           ),
           const SizedBox(height: 8),
           Text(
             l10n.tr('playersEmptySubtitle'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade600, height: 1.4),
+            style: MatchPayTokens.bodySmallStyle(),
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () => _showForm(),
-            icon: const Icon(Icons.person_add),
+            icon: const Icon(Icons.person_add_rounded),
             label: Text(l10n.tr('addFirstPlayer')),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(MatchPayTokens.radiusButton),
+              ),
+            ),
           ),
         ],
       ),
@@ -308,40 +332,30 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
   Widget _buildResumen(int activos, int conDeuda) {
     final l10n = context.l10n;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green.shade700, Colors.green.shade500],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.green.shade900.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+    return SizedBox(
+      height: 108,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
         children: [
-          _ResumenChip(
+          MatchPayStatChip(
             icon: Icons.people_alt_rounded,
-            label: l10n.tr('total'),
+            iconColor: MatchPayTokens.accentCredit,
             value: '${_jugadores.length}',
+            label: l10n.tr('total'),
           ),
-          _ResumenChip(
+          const SizedBox(width: 10),
+          MatchPayStatChip(
             icon: Icons.star_rounded,
-            label: l10n.tr('regulars'),
+            iconColor: MatchPayTokens.accentUrgent,
             value: '$activos',
+            label: l10n.tr('regulars'),
           ),
-          _ResumenChip(
+          const SizedBox(width: 10),
+          MatchPayStatChip(
             icon: Icons.account_balance_wallet_rounded,
-            label: l10n.tr('withDebt'),
+            iconColor: MatchPayTokens.accentError,
             value: '$conDeuda',
+            label: l10n.tr('withDebt'),
           ),
         ],
       ),
@@ -353,16 +367,14 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
     final deuda = j.saldoAcumulado > 0;
     final conFavor = j.saldoAcumulado < 0;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => Navigator.pushNamed(context, '/historial', arguments: j.keyId),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
         onLongPress: () => _showForm(jugador: j),
-        child: Padding(
+        child: MatchPaySurfaceCard(
           padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+          onTap: () =>
+              Navigator.pushNamed(context, '/historial', arguments: j.keyId),
           child: Row(
           children: [
             JugadorAvatar(
@@ -370,7 +382,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
               fotoPath: j.fotoPath,
               fotoUrl: j.fotoUrl,
               size: 52,
-              borderRadius: 14,
+              borderRadius: MatchPayTokens.radiusChip,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -382,17 +394,17 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                       Flexible(
                         child: Text(
                           j.nombre,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
+                          style: MatchPayTokens.titleSmallStyle(),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (j.activo) ...[
                         const SizedBox(width: 6),
-                        Icon(Icons.star_rounded,
-                            size: 18, color: Colors.amber.shade700),
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 18,
+                          color: MatchPayTokens.accentUrgent,
+                        ),
                       ],
                     ],
                   ),
@@ -403,14 +415,18 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                     children: [
                       _MiniChip(
                         icon: j.activo ? Icons.check_circle : Icons.pause_circle,
-                        label: j.activo ? l10n.tr('statusRegular') : l10n.tr('statusInactive'),
-                        color: j.activo ? Colors.green : Colors.grey,
+                        label: j.activo
+                            ? l10n.tr('statusRegular')
+                            : l10n.tr('statusInactive'),
+                        color: j.activo
+                            ? MatchPayTokens.accentSuccess
+                            : MatchPayTokens.inkMuted,
                       ),
                       if (j.contactEmail != null)
                         _MiniChip(
                           icon: Icons.email_outlined,
                           label: j.contactEmail!,
-                          color: Colors.teal,
+                          color: MatchPayTokens.accentCredit,
                         ),
                     ],
                   ),
@@ -418,29 +434,24 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                     const SizedBox(height: 6),
                     Text(
                       '${l10n.tr('statusOwes')}: ${formatMoney(j.saldoAcumulado)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red.shade700,
-                        fontSize: 13,
-                      ),
+                      style: MatchPayTokens.titleSmallStyle(
+                        color: MatchPayTokens.accentError,
+                      ).copyWith(fontSize: 13),
                     ),
                   ] else if (conFavor) ...[
                     const SizedBox(height: 6),
                     Text(
                       '${l10n.tr('statusCredit')}: ${formatMoney(-j.saldoAcumulado)}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade700,
-                        fontSize: 13,
-                      ),
+                      style: MatchPayTokens.titleSmallStyle(
+                        color: MatchPayTokens.accentCredit,
+                      ).copyWith(fontSize: 13),
                     ),
                   ] else ...[
                     const SizedBox(height: 4),
                     Text(
                       l10n.tr('tapToViewProfile'),
-                      style: TextStyle(
+                      style: MatchPayTokens.bodySmallStyle().copyWith(
                         fontSize: 11,
-                        color: Colors.grey.shade500,
                       ),
                     ),
                   ],
@@ -453,8 +464,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                   icon: const Icon(Icons.edit_rounded, size: 22),
                   tooltip: l10n.tr('editTooltip'),
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.blue.shade50,
-                    foregroundColor: Colors.blue.shade700,
+                    backgroundColor: MatchPayTokens.accentCreditBg,
+                    foregroundColor: MatchPayTokens.accentCredit,
                   ),
                   onPressed: () => _showForm(jugador: j),
                 ),
@@ -463,8 +474,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                   icon: const Icon(Icons.delete_outline_rounded, size: 22),
                   tooltip: l10n.tr('deleteTooltip'),
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.red.shade50,
-                    foregroundColor: Colors.red.shade700,
+                    backgroundColor: MatchPayTokens.accentErrorBg,
+                    foregroundColor: MatchPayTokens.accentError,
                   ),
                   onPressed: () => _confirmDelete(j),
                 ),
@@ -472,45 +483,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
             ),
           ],
         ),
-      ),
-      ),
-    );
-  }
-}
-
-class _ResumenChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _ResumenChip({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white, size: 26),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
         ),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.9),
-            fontSize: 11,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -518,7 +492,7 @@ class _ResumenChip extends StatelessWidget {
 class _MiniChip extends StatelessWidget {
   final IconData icon;
   final String label;
-  final MaterialColor color;
+  final Color color;
 
   const _MiniChip({
     required this.icon,
@@ -531,25 +505,85 @@ class _MiniChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.shade50,
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.shade200),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color.shade700),
+          Icon(icon, size: 13, color: color),
           const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color.shade800,
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: MatchPayTokens.sectionLabelStyle(color: color).copyWith(
+                letterSpacing: 0,
+                fontSize: 11,
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _JugadoresShimmer extends StatelessWidget {
+  const _JugadoresShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: NavShellScope.listPadding(context, left: 16, top: 16, right: 16),
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        ShimmerLoading(
+          height: 14,
+          width: 120,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 108,
+          child: Row(
+            children: [
+              Expanded(
+                child: ShimmerLoading(
+                  borderRadius: BorderRadius.circular(
+                    MatchPayTokens.radiusCardSm,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ShimmerLoading(
+                  borderRadius: BorderRadius.circular(
+                    MatchPayTokens.radiusCardSm,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        ShimmerLoading(
+          height: 56,
+          borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
+        ),
+        const SizedBox(height: 16),
+        ...List.generate(
+          4,
+          (_) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: ShimmerLoading(
+              height: 96,
+              borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

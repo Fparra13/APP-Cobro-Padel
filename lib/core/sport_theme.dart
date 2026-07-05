@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'matchpay_design_tokens.dart';
 import 'sport_type.dart';
 
 /// Paleta visual por deporte para MatchPay.
@@ -82,13 +83,24 @@ class SportThemeConfig {
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xFFF5F5F5),
+      scaffoldBackgroundColor: MatchPayTokens.surfaceBase,
+      textTheme: MatchPayTokens.applyTextTheme(
+        ThemeData.light().textTheme,
+      ),
       cardTheme: CardThemeData(
         color: p.cardBackground,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
           side: BorderSide(color: p.surfaceTint.withValues(alpha: 0.5)),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          textStyle: MatchPayTokens.titleMediumStyle(color: Colors.white),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(MatchPayTokens.radiusButton),
+          ),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -101,11 +113,8 @@ class SportThemeConfig {
         backgroundColor: p.primary,
         elevation: 2,
         iconTheme: const IconThemeData(color: Colors.white),
-        titleTextStyle: const TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
+        titleTextStyle: MatchPayTokens.headlineStyle(color: Colors.white)
+            .copyWith(fontSize: 20),
       ),
       inputDecorationTheme: const InputDecorationTheme(
         border: OutlineInputBorder(),

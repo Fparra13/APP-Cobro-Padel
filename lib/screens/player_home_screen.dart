@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../core/app_repositories.dart';
 import '../core/app_settings_controller.dart';
 import '../core/auth_service.dart';
+import '../core/matchpay_design_tokens.dart';
+import '../core/organizer_nudge_service.dart';
 import '../core/sport_theme.dart';
 import '../core/supabase_helpers.dart';
 import '../constants/conceptos_cobro.dart';
@@ -19,6 +21,7 @@ import '../utils/formatters.dart';
 import '../widgets/desglose_cobro_panel.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/mis_invitaciones_panel.dart';
+import '../widgets/matchpay_ui.dart';
 import '../widgets/player_match_history_tile.dart';
 import '../widgets/sport_icon.dart';
 import '../services/convocatoria_lista_espera_service.dart';
@@ -49,6 +52,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   bool _loadingGastos = false;
   bool _loading = true;
   bool _primeraCarga = true;
+  bool _showOrganizerNudge = false;
   Timer? _reloadDebounce;
   String? _error;
 
@@ -149,6 +153,10 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
         }
       }
       if (mounted) {
+        final showNudge = await OrganizerNudgeService.shouldShowHomeCard(
+          partidosJugados: partidosJugados.length,
+          invitesRecibidas: todas.where((c) => !c.entry.esSuplente).length,
+        );
         setState(() {
           _todas = todas;
           _deudas = deudas;
@@ -156,6 +164,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
           _desglosePorPartido.clear();
           _perfil = perfil;
           _misStats = mine;
+          _showOrganizerNudge = showNudge;
           _primeraCarga = false;
           _loading = false;
         });
@@ -343,6 +352,24 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     _load();
   }
 
+  String _headerSubtitle(MatchPayStrings l10n, double deudaTotal, MiConvocatoria? hero) {
+    if (_pendientes.isNotEmpty) {
+      return l10n.tr('playerHeaderPendingInvite');
+    }
+    if (deudaTotal > 0.005) {
+      return l10n.tr('playerHeaderPendingPayment');
+    }
+    if (hero != null && hero.estaConfirmado) {
+      return l10n.tr('playerHeaderNextMatch');
+    }
+    return l10n.tr('playerWelcomeBack');
+  }
+
+  bool get _showStatsStrip {
+    if (_misStats != null && _misStats!.partidosJugados > 0) return true;
+    return _invitesRecibidas > 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -355,9 +382,9 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     );
 
     return ShellTabScaffold(
-      backgroundColor: const Color(0xFFF5F4F0),
+      backgroundColor: MatchPayTokens.surfaceBase,
       body: _loading && _primeraCarga
-          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+          ? const PlayerHomeShimmer()
           : RefreshIndicator(
               color: palette.primary,
               onRefresh: _load,
@@ -390,10 +417,10 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                                     child: Container(
                                       padding: const EdgeInsets.all(3),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF111827),
+                                        color: MatchPayTokens.ink,
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                          color: const Color(0xFFF5F4F0),
+                                          color: MatchPayTokens.surfaceBase,
                                           width: 1.5,
                                         ),
                                       ),
@@ -417,22 +444,12 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                                       'playerGreetingExcited',
                                       params: {'name': _nombreCorto},
                                     ),
-                                    style: const TextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.5,
-                                      color: Color(0xFF111827),
-                                      height: 1.1,
-                                    ),
+                                    style: MatchPayTokens.headlineStyle(),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    l10n.tr('playerWelcomeBack'),
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey.shade600,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                    _headerSubtitle(l10n, deudaTotal, hero),
+                                    style: MatchPayTokens.bodySmallStyle(),
                                   ),
                                 ],
                               ),
@@ -443,14 +460,14 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                                 onPressed: _switchToOrganizer,
                                 icon: Icon(
                                   Icons.swap_horiz_rounded,
-                                  color: Colors.grey.shade600,
+                                  color: MatchPayTokens.inkMuted,
                                 ),
                               ),
                             IconButton(
                               onPressed: _load,
                               icon: Icon(
                                 Icons.refresh_rounded,
-                                color: Colors.grey.shade600,
+                                color: MatchPayTokens.inkMuted,
                               ),
                             ),
                           ],
@@ -465,9 +482,8 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                         padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                         child: Text(
                           l10n.tr('playerModePreviewChip'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade500,
+                          style: MatchPayTokens.sectionLabelStyle().copyWith(
+                            letterSpacing: 0.2,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -483,18 +499,45 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 16),
                         ],
 
-                        // HERO: próximo partido / por responder
-                        if (hero != null) ...[
-                          _HeroMatchCard(
-                            convocatoria: hero,
-                            needsResponse: hero.requiereRespuesta,
-                            onTap: () => _openConvocatoria(hero),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
+                        // HERO: siempre visible
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 280),
+                          child: hero != null
+                              ? _HeroMatchCard(
+                                  key: ValueKey(
+                                    'hero-${hero.entry.partidoId}',
+                                  ),
+                                  convocatoria: hero,
+                                  needsResponse: hero.requiereRespuesta,
+                                  onTap: () => _openConvocatoria(hero),
+                                )
+                              : _HeroEmptyCard(
+                                  key: const ValueKey('hero-empty'),
+                                  hasDebt: deudaTotal > 0.005,
+                                  onOpenCobros:
+                                      deudaTotal > 0.005 ? _openMisCobros : null,
+                                ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        // Pagos — prioridad alta
+                        MatchPaySectionHeader(
+                          title: l10n.tr('paymentsTitle'),
+                          accent: deudaTotal > 0.005,
+                        ),
+                        const SizedBox(height: 10),
+                        _PaymentsCard(
+                          deudaTotal: deudaTotal,
+                          saldoActual: _misStats?.saldoActual ?? 0,
+                          deudas: _deudas,
+                          desglosePorPartido: _desglosePorPartido,
+                          onOpenCobros: _openMisCobros,
+                          elevated: deudaTotal > 0.005,
+                        ),
+                        const SizedBox(height: 24),
 
                         if (_otrasPendientes.isNotEmpty) ...[
-                          _SectionHeader(
+                          MatchPaySectionHeader(
                             title: l10n.tr('playerInvitedTitle'),
                             count: _otrasPendientes.length,
                           ),
@@ -507,7 +550,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                         ],
 
                         if (_otrosProximos.isNotEmpty) ...[
-                          _SectionHeader(
+                          MatchPaySectionHeader(
                             title: l10n.tr('playerUpcomingTitle'),
                           ),
                           const SizedBox(height: 10),
@@ -520,45 +563,17 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 24),
                         ],
 
-                        // Stats personales (datos reales)
-                        if (_misStats != null &&
-                            _misStats!.partidosJugados > 0) ...[
-                          _SectionHeader(
+                        // Stats compactos
+                        if (_showStatsStrip) ...[
+                          MatchPaySectionHeader(
                             title: l10n.tr('playerPerformanceTitle'),
                           ),
                           const SizedBox(height: 10),
-                          _StatsGrid(
-                            stats: _misStats!,
+                          _StatsStrip(
+                            stats: _misStats,
                             participacionPct: _participacionPct,
                             invitesConfirmadas: _invitesConfirmadas,
                             invitesRecibidas: _invitesRecibidas,
-                          ),
-                          const SizedBox(height: 24),
-                        ] else if (_invitesRecibidas > 0) ...[
-                          _SectionHeader(
-                            title: l10n.tr('playerPerformanceTitle'),
-                          ),
-                          const SizedBox(height: 10),
-                          _ParticipationCard(
-                            pct: _participacionPct,
-                            confirmadas: _invitesConfirmadas,
-                            recibidas: _invitesRecibidas,
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-
-                        // Gastos por concepto
-                        if (_misStats != null &&
-                            _misStats!.partidosJugados > 0) ...[
-                          _SectionHeader(
-                            title: l10n.tr('playerExpensesByConceptTitle'),
-                          ),
-                          const SizedBox(height: 10),
-                          _ExpensesByConceptCard(
-                            periodo: _periodoGastos,
-                            gastos: _gastosPorConcepto,
-                            loading: _loadingGastos,
-                            onPeriodoChanged: _setPeriodoGastos,
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -568,7 +583,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: _SectionHeader(
+                                child: MatchPaySectionHeader(
                                   title: l10n.tr('playerMatchHistoryTitle'),
                                   count: _partidosJugados.length,
                                 ),
@@ -586,24 +601,30 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 24),
                         ],
 
-                        // Pagos / saldo
-                        _SectionHeader(title: l10n.tr('paymentsTitle')),
-                        const SizedBox(height: 10),
-                        _PaymentsCard(
-                          deudaTotal: deudaTotal,
-                          saldoActual: _misStats?.saldoActual ?? 0,
-                          deudas: _deudas,
-                          desglosePorPartido: _desglosePorPartido,
-                          onOpenCobros: _openMisCobros,
-                        ),
-                        const SizedBox(height: 28),
+                        // Gastos por concepto
+                        if (_misStats != null &&
+                            _misStats!.partidosJugados > 0) ...[
+                          MatchPaySectionHeader(
+                            title: l10n.tr('playerExpensesByConceptTitle'),
+                          ),
+                          const SizedBox(height: 10),
+                          _ExpensesByConceptCard(
+                            periodo: _periodoGastos,
+                            gastos: _gastosPorConcepto,
+                            loading: _loadingGastos,
+                            onPeriodoChanged: _setPeriodoGastos,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
 
-                        // Conversión elegante
-                        _OrganizerUpgradeCard(
-                          alreadyOrganizer: esAdmin,
-                          onTap: _onBecomeOrganizerTap,
-                        ),
-                        const SizedBox(height: 24),
+                        // Conversión elegante (tras algo de actividad)
+                        if (_showOrganizerNudge) ...[
+                          _OrganizerUpgradeCard(
+                            alreadyOrganizer: esAdmin,
+                            onTap: _onBecomeOrganizerTap,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                       ]),
                     ),
                   ),
@@ -622,6 +643,7 @@ class _HeroMatchCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _HeroMatchCard({
+    super.key,
     required this.convocatoria,
     required this.needsResponse,
     required this.onTap,
@@ -634,13 +656,12 @@ class _HeroMatchCard extends StatelessWidget {
     final palette = SportThemeConfig.paletteFor(p.sportType);
     final recinto = p.recinto?.trim();
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
+    return MatchPayTapScale(
+      onTap: onTap,
+      child: Material(
+        color: Colors.transparent,
         child: Ink(
-          height: 200,
+          height: 216,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: LinearGradient(
@@ -652,13 +673,7 @@ class _HeroMatchCard extends StatelessWidget {
                 palette.primary.withValues(alpha: 0.88),
               ],
             ),
-            boxShadow: [
-              BoxShadow(
-                color: palette.primary.withValues(alpha: 0.35),
-                blurRadius: 24,
-                offset: const Offset(0, 12),
-              ),
-            ],
+            boxShadow: MatchPayTokens.shadowHero(palette.primary),
           ),
           child: Stack(
             children: [
@@ -741,6 +756,30 @@ class _HeroMatchCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (p.cuposMax > 0) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.groups_rounded,
+                            size: 16,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            l10n.tr(
+                              'playerHeroCuposLine',
+                              params: {'max': '${p.cuposMax}'},
+                            ),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.88),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     Row(
                       children: [
@@ -800,49 +839,120 @@ class _HeroMatchCard extends StatelessWidget {
   }
 }
 
-// ─── Secciones ────────────────────────────────────────────────
+class _HeroEmptyCard extends StatelessWidget {
+  final bool hasDebt;
+  final VoidCallback? onOpenCobros;
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final int? count;
-
-  const _SectionHeader({required this.title, this.count});
+  const _HeroEmptyCard({
+    super.key,
+    required this.hasDebt,
+    this.onOpenCobros,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          title.toUpperCase(),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
-            color: Colors.grey.shade500,
+    final l10n = context.l10n;
+    final palette = context.sportPalette;
+    final allGood = !hasDebt;
+
+    return MatchPayTapScale(
+      onTap: onOpenCobros,
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          height: hasDebt ? 168 : 200,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                palette.primaryDark.withValues(alpha: 0.92),
+                palette.primary,
+                palette.primary.withValues(alpha: 0.78),
+              ],
+            ),
+            boxShadow: MatchPayTokens.shadowHero(palette.primary),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -20,
+                bottom: -30,
+                child: Opacity(
+                  opacity: 0.12,
+                  child: Text(
+                    palette.emoji,
+                    style: const TextStyle(fontSize: 140),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        (allGood
+                                ? l10n.tr('playerHeroAllGood')
+                                : l10n.tr('playerHeaderPendingPayment'))
+                            .toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      allGood
+                          ? l10n.tr('playerHeroWaitingInvite')
+                          : l10n.tr('playerHeaderPendingPayment'),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: allGood ? 24 : 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.4,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      allGood
+                          ? l10n.tr('playerHeroWaitingInviteSub')
+                          : l10n.tr('playerDeclarePaymentsHint'),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        if (count != null) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: Colors.orange.shade800,
-              ),
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 }
+
+// ─── Secciones ────────────────────────────────────────────────
 
 class _SecondaryMatchCard extends StatelessWidget {
   final MiConvocatoria convocatoria;
@@ -861,69 +971,49 @@ class _SecondaryMatchCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: Colors.white,
-        elevation: 0,
-        borderRadius: BorderRadius.circular(18),
-        shadowColor: Colors.black12,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE8E6E1)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+      child: MatchPayTapScale(
+        onTap: onTap,
+        child: MatchPaySurfaceCard(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: palette.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: palette.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(palette.emoji, style: const TextStyle(fontSize: 22)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        formatDiaCompleto(p.fecha),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          color: Color(0xFF111827),
-                        ),
+                alignment: Alignment.center,
+                child: Text(palette.emoji, style: const TextStyle(fontSize: 22)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      formatDiaCompleto(p.fecha),
+                      style: MatchPayTokens.titleSmallStyle(),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      [
+                        if (recinto != null && recinto.isNotEmpty) recinto,
+                        context.l10n.tr('respondConfirmedStatus'),
+                      ].join(' · '),
+                      style: MatchPayTokens.bodySmallStyle().copyWith(
+                        fontSize: 12.5,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        [
-                          if (recinto != null && recinto.isNotEmpty) recinto,
-                          context.l10n.tr('respondConfirmedStatus'),
-                        ].join(' · '),
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
-              ],
-            ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: MatchPayTokens.inkMuted,
+              ),
+            ],
           ),
         ),
       ),
@@ -931,13 +1021,13 @@ class _SecondaryMatchCard extends StatelessWidget {
   }
 }
 
-class _StatsGrid extends StatelessWidget {
-  final EstadisticasJugador stats;
+class _StatsStrip extends StatelessWidget {
+  final EstadisticasJugador? stats;
   final double participacionPct;
   final int invitesConfirmadas;
   final int invitesRecibidas;
 
-  const _StatsGrid({
+  const _StatsStrip({
     required this.stats,
     required this.participacionPct,
     required this.invitesConfirmadas,
@@ -947,174 +1037,57 @@ class _StatsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final items = [
-      (
-        Icons.emoji_events_rounded,
-        const Color(0xFFF59E0B),
-        '${stats.partidosJugados}',
-        l10n.tr('playerStatMatches'),
-      ),
-      (
-        Icons.verified_rounded,
-        const Color(0xFF10B981),
-        '${stats.porcentajePagoAlDia.toStringAsFixed(0)}%',
-        l10n.tr('playerStatOnTime'),
-      ),
-      (
-        Icons.payments_rounded,
-        const Color(0xFF6366F1),
-        formatMoney(stats.totalGastado),
-        l10n.tr('playerStatSpent'),
-      ),
-      (
+    final items = <(IconData, Color, String, String)>[];
+
+    if (stats != null && stats!.partidosJugados > 0) {
+      items.addAll([
+        (
+          Icons.emoji_events_rounded,
+          const Color(0xFFF59E0B),
+          '${stats!.partidosJugados}',
+          l10n.tr('playerStatMatches'),
+        ),
+        (
+          Icons.verified_rounded,
+          const Color(0xFF10B981),
+          '${stats!.porcentajePagoAlDia.toStringAsFixed(0)}%',
+          l10n.tr('playerStatOnTime'),
+        ),
+        (
+          Icons.payments_rounded,
+          const Color(0xFF6366F1),
+          formatMoney(stats!.totalGastado),
+          l10n.tr('playerStatSpent'),
+        ),
+      ]);
+    }
+
+    if (invitesRecibidas > 0) {
+      items.add((
         Icons.how_to_reg_rounded,
         const Color(0xFF8B5CF6),
-        invitesRecibidas == 0
-            ? '—'
-            : '${participacionPct.toStringAsFixed(0)}%',
+        '${participacionPct.toStringAsFixed(0)}%',
         l10n.tr('playerStatParticipation'),
-      ),
-    ];
+      ));
+    }
 
-    return Column(
-      children: [
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 10,
-          crossAxisSpacing: 10,
-          childAspectRatio: 1.55,
-          children: items.map((e) {
-            return Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFE8E6E1)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(e.$1, color: e.$2, size: 22),
-                  const Spacer(),
-                  Text(
-                    e.$3,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      color: Color(0xFF111827),
-                    ),
-                  ),
-                  Text(
-                    e.$4,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-        if (invitesRecibidas > 0) ...[
-          const SizedBox(height: 10),
-          _ParticipationCard(
-            pct: participacionPct,
-            confirmadas: invitesConfirmadas,
-            recibidas: invitesRecibidas,
-            compact: true,
-          ),
-        ],
-      ],
-    );
-  }
-}
+    if (items.isEmpty) return const SizedBox.shrink();
 
-class _ParticipationCard extends StatelessWidget {
-  final double pct;
-  final int confirmadas;
-  final int recibidas;
-  final bool compact;
-
-  const _ParticipationCard({
-    required this.pct,
-    required this.confirmadas,
-    required this.recibidas,
-    this.compact = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(compact ? 14 : 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8E6E1)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: compact ? 44 : 52,
-            height: compact ? 44 : 52,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEEF2FF),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              '${pct.toStringAsFixed(0)}%',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: compact ? 14 : 16,
-                color: const Color(0xFF4338CA),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.tr('playerParticipationTitle'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: Color(0xFF111827),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  l10n.tr(
-                    'playerParticipationBody',
-                    params: {
-                      'confirmed': '$confirmadas',
-                      'total': '$recibidas',
-                    },
-                  ),
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+    return SizedBox(
+      height: 108,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final e = items[index];
+          return MatchPayStatChip(
+            icon: e.$1,
+            iconColor: e.$2,
+            value: e.$3,
+            label: e.$4,
+          );
+        },
       ),
     );
   }
@@ -1143,16 +1116,10 @@ class _ExpensesByConceptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final palette = context.sportPalette;
     final total = gastos.fold<double>(0, (s, g) => s + g.monto);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8E6E1)),
-      ),
+    return MatchPaySurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1172,6 +1139,11 @@ class _ExpensesByConceptCard extends StatelessWidget {
                   selected: periodo == p,
                   onSelected: (_) => onPeriodoChanged(p),
                   showCheckmark: false,
+                  selectedColor: palette.primary.withValues(alpha: 0.15),
+                  labelStyle: TextStyle(
+                    fontWeight: periodo == p ? FontWeight.w700 : FontWeight.w500,
+                    color: periodo == p ? palette.primaryDark : MatchPayTokens.inkMuted,
+                  ),
                 ),
             ],
           ),
@@ -1190,7 +1162,7 @@ class _ExpensesByConceptCard extends StatelessWidget {
           else if (gastos.isEmpty)
             Text(
               l10n.tr('playerExpensesEmpty'),
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: MatchPayTokens.bodySmallStyle(),
             )
           else ...[
             Text(
@@ -1198,11 +1170,7 @@ class _ExpensesByConceptCard extends StatelessWidget {
                 'playerExpensesTotal',
                 params: {'amount': formatMoney(total)},
               ),
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 15,
-                color: Color(0xFF111827),
-              ),
+              style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
             ),
             const SizedBox(height: 12),
             ...gastos.map((g) {
@@ -1217,16 +1185,14 @@ class _ExpensesByConceptCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             _labelConcepto(context, g.concepto),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
+                            style: MatchPayTokens.titleSmallStyle().copyWith(
                               fontSize: 13,
                             ),
                           ),
                         ),
                         Text(
                           formatMoney(g.monto),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
+                          style: MatchPayTokens.titleSmallStyle().copyWith(
                             fontSize: 13,
                           ),
                         ),
@@ -1238,8 +1204,8 @@ class _ExpensesByConceptCard extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: pct,
                         minHeight: 6,
-                        backgroundColor: const Color(0xFFF3F4F6),
-                        color: const Color(0xFF0F766E),
+                        backgroundColor: MatchPayTokens.borderStrong,
+                        color: palette.primary,
                       ),
                     ),
                   ],
@@ -1260,17 +1226,18 @@ class _MatchHistoryList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8E6E1)),
-      ),
+    return MatchPaySurfaceCard(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           for (var i = 0; i < partidos.length; i++) ...[
             if (i > 0)
-              const Divider(height: 1, indent: 16, endIndent: 16),
+              Divider(
+                height: 1,
+                indent: 16,
+                endIndent: 16,
+                color: MatchPayTokens.borderSubtle,
+              ),
             PlayerMatchHistoryTile(detalle: partidos[i]),
           ],
         ],
@@ -1285,6 +1252,7 @@ class _PaymentsCard extends StatelessWidget {
   final List<DetallePartido> deudas;
   final Map<int, DesgloseJugador?> desglosePorPartido;
   final VoidCallback onOpenCobros;
+  final bool elevated;
 
   const _PaymentsCard({
     required this.deudaTotal,
@@ -1292,41 +1260,44 @@ class _PaymentsCard extends StatelessWidget {
     required this.deudas,
     required this.desglosePorPartido,
     required this.onOpenCobros,
+    this.elevated = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final palette = context.sportPalette;
     final alDia = deudaTotal <= 0.005;
     final aFavor = saldoActual < -0.005;
     final favorMonto = -saldoActual;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE8E6E1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    final statusBg = !alDia
+        ? MatchPayTokens.accentUrgentBg
+        : aFavor
+            ? MatchPayTokens.accentCreditBg
+            : MatchPayTokens.accentSuccessBg;
+    final statusIcon = !alDia
+        ? MatchPayTokens.accentUrgent
+        : aFavor
+            ? MatchPayTokens.accentCredit
+            : MatchPayTokens.accentSuccess;
+    final statusTitleColor = !alDia
+        ? const Color(0xFF9A3412)
+        : aFavor
+            ? const Color(0xFF1E40AF)
+            : const Color(0xFF065F46);
+
+    return MatchPaySurfaceCard(
+      urgent: elevated,
+      elevated: elevated,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: !alDia
-                  ? const Color(0xFFFFF7ED)
-                  : aFavor
-                      ? const Color(0xFFEFF6FF)
-                      : const Color(0xFFECFDF5),
-              borderRadius: BorderRadius.circular(14),
+              color: statusBg,
+              borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
             ),
             child: Row(
               children: [
@@ -1336,11 +1307,7 @@ class _PaymentsCard extends StatelessWidget {
                       : aFavor
                           ? Icons.account_balance_wallet_rounded
                           : Icons.check_circle_rounded,
-                  color: !alDia
-                      ? const Color(0xFFEA580C)
-                      : aFavor
-                          ? const Color(0xFF2563EB)
-                          : const Color(0xFF059669),
+                  color: statusIcon,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -1363,15 +1330,9 @@ class _PaymentsCard extends StatelessWidget {
                                     },
                                   )
                                 : l10n.tr('noPendingDebts'),
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          color: !alDia
-                              ? const Color(0xFF9A3412)
-                              : aFavor
-                                  ? const Color(0xFF1E40AF)
-                                  : const Color(0xFF065F46),
-                        ),
+                        style: MatchPayTokens.titleSmallStyle(
+                          color: statusTitleColor,
+                        ).copyWith(fontWeight: FontWeight.w800),
                       ),
                       Text(
                         !alDia
@@ -1379,9 +1340,8 @@ class _PaymentsCard extends StatelessWidget {
                             : aFavor
                                 ? l10n.tr('playerCreditBalanceHint')
                                 : l10n.tr('playerPaymentsUpToDate'),
-                        style: TextStyle(
+                        style: MatchPayTokens.bodySmallStyle().copyWith(
                           fontSize: 12,
-                          color: Colors.grey.shade700,
                         ),
                       ),
                     ],
@@ -1402,21 +1362,20 @@ class _PaymentsCard extends StatelessWidget {
                     if (d.sportType != null)
                       SportEmoji(sport: d.sportType, size: 18)
                     else
-                      const Icon(Icons.receipt_outlined, size: 18),
+                      Icon(Icons.receipt_outlined,
+                          size: 18, color: MatchPayTokens.inkMuted),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         tituloDetallePartido(d, l10n),
-                        style: const TextStyle(
+                        style: MatchPayTokens.titleSmallStyle().copyWith(
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                     Text(
                       formatMoney(monto),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
+                      style: MatchPayTokens.titleSmallStyle().copyWith(
                         fontSize: 13,
                       ),
                     ),
@@ -1428,27 +1387,51 @@ class _PaymentsCard extends StatelessWidget {
           const SizedBox(height: 12),
           SizedBox(
             height: 46,
-            child: OutlinedButton(
-              onPressed: onOpenCobros,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF111827),
-                side: const BorderSide(color: Color(0xFFE5E7EB)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    l10n.tr('myCharges'),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+            child: elevated
+                ? FilledButton(
+                    onPressed: onOpenCobros,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: MatchPayTokens.accentUrgent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(MatchPayTokens.radiusButton),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          l10n.tr('viewChargesAndPay'),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.chevron_right_rounded, size: 18),
+                      ],
+                    ),
+                  )
+                : OutlinedButton(
+                    onPressed: onOpenCobros,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: MatchPayTokens.ink,
+                      side: const BorderSide(color: MatchPayTokens.borderStrong),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(MatchPayTokens.radiusButton),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          l10n.tr('myCharges'),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(Icons.chevron_right_rounded,
+                            size: 18, color: palette.primaryDark),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.chevron_right_rounded, size: 18),
-                ],
-              ),
-            ),
           ),
         ],
       ),
@@ -1456,7 +1439,7 @@ class _PaymentsCard extends StatelessWidget {
   }
 }
 
-/// CTA conversión: elegante, no agresivo.
+/// CTA conversión: elegante, integrado en la experiencia.
 class _OrganizerUpgradeCard extends StatelessWidget {
   final bool alreadyOrganizer;
   final VoidCallback onTap;
@@ -1471,109 +1454,81 @@ class _OrganizerUpgradeCard extends StatelessWidget {
     final l10n = context.l10n;
     final palette = context.sportPalette;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFFDE68A)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    l10n.tr('becomeOrganizerBadge').toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.8,
-                      color: Colors.amber.shade900,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  l10n.tr('becomeOrganizerHeadline'),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF111827),
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.tr('becomeOrganizerCardBody'),
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    height: 1.35,
-                    color: Colors.grey.shade700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Material(
-            color: palette.primaryDark,
-            borderRadius: BorderRadius.circular(18),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(18),
-              child: Container(
-                width: 108,
-                padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
-                child: Column(
-                  children: [
-                    const Text('👑', style: TextStyle(fontSize: 22)),
-                    const SizedBox(height: 8),
-                    Text(
-                      alreadyOrganizer
-                          ? l10n.tr('appModeOrganizer')
-                          : l10n.tr('becomeOrganizerShort'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 12,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: palette.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        alreadyOrganizer
-                            ? Icons.swap_horiz_rounded
-                            : Icons.arrow_forward_rounded,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                    ),
-                  ],
-                ),
+    return MatchPayTapScale(
+      onTap: onTap,
+      child: MatchPaySurfaceCard(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: palette.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                Icons.groups_rounded,
+                color: palette.primaryDark,
+                size: 26,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.tr('becomeOrganizerHeadline'),
+                    style: MatchPayTokens.titleSmallStyle().copyWith(
+                      fontSize: 15,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l10n.tr('becomeOrganizerSoftSub'),
+                    style: MatchPayTokens.bodySmallStyle().copyWith(
+                      fontSize: 12.5,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        l10n.tr('becomeOrganizerBenefit1'),
+                        style: MatchPayTokens.sectionLabelStyle(
+                          color: palette.primaryDark,
+                        ).copyWith(letterSpacing: 0, fontSize: 11),
+                      ),
+                      Text(
+                        l10n.tr('becomeOrganizerBenefit2'),
+                        style: MatchPayTokens.sectionLabelStyle(
+                          color: palette.primaryDark,
+                        ).copyWith(letterSpacing: 0, fontSize: 11),
+                      ),
+                      Text(
+                        l10n.tr('becomeOrganizerBenefit3'),
+                        style: MatchPayTokens.sectionLabelStyle(
+                          color: palette.primaryDark,
+                        ).copyWith(letterSpacing: 0, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: palette.primary,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1587,17 +1542,35 @@ class _ErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return MatchPaySurfaceCard(
+      urgent: true,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(error, style: const TextStyle(fontSize: 13)),
-          TextButton(onPressed: onRetry, child: Text(context.l10n.tr('retry'))),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.error_outline_rounded,
+                  color: MatchPayTokens.accentError, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  error,
+                  style: MatchPayTokens.bodySmallStyle().copyWith(
+                    color: MatchPayTokens.inkSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: onRetry,
+              child: Text(context.l10n.tr('retry')),
+            ),
+          ),
         ],
       ),
     );

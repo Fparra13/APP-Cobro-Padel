@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../core/app_repositories.dart';
 import '../core/app_settings_controller.dart';
+import '../core/matchpay_design_tokens.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/convocatoria_jugador.dart';
@@ -21,6 +22,7 @@ import '../widgets/mis_invitaciones_panel.dart';
 import '../widgets/pagos_por_validar_panel.dart';
 import '../widgets/desglose_cobro_panel.dart';
 import '../widgets/quick_actions_panel.dart';
+import '../widgets/matchpay_ui.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
@@ -162,10 +164,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final palette = context.sportPalette;
 
     return ShellTabScaffold(
-      backgroundColor: const Color(0xFFF5F4F0),
+      backgroundColor: MatchPayTokens.surfaceBase,
       floatingActionButton: _PartidoFab(onPressed: _mostrarMenuPartido),
       body: _loading && _primeraCarga
-          ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
+          ? const PlayerHomeShimmer()
           : RefreshIndicator(
               color: palette.primary,
               onRefresh: _load,
@@ -185,23 +187,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 children: [
                                   Text(
                                     l10n.homeAdminTitle,
-                                    style: const TextStyle(
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: -0.6,
-                                      color: Color(0xFF111827),
-                                      height: 1.1,
-                                    ),
+                                    style: MatchPayTokens.displayStyle(),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     l10n.tr('homeAdminTagline'),
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      height: 1.3,
-                                      color: Colors.grey.shade600,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                    style: MatchPayTokens.bodySmallStyle(),
                                   ),
                                 ],
                               ),
@@ -213,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               },
                               icon: Icon(
                                 Icons.person_outline_rounded,
-                                color: Colors.grey.shade600,
+                                color: MatchPayTokens.inkMuted,
                               ),
                             ),
                             IconButton(
@@ -221,7 +212,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               onPressed: _load,
                               icon: Icon(
                                 Icons.refresh_rounded,
-                                color: Colors.grey.shade600,
+                                color: MatchPayTokens.inkMuted,
                               ),
                             ),
                           ],
@@ -234,26 +225,54 @@ class _HomeScreenState extends State<HomeScreen> {
                     sliver: SliverList(
                       delegate: // ignore: prefer_const_constructors
                           SliverChildListDelegate([
+                        MatchPaySectionHeader(
+                          title: l10n.tr('homeGroupSummary'),
+                        ),
+                        const SizedBox(height: 10),
                         _buildHeader(),
-                        const SizedBox(height: 20),
-                        PagosPorValidarPanel(
-                          pagos: _pagosPorValidar,
-                          onValidado: _load,
+                        if (_pagosPorValidar
+                            .any((d) => d.comprobantePendienteValidacion)) ...[
+                          const SizedBox(height: 24),
+                          MatchPaySectionHeader(
+                            title: l10n.tr('paymentsToValidateTitle'),
+                            count: _pagosPorValidar
+                                .where(
+                                  (d) => d.comprobantePendienteValidacion,
+                                )
+                                .length,
+                            accent: true,
+                          ),
+                          const SizedBox(height: 10),
+                          PagosPorValidarPanel(
+                            pagos: _pagosPorValidar,
+                            onValidado: _load,
+                            prominent: false,
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        MatchPaySectionHeader(
+                          title: l10n.tr('myCharges'),
+                          accent: _misDeudas.isNotEmpty,
                         ),
-                        if (_pagosPorValidar.isNotEmpty)
-                          const SizedBox(height: 16),
+                        const SizedBox(height: 10),
                         _buildMisCobrosOrganizer(),
-                        const SizedBox(height: 16),
-                        MisInvitacionesPanel(
-                          convocatorias: _misInvitaciones,
-                          onRespondido: _load,
-                        ),
+                        if (_misInvitaciones.isNotEmpty) ...[
+                          const SizedBox(height: 24),
+                          MisInvitacionesPanel(
+                            convocatorias: _misInvitaciones,
+                            onRespondido: _load,
+                          ),
+                        ],
                         if (_convocatorias.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 24),
+                          MatchPaySectionHeader(
+                            title: l10n.tr('homeActiveConvocatorias'),
+                            count: _convocatorias.length,
+                          ),
+                          const SizedBox(height: 10),
                           _buildConvocatoriasActivas(),
-                          const SizedBox(height: 20),
-                        ] else
-                          const SizedBox(height: 8),
+                        ],
+                        const SizedBox(height: 24),
                         QuickActionsPanel(
                           repos: context.repos,
                           pdfService: _pdfService,
@@ -339,51 +358,56 @@ class _HomeScreenState extends State<HomeScreen> {
     final alDia = _misDeudas.isEmpty;
 
     if (alDia) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.green.shade50.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.green.shade100),
-        ),
+      return MatchPaySurfaceCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
-                Icon(Icons.check_circle_outline, color: Colors.green.shade800),
-                const SizedBox(width: 8),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: MatchPayTokens.accentSuccessBg,
+                    borderRadius:
+                        BorderRadius.circular(MatchPayTokens.radiusChip),
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_outline,
+                    color: MatchPayTokens.accentSuccess,
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        l10n.tr('myCharges'),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Colors.green.shade900,
+                        l10n.tr('organizerPlayerUpToDate'),
+                        style: MatchPayTokens.titleSmallStyle(
+                          color: MatchPayTokens.accentSuccess,
                         ),
                       ),
                       Text(
-                        l10n.tr('organizerPlayerUpToDate'),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.green.shade800,
-                        ),
+                        l10n.tr('viewMyChargesTab'),
+                        style: MatchPayTokens.bodySmallStyle(),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _abrirMisCobros,
               icon: const Icon(Icons.receipt_long_outlined),
               label: Text(l10n.tr('viewMyChargesTab')),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(44),
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(MatchPayTokens.radiusButton),
+                ),
               ),
             ),
           ],
@@ -397,47 +421,17 @@ class _HomeScreenState extends State<HomeScreen> {
       (s, d) => s + montoATransferirCobro(d, _desglosePorPartido[d.partidoId]),
     );
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.orange.shade100),
-      ),
+    return MatchPaySurfaceCard(
+      urgent: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(Icons.account_balance_wallet_outlined,
-                  color: Colors.orange.shade800),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.tr('myCharges'),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: Colors.orange.shade900,
-                      ),
-                    ),
-                    Text(
-                      l10n.tr(
-                        'playerPendingAmount',
-                        params: {'amount': formatMoney(deudaTotal)},
-                      ),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.orange.shade800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          MatchPayStatusBanner(
+            icon: Icons.account_balance_wallet_outlined,
+            message: l10n.tr(
+              'playerPendingAmount',
+              params: {'amount': formatMoney(deudaTotal)},
+            ),
           ),
           const SizedBox(height: 12),
           CobroPartidoCard(
@@ -456,15 +450,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   'count': '${_misDeudas.length}',
                 },
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: MatchPayTokens.bodySmallStyle(),
             ),
           ],
-          const SizedBox(height: 10),
-          FilledButton.tonalIcon(
+          const SizedBox(height: 12),
+          FilledButton.icon(
             onPressed: _abrirMisCobros,
             icon: const Icon(Icons.payments_outlined),
             label: Text(l10n.tr('viewChargesAndPay')),
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+            style: FilledButton.styleFrom(
+              backgroundColor: MatchPayTokens.accentUrgent,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(MatchPayTokens.radiusButton),
+              ),
+            ),
           ),
         ],
       ),
@@ -473,73 +474,95 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildConvocatoriasActivas() {
     final l10n = context.l10n;
-    final enEspera =
-        _convocatorias.where((c) => c.partido.esOrganizando).toList();
-    final confirmadas =
-        _convocatorias.where((c) => c.partido.esConfirmado).toList();
+    final vencidas = _convocatorias
+        .where((c) => c.partido.convocatoriaFechaPasada)
+        .toList();
+    final proximas = _convocatorias
+        .where((c) => !c.partido.convocatoriaFechaPasada)
+        .toList();
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE8E6E1)),
-      ),
-      child: Column(
+    Widget grupos(List<ConvocatoriaCompleta> lista, {required bool fechaPasada}) {
+      final enEspera =
+          lista.where((c) => c.partido.esOrganizando).toList();
+      final confirmadas =
+          lista.where((c) => c.partido.esConfirmado).toList();
+
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.campaign_rounded, color: Colors.blue.shade800),
-              const SizedBox(width: 8),
-              Text(
-                l10n.tr('homeActiveConvocatorias'),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  color: Color(0xFF111827),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
           if (enEspera.isNotEmpty) ...[
-            _ConvocatoriaGrupo(
-              titulo: l10n.tr('homeWaiting'),
-              icono: Icons.hourglass_top_rounded,
-              color: Colors.blue,
-              cantidad: enEspera.length,
+            if (!fechaPasada)
+              _ConvocatoriaGrupo(
+                titulo: l10n.tr('homeWaiting'),
+                icono: Icons.hourglass_top_rounded,
+                color: MatchPayTokens.accentCredit,
+                cantidad: enEspera.length,
+              ),
+            ...enEspera.map(
+              (c) => _ConvocatoriaTile(
+                convocatoria: c,
+                fechaPasada: fechaPasada,
+                onTap: () async {
+                  await abrirOrganizarPartido(
+                    context,
+                    partidoId: c.partido.id,
+                  );
+                  _load();
+                },
+              ),
             ),
-            ...enEspera.map((c) => _ConvocatoriaTile(
-                  convocatoria: c,
-                  onTap: () async {
-                    await abrirOrganizarPartido(
-                      context,
-                      partidoId: c.partido.id,
-                    );
-                    _load();
-                  },
-                )),
           ],
           if (confirmadas.isNotEmpty) ...[
             if (enEspera.isNotEmpty) const SizedBox(height: 10),
-            _ConvocatoriaGrupo(
-              titulo: l10n.tr('homeConfirmed'),
-              icono: Icons.check_circle_rounded,
-              color: Colors.green,
-              cantidad: confirmadas.length,
+            if (!fechaPasada)
+              _ConvocatoriaGrupo(
+                titulo: l10n.tr('homeConfirmed'),
+                icono: Icons.check_circle_rounded,
+                color: MatchPayTokens.accentSuccess,
+                cantidad: confirmadas.length,
+              ),
+            ...confirmadas.map(
+              (c) => _ConvocatoriaTile(
+                convocatoria: c,
+                confirmado: true,
+                fechaPasada: fechaPasada,
+                onTap: () async {
+                  await abrirOrganizarPartido(
+                    context,
+                    partidoId: c.partido.id,
+                  );
+                  _load();
+                },
+              ),
             ),
-            ...confirmadas.map((c) => _ConvocatoriaTile(
-                  convocatoria: c,
-                  confirmado: true,
-                  onTap: () async {
-                    await abrirOrganizarPartido(
-                      context,
-                      partidoId: c.partido.id,
-                    );
-                    _load();
-                  },
-                )),
+          ],
+        ],
+      );
+    }
+
+    return MatchPaySurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (vencidas.isNotEmpty) ...[
+            _ConvocatoriaGrupo(
+              titulo: l10n.tr('homePastConvocatorias'),
+              icono: Icons.event_busy_rounded,
+              color: MatchPayTokens.accentUrgent,
+              cantidad: vencidas.length,
+            ),
+            Text(
+              l10n.tr('homePastConvocatoriasHint'),
+              style: MatchPayTokens.bodySmallStyle(
+                color: MatchPayTokens.accentUrgent,
+              ),
+            ),
+            const SizedBox(height: 8),
+            grupos(vencidas, fechaPasada: true),
+          ],
+          if (proximas.isNotEmpty) ...[
+            if (vencidas.isNotEmpty) const SizedBox(height: 14),
+            grupos(proximas, fechaPasada: false),
           ],
         ],
       ),
@@ -553,21 +576,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE8E6E1)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
+        MatchPaySurfaceCard(
+          elevated: true,
           child: Row(
             children: [
               Container(
@@ -575,17 +585,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 48,
                 decoration: BoxDecoration(
                   color: todosAlDia
-                      ? const Color(0xFFD1FAE5)
-                      : const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(14),
+                      ? MatchPayTokens.accentSuccessBg
+                      : MatchPayTokens.accentUrgentBg,
+                  borderRadius:
+                      BorderRadius.circular(MatchPayTokens.radiusChip),
                 ),
                 child: Icon(
                   todosAlDia
                       ? Icons.check_circle_rounded
                       : Icons.account_balance_wallet_rounded,
                   color: todosAlDia
-                      ? const Color(0xFF065F46)
-                      : const Color(0xFF92400E),
+                      ? MatchPayTokens.accentSuccess
+                      : MatchPayTokens.accentUrgent,
                   size: 26,
                 ),
               ),
@@ -598,12 +609,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       todosAlDia
                           ? l10n.tr('homeGroupAllPaid')
                           : l10n.tr('homeGroupSummary'),
-                      style: const TextStyle(
-                        color: Color(0xFF111827),
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                      ),
+                      style: MatchPayTokens.titleMediumStyle(),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -611,11 +617,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? l10n.tr('homeNoPendingDebts')
                           : l10n.tr('homeAmountToCollect',
                               params: {'amount': formatMoney(_totalSaldos)}),
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: MatchPayTokens.bodySmallStyle(),
                     ),
                   ],
                 ),
@@ -623,36 +625,34 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _HeaderStat(
-                label: l10n.tr('homeStatPlayers'),
-                value: '${_jugadoresActivos.length}',
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 108,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              MatchPayStatChip(
                 icon: Icons.people_rounded,
-                color: Colors.orange,
+                iconColor: MatchPayTokens.accentUrgent,
+                value: '${_jugadoresActivos.length}',
+                label: l10n.tr('homeStatPlayers'),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _HeaderStat(
-                label: l10n.tr('homeStatWithDebt'),
-                value: '$_conDeuda',
+              const SizedBox(width: 10),
+              MatchPayStatChip(
                 icon: Icons.warning_amber_rounded,
-                color: Colors.red,
+                iconColor: MatchPayTokens.accentError,
+                value: '$_conDeuda',
+                label: l10n.tr('homeStatWithDebt'),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _HeaderStat(
-                label: l10n.tr('homeStatUpToDate'),
-                value: '$_alDia',
+              const SizedBox(width: 10),
+              MatchPayStatChip(
                 icon: Icons.check_circle_rounded,
-                color: Colors.green,
+                iconColor: MatchPayTokens.accentSuccess,
+                value: '$_alDia',
+                label: l10n.tr('homeStatUpToDate'),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -1175,35 +1175,18 @@ class _HomeSeccion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE8E6E1)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return MatchPaySurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Icon(icono, size: 20, color: const Color(0xFF374151)),
+              Icon(icono, size: 20, color: MatchPayTokens.inkSecondary),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   titulo,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
-                    color: Color(0xFF111827),
-                  ),
+                  style: MatchPayTokens.titleSmallStyle(),
                 ),
               ),
               if (accion != null) accion!,
@@ -1220,7 +1203,7 @@ class _HomeSeccion extends StatelessWidget {
 class _ConvocatoriaGrupo extends StatelessWidget {
   final String titulo;
   final IconData icono;
-  final MaterialColor color;
+  final Color color;
   final int cantidad;
 
   const _ConvocatoriaGrupo({
@@ -1236,64 +1219,14 @@ class _ConvocatoriaGrupo extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          Icon(icono, size: 16, color: color.shade700),
+          Icon(icono, size: 16, color: color),
           const SizedBox(width: 6),
           Text(
             '$titulo ($cantidad)',
-            style: TextStyle(
+            style: MatchPayTokens.sectionLabelStyle(color: color).copyWith(
+              letterSpacing: 0.2,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color.shade800,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderStat extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final MaterialColor color;
-
-  const _HeaderStat({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8E6E1)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color.shade700, size: 20),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: TextStyle(
-              color: color.shade900,
-              fontWeight: FontWeight.w800,
-              fontSize: 20,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -1412,12 +1345,14 @@ class _FichaSelectorTile extends StatelessWidget {
 class _ConvocatoriaTile extends StatelessWidget {
   final ConvocatoriaCompleta convocatoria;
   final bool confirmado;
+  final bool fechaPasada;
   final VoidCallback onTap;
 
   const _ConvocatoriaTile({
     required this.convocatoria,
     required this.onTap,
     this.confirmado = false,
+    this.fechaPasada = false,
   });
 
   @override
@@ -1435,53 +1370,96 @@ class _ConvocatoriaTile extends StatelessWidget {
         ? ' · ${l10n.tr('homeConvocatoriaPendingShort', params: {'count': '$pendientes'})}'
         : '';
 
-    return Material(
-      color: confirmado ? Colors.green.shade50 : Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: confirmado
-                      ? Colors.green.shade100
-                      : Colors.blue.shade100,
-                  borderRadius: BorderRadius.circular(10),
+    final tileColor = fechaPasada
+        ? MatchPayTokens.accentUrgentBg
+        : confirmado
+            ? MatchPayTokens.accentSuccessBg
+            : MatchPayTokens.surfaceInset;
+    final iconBg = fechaPasada
+        ? MatchPayTokens.accentUrgentBorder.withValues(alpha: 0.35)
+        : confirmado
+            ? MatchPayTokens.accentSuccess.withValues(alpha: 0.15)
+            : MatchPayTokens.accentCredit.withValues(alpha: 0.12);
+    final iconColor = fechaPasada
+        ? MatchPayTokens.accentUrgent
+        : confirmado
+            ? MatchPayTokens.accentSuccess
+            : MatchPayTokens.accentCredit;
+    final iconData = fechaPasada
+        ? Icons.event_busy_rounded
+        : confirmado
+            ? Icons.check_circle_rounded
+            : Icons.campaign_rounded;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: tileColor,
+        borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(iconData, color: iconColor, size: 20),
                 ),
-                child: Icon(
-                  confirmado ? Icons.check_circle_rounded : Icons.campaign_rounded,
-                  color: confirmado
-                      ? Colors.green.shade800
-                      : Colors.blue.shade800,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      fecha,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      '$recinto · $confirmadosLine$pendientesLine',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            fecha,
+                            style: MatchPayTokens.titleSmallStyle(),
+                          ),
+                          if (fechaPasada) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: MatchPayTokens.accentUrgentBg,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: MatchPayTokens.accentUrgentBorder
+                                      .withValues(alpha: 0.6),
+                                ),
+                              ),
+                              child: Text(
+                                l10n.tr('convocatoriaPastDateBadge'),
+                                style: MatchPayTokens.sectionLabelStyle(
+                                  color: MatchPayTokens.accentUrgent,
+                                ).copyWith(fontSize: 10, letterSpacing: 0),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                  ],
+                      Text(
+                        '$recinto · $confirmadosLine$pendientesLine',
+                        style: MatchPayTokens.bodySmallStyle(),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
-            ],
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: MatchPayTokens.inkMuted,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1489,57 +1467,40 @@ class _ConvocatoriaTile extends StatelessWidget {
   }
 }
 
-/// FAB principal: neutro (sin deporte), pero más presente visualmente.
+/// FAB principal: píldora con gradiente, sin capas rectangulares visibles.
 class _PartidoFab extends StatelessWidget {
   final VoidCallback onPressed;
 
   const _PartidoFab({required this.onPressed});
+
+  static const _gradient = LinearGradient(
+    colors: [Color(0xFF0F766E), Color(0xFF115E59), Color(0xFF134E4A)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
     return Material(
+      elevation: 6,
+      shadowColor: const Color(0xFF0F766E).withValues(alpha: 0.4),
       color: Colors.transparent,
-      elevation: 0,
+      shape: const StadiumBorder(),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(28),
+        customBorder: const StadiumBorder(),
         child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
-            gradient: const LinearGradient(
-              colors: [Color(0xFF0F766E), Color(0xFF115E59), Color(0xFF134E4A)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0F766E).withValues(alpha: 0.45),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+          decoration: const BoxDecoration(gradient: _gradient),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 22, 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.add_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 10),
+                const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+                const SizedBox(width: 8),
                 Text(
                   l10n.tr('homeMatchFab'),
                   style: const TextStyle(

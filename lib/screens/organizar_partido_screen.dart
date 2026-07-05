@@ -18,6 +18,8 @@ import '../services/supabase_realtime_service.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../widgets/ayuda_tip.dart';
+import '../core/matchpay_design_tokens.dart';
+import '../widgets/matchpay_ui.dart';
 import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/match_sport_picker.dart';
 import '../widgets/mis_recintos_panel.dart';
@@ -59,6 +61,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   bool _dirty = false;
   bool _partidoConfirmado = false;
   bool _convocatoriaEnviada = false;
+  DateTime? _ultimoSnackPromocionAt;
 
   bool get _modoSeguimiento => _convocatoriaEnviada && !_partidoConfirmado;
 
@@ -77,6 +80,13 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   int get _pendientes => _titulares
       .where((id) => _estados[id] == EstadoConfirmacion.invitado)
       .length;
+
+  bool get _fechaPartidoPasada => !_fechaPartido.isAfter(
+        DateTime.now().subtract(Partido.convocatoriaGraceAfterMatch),
+      );
+
+  bool get _puedeRegistrarCobros =>
+      _partidoConfirmado || (_convocatoriaEnviada && _fechaPartidoPasada);
 
   int get _enEsperaCount => _listaEspera.length;
 
@@ -274,16 +284,23 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         ),
       );
     } else if (result.promovidos > 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.l10n.tr(
-              'organizePromotedFromWaitlist',
-              params: {'count': '${result.promovidos}'},
+      final now = DateTime.now();
+      final puedeMostrar = _ultimoSnackPromocionAt == null ||
+          now.difference(_ultimoSnackPromocionAt!) >
+              const Duration(seconds: 45);
+      if (puedeMostrar) {
+        _ultimoSnackPromocionAt = now;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.tr(
+                'organizePromotedFromWaitlist',
+                params: {'count': '${result.promovidos}'},
+              ),
             ),
           ),
-        ),
-      );
+        );
+      }
     }
   }
 
@@ -796,7 +813,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
               child: Text(
                 ctx.l10n.tr('venuePickHint'),
-                style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 13),
               ),
             ),
             ..._recintosGuardados.map(
@@ -806,8 +823,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       ? Icons.place
                       : Icons.place_outlined,
                   color: r.location.hasExactLocation
-                      ? Colors.green.shade700
-                      : Colors.grey,
+                      ? MatchPayTokens.accentSuccess
+                      : MatchPayTokens.inkMuted,
                 ),
                 title: Text(r.nombre),
                 subtitle: Text(
@@ -849,6 +866,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         if (salir) Navigator.pop(context);
       },
       child: Scaffold(
+      backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(
         title: Text(
           _partidoConfirmado
@@ -914,11 +932,13 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
               padding: const EdgeInsets.all(12),
               children: [
                 AyudaTip(
-                  texto: _partidoConfirmado
-                      ? context.l10n.tr('organizeHelpConfirmed')
-                      : _modoSeguimiento
-                          ? context.l10n.tr('organizeHelpTracking')
-                          : context.l10n.tr('organizeHelpDraft'),
+                  texto: _fechaPartidoPasada && _convocatoriaEnviada
+                      ? context.l10n.tr('organizePastDateBanner')
+                      : _partidoConfirmado
+                          ? context.l10n.tr('organizeHelpConfirmed')
+                          : _modoSeguimiento
+                              ? context.l10n.tr('organizeHelpTracking')
+                              : context.l10n.tr('organizeHelpDraft'),
                 ),
                 const SizedBox(height: 12),
                 _buildResumen(),
@@ -943,12 +963,12 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   children: [
                     Icon(
                       _partidoConfirmado
-                          ? Icons.check_circle
-                          : Icons.sync,
+                          ? Icons.check_circle_rounded
+                          : Icons.sync_rounded,
                       size: 18,
                       color: _partidoConfirmado
-                          ? Colors.green.shade700
-                          : Colors.blue.shade700,
+                          ? MatchPayTokens.accentSuccess
+                          : MatchPayTokens.accentCredit,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -969,26 +989,28 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                                   'pending': '$_pendientes',
                                 },
                               ),
-                        style: TextStyle(
+                        style: MatchPayTokens.titleSmallStyle(
                           color: _partidoConfirmado
-                              ? Colors.green.shade800
-                              : Colors.blue.shade800,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
+                              ? MatchPayTokens.accentSuccess
+                              : MatchPayTokens.accentCredit,
+                        ).copyWith(fontSize: 13),
                       ),
                     ),
                   ],
                 ),
               ),
-            if (_partidoConfirmado)
+            if (_puedeRegistrarCobros)
               FilledButton.icon(
                 onPressed: _registrarCobros,
                 icon: SportIcon(size: 20),
                 label: Text(context.l10n.tr('goToCharges')),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E7D32),
+                  backgroundColor: MatchPayTokens.accentSuccess,
                   minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(MatchPayTokens.radiusButton),
+                  ),
                 ),
               )
             else if (!_convocatoriaEnviada)
@@ -1003,11 +1025,15 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Icon(Icons.campaign),
+                    : const Icon(Icons.campaign_rounded),
                 label: Text(context.l10n.tr('sendConvocatoria')),
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
+                  backgroundColor: context.sportPalette.primary,
                   minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(MatchPayTokens.radiusButton),
+                  ),
                 ),
               )
             else if (_cuposLlenos)
@@ -1015,11 +1041,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   context.l10n.tr('organizeAutoConfirmInProgress'),
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.orange.shade800,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: MatchPayTokens.titleSmallStyle(
+                    color: MatchPayTokens.accentUrgent,
+                  ).copyWith(fontSize: 13),
                   textAlign: TextAlign.center,
                 ),
               )
@@ -1033,11 +1057,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       'remaining': '${_cuposMax - _confirmados}',
                     },
                   ),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.orange.shade800,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: MatchPayTokens.bodySmallStyle(
+                    color: MatchPayTokens.accentUrgent,
+                  ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -1050,115 +1072,109 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   Widget _buildResumen() {
-    return Card(
-      color: Colors.blue.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (_modoSeguimiento || _partidoConfirmado)
-              Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _partidoConfirmado
-                      ? Colors.green.shade100
-                      : Colors.blue.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _partidoConfirmado ? Icons.check_circle : Icons.campaign,
-                      size: 16,
-                      color: _partidoConfirmado
-                          ? Colors.green.shade900
-                          : Colors.blue.shade900,
+    final palette = context.sportPalette;
+    return MatchPaySurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_modoSeguimiento || _partidoConfirmado)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _partidoConfirmado
+                    ? MatchPayTokens.accentSuccessBg
+                    : MatchPayTokens.accentCreditBg,
+                borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _partidoConfirmado
+                        ? Icons.check_circle_rounded
+                        : Icons.campaign_rounded,
+                    size: 16,
+                    color: _partidoConfirmado
+                        ? MatchPayTokens.accentSuccess
+                        : MatchPayTokens.accentCredit,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _partidoConfirmado
+                          ? context.l10n.tr('organizeBannerConfirmed')
+                          : context.l10n.tr('organizeBannerSent'),
+                      style: MatchPayTokens.titleSmallStyle(
+                        color: _partidoConfirmado
+                            ? MatchPayTokens.accentSuccess
+                            : MatchPayTokens.accentCredit,
+                      ).copyWith(fontSize: 12),
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _partidoConfirmado
-                            ? context.l10n.tr('organizeBannerConfirmed')
-                            : context.l10n.tr('organizeBannerSent'),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _partidoConfirmado
-                              ? Colors.green.shade900
-                              : Colors.blue.shade900,
-                        ),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            children: [
+              Icon(Icons.groups_rounded, color: palette.primary, size: 36),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.l10n.tr(
+                        'organizeSummaryCounts',
+                        params: {
+                          'confirmed': '$_confirmados',
+                          'max': '$_cuposMax',
+                          'pending': '$_pendientes',
+                          'waiting': '$_enEsperaCount',
+                        },
+                      ),
+                      style: MatchPayTokens.titleMediumStyle(
+                        color: _cuposLlenos
+                            ? MatchPayTokens.accentUrgent
+                            : palette.primaryDark,
+                      ),
+                    ),
+                    Text(
+                      _cuposLlenos
+                          ? context.l10n.tr(
+                              'organizeSummarySlotsFull',
+                              params: {'starters': '${_titulares.length}'},
+                            )
+                          : context.l10n.tr(
+                              'organizeSummarySlotsAvailable',
+                              params: {
+                                'available': '$_cuposDisponibles',
+                                'starters': '${_titulares.length}',
+                                'subs': '$_enEsperaCount',
+                              },
+                            ),
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: palette.primaryDark,
                       ),
                     ),
                   ],
                 ),
               ),
-            Row(
-              children: [
-                Icon(Icons.groups, color: Colors.blue.shade700, size: 36),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.l10n.tr(
-                          'organizeSummaryCounts',
-                          params: {
-                            'confirmed': '$_confirmados',
-                            'max': '$_cuposMax',
-                            'pending': '$_pendientes',
-                            'waiting': '$_enEsperaCount',
-                          },
-                        ),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: _cuposLlenos
-                              ? Colors.orange.shade900
-                              : Colors.blue.shade900,
-                        ),
-                      ),
-                      Text(
-                        _cuposLlenos
-                            ? context.l10n.tr(
-                                'organizeSummarySlotsFull',
-                                params: {'starters': '${_titulares.length}'},
-                              )
-                            : context.l10n.tr(
-                                'organizeSummarySlotsAvailable',
-                                params: {
-                                  'available': '$_cuposDisponibles',
-                                  'starters': '${_titulares.length}',
-                                  'subs': '$_enEsperaCount',
-                                },
-                              ),
-                        style: TextStyle(color: Colors.blue.shade800),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDatosPartido() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.l10n.tr('matchDetailsTitle'),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-            ),
+    return MatchPaySurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.tr('matchDetailsTitle'),
+            style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
+          ),
             const SizedBox(height: 12),
             MatchSportPicker(
               value: _sportType,
@@ -1198,7 +1214,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                           ? FontWeight.normal
                           : FontWeight.w600,
                       color: _recintoSeleccionado == null
-                          ? Colors.grey.shade600
+                          ? MatchPayTokens.inkMuted
                           : null,
                     ),
                   ),
@@ -1208,12 +1224,11 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       _recintoSeleccionado!.location.hasExactLocation
                           ? context.l10n.tr('venueHasExactMap')
                           : context.l10n.tr('venueNoExactMap'),
-                      style: TextStyle(
-                        fontSize: 12,
+                      style: MatchPayTokens.bodySmallStyle(
                         color: _recintoSeleccionado!.location.hasExactLocation
-                            ? Colors.green.shade700
-                            : Colors.orange.shade800,
-                      ),
+                            ? MatchPayTokens.accentSuccess
+                            : MatchPayTokens.accentUrgent,
+                      ).copyWith(fontSize: 12),
                     ),
                   ],
                   const SizedBox(height: 10),
@@ -1250,10 +1265,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         context.l10n.tr('venueOrganizeEmptyHint'),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.orange.shade800,
-                        ),
+                        style: MatchPayTokens.bodySmallStyle(
+                          color: MatchPayTokens.accentUrgent,
+                        ).copyWith(fontSize: 12),
                       ),
                     ),
                 ],
@@ -1314,27 +1328,29 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
   Widget _buildListaJugadores() {
     if (_habituales.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              Icon(Icons.person_add, size: 48, color: Colors.grey.shade400),
-              const SizedBox(height: 8),
-              Text(context.l10n.tr('organizeAddRegularPlayersFirst')),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => Navigator.pushNamed(context, '/jugadores'),
-                child: Text(context.l10n.tr('navPlayers')),
-              ),
-            ],
-          ),
+      return MatchPaySurfaceCard(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(Icons.person_add_rounded,
+                size: 48, color: MatchPayTokens.inkMuted),
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.tr('organizeAddRegularPlayersFirst'),
+              style: MatchPayTokens.bodySmallStyle(),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: () => Navigator.pushNamed(context, '/jugadores'),
+              child: Text(context.l10n.tr('navPlayers')),
+            ),
+          ],
         ),
       );
     }
@@ -1345,26 +1361,24 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        context.l10n.tr(
-                          'organizeStartersTitle',
-                          params: {'max': '$_cuposMax'},
-                        ),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
+        MatchPaySurfaceCard(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.l10n.tr(
+                        'organizeStartersTitle',
+                        params: {'max': '$_cuposMax'},
+                      ),
+                      style: MatchPayTokens.titleSmallStyle().copyWith(
+                        fontSize: 15,
                       ),
                     ),
+                  ),
                     TextButton(
                       onPressed: _formularioBloqueado ? null : _seleccionarTodosTitulares,
                       child: Text(context.l10n.tr('organizeAutoSelect')),
@@ -1379,7 +1393,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   _modoSeguimiento
                       ? context.l10n.tr('organizeStartersHintTracking')
                       : context.l10n.tr('organizeStartersHintDraft'),
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 12),
                 ),
                 if (_modoSeguimiento) ...[
                   const SizedBox(height: 8),
@@ -1397,10 +1411,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Text(
                           context.l10n.tr('organizeManualFallbackHint'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.orange.shade900,
-                          ),
+                          style: MatchPayTokens.bodySmallStyle(
+                            color: MatchPayTokens.accentUrgent,
+                          ).copyWith(fontSize: 12),
                         ),
                       ),
                     ],
@@ -1432,24 +1445,22 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 }),
               ],
             ),
-          ),
         ),
         const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.l10n.tr('organizeWaitlistTitle'),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  context.l10n.tr('organizeWaitlistHint'),
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
-                ),
+        MatchPaySurfaceCard(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.l10n.tr('organizeWaitlistTitle'),
+                style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                context.l10n.tr('organizeWaitlistHint'),
+                style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 12),
+              ),
                 const SizedBox(height: 8),
                 ..._habituales.map((j) {
                   final id = j.keyId;
@@ -1470,7 +1481,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                                 'n': '${_listaEspera.indexOf(id) + 1}',
                               },
                             ),
-                            style: TextStyle(color: Colors.purple.shade700),
+                            style: MatchPayTokens.bodySmallStyle(
+                              color: const Color(0xFF7C3AED),
+                            ).copyWith(fontSize: 12),
                           )
                         : null,
                     controlAffinity: ListTileControlAffinity.leading,
@@ -1501,12 +1514,13 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       context.l10n.tr('organizeSelectStartersAndSubs'),
-                      style: TextStyle(color: Colors.orange.shade800),
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.accentUrgent,
+                      ).copyWith(fontWeight: FontWeight.w600),
                     ),
                   ),
               ],
             ),
-          ),
         ),
       ],
     );
@@ -1524,42 +1538,34 @@ class _EstadoChip extends StatelessWidget {
     final (label, color, icon) = switch (estado) {
       EstadoConfirmacion.confirmado => (
           context.l10n.tr('statusConfirmed'),
-          Colors.green.shade700,
-          Icons.check_circle,
+          MatchPayTokens.accentSuccess,
+          Icons.check_circle_rounded,
         ),
       EstadoConfirmacion.rechazado => (
           context.l10n.tr('statusDeclined'),
-          Colors.red.shade700,
-          Icons.cancel,
+          MatchPayTokens.accentError,
+          Icons.cancel_rounded,
         ),
       EstadoConfirmacion.noRespondio => (
           context.l10n.tr('statusNoResponse'),
-          Colors.grey.shade700,
-          Icons.timer_off,
+          MatchPayTokens.inkMuted,
+          Icons.timer_off_rounded,
         ),
       EstadoConfirmacion.invitado => (
           context.l10n.tr('statusPending'),
-          Colors.orange.shade700,
-          Icons.hourglass_empty,
+          MatchPayTokens.accentUrgent,
+          Icons.hourglass_empty_rounded,
         ),
     };
 
-    final bgColor = switch (estado) {
-      EstadoConfirmacion.confirmado => Colors.green,
-      EstadoConfirmacion.rechazado => Colors.red,
-      EstadoConfirmacion.noRespondio => Colors.grey,
-      EstadoConfirmacion.invitado => Colors.orange,
-    };
-
-    return InkWell(
+    return MatchPayTapScale(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: bgColor.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: bgColor.withValues(alpha: 0.4)),
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1568,10 +1574,8 @@ class _EstadoChip extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: TextStyle(
+              style: MatchPayTokens.titleSmallStyle(color: color).copyWith(
                 fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: color,
               ),
             ),
           ],

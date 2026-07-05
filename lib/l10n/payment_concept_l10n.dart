@@ -22,6 +22,12 @@ class PaymentConceptL10n {
   static const _langs = ['es', 'en', 'pt'];
 
   /// Textos antiguos en BD (antes de renombrar conceptos).
+  /// Conceptos fijos del partido guardados en español en BD.
+  static const _chargeConceptToKey = {
+    'Cancha': 'courtLabel',
+    'Pelotas': 'ballsLabel',
+  };
+
   static const _legacyToKey = {
     'Deuda acumulada': 'historicalAccumulatedDebt',
     'Accumulated debt': 'historicalAccumulatedDebt',
@@ -43,6 +49,11 @@ class PaymentConceptL10n {
   static String translate(String stored, String languageCode) {
     final trimmed = stored.trim();
     if (trimmed.isEmpty) return stored;
+
+    final chargeKey = _chargeConceptToKey[trimmed];
+    if (chargeKey != null) {
+      return TranslationMaps.lookup(languageCode, chargeKey);
+    }
 
     final legacyKey = _legacyToKey[trimmed];
     if (legacyKey != null) {

@@ -19,6 +19,5 @@ class MiConvocatoria {
       !entry.esSuplente && entry.estado == EstadoConfirmacion.confirmado;
 
   bool get esProximo =>
-      partido.esConvocatoriaPendiente &&
-      partido.fecha.isAfter(DateTime.now().subtract(const Duration(hours: 6)));
+      partido.esConvocatoriaPendiente && !partido.convocatoriaFechaPasada;
 }

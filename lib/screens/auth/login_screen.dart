@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/app_settings_controller.dart';
 import '../../core/auth_service.dart';
+import '../../core/matchpay_design_tokens.dart';
 import '../../core/supabase_config.dart';
 import '../../l10n/matchpay_strings.dart';
 import '../../widgets/sport_icon.dart';
@@ -157,6 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final puedeEnviar = !_loading && _cooldownSegundos <= 0;
 
     return Scaffold(
+      backgroundColor: MatchPayTokens.surfaceBase,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(

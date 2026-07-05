@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/matchpay_design_tokens.dart';
+import '../core/sport_theme.dart';
 import '../core/app_repositories.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/mi_convocatoria.dart';
@@ -8,6 +10,7 @@ import '../services/convocatoria_lista_espera_service.dart';
 import '../utils/formatters.dart';
 import '../screens/responder_convocatoria_screen.dart';
 import '../utils/single_action.dart';
+import 'matchpay_ui.dart';
 import 'sport_icon.dart';
 
 /// Tarjetas de convocatorias para jugadores con acciones claras.
@@ -195,58 +198,48 @@ class _ConvocatoriaAccionCardState extends State<_ConvocatoriaAccionCard> {
     final limite = c.entry.tiempoLimite;
     final theme = Theme.of(context);
 
-    return Material(
-      elevation: 0,
-      color: Colors.orange.shade50,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: _enviando ? null : _abrirDetalle,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.orange.shade300, width: 1.5),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: SportIcon(
-                      size: 22,
-                      color: Colors.orange.shade900,
-                    ),
+    return MatchPayTapScale(
+      onTap: _enviando ? null : _abrirDetalle,
+      child: MatchPaySurfaceCard(
+        urgent: true,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: MatchPayTokens.accentUrgent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.tr('pendingConvocatoria'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.orange.shade900,
-                          ),
-                        ),
-                        Text(
-                          formatDiaCompleto(partido.fecha),
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: SportIcon(
+                    size: 22,
+                    color: MatchPayTokens.accentUrgent,
                   ),
-                  if (!widget.compact)
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('pendingConvocatoria'),
+                        style: MatchPayTokens.sectionLabelStyle(
+                          color: MatchPayTokens.accentUrgent,
+                        ).copyWith(letterSpacing: 0.3, fontSize: 12),
+                      ),
+                      Text(
+                        formatDiaCompleto(partido.fecha),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!widget.compact)
                     Icon(Icons.open_in_new, color: Colors.orange.shade700),
                 ],
               ),
@@ -341,7 +334,6 @@ class _ConvocatoriaAccionCardState extends State<_ConvocatoriaAccionCard> {
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -355,29 +347,62 @@ class _ProximoPartidoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = convocatoria.partido;
     final confirmado = convocatoria.estaConfirmado;
+    final palette = SportThemeConfig.paletteFor(p.sportType);
 
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor:
-              confirmado ? Colors.green.shade100 : Colors.blue.shade100,
-          child: Icon(
-            confirmado ? Icons.check : Icons.schedule,
-            color: confirmado ? Colors.green.shade800 : Colors.blue.shade800,
-          ),
+    return MatchPayTapScale(
+      onTap: () => _mostrarDetalleProximo(context, convocatoria),
+      child: MatchPaySurfaceCard(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: confirmado
+                    ? MatchPayTokens.accentSuccess.withValues(alpha: 0.12)
+                    : palette.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                confirmado ? Icons.check_rounded : Icons.schedule_rounded,
+                color: confirmado
+                    ? MatchPayTokens.accentSuccess
+                    : palette.primaryDark,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    formatDiaCompleto(p.fecha),
+                    style: MatchPayTokens.titleSmallStyle(),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (p.recinto != null && p.recinto!.isNotEmpty) p.recinto!,
+                      confirmado
+                          ? context.tr('statusConfirmed')
+                          : p.estado.name,
+                    ].join(' · '),
+                    style: MatchPayTokens.bodySmallStyle().copyWith(
+                      fontSize: 12.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: MatchPayTokens.inkMuted,
+            ),
+          ],
         ),
-        title: Text(
-          formatDiaCompleto(p.fecha),
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          [
-            if (p.recinto != null && p.recinto!.isNotEmpty) p.recinto!,
-            confirmado ? context.tr('statusConfirmed') : p.estado.name,
-          ].join(' · '),
-        ),
-        trailing: Icon(Icons.info_outline, color: Colors.grey.shade500),
-        onTap: () => _mostrarDetalleProximo(context, convocatoria),
       ),
     );
   }

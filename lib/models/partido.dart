@@ -55,6 +55,14 @@ class Partido {
 
   bool get esConvocatoriaPendiente => esOrganizando || esConfirmado;
 
+  /// Margen tras la hora del partido antes de tratarla como vencida.
+  static const convocatoriaGraceAfterMatch = Duration(hours: 6);
+
+  /// Convocatoria sin cerrar cuyo horario del partido ya pasó (con margen).
+  bool get convocatoriaFechaPasada =>
+      esConvocatoriaPendiente &&
+      !fecha.isAfter(DateTime.now().subtract(convocatoriaGraceAfterMatch));
+
   double get costoFijoTotal => costoCancha + costoPelotas;
 
   Partido copyWith({

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_repositories.dart';
+import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/nav_shell_layout.dart';
 import '../services/pdf_service.dart';
+import '../widgets/matchpay_ui.dart';
+import '../widgets/shimmer_loading.dart';
 
 class BackupScreen extends StatefulWidget {
   const BackupScreen({super.key});
@@ -27,7 +30,7 @@ class _BackupScreenState extends State<BackupScreen> {
             content: Text(
               context.l10n.tr('backupError', params: {'error': '$e'}),
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: MatchPayTokens.accentError,
           ),
         );
       }
@@ -40,67 +43,68 @@ class _BackupScreenState extends State<BackupScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final cloud = context.repos.isCloud;
+
     return ShellTabScaffold(
+      backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(
         title: Text(
           cloud ? l10n.tr('backupCloudTitle') : l10n.tr('backupLocalTitle'),
         ),
       ),
       body: _busy
-          ? const Center(child: CircularProgressIndicator())
+          ? const _BackupShimmer()
           : ListView(
-              padding: NavShellScope.listPadding(context),
+              padding: NavShellScope.listPadding(context, left: 16, top: 16),
               children: [
-                if (cloud)
-                  Card(
-                    color: Colors.blue.shade50,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.cloud_done,
-                                  color: Colors.blue.shade800),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n.tr('backupSupabaseTitle'),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            l10n.tr('backupSupabaseBody'),
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.blue.shade900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else ...[
-                  Text(
-                    l10n.tr('backupExportImportTitle'),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                if (cloud) ...[
+                  MatchPayStatusBanner(
+                    icon: Icons.cloud_done_rounded,
+                    message: l10n.tr('backupSupabaseBody'),
+                    urgent: false,
                   ),
                   const SizedBox(height: 8),
+                  MatchPaySurfaceCard(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: MatchPayTokens.accentCreditBg,
+                            borderRadius: BorderRadius.circular(
+                              MatchPayTokens.radiusChip,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.cloud_sync_rounded,
+                            color: MatchPayTokens.accentCredit,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            l10n.tr('backupSupabaseTitle'),
+                            style: MatchPayTokens.titleSmallStyle(
+                              color: MatchPayTokens.accentCredit,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  MatchPaySectionHeader(
+                    title: l10n.tr('backupExportImportTitle'),
+                  ),
+                  const SizedBox(height: 10),
                   Text(
                     l10n.tr('backupOfflineHint'),
-                    style: const TextStyle(color: Colors.grey),
+                    style: MatchPayTokens.bodySmallStyle(),
                   ),
                   const SizedBox(height: 16),
                   _ActionTile(
-                    icon: Icons.storage,
+                    icon: Icons.storage_rounded,
+                    iconColor: MatchPayTokens.accentCredit,
                     title: l10n.tr('backupExportDbTitle'),
                     subtitle: l10n.tr('backupExportDbSubtitle'),
                     onTap: () => _run(() async {
@@ -112,10 +116,9 @@ class _BackupScreenState extends State<BackupScreen> {
                       );
                     }),
                   ),
-                ],
-                if (!cloud) ...[
                   _ActionTile(
-                    icon: Icons.data_object,
+                    icon: Icons.data_object_rounded,
+                    iconColor: MatchPayTokens.accentSuccess,
                     title: l10n.tr('backupExportJsonTitle'),
                     subtitle: l10n.tr('backupExportJsonSubtitle'),
                     onTap: () => _run(() async {
@@ -128,7 +131,8 @@ class _BackupScreenState extends State<BackupScreen> {
                     }),
                   ),
                   _ActionTile(
-                    icon: Icons.upload_file,
+                    icon: Icons.upload_file_rounded,
+                    iconColor: MatchPayTokens.accentUrgent,
                     title: l10n.tr('backupImportDbTitle'),
                     subtitle: l10n.tr('backupImportDbSubtitle'),
                     onTap: () => _confirmAndRun(
@@ -144,7 +148,8 @@ class _BackupScreenState extends State<BackupScreen> {
                     ),
                   ),
                   _ActionTile(
-                    icon: Icons.upload,
+                    icon: Icons.upload_rounded,
+                    iconColor: MatchPayTokens.accentUrgent,
                     title: l10n.tr('backupImportJsonTitle'),
                     subtitle: l10n.tr('backupImportJsonSubtitle'),
                     onTap: () => _confirmAndRun(
@@ -159,19 +164,14 @@ class _BackupScreenState extends State<BackupScreen> {
                       },
                     ),
                   ),
-                  const Divider(height: 32),
+                  const SizedBox(height: 24),
                 ],
                 if (cloud) const SizedBox(height: 16),
-                Text(
-                  l10n.tr('backupPdfReportsTitle'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 16),
+                MatchPaySectionHeader(title: l10n.tr('backupPdfReportsTitle')),
+                const SizedBox(height: 10),
                 _ActionTile(
-                  icon: Icons.picture_as_pdf,
+                  icon: Icons.picture_as_pdf_rounded,
+                  iconColor: MatchPayTokens.accentError,
                   title: l10n.tr('backupBalanceReportTitle'),
                   subtitle: l10n.tr('backupBalanceReportSubtitle'),
                   onTap: () => _run(() async {
@@ -190,7 +190,10 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
-  Future<void> _confirmAndRun(String msg, Future<void> Function() action) async {
+  Future<void> _confirmAndRun(
+    String msg,
+    Future<void> Function() action,
+  ) async {
     final l10n = context.l10n;
     final ok = await showDialog<bool>(
       context: context,
@@ -215,12 +218,14 @@ class _BackupScreenState extends State<BackupScreen> {
 
 class _ActionTile extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
   final String title;
   final String subtitle;
   final VoidCallback onTap;
 
   const _ActionTile({
     required this.icon,
+    required this.iconColor,
     required this.title,
     required this.subtitle,
     required this.onTap,
@@ -228,14 +233,78 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(title),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.chevron_right),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: MatchPayTapScale(
         onTap: onTap,
+        child: MatchPaySurfaceCard(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius:
+                      BorderRadius.circular(MatchPayTokens.radiusChip),
+                ),
+                child: Icon(icon, color: iconColor, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: MatchPayTokens.titleSmallStyle()),
+                    const SizedBox(height: 2),
+                    Text(subtitle, style: MatchPayTokens.bodySmallStyle()),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: MatchPayTokens.inkMuted,
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+}
+
+class _BackupShimmer extends StatelessWidget {
+  const _BackupShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: NavShellScope.listPadding(context, left: 16, top: 16),
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        ShimmerLoading(
+          height: 72,
+          borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
+        ),
+        const SizedBox(height: 16),
+        ShimmerLoading(
+          height: 14,
+          width: 160,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        const SizedBox(height: 10),
+        ...List.generate(
+          3,
+          (_) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: ShimmerLoading(
+              height: 76,
+              borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

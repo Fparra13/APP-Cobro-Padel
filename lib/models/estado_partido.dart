@@ -23,7 +23,14 @@ enum EstadoConfirmacion {
   rechazado,
   noRespondio;
 
-  String get dbValue => name;
+  String get dbValue {
+    switch (this) {
+      case EstadoConfirmacion.noRespondio:
+        return 'no_respondio';
+      default:
+        return name;
+    }
+  }
 
   static EstadoConfirmacion fromDb(String? value) {
     switch (value) {
@@ -32,6 +39,7 @@ enum EstadoConfirmacion {
       case 'rechazado':
         return EstadoConfirmacion.rechazado;
       case 'no_respondio':
+      case 'noRespondio': // legacy antes de fix dbValue
         return EstadoConfirmacion.noRespondio;
       default:
         return EstadoConfirmacion.invitado;

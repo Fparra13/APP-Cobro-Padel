@@ -1613,8 +1613,9 @@ class PartidoRepositoryRemote {
       final prev = await _client
           .from('detalles_partido')
           .select(
-            'partido_id, total, pagado, comprobante_url, comprobante_validado, '
-            'monto_pago_declarado, profiles:jugador_id(nombre)',
+            'partido_id, jugador_id, total, pagado, comprobante_url, '
+            'comprobante_validado, monto_pago_declarado, '
+            'profiles:jugador_id(nombre)',
           )
           .eq('id', detalleId)
           .eq('jugador_id', uid)
@@ -1666,7 +1667,10 @@ class PartidoRepositoryRemote {
           .single();
 
       final map = Map<String, dynamic>.from(row);
-      final jugadorId = map['jugador_id'] as String;
+      final jugadorId = SupabaseParse.toStringOrNull(map['jugador_id']);
+      if (jugadorId == null || jugadorId.isEmpty) {
+        throw Exception('Detalle sin jugador asociado');
+      }
       final partidoId = (map['partido_id'] as num).toInt();
       final total = (map['total'] as num).toDouble();
       final montoPagado = (map['monto_pagado'] as num?)?.toDouble() ?? 0;
