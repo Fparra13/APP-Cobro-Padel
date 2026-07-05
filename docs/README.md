@@ -8,15 +8,11 @@ Tras activar GitHub Pages (abajo), la URL será:
 
 **https://fparra13.github.io/APP-Cobro-Padel/privacy.html**
 
-Úsala en Play Console → Ficha de la tienda → Política de privacidad.
+GitHub Pages ya está configurado en el repo (workflow `.github/workflows/pages.yml`).
+Tras cada push a `main` que toque `docs/`, se republica automáticamente.
 
-## Activar GitHub Pages (una vez)
-
-1. Sube esta carpeta al repositorio (`git push`).
-2. En GitHub: **Settings → Pages**.
-3. **Build and deployment → Source:** Deploy from a branch.
-4. **Branch:** `main` (o tu rama principal) → carpeta **`/docs`** → Save.
-5. Espera 1–2 minutos y abre la URL de arriba en el navegador.
+Si la URL devuelve 404, revisa **Actions → Deploy GitHub Pages** en GitHub
+y espera 1–2 minutos a que termine el despliegue.
 
 ## Antes de publicar en Play Store
 
