@@ -15,14 +15,11 @@ import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../repositories/partido_repository.dart';
 import '../services/calculation_service.dart';
-import '../services/mensaje_cobro_service.dart';
 import '../services/preferences_service.dart';
-import '../services/share_service.dart';
 import '../utils/formatters.dart';
 
 class PdfService {
   final _prefs = PreferencesService();
-  final _share = ShareService();
 
   AppRepositories get _repos =>
       AppRepositories.isReady ? AppRepositories.I : AppRepositories.create();

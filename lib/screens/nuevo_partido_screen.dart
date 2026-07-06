@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 
-import '../models/convocatoria_jugador.dart';
 import '../constants/conceptos_cobro.dart';
 import '../constants/expense_icon.dart';
 import '../core/sport_type.dart';
@@ -15,7 +12,6 @@ import '../models/shared_expense_entry.dart';
 import '../core/app_repositories.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/supabase_helpers.dart';
-import '../repositories/repository_types.dart';
 import '../models/estado_partido.dart';
 import '../services/calculation_service.dart';
 import '../services/comprobante_service.dart';
@@ -779,6 +775,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     setState(() => _guardando = true);
 
     try {
+      final repos = context.repos;
       final recinto = _recintoCtrl.text.trim();
       final sportType = _sportType;
       final partido = Partido(
@@ -801,8 +798,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         await _prefs.saveUltimoRecinto(recinto);
       }
 
-      int partidoId;
-      final repos = context.repos;
       final costos = _costosVariables()
           .map(
             (cv) => (
@@ -823,7 +818,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           montoPagadoPorJugador: _montoPagadoMap,
           costosVariables: costos,
         );
-        partidoId = widget.partidoId!;
       } else if (widget.isEditing) {
         await repos.actualizarPartido(
           partidoId: widget.partidoId!,
@@ -832,9 +826,8 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           montoPagadoPorJugador: _montoPagadoMap,
           costosVariables: costos,
         );
-        partidoId = widget.partidoId!;
       } else {
-        partidoId = await repos.guardarPartido(
+        await repos.guardarPartido(
           partido: partido,
           jugadoresAsistentes: _asistentes.toList(),
           montoPagadoPorJugador: _montoPagadoMap,
@@ -1264,7 +1257,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             ],
           ),
         ),
-        if (trailing != null) trailing,
+        ?trailing,
       ],
     );
   }
@@ -1699,7 +1692,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                   const SizedBox(height: 8),
                   _buildChipProrrateo(badge, color: badgeColor ?? estilo.color),
                 ],
-                if (extra != null) extra,
+                ?extra,
               ],
             ),
           ),
