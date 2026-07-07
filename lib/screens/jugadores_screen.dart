@@ -56,6 +56,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
       builder: (ctx) {
         final l10n = ctx.l10n;
         return AlertDialog(
+          scrollable: true,
           icon: Icon(
             jugador == null ? Icons.person_add_alt_1 : Icons.edit,
             color: Theme.of(ctx).colorScheme.primary,
@@ -64,9 +65,12 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
           title: Text(
             jugador == null ? l10n.tr('newPlayer') : l10n.tr('editPlayer'),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
               TextField(
                 controller: nombreCtrl,
                 decoration: InputDecoration(
@@ -119,6 +123,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                 ),
               ),
             ],
+            ),
           ),
           actions: [
             TextButton(

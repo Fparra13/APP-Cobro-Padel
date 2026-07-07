@@ -53,6 +53,17 @@ List<CostoVariableInput> _toRemoteCostos(
 ) =>
     costos;
 
+/// Repositorio cloud no disponible (sesión sin Supabase, instancia local, etc.).
+class AppRepositoriesUnavailable implements Exception {
+  const AppRepositoriesUnavailable([this.debugMessage]);
+
+  final String? debugMessage;
+
+  @override
+  String toString() =>
+      debugMessage ?? 'AppRepositories cloud no disponible';
+}
+
 /// Punto de acceso unificado a datos locales o Supabase.
 class AppRepositories {
   AppRepositories._({required this.useRemote});
@@ -102,16 +113,25 @@ class AppRepositories {
       return _instance!;
     }
     if (AuthService.instance.isLoggedIn) return create();
-    throw StateError(
-      'AppRepositories no inicializado. Inicia sesión de nuevo.',
+    throw const AppRepositoriesUnavailable(
+      'AppRepositories no inicializado sin sesión.',
     );
+  }
+
+  /// Igual que [active] pero devuelve null (p. ej. tareas en background).
+  static AppRepositories? get tryActive {
+    try {
+      return active;
+    } on AppRepositoriesUnavailable catch (e) {
+      debugPrint('AppRepositories.tryActive: $e');
+      return null;
+    }
   }
 
   static void _assertCloudWhenLoggedIn(AppRepositories repos) {
     if (AuthService.instance.isLoggedIn && !repos.useRemote) {
-      throw StateError(
-        'Repositorio en modo local con sesión activa. '
-        'Cierra sesión e inicia de nuevo.',
+      throw const AppRepositoriesUnavailable(
+        'Repositorio local con sesión activa.',
       );
     }
   }
@@ -119,8 +139,8 @@ class AppRepositories {
   static AppRepositories create() {
     final loggedIn = AuthService.instance.isLoggedIn;
     if (loggedIn && !SupabaseConfig.isConfigured) {
-      throw StateError(
-        'Supabase no está configurado; no se puede usar SQLite con sesión activa.',
+      throw const AppRepositoriesUnavailable(
+        'Supabase no configurado con sesión activa.',
       );
     }
     final remote = loggedIn && SupabaseConfig.isConfigured;

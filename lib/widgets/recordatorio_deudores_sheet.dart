@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../l10n/matchpay_strings.dart';
 import '../repositories/partido_repository.dart';
+import '../core/app_repositories.dart';
 import '../services/recordatorio_service.dart';
 import '../services/whatsapp_share_service.dart';
 import '../utils/formatters.dart';
@@ -151,6 +152,10 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
               params: {'name': r.jugador.nombre},
             ),
           );
+        }
+      } on AppRepositoriesUnavailable {
+        if (mounted) {
+          _mostrarFeedback(context.tr('reposUnavailableSnackbar'), error: true);
         }
       } catch (e) {
         if (mounted) _mostrarFeedback('$e', error: true);

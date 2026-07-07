@@ -173,6 +173,8 @@ class TranslationMaps {
     'profileLoadFailedTitle': 'No pudimos cargar tu perfil',
     'profileLoadFailedBody':
         'Revisa tu conexión e intenta de nuevo. Sin el perfil no podemos mostrar la vista correcta.',
+    'reposUnavailableSnackbar':
+        'Revisa tu conexión e intenta de nuevo.',
     'homeMatchFab': 'Partido',
     'homeMatchMenuTitle': '¿Qué quieres hacer?',
     'homeOrganizeConvocatoria': 'Organizar convocatoria',
@@ -1502,6 +1504,7 @@ class TranslationMaps {
     'profileLoadFailedTitle': "We couldn't load your profile",
     'profileLoadFailedBody':
         "Check your connection and try again. Without your profile we can't show the right view.",
+    'reposUnavailableSnackbar': 'Check your connection and try again.',
     'homeMatchFab': 'Match',
     'homeMatchMenuTitle': 'What would you like to do?',
     'homeOrganizeConvocatoria': 'Organize invite',
@@ -2825,6 +2828,8 @@ class TranslationMaps {
     'profileLoadFailedTitle': 'Não foi possível carregar seu perfil',
     'profileLoadFailedBody':
         'Verifique sua conexão e tente novamente. Sem o perfil não podemos mostrar a tela correta.',
+    'reposUnavailableSnackbar':
+        'Verifique sua conexão e tente novamente.',
     'homeMatchFab': 'Partida',
     'homeMatchMenuTitle': 'O que você quer fazer?',
     'homeOrganizeConvocatoria': 'Organizar convite',

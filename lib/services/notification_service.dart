@@ -38,7 +38,14 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   final _prefs = PreferencesService();
 
-  AppRepositories get _repos => AppRepositories.active;
+  AppRepositories? get _repos => AppRepositories.tryActive;
+
+  void _snackReposUnavailable(BuildContext ctx) {
+    if (!ctx.mounted) return;
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(content: Text(ctx.l10n.tr('reposUnavailableSnackbar'))),
+    );
+  }
 
   GlobalKey<NavigatorState>? navigatorKey;
   bool _initialized = false;
@@ -259,11 +266,14 @@ class NotificationService {
   Future<void> checkAndNotifyIfNeeded({bool force = false}) async {
     if (!_initialized) return;
 
+    final repos = _repos;
+    if (repos == null) return;
+
     final activo = await _prefs.recordatorioActivo;
     if (!activo && !force) return;
 
     final dias = await _prefs.recordatorioDias;
-    final deudores = await _repos.getDeudoresVencidos(dias);
+    final deudores = await repos.getDeudoresVencidos(dias);
     if (deudores.isEmpty) return;
 
     if (!force) {
@@ -553,6 +563,10 @@ class NotificationService {
     if (ctx == null || !ctx.mounted) return;
 
     final repos = _repos;
+    if (repos == null) {
+      _snackReposUnavailable(ctx);
+      return;
+    }
     MiConvocatoria? conv = await repos.getMiConvocatoria(partidoId);
 
     if (conv == null) {
@@ -635,8 +649,14 @@ class NotificationService {
     if (ctx == null || !ctx.mounted) return;
     final l10n = ctx.l10n;
 
+    final repos = _repos;
+    if (repos == null) {
+      _snackReposUnavailable(ctx);
+      return;
+    }
+
     final dias = await _prefs.recordatorioDias;
-    final deudores = await _repos.getDeudoresVencidos(dias);
+    final deudores = await repos.getDeudoresVencidos(dias);
     if (deudores.isEmpty) {
       if (ctx.mounted) {
         ScaffoldMessenger.of(ctx).showSnackBar(

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../core/app_repositories.dart';
 import '../core/supabase_config.dart';
+import '../models/deuda_partido_anterior.dart';
 import '../models/jugador.dart';
 import '../repositories/jugador_repository_remote.dart';
 import '../repositories/partido_repository.dart';
@@ -38,8 +39,6 @@ class RecordatorioService {
   final _prefs = PreferencesService();
   final _jugadorRepo = JugadorRepositoryRemote();
 
-  AppRepositories get _repos => AppRepositories.active;
-
   Future<_DatosCobroPrefs> _loadPrefs() async {
     final data = await Future.wait<String>([
       _prefs.titularNombre,
@@ -55,16 +54,19 @@ class RecordatorioService {
     bool detallado = true,
   }) async {
     final prefs = await _loadPrefs();
-    final partidos = await _repos.getPartidosPendientesJugador(
-      jugador.keyId,
-      reconciliar: false,
-    );
+    final repos = AppRepositories.tryActive;
+    final partidos = repos == null
+        ? <DeudaPartidoAnterior>[]
+        : await repos.getPartidosPendientesJugador(
+            jugador.keyId,
+            reconciliar: false,
+          );
 
-    if (detallado && partidos.isNotEmpty) {
+    if (detallado && partidos.isNotEmpty && repos != null) {
       final ultimo = partidos.last;
-      final completo = await _repos.getPartidoCompleto(ultimo.partidoId);
+      final completo = await repos.getPartidoCompleto(ultimo.partidoId);
       if (completo != null) {
-        final desgloseList = await _repos.getDesglose(
+        final desgloseList = await repos.getDesglose(
           ultimo.partidoId,
           reconciliar: false,
         );
@@ -109,8 +111,8 @@ class RecordatorioService {
     required Jugador jugador,
     required double saldo,
   }) async {
-    if (!SupabaseConfig.isConfigured) {
-      throw Exception('Requiere conexión a Supabase');
+    if (!SupabaseConfig.isConfigured || AppRepositories.tryActive == null) {
+      throw const AppRepositoriesUnavailable();
     }
 
     final targetId = await _resolverTargetId(jugador);
@@ -135,10 +137,13 @@ class RecordatorioService {
     _DatosCobroPrefs? prefsCache,
   }) async {
     final prefs = prefsCache ?? await _loadPrefs();
-    final partidos = await _repos.getPartidosPendientesJugador(
-      jugador.keyId,
-      reconciliar: false,
-    );
+    final repos = AppRepositories.tryActive;
+    final partidos = repos == null
+        ? <DeudaPartidoAnterior>[]
+        : await repos.getPartidosPendientesJugador(
+            jugador.keyId,
+            reconciliar: false,
+          );
     final cuerpo = MensajeCobroService.construirRecordatorio(
       nombreJugador: jugador.nombre,
       saldo: saldo,

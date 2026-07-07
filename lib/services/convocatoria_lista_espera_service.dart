@@ -28,8 +28,6 @@ class ConvocatoriaListaEsperaService {
   /// Ventana para el aviso "te queda menos de 1 h".
   static const recordatorioAntes = Duration(hours: 1);
 
-  AppRepositories get _repos => AppRepositories.active;
-
   int _cuposOcupados(ConvocatoriaCompleta conv) => conv.titulares
       .where((t) => t.estado.esTitularActivo)
       .length;
@@ -38,16 +36,23 @@ class ConvocatoriaListaEsperaService {
     if (_syncInFlight.contains(partidoId)) {
       return const ConvocatoriaSyncResult();
     }
+    if (AppRepositories.tryActive == null) {
+      return const ConvocatoriaSyncResult();
+    }
     _syncInFlight.add(partidoId);
     try {
       return await _sincronizarInternal(partidoId);
+    } on AppRepositoriesUnavailable {
+      return const ConvocatoriaSyncResult();
     } finally {
       _syncInFlight.remove(partidoId);
     }
   }
 
   Future<ConvocatoriaSyncResult> _sincronizarInternal(int partidoId) async {
-    var conv = await _repos.getConvocatoriaCompleta(partidoId);
+    final repos = AppRepositories.tryActive;
+    if (repos == null) return const ConvocatoriaSyncResult();
+    var conv = await repos.getConvocatoriaCompleta(partidoId);
     if (conv == null || conv.partido.esConfirmado) {
       return const ConvocatoriaSyncResult();
     }
@@ -76,7 +81,7 @@ class ConvocatoriaListaEsperaService {
         recinto: partido.recinto ?? '',
         sportType: partido.sportType,
       );
-      await _repos.marcarRecordatorioPlazoEnviado(
+      await repos.marcarRecordatorioPlazoEnviado(
         partidoId: partidoId,
         jugadorId: entry.jugador.keyId,
       );
@@ -92,7 +97,7 @@ class ConvocatoriaListaEsperaService {
       }
 
       final avisar = !entry.notificadoVencimiento;
-      await _repos.marcarNoRespondio(
+      await repos.marcarNoRespondio(
         partidoId: partidoId,
         jugadorId: entry.jugador.keyId,
         notificadoVencimiento: true,
@@ -110,7 +115,7 @@ class ConvocatoriaListaEsperaService {
     }
 
     if (vencidos > 0 || recordatorios > 0) {
-      conv = await _repos.getConvocatoriaCompleta(partidoId);
+      conv = await repos.getConvocatoriaCompleta(partidoId);
       if (conv == null) {
         return ConvocatoriaSyncResult(
           recordatorios: recordatorios,
@@ -124,7 +129,7 @@ class ConvocatoriaListaEsperaService {
         conv.confirmados < conv.partido.cuposMax &&
         conv.suplentes.isNotEmpty &&
         _cuposOcupados(conv) < conv.partido.cuposMax) {
-      final promovido = await _repos.promoverSiguienteSuplente(partidoId);
+      final promovido = await repos.promoverSiguienteSuplente(partidoId);
       if (promovido == null) break;
 
       await _notificaciones.notificarPromocionTitular(
@@ -132,14 +137,14 @@ class ConvocatoriaListaEsperaService {
         partidoId: partidoId,
       );
       promovidos++;
-      conv = await _repos.getConvocatoriaCompleta(partidoId);
+      conv = await repos.getConvocatoriaCompleta(partidoId);
     }
 
     var autoConfirmado = false;
     if (conv != null &&
         conv.confirmados >= conv.partido.cuposMax &&
         conv.partido.esOrganizando) {
-      await _repos.marcarConvocatoriaConfirmada(partidoId);
+      await repos.marcarConvocatoriaConfirmada(partidoId);
       autoConfirmado = true;
     }
 

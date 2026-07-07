@@ -21,8 +21,13 @@ import '../utils/formatters.dart';
 class PdfService {
   final _prefs = PreferencesService();
 
-  AppRepositories get _repos =>
-      AppRepositories.active;
+  AppRepositories get _repos {
+    final repos = AppRepositories.tryActive;
+    if (repos == null) {
+      throw const AppRepositoriesUnavailable();
+    }
+    return repos;
+  }
 
   String _fmt(double v) => formatMoney(v);
 

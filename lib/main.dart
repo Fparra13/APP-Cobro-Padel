@@ -187,11 +187,68 @@ class AuthGate extends StatelessWidget {
 
         final session = snapshot.data?.session;
         if (session != null) {
-          AppRepositories.create();
+          try {
+            AppRepositories.create();
+          } on AppRepositoriesUnavailable {
+            return const _CloudDataUnavailableScreen();
+          }
           return const RoleAwareShell();
         }
         return const LoginScreen();
       },
+    );
+  }
+}
+
+/// Pantalla cuando hay sesión pero no se puede abrir el repositorio cloud.
+class _CloudDataUnavailableScreen extends StatelessWidget {
+  const _CloudDataUnavailableScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.cloud_off_outlined,
+                  size: 56,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  l10n.tr('profileLoadFailedTitle'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  l10n.tr('reposUnavailableSnackbar'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () async {
+                    AppRepositories.clear();
+                    await AuthService.instance.signOut();
+                  },
+                  icon: const Icon(Icons.logout),
+                  label: Text(l10n.signOut),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
