@@ -18,11 +18,11 @@ import '../utils/app_navigation.dart';
 import '../utils/app_mode_pending.dart';
 import '../widgets/pagos_por_validar_panel.dart';
 import '../widgets/desglose_cobro_panel.dart' show ordenarDeudasPorFecha;
-import '../widgets/quick_actions_panel.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/app_mode_switch_button.dart';
 import '../widgets/organizer_cycle_hero.dart';
-import '../widgets/cobros_card.dart';
+import '../widgets/organizer_group_summary.dart';
+import '../widgets/quick_actions_panel.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
@@ -126,6 +126,13 @@ class _HomeScreenState extends State<HomeScreen> {
         misInvitaciones: _misInvitaciones,
       );
 
+  int get _jugadoresAlDia =>
+      _resumenes.where((r) => !r.tieneDeuda).length;
+
+  PartidoCompleto? get _ultimoPartido => _partidosJugadosRecientes.isNotEmpty
+      ? _partidosJugadosRecientes.first
+      : null;
+
   OrganizerCycleSnapshot get _cycleSnapshot => OrganizerCycleSnapshot.resolve(
         convocatorias: _convocatorias,
         partidosJugadosRecientes: _partidosJugadosRecientes,
@@ -218,11 +225,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                     l10n.homeAdminTitle,
                                     style: MatchPayTokens.displayStyle(),
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 6),
                                   Text(
-                                    cycle.phaseLabel(l10n),
+                                    l10n.tr('homeAdminTagline'),
                                     style: MatchPayTokens.bodySmallStyle(
-                                      color: palette.primary,
+                                      color: palette.primaryDark,
+                                    ).copyWith(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.35,
+                                      letterSpacing: 0.1,
                                     ),
                                   ),
                                 ],
@@ -253,14 +265,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     sliver: SliverList(
                       delegate: // ignore: prefer_const_constructors
                           SliverChildListDelegate([
-                        CobrosCard(
-                          montoTotalPendiente:
-                              _cobrosResumen.montoTotalPendiente,
-                          jugadoresConDeuda:
-                              _cobrosResumen.jugadoresConDeuda,
+                        OrganizerGroupSummary(
+                          totalJugadores: _resumenes.length,
+                          jugadoresConDeuda: _cobrosResumen.jugadoresConDeuda,
+                          jugadoresAlDia: _jugadoresAlDia,
+                          montoPendiente: _cobrosResumen.montoTotalPendiente,
                           onVerCobros: widget.onNavigateTab != null
                               ? () => widget.onNavigateTab!(1)
                               : null,
+                        ),
+                        const SizedBox(height: 24),
+                        QuickActionsPanel(
+                          resumenes: _resumenes,
+                          ultimoPartido: _ultimoPartido,
+                          onRefresh: _load,
+                          onNavigateTab: widget.onNavigateTab,
                         ),
                         if (_mostrarHeroOperativo(cycle)) ...[
                           const SizedBox(height: 24),
@@ -299,11 +318,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 10),
                           _buildConvocatoriasActivas(_convocatoriasEnLista),
                         ],
-                        const SizedBox(height: 24),
-                        QuickActionsPanel(
-                          resumenes: _resumenes,
-                          onNavigateTab: widget.onNavigateTab,
-                        ),
                         const SizedBox(height: 88),
                       ]),
                     ),

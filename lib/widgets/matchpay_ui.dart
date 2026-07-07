@@ -189,7 +189,8 @@ class MatchPayStatChip extends StatelessWidget {
   final Color iconColor;
   final String value;
   final String label;
-  final double width;
+  final double? width;
+  final Color? borderColor;
 
   const MatchPayStatChip({
     super.key,
@@ -198,6 +199,7 @@ class MatchPayStatChip extends StatelessWidget {
     required this.value,
     required this.label,
     this.width = 136,
+    this.borderColor,
   });
 
   @override
@@ -209,7 +211,17 @@ class MatchPayStatChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: MatchPayTokens.surfaceCard,
         borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
-        border: Border.all(color: MatchPayTokens.borderSubtle),
+        border: Border.all(
+          color: borderColor ?? MatchPayTokens.borderSubtle,
+          width: borderColor != null ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
