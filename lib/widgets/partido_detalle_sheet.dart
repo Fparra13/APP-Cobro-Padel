@@ -11,11 +11,13 @@ import '../services/mensaje_cobro_service.dart';
 import '../services/pdf_service.dart';
 import '../services/preferences_service.dart';
 import '../services/recordatorio_service.dart';
+import '../services/whatsapp_share_service.dart';
 import '../utils/formatters.dart';
 import '../utils/single_action.dart';
 import 'ayuda_tip.dart';
 import 'comprobante_pago_tile.dart';
 import 'desglose_cobro_panel.dart';
+import 'jugador_app_badge.dart';
 import 'pagos_por_validar_panel.dart';
 
 /// Detalle de un partido: cobros y avisos primero; PDF/mensaje para fuera de la app.
@@ -100,21 +102,53 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
   bool _generandoPdfGeneral = false;
   String? _generandoPdfKey;
   String? _enviandoPushKey;
+  String? _enviandoWhatsAppKey;
   String? _feedback;
   bool _feedbackError = false;
+  Map<String, Jugador> _jugadoresPorId = {};
 
   PartidoCompleto get completo => widget.completo;
   List<DesgloseJugador> get desglose => widget.desglose;
   PdfService get pdfService => widget.pdfService;
 
   List<DesgloseJugador> get _deudores =>
-      desglose.where((d) => d.saldoRestante > 0.005).toList();
+      desglose.where((d) => d.pendientePartido > 0.005).toList();
 
-  List<DesgloseJugador> get _deudoresConApp =>
-      _deudores.where((d) => d.jugadorKeyId.isNotEmpty).toList();
+  Jugador? _jugadorDe(DesgloseJugador d) =>
+      d.jugadorKeyId.isEmpty ? null : _jugadoresPorId[d.jugadorKeyId];
+
+  List<DesgloseJugador> get _deudoresConApp => _deudores
+      .where((d) => _jugadorDe(d)?.tieneMatchPayApp ?? false)
+      .toList();
+
+  List<DesgloseJugador> get _deudoresSinApp => _deudores.where((d) {
+        final j = _jugadorDe(d);
+        return j != null && !j.tieneMatchPayApp;
+      }).toList();
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarJugadores();
+  }
+
+  Future<void> _cargarJugadores() async {
+    final ids = desglose
+        .map((d) => d.jugadorKeyId)
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (ids.isEmpty) return;
+    final repos = AppRepositories.I;
+    final map = <String, Jugador>{};
+    for (final id in ids) {
+      final j = await repos.getJugador(id);
+      if (j != null) map[id] = j;
+    }
+    if (mounted) setState(() => _jugadoresPorId = map);
+  }
 
   double get _totalPendiente =>
-      _deudores.fold(0.0, (s, d) => s + d.saldoRestante);
+      _deudores.fold(0.0, (s, d) => s + d.pendientePartido);
 
   void _mostrarFeedback(String msg, {bool error = false}) {
     if (!mounted) return;
@@ -218,22 +252,18 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
 
   Future<void> _avisarEnApp(DesgloseJugador d) async {
     final key = d.jugadorKeyId;
-    if (key.isEmpty) {
+    final jugador = _jugadorDe(d);
+    if (key.isEmpty || jugador == null || !jugador.tieneMatchPayApp) {
       _mostrarFeedback(context.tr('noAppUseCopyMessage'), error: true);
       return;
     }
 
-    final sinAppMsg = context.tr('noAppUseCopyMessage');
     final nombre = d.nombre;
-    final saldo = d.saldoRestante;
+    final saldo = d.pendientePartido;
 
     await runOnce('push-$key', () async {
       setState(() => _enviandoPushKey = key);
       try {
-        final jugador = await AppRepositories.I.getJugador(key);
-        if (jugador == null) {
-          throw Exception(sinAppMsg);
-        }
         await _recordatorio.enviarIndividual(
           jugador: jugador,
           saldo: saldo,
@@ -250,6 +280,48 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
         if (mounted) _mostrarFeedback('$e', error: true);
       } finally {
         if (mounted) setState(() => _enviandoPushKey = null);
+      }
+      return null;
+    });
+  }
+
+  Future<void> _enviarCobroWhatsApp(DesgloseJugador d) async {
+    final jugador = _jugadorDe(d);
+    if (jugador == null || jugador.tieneMatchPayApp) return;
+    if (!jugador.puedeEnviarWhatsApp) {
+      _mostrarFeedback(context.tr('whatsappNoNumber'), error: true);
+      return;
+    }
+
+    final key = d.jugadorKeyId;
+    await runOnce('wa-$key', () async {
+      setState(() => _enviandoWhatsAppKey = key);
+      try {
+        final datos = await _datosTransferencia();
+        final msg = MensajeCobroService.construirDetallePartido(
+          partido: completo.partido,
+          desglose: d,
+          deudasAnteriores: const [],
+          titular: datos.titular,
+          banco: datos.banco,
+          cuenta: datos.cuenta,
+        );
+        final ok = await WhatsAppShareService.enviar(
+          mensaje: msg,
+          telefono: jugador.contactWhatsApp,
+        );
+        if (mounted) {
+          _mostrarFeedback(
+            ok
+                ? context.tr('whatsappOpening')
+                : context.tr('whatsappOpenFailed'),
+            error: !ok,
+          );
+        }
+      } catch (e) {
+        if (mounted) _mostrarFeedback('$e', error: true);
+      } finally {
+        if (mounted) setState(() => _enviandoWhatsAppKey = null);
       }
       return null;
     });
@@ -275,7 +347,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
           }
           await _recordatorio.enviarIndividual(
             jugador: jugador,
-            saldo: d.saldoRestante,
+            saldo: d.pendientePartido,
           );
           ok++;
         } catch (_) {
@@ -404,6 +476,47 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
                         pendientes: pendientes,
                         totalPendiente: _totalPendiente,
                       ),
+                      if (_deudoresSinApp.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        FilledButton.icon(
+                          onPressed: _enviandoWhatsAppKey != null
+                              ? null
+                              : () => _enviarCobroWhatsApp(_deudoresSinApp.first),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF25D366),
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: _enviandoWhatsAppKey != null
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.chat_outlined),
+                          label: Text(
+                            context.tr(
+                              'sendChargeWhatsAppBulk',
+                              params: {
+                                'count': '${_deudoresSinApp.length}',
+                              },
+                            ),
+                          ),
+                        ),
+                        if (_deudoresSinApp.length > 1)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              context.tr('sendChargeWhatsAppBulkHint'),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                      ],
                       if (_deudoresConApp.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         FilledButton.tonalIcon(
@@ -440,11 +553,19 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
                             : d.nombre;
                         return _JugadorCobroCard(
                           desglose: d,
+                          jugador: _jugadorDe(d),
                           generandoPdf: _generandoPdfKey == key,
                           enviandoPush: _enviandoPushKey == d.jugadorKeyId,
-                          onAvisarApp: d.saldoRestante > 0.005 &&
-                                  d.jugadorKeyId.isNotEmpty
+                          enviandoWhatsApp:
+                              _enviandoWhatsAppKey == d.jugadorKeyId,
+                          onAvisarApp: d.pendientePartido > 0.005 &&
+                                  (_jugadorDe(d)?.tieneMatchPayApp ?? false)
                               ? () => _avisarEnApp(d)
+                              : null,
+                          onEnviarWhatsApp: d.pendientePartido > 0.005 &&
+                                  (_jugadorDe(d) != null &&
+                                      !(_jugadorDe(d)!.tieneMatchPayApp))
+                              ? () => _enviarCobroWhatsApp(d)
                               : null,
                           onCopiarMensaje: () => _copiarMensaje(d),
                           onPdf: () => _pdfIndividual(d),
@@ -669,47 +790,56 @@ class _SeccionTitulo extends StatelessWidget {
 
 class _JugadorCobroCard extends StatelessWidget {
   final DesgloseJugador desglose;
+  final Jugador? jugador;
   final bool generandoPdf;
   final bool enviandoPush;
+  final bool enviandoWhatsApp;
   final VoidCallback? onAvisarApp;
+  final VoidCallback? onEnviarWhatsApp;
   final VoidCallback onCopiarMensaje;
   final VoidCallback onPdf;
 
   const _JugadorCobroCard({
     required this.desglose,
+    this.jugador,
     required this.generandoPdf,
     required this.enviandoPush,
+    required this.enviandoWhatsApp,
     required this.onAvisarApp,
+    required this.onEnviarWhatsApp,
     required this.onCopiarMensaje,
     required this.onPdf,
   });
 
   String _estado(BuildContext context) {
-    if (desglose.pagado) {
-      return desglose.generaSaldoAFavor
+    if (desglose.pagadoEnPartido) {
+      return desglose.generaSaldoAFavorPartido
           ? context.tr(
               'creditedAmountLabel',
-              params: {'amount': formatMoney(-desglose.saldoRestante)},
+              params: {
+                'amount': formatMoney(-desglose.saldoRestantePartido),
+              },
             )
           : context.tr('paidOk');
     }
     if (desglose.pagoParcial) {
       return context.tr(
         'partialOwesShort',
-        params: {'amount': formatMoney(desglose.saldoRestante)},
+        params: {'amount': formatMoney(desglose.pendientePartido)},
       );
     }
     return context.tr(
       'owesAmountLabel',
-      params: {'amount': formatMoney(desglose.saldoRestante)},
+      params: {'amount': formatMoney(desglose.pendientePartido)},
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final debe = desglose.saldoRestante > 0.005;
-    final estadoColor =
-        desglose.pagado ? Colors.green.shade800 : Colors.red.shade700;
+    final debe = desglose.pendientePartido > 0.005;
+    final estadoColor = desglose.pagadoEnPartido
+        ? Colors.green.shade800
+        : Colors.red.shade700;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -736,6 +866,10 @@ class _JugadorCobroCard extends StatelessWidget {
                           fontSize: 15,
                         ),
                       ),
+                      if (jugador != null) ...[
+                        const SizedBox(height: 4),
+                        JugadorAppBadge(jugador: jugador!, compact: true),
+                      ],
                       const SizedBox(height: 2),
                       Text(
                         _estado(context),
@@ -750,7 +884,7 @@ class _JugadorCobroCard extends StatelessWidget {
                 ),
                 if (debe)
                   Text(
-                    formatMoney(desglose.saldoRestante),
+                    formatMoney(desglose.pendientePartido),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -764,10 +898,28 @@ class _JugadorCobroCard extends StatelessWidget {
               desglose: desglose,
               compact: true,
               showLineasPartido: true,
+              soloPartidoActual: true,
             ),
             const SizedBox(height: 10),
             Row(
               children: [
+                if (onEnviarWhatsApp != null)
+                  IconButton.filledTonal(
+                    onPressed: enviandoWhatsApp ? null : onEnviarWhatsApp,
+                    tooltip: context.tr('sendChargeWhatsApp'),
+                    style: IconButton.styleFrom(
+                      backgroundColor:
+                          const Color(0xFF25D366).withValues(alpha: 0.15),
+                      foregroundColor: const Color(0xFF1B8F4E),
+                    ),
+                    icon: enviandoWhatsApp
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.chat_outlined),
+                  ),
                 if (onAvisarApp != null)
                   IconButton.filledTonal(
                     onPressed: enviandoPush ? null : onAvisarApp,
@@ -796,16 +948,6 @@ class _JugadorCobroCard extends StatelessWidget {
                         )
                       : const Icon(Icons.picture_as_pdf_outlined),
                 ),
-                const Spacer(),
-                if (debe && desglose.jugadorKeyId.isEmpty)
-                  Text(
-                    context.tr('noAppShort'),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.orange.shade800,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
               ],
             ),
           ],

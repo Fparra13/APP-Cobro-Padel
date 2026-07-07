@@ -37,4 +37,14 @@ class ConvocatoriaMessageService {
 
     return buffer.toString().trim();
   }
+
+  String construirMensajePersonal({
+    required ConvocatoriaCompleta convocatoria,
+    required String nombreJugador,
+  }) {
+    final saludo = nombreJugador.trim().isEmpty
+        ? ''
+        : 'Hola ${nombreJugador.trim()}!\n\n';
+    return '$saludo${construirMensaje(convocatoria)}';
+  }
 }

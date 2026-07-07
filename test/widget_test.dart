@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:padel_cobro/services/calculation_service.dart';
+import 'package:matchpay/services/calculation_service.dart';
 
 void main() {
   test('prorrateo fijo divide cancha y pelotas entre asistentes', () {

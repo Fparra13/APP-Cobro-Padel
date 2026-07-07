@@ -45,12 +45,14 @@ class JugadorRepositoryRemote {
   Future<Jugador> crear({
     required String nombre,
     required String email,
+    String? telefono,
     bool activo = true,
   }) async {
     final normalized = email.trim().toLowerCase();
     if (!_esEmailValido(normalized)) {
       throw Exception('Email inválido: $email');
     }
+    final tel = telefono?.trim();
 
     final existente = await getByEmail(normalized);
     if (existente != null) {
@@ -58,20 +60,23 @@ class JugadorRepositoryRemote {
         nombre: nombre.trim(),
         activo: activo,
         email: normalized,
+        telefono: tel != null && tel.isNotEmpty ? tel : existente.telefono,
       );
       await actualizar(actualizado);
       return actualizado;
     }
 
     return SupabaseHelpers.guard('Crear jugador', () async {
+      final payload = <String, dynamic>{
+        'nombre': nombre.trim(),
+        'email': normalized,
+        'activo': activo,
+        'role': 'jugador',
+      };
+      if (tel != null && tel.isNotEmpty) payload['telefono'] = tel;
       final row = await _client
           .from('profiles')
-          .insert({
-            'nombre': nombre.trim(),
-            'email': normalized,
-            'activo': activo,
-            'role': 'jugador',
-          })
+          .insert(payload)
           .select()
           .single();
       return Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
@@ -130,6 +135,7 @@ class JugadorRepositoryRemote {
     final creado = await crear(
       nombre: jugador.nombre,
       email: email,
+      telefono: jugador.contactWhatsApp,
       activo: jugador.activo,
     );
     return creado.supabaseId.hashCode;

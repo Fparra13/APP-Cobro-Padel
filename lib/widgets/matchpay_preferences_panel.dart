@@ -62,22 +62,21 @@ class MatchPayPreferencesPanel extends StatelessWidget {
         Text(l10n.languageLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         DropdownButtonFormField<Locale>(
-          value: _matchLocale(settings.locale),
+          value: AppSettingsController.normalizePickerLocale(settings.locale),
           decoration: const InputDecoration(border: OutlineInputBorder()),
-          items: [
-            DropdownMenuItem(
-              value: const Locale('es', 'CL'),
-              child: Text(l10n.tr('langEs')),
-            ),
-            DropdownMenuItem(
-              value: const Locale('en'),
-              child: Text(l10n.tr('langEn')),
-            ),
-            DropdownMenuItem(
-              value: const Locale('pt', 'BR'),
-              child: Text(l10n.tr('langPt')),
-            ),
-          ],
+          items: AppSettingsController.pickerLocales
+              .map(
+                (locale) => DropdownMenuItem(
+                  value: locale,
+                  child: Text(switch (locale.languageCode) {
+                    'es' => l10n.tr('langEs'),
+                    'en' => l10n.tr('langEn'),
+                    'pt' => l10n.tr('langPt'),
+                    _ => locale.languageCode,
+                  }),
+                ),
+              )
+              .toList(),
           onChanged: (locale) async {
             if (locale != null) {
               await settings.setLocale(locale);
@@ -107,16 +106,5 @@ class MatchPayPreferencesPanel extends StatelessWidget {
         ],
       ],
     );
-  }
-
-  static Locale _matchLocale(Locale locale) {
-    for (final supported in const [
-      Locale('es', 'CL'),
-      Locale('en'),
-      Locale('pt', 'BR'),
-    ]) {
-      if (supported.languageCode == locale.languageCode) return supported;
-    }
-    return const Locale('es', 'CL');
   }
 }

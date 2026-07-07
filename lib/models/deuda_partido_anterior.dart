@@ -5,14 +5,15 @@ class DeudaPartidoAnterior {
   final int partidoId;
   final DateTime fecha;
   final String? recinto;
-  final double montoPendiente;
+  /// Pendiente neto del partido (snapshot + cargo − pagado en partido).
+  final double pendienteNeto;
   final SportType sportType;
 
   const DeudaPartidoAnterior({
     required this.partidoId,
     required this.fecha,
     this.recinto,
-    required this.montoPendiente,
+    required this.pendienteNeto,
     this.sportType = SportType.padel,
   });
 }

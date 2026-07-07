@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:REEMPLAZAR:android:REEMPLAZAR",
         "android_client_info": {
-          "package_name": "com.padelcobro.padel_cobro"
+          "package_name": "com.matchpay.app"
         }
       },
       "oauth_client": [],

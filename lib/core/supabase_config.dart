@@ -33,5 +33,5 @@ class SupabaseConfig {
   }
 
   /// URL de redirect para magic link (registrar también en Supabase Dashboard).
-  static const authRedirectUrl = 'padel-cobro://login-callback';
+  static const authRedirectUrl = 'matchpay://login-callback';
 }

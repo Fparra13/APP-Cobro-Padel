@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/app_settings_controller.dart';
 import '../../core/auth_service.dart';
 import '../../core/matchpay_design_tokens.dart';
+import '../../core/sport_theme.dart';
 import '../../core/supabase_config.dart';
 import '../../l10n/matchpay_strings.dart';
+import '../../widgets/matchpay_ui.dart';
 import '../../widgets/sport_icon.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -53,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(mensaje),
-        backgroundColor: Colors.red.shade700,
+        backgroundColor: MatchPayTokens.accentError,
         duration: const Duration(seconds: 6),
         behavior: SnackBarBehavior.floating,
       ),
@@ -67,7 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
     messenger?.showSnackBar(
       SnackBar(
         content: Text(mensaje),
-        backgroundColor: Colors.green.shade700,
+        backgroundColor: MatchPayTokens.accentSuccess,
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
       ),
@@ -155,219 +158,307 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final settings = context.watch<AppSettingsController>();
+    final palette = SportThemeConfig.paletteFor(settings.sport);
     final puedeEnviar = !_loading && _cooldownSegundos <= 0;
 
     return Scaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SportIcon(
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    l10n.appName,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _linkEnviado
-                        ? l10n.tr('loginSubtitleLinkSent')
-                        : l10n.tr('loginSubtitleEnterDetails'),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                  if (!SupabaseConfig.isConfigured) ...[
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.orange.shade200),
-                      ),
-                      child: Text(
-                        l10n.tr('loginSupabaseNotConfigured'),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.orange.shade900,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 32),
-                  if (!_linkEnviado) ...[
-                    TextField(
-                      controller: _nombreCtrl,
-                      enabled: !_loading,
-                      textCapitalization: TextCapitalization.words,
-                      textInputAction: TextInputAction.next,
-                      decoration: InputDecoration(
-                        labelText: l10n.tr('loginNameLabel'),
-                        hintText: l10n.tr('loginNameHint'),
-                        prefixIcon: const Icon(Icons.person_outline),
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _emailCtrl,
-                      enabled: !_loading,
-                      keyboardType: TextInputType.emailAddress,
-                      autocorrect: false,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        labelText: l10n.tr('loginEmailLabel'),
-                        hintText: l10n.tr('loginEmailHint'),
-                        prefixIcon: const Icon(Icons.email_outlined),
-                        border: const OutlineInputBorder(),
-                      ),
-                      onSubmitted: (_) {
-                        if (puedeEnviar) _enviarMagicLink();
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    if (_mensajeInline != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+        bottom: false,
+        child: Column(
+          children: [
+            _LoginHero(
+              linkEnviado: _linkEnviado,
+              palette: palette,
+              title: l10n.appName,
+              subtitle: _linkEnviado
+                  ? l10n.tr('loginSubtitleLinkSent')
+                  : l10n.tr('loginSubtitleEnterDetails'),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Transform.translate(
+                      offset: const Offset(0, -28),
+                      child: MatchPaySurfaceCard(
+                        elevated: true,
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Icon(Icons.error_outline, color: Colors.red.shade700),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _mensajeInline!,
-                                style: TextStyle(
-                                  color: Colors.red.shade900,
-                                  fontSize: 13,
-                                ),
+                            if (!SupabaseConfig.isConfigured) ...[
+                              MatchPayStatusBanner(
+                                icon: Icons.warning_amber_rounded,
+                                message: l10n.tr('loginSupabaseNotConfigured'),
+                                urgent: true,
                               ),
-                            ),
+                              const SizedBox(height: 16),
+                            ],
+                            if (!_linkEnviado) ...[
+                              _buildFormFields(l10n, palette, puedeEnviar),
+                            ] else ...[
+                              _buildLinkSentPanel(l10n, palette),
+                            ],
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                    ],
-                    FilledButton.icon(
-                      onPressed: puedeEnviar ? _enviarMagicLink : null,
-                      icon: _loading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.link),
-                      label: Text(l10n.tr('loginSendLink')),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                      ),
-                    ),
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .primaryContainer
-                            .withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.primary.withValues(
-                                alpha: 0.3,
-                              ),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.mark_email_read_outlined,
-                            size: 48,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            l10n.tr('loginCheckEmailTitle'),
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            l10n.tr(
-                              'loginCheckEmailBody',
-                              params: {'email': _emailIngresado ?? ''},
-                            ),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    OutlinedButton.icon(
-                      onPressed: puedeEnviar ? _enviarMagicLink : null,
-                      icon: _loading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh),
-                      label: Text(
-                        _cooldownSegundos > 0
-                            ? l10n.tr(
-                                'loginResendCooldown',
-                                params: {
-                                  'seconds': '$_cooldownSegundos',
-                                },
-                              )
-                            : l10n.tr('loginResendLink'),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: _loading
-                          ? null
-                          : () {
-                              setState(() {
-                                _linkEnviado = false;
-                                _emailIngresado = null;
-                              });
-                            },
-                      child: Text(l10n.tr('loginChangeEmail')),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormFields(
+    MatchPayStrings l10n,
+    SportThemePalette palette,
+    bool puedeEnviar,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _nombreCtrl,
+          enabled: !_loading,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.next,
+          decoration: InputDecoration(
+            labelText: l10n.tr('loginNameLabel'),
+            hintText: l10n.tr('loginNameHint'),
+            prefixIcon: const Icon(Icons.person_outline),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _emailCtrl,
+          enabled: !_loading,
+          keyboardType: TextInputType.emailAddress,
+          autocorrect: false,
+          textInputAction: TextInputAction.done,
+          decoration: InputDecoration(
+            labelText: l10n.tr('loginEmailLabel'),
+            hintText: l10n.tr('loginEmailHint'),
+            prefixIcon: const Icon(Icons.email_outlined),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+            ),
+          ),
+          onSubmitted: (_) {
+            if (puedeEnviar) _enviarMagicLink();
+          },
+        ),
+        if (_mensajeInline != null) ...[
+          const SizedBox(height: 12),
+          MatchPayStatusBanner(
+            icon: Icons.error_outline,
+            message: _mensajeInline!,
+            urgent: true,
+          ),
+        ],
+        const SizedBox(height: 20),
+        FilledButton.icon(
+          onPressed: puedeEnviar ? _enviarMagicLink : null,
+          icon: _loading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.link_rounded),
+          label: Text(l10n.tr('loginSendLink')),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size.fromHeight(50),
+            backgroundColor: palette.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(MatchPayTokens.radiusButton),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLinkSentPanel(MatchPayStrings l10n, SportThemePalette palette) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: palette.cardBackground,
+            borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
+            border: Border.all(color: palette.surfaceTint),
+          ),
+          child: Column(
+            children: [
+              Text(
+                l10n.tr('loginCheckEmailTitle'),
+                textAlign: TextAlign.center,
+                style: MatchPayTokens.titleSmallStyle(color: palette.primaryDark),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.tr(
+                  'loginCheckEmailBody',
+                  params: {'email': _emailIngresado ?? ''},
+                ),
+                textAlign: TextAlign.center,
+                style: MatchPayTokens.bodySmallStyle(),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: (!_loading && _cooldownSegundos <= 0)
+              ? _enviarMagicLink
+              : null,
+          icon: _loading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.refresh_rounded),
+          label: Text(
+            _cooldownSegundos > 0
+                ? l10n.tr(
+                    'loginResendCooldown',
+                    params: {'seconds': '$_cooldownSegundos'},
+                  )
+                : l10n.tr('loginResendLink'),
+          ),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(50),
+            foregroundColor: palette.primary,
+            side: BorderSide(color: palette.primary.withValues(alpha: 0.45)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(MatchPayTokens.radiusButton),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        TextButton(
+          onPressed: _loading
+              ? null
+              : () {
+                  setState(() {
+                    _linkEnviado = false;
+                    _emailIngresado = null;
+                  });
+                },
+          child: Text(l10n.tr('loginChangeEmail')),
+        ),
+      ],
+    );
+  }
+}
+
+class _LoginHero extends StatelessWidget {
+  final bool linkEnviado;
+  final SportThemePalette palette;
+  final String title;
+  final String subtitle;
+
+  const _LoginHero({
+    required this.linkEnviado,
+    required this.palette,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [palette.primary, palette.primaryDark],
+        ),
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(MatchPayTokens.radiusCard),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: palette.primary.withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 350),
+            child: _LoginLottie(
+              key: ValueKey(linkEnviado),
+              asset: linkEnviado
+                  ? 'assets/lottie/login_email_sent.json'
+                  : 'assets/lottie/login_welcome.json',
+              palette: palette,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: MatchPayTokens.displayStyle(color: Colors.white).copyWith(
+              fontSize: 28,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: MatchPayTokens.bodySmallStyle(
+              color: Colors.white.withValues(alpha: 0.88),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginLottie extends StatelessWidget {
+  final String asset;
+  final SportThemePalette palette;
+
+  const _LoginLottie({
+    super.key,
+    required this.asset,
+    required this.palette,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 168,
+      child: Lottie.asset(
+        asset,
+        repeat: true,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => Center(
+          child: SportEmoji(
+            sport: context.read<AppSettingsController>().sport,
+            size: 72,
           ),
         ),
       ),

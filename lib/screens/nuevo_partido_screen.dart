@@ -270,7 +270,9 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         for (final d in completo.detalles.where((d) => d.asistio)) {
           _asistentes.add(d.jugadorKeyId);
           final ep = EstadoPagoJugador();
-          if (d.pagado) {
+          final snap = _saldosSnapshot[d.jugadorKeyId];
+          if (snap != null &&
+              d.partidoCerradoNeto(snapshotSaldoAnterior: snap)) {
             ep.tipo = TipoPago.total;
           } else if (d.montoPagado > 0) {
             ep.tipo = TipoPago.parcial;
@@ -403,20 +405,9 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         cargoPartido: _cargoPartido(j),
       );
 
-  double _totalATransferir(Jugador j) {
-    if (!_asistentes.contains(j.keyId)) {
-      return _saldoAnterior(j) > 0 ? _saldoAnterior(j) : 0;
-    }
-    return CalculationService.totalATransferir(
-      saldoAnterior: _saldoAnterior(j),
-      cargoPartido: _cargoPartido(j),
-      montoPagado: _pagoDe(j.keyId).montoEfectivo(_totalDebido(j)),
-    );
-  }
-
-  double _totalDebido(Jugador j) {
-    if (!_asistentes.contains(j.keyId)) return _saldoAnterior(j);
-    return CalculationService.totalDebido(
+  double _netoAPagarPartido(Jugador j) {
+    if (!_asistentes.contains(j.keyId)) return 0;
+    return CalculationService.netoAPagarPartido(
       saldoAnterior: _saldoAnterior(j),
       cargoPartido: _cargoPartido(j),
     );
@@ -425,10 +416,20 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   double _saldoRestante(Jugador j) {
     if (!_asistentes.contains(j.keyId)) return _saldoAnterior(j);
     final pago = _pagoDe(j.keyId);
-    return CalculationService.saldoDespuesPago(
+    return CalculationService.saldoDespuesPagoPartido(
       saldoAnterior: _saldoAnterior(j),
       cargoPartido: _cargoPartido(j),
-      montoPagado: pago.montoEfectivo(_totalDebido(j)),
+      montoPagado: pago.montoEfectivo(_netoAPagarPartido(j)),
+    );
+  }
+
+  double _pendientePartido(Jugador j) {
+    if (!_asistentes.contains(j.keyId)) return 0;
+    final pago = _pagoDe(j.keyId);
+    return CalculationService.pendientePartido(
+      saldoAnterior: _saldoAnterior(j),
+      cargoPartido: _cargoPartido(j),
+      montoPagado: pago.montoEfectivo(_netoAPagarPartido(j)),
     );
   }
 
@@ -643,7 +644,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
 
     setState(() => pago.abonoConfirmado = true);
 
-    final restante = CalculationService.saldoDespuesPago(
+    final restante = CalculationService.saldoDespuesPagoPartido(
       saldoAnterior: _saldoAnterior(j),
       cargoPartido: _cargoPartido(j),
       montoPagado: m,
@@ -686,7 +687,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     final map = <String, double>{};
     for (final id in _asistentes) {
       final j = _habituales.firstWhere((x) => x.keyId == id);
-      map[id] = _pagoDe(id).montoEfectivo(_totalDebido(j));
+      map[id] = _pagoDe(id).montoEfectivo(_netoAPagarPartido(j));
     }
     return map;
   }
@@ -732,7 +733,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     for (final id in _asistentes) {
       final j = _habituales.firstWhere((x) => x.keyId == id);
       final pago = _pagoDe(id);
-      final total = _totalDebido(j);
+      final total = _netoAPagarPartido(j);
       if (pago.tipo == TipoPago.parcial && total > 0) {
         final m = parseMoney(pago.montoParcial.text);
         if (m <= 0) {
@@ -1912,13 +1913,10 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   Widget _buildFilaJugador(Jugador j) {
     final l10n = context.l10n;
     final asistio = _asistentes.contains(j.keyId);
-    final saldoAnt = _saldoAnterior(j);
-    final totalDeb = asistio ? _totalDebido(j) : saldoAnt;
+    final totalDeb = asistio ? _netoAPagarPartido(j) : 0.0;
     final pago = asistio ? _pagoDe(j.keyId) : null;
-    final restante = asistio ? _saldoRestante(j) : saldoAnt;
-    final aTransferir = asistio
-        ? _totalATransferir(j)
-        : (saldoAnt > 0 ? saldoAnt : 0.0);
+    final restante = asistio ? _saldoRestante(j) : 0.0;
+    final aTransferir = asistio ? _pendientePartido(j) : 0.0;
     // En nube el pago lo declara el jugador; aquí solo se marca asistencia.
     final modoNube = context.repos.isCloud;
 
@@ -2341,9 +2339,9 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             const SizedBox(height: 8),
             ...asistentesList.map((j) {
               final pago = _pagoDe(j.keyId);
-              final totalDeb = _totalDebido(j);
+              final totalDeb = _netoAPagarPartido(j);
               final restante = _saldoRestante(j);
-              final aTransferir = _totalATransferir(j);
+              final aTransferir = _pendientePartido(j);
               String estado;
               Color color;
               if (restante <= 0) {

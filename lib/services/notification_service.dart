@@ -46,6 +46,7 @@ class NotificationService {
   bool _launchPayloadHandledThisSession = false;
   VoidCallback? onNavigateOrganizerHome;
   VoidCallback? onNavigateOrganizerMisCobros;
+  VoidCallback? onNavigatePlayerMisCobros;
 
   static const _prefsLaunchPayload = 'notif_launch_payload_handled';
   static const _prefsLaunchAt = 'notif_launch_payload_at';
@@ -56,6 +57,10 @@ class NotificationService {
 
   void registerOrganizerMisCobrosNavigation(VoidCallback callback) {
     onNavigateOrganizerMisCobros = callback;
+  }
+
+  void registerPlayerMisCobrosNavigation(VoidCallback callback) {
+    onNavigatePlayerMisCobros = callback;
   }
 
   Future<String> _languageCode() => AppSettingsController.readLanguageCode();
@@ -586,7 +591,7 @@ class NotificationService {
   }
 
   Future<void> _abrirMisCobros() async {
-    final goToTab = onNavigateOrganizerMisCobros;
+    final goToTab = onNavigateOrganizerMisCobros ?? onNavigatePlayerMisCobros;
     if (goToTab != null) {
       final ctx = navigatorKey?.currentContext;
       if (ctx != null && ctx.mounted) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/app_repositories.dart';
 import '../core/supabase_helpers.dart';
+import '../domain/deuda_explicacion.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/deuda_partido_anterior.dart';
 import '../models/jugador.dart';
@@ -107,6 +108,41 @@ class _HistorialScreenState extends State<HistorialScreen> {
           return h.abono > 0;
       }
     }).toList();
+  }
+
+  ExplicacionDeudaJugador? get _explicacionDeuda {
+    final saldo = _jugador?.saldoAcumulado ?? 0;
+    return explicarDeudaJugador(
+      saldoAcumulado: saldo,
+      historial: _historial,
+    );
+  }
+
+  DeudaPartidoAnterior? _partidoContextoDeuda(ExplicacionDeudaJugador exp) {
+    final id = exp.partidoIdContexto;
+    if (id == null) return null;
+    for (final p in _pendientes) {
+      if (p.partidoId == id) return p;
+    }
+    return null;
+  }
+
+  String? _lineaPartidoContexto(ExplicacionDeudaJugador exp) {
+    final partido = _partidoContextoDeuda(exp);
+    if (partido != null) {
+      final lugar = partido.recinto?.trim().isNotEmpty == true
+          ? ' · ${partido.recinto}'
+          : '';
+      return '${formatFecha(partido.fecha)}$lugar';
+    }
+    final id = exp.partidoIdContexto;
+    if (id == null) return null;
+    for (final h in _historial) {
+      if (h.partidoId == id) {
+        return formatFecha(h.fecha);
+      }
+    }
+    return null;
   }
 
   Map<String, List<SaldoHistorico>> get _historialPorMes {
@@ -442,8 +478,8 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 slivers: [
                   SliverToBoxAdapter(child: _buildFicha(jugador, color, alDia, conFavor, saldo)),
                   SliverToBoxAdapter(child: _buildEstadisticas(alDia, conFavor)),
-                  if (_pendientes.isNotEmpty)
-                    SliverToBoxAdapter(child: _buildPendientes()),
+                  if (_explicacionDeuda != null)
+                    SliverToBoxAdapter(child: _buildExplicacionDeuda()),
                   SliverToBoxAdapter(child: _buildAcciones(alDia, conFavor)),
                   SliverToBoxAdapter(child: _buildFiltros()),
                   if (_historialFiltrado.isEmpty)
@@ -682,17 +718,18 @@ class _HistorialScreenState extends State<HistorialScreen> {
                     color: colorSaldo(saldo),
                   ),
                 ),
-                if (!alDia && _pendientes.isNotEmpty) ...[
+                if (!alDia && _explicacionDeuda?.subtituloKey != null) ...[
                   const SizedBox(height: 6),
                   Text(
                     context.tr(
-                      'unpaidMatchesCount',
-                      params: {'count': '${_pendientes.length}'},
+                      _explicacionDeuda!.subtituloKey!,
+                      params: _explicacionDeuda!.subtituloParams,
                     ),
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.orange.shade800,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ],
@@ -713,10 +750,12 @@ class _HistorialScreenState extends State<HistorialScreen> {
               icon: context.readSettings().sport.icon,
               label: context.tr('tabMatches'),
               value: '$_partidosJugados',
-              subtitulo: context.tr(
-                'paidCountLabel',
-                params: {'count': '$_partidosPagados'},
-              ),
+              subtitulo: alDia
+                  ? context.tr(
+                      'paidCountLabel',
+                      params: {'count': '$_partidosPagados'},
+                    )
+                  : context.tr('playerDebtOnAccount'),
               color: Colors.blue,
             ),
           ),
@@ -749,7 +788,12 @@ class _HistorialScreenState extends State<HistorialScreen> {
     );
   }
 
-  Widget _buildPendientes() {
+  Widget _buildExplicacionDeuda() {
+    final exp = _explicacionDeuda;
+    if (exp == null) return const SizedBox.shrink();
+
+    final partidoLinea = _lineaPartidoContexto(exp);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       child: Card(
@@ -766,33 +810,46 @@ class _HistorialScreenState extends State<HistorialScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.pending_actions_rounded,
+                  Icon(Icons.calculate_rounded,
                       color: Colors.orange.shade800, size: 22),
                   const SizedBox(width: 8),
-                  Text(
-                    context.tr('pendingMatchesTitle'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange.shade900,
+                  Expanded(
+                    child: Text(
+                      context.tr(
+                        'deudaExplainTitle',
+                        params: {'amount': formatMoney(exp.deudaActual)},
+                      ),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.orange.shade900,
+                      ),
                     ),
                   ),
                 ],
               ),
+              if (partidoLinea != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  partidoLinea,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange.shade900,
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
-              ..._pendientes.map((p) {
-                final fecha = formatFecha(p.fecha);
-                final lugar = p.recinto?.trim().isNotEmpty == true
-                    ? ' · ${p.recinto}'
-                    : '';
+              ...exp.lineas.map((linea) {
+                final montoTxt = linea.esResta
+                    ? '−${formatMoney(linea.monto)}'
+                    : formatMoney(linea.monto);
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Row(
                     children: [
-                      Icon(Icons.circle, size: 8, color: Colors.orange.shade600),
-                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '$fecha$lugar',
+                          context.tr(linea.labelKey),
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.orange.shade900,
@@ -800,9 +857,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
                         ),
                       ),
                       Text(
-                        formatMoney(p.montoPendiente),
+                        montoTxt,
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                           color: Colors.orange.shade900,
                         ),
                       ),
@@ -810,36 +868,29 @@ class _HistorialScreenState extends State<HistorialScreen> {
                   ),
                 );
               }),
-              if (_pendientes.isNotEmpty) ...[
-                Divider(color: Colors.orange.shade200, height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        context.tr('totalPending'),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: Colors.orange.shade900,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      formatMoney(
-                        _pendientes.fold<double>(
-                          0,
-                          (s, p) => s + p.montoPendiente,
-                        ),
-                      ),
+              Divider(color: Colors.orange.shade200, height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.tr('deudaExplainCurrentDebt'),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 13,
                         color: Colors.orange.shade900,
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                  Text(
+                    formatMoney(exp.deudaActual),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Colors.orange.shade900,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

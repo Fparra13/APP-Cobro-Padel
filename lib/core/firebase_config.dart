@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 
 /// Configuración Firebase / FCM.
 ///
-/// 1. Crea proyecto en Firebase Console y app Android `com.padelcobro.padel_cobro`
+/// 1. Crea proyecto en Firebase Console y app Android `com.matchpay.app`
 /// 2. Descarga `google-services.json` → `android/app/google-services.json`
 /// 3. Compila con --dart-define (valores en Project settings → General):
 ///    FIREBASE_API_KEY, FIREBASE_APP_ID, FIREBASE_MESSAGING_SENDER_ID, FIREBASE_PROJECT_ID

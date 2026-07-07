@@ -348,7 +348,7 @@ class PdfService {
                 child: pw.Text(
                   _pdf(
                     '  - ${_lineaPartido(deuda.fecha, deuda.recinto)}: '
-                    '${_fmt(deuda.montoPendiente)}',
+                    '${_fmt(deuda.pendienteNeto)}',
                   ),
                   style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
                 ),
@@ -797,7 +797,7 @@ class PdfService {
 
   Future<Directory> _getPdfDirectory() async {
     final dir = await getApplicationDocumentsDirectory();
-    final pdfDir = Directory(p.join(dir.path, 'PadelCobro', 'reportes'));
+    final pdfDir = Directory(p.join(dir.path, 'MatchPay', 'reportes'));
     if (!await pdfDir.exists()) await pdfDir.create(recursive: true);
     return pdfDir;
   }

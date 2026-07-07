@@ -33,7 +33,7 @@ class AppSettingsController extends ChangeNotifier {
   static const _keyUiMode = 'matchpay_ui_mode';
 
   SportType _sport = SportType.padel;
-  Locale _locale = const Locale('es', 'CL');
+  Locale _locale = const Locale('en');
   String _currencyCode = CurrencyConfig.defaultCode;
   AppUiMode _uiMode = AppUiMode.organizer;
   bool _loaded = false;
@@ -72,10 +72,18 @@ class AppSettingsController extends ChangeNotifier {
     if (savedLocale != null) {
       _locale = _parseLocale(savedLocale);
     } else {
-      _locale = resolveDeviceLocale();
+      _locale = resolveDeviceLocale(
+        deviceLocales: WidgetsBinding.instance.platformDispatcher.locales,
+      );
       await prefs.setString(_keyLocale, _localeTag(_locale));
     }
-    _currencyCode = prefs.getString(_keyCurrency) ?? CurrencyConfig.defaultCode;
+    final hadCurrencySaved = prefs.containsKey(_keyCurrency);
+    if (hadCurrencySaved) {
+      _currencyCode = prefs.getString(_keyCurrency)!;
+    } else {
+      _currencyCode = resolveCurrencyForLocale(_locale);
+      await prefs.setString(_keyCurrency, _currencyCode);
+    }
     _uiMode = AppUiMode.fromStorage(prefs.getString(_keyUiMode));
     _loaded = true;
     notifyListeners();
@@ -98,21 +106,74 @@ class AppSettingsController extends ChangeNotifier {
   }
 
   /// Idioma del sistema mapeado a un locale soportado por MatchPay.
-  static Locale resolveDeviceLocale([Locale? deviceLocale]) {
-    final device =
-        deviceLocale ?? WidgetsBinding.instance.platformDispatcher.locale;
-    for (final supported in supportedLocales) {
-      if (supported.languageCode == device.languageCode &&
-          supported.countryCode == device.countryCode) {
-        return supported;
+  ///
+  /// En el primer arranque (sin preferencia guardada) usa la lista de idiomas
+  /// del dispositivo (`platformDispatcher.locales`), igual que el onboarding.
+  static Locale resolveDeviceLocale({
+    Locale? deviceLocale,
+    Iterable<Locale>? deviceLocales,
+  }) {
+    final candidates = <Locale>[
+      ?deviceLocale,
+      ...?deviceLocales,
+    ];
+    if (candidates.isEmpty) {
+      candidates.add(WidgetsBinding.instance.platformDispatcher.locale);
+    }
+    for (final device in candidates) {
+      for (final supported in supportedLocales) {
+        if (supported.languageCode == device.languageCode &&
+            supported.countryCode != null &&
+            supported.countryCode == device.countryCode) {
+          return supported;
+        }
       }
     }
-    for (final supported in supportedLocales) {
-      if (supported.languageCode == device.languageCode) {
-        return supported;
+    for (final device in candidates) {
+      for (final supported in supportedLocales) {
+        if (supported.languageCode == device.languageCode) {
+          return supported;
+        }
       }
     }
-    return const Locale('es', 'CL');
+    return const Locale('en');
+  }
+
+  /// Moneda inicial según región del dispositivo (solo primer arranque).
+  static String resolveCurrencyForLocale(Locale locale) {
+    switch (locale.countryCode?.toUpperCase()) {
+      case 'CL':
+        return 'CLP';
+      case 'AR':
+        return 'ARS';
+      case 'MX':
+        return 'MXN';
+      case 'CO':
+        return 'COP';
+      case 'PE':
+        return 'PEN';
+      case 'BR':
+        return 'BRL';
+      case 'US':
+        return 'USD';
+      case 'GB':
+        return 'GBP';
+      case 'ES':
+      case 'FR':
+      case 'DE':
+      case 'IT':
+        return 'EUR';
+    }
+    switch (locale.languageCode) {
+      case 'pt':
+        return 'BRL';
+      case 'en':
+        return 'USD';
+      case 'es':
+        return 'USD';
+      default:
+        return CurrencyConfig.defaultCode;
+    }
   }
 
   static Future<String> readLanguageCode() async {
@@ -145,6 +206,15 @@ class AppSettingsController extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyIntroOnboarded, true);
+  }
+
+  /// Vuelve al paso 1 del onboarding (idioma + valor).
+  Future<void> revertIntroOnboarding() async {
+    if (!_introOnboardingComplete || _sportOnboardingComplete) return;
+    _introOnboardingComplete = false;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyIntroOnboarded, false);
   }
 
   /// Guarda el deporte elegido en el onboarding inicial (obligatorio).
@@ -230,4 +300,18 @@ class AppSettingsController extends ChangeNotifier {
     Locale('pt', 'BR'),
     Locale('pt'),
   ];
+
+  /// Opciones visibles en onboarding y ajustes (es / en / pt).
+  static const pickerLocales = [
+    Locale('es', 'CL'),
+    Locale('en'),
+    Locale('pt', 'BR'),
+  ];
+
+  static Locale normalizePickerLocale(Locale locale) {
+    for (final supported in pickerLocales) {
+      if (supported.languageCode == locale.languageCode) return supported;
+    }
+    return const Locale('en');
+  }
 }

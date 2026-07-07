@@ -53,21 +53,25 @@ class CobroNotificacionService {
       final fechaTxt = formatDiaCompleto(completo.partido.fecha);
       final uid = AuthService.instance.currentUser?.id;
 
-      final pendientes = completo.detalles
-          .where((d) => d.asistio && !d.pagado && d.jugadorSupabaseId != null)
-          .toList();
-
-      if (pendientes.isEmpty) {
-        debugPrint('CobroNotificacion: sin jugadores pendientes en $partidoId');
-        return;
-      }
+      final pendientes = completo.detalles.where((d) {
+        if (!d.asistio || d.jugadorSupabaseId == null) return false;
+        final snap = completo.snapshotSaldoCobro(d);
+        if (snap == null) return false;
+        return d.tieneDeudaNeto(snapshotSaldoAnterior: snap);
+      }).toList();
 
       var enviados = 0;
       await Future.wait(
         pendientes.map((det) async {
           final jugadorId = det.jugadorSupabaseId!;
           final d = desglosePorId[jugadorId];
-          final monto = d?.totalATransferir ?? det.total;
+          final snap = completo.snapshotSaldoCobro(det);
+          final monto = d?.pendientePartido ??
+              (snap != null
+                  ? det
+                      .estadoCobro(snapshotSaldoAnterior: snap)
+                      .pendienteNeto
+                  : 0);
           if (monto <= 0 && det.total <= 0) return;
 
           final targetId = await _resolverIdNotificacion(jugadorId);
@@ -122,7 +126,87 @@ class CobroNotificacionService {
           enviados++;
         }),
       );
-      debugPrint('CobroNotificacion: $enviados push(es) para partido $partidoId');
+
+      final cubiertosConFavor = completo.detalles.where((d) {
+        if (!d.asistio || d.jugadorSupabaseId == null) return false;
+        final snap = completo.snapshotSaldoCobro(d);
+        if (snap == null) return false;
+        if (d.tieneDeudaNeto(snapshotSaldoAnterior: snap)) return false;
+        final dsg = desglosePorId[d.jugadorSupabaseId!];
+        if (dsg == null) return false;
+        return dsg.saldoFavorAplicado > 0.005 &&
+            dsg.pendientePartido <= 0.005 &&
+            dsg.montoPagado <= 0.005;
+      }).toList();
+
+      await Future.wait(
+        cubiertosConFavor.map((det) async {
+          final jugadorId = det.jugadorSupabaseId!;
+          final dsg = desglosePorId[jugadorId]!;
+          final targetId = await _resolverIdNotificacion(jugadorId);
+          if (targetId.isEmpty) return;
+
+          final lang = await NotificationLocale.forUser(targetId);
+          final titulo =
+              NotificationLocale.tr(lang, 'notifMatchPaidWithCreditTitle');
+          final cuerpo = NotificationLocale.tr(
+            lang,
+            'notifMatchPaidWithCreditBody',
+            params: {
+              'matchAmount': formatMoney(dsg.totalPartido),
+              'credit': formatMoney(dsg.saldoFavorAplicado),
+            },
+          );
+          final creditoRestante = dsg.saldoRestantePartido < -0.005
+              ? -dsg.saldoRestantePartido
+              : 0.0;
+          final detalleTexto = [
+            NotificationLocale.tr(
+              lang,
+              'notifMatchPaidWithCreditDetail',
+              params: {
+                'matchAmount': formatMoney(dsg.totalPartido),
+                'credit': formatMoney(dsg.saldoFavorAplicado),
+              },
+            ),
+            if (creditoRestante > 0.005)
+              NotificationLocale.tr(
+                lang,
+                'notifMatchPaidWithCreditRemaining',
+                params: {'amount': formatMoney(creditoRestante)},
+              ),
+          ].join('\n');
+
+          if (uid != null && uid == targetId) {
+            await NotificationService.instance.showCobroPartido(
+              partidoId: partidoId,
+              titulo: titulo,
+              cuerpo: cuerpo,
+              detalle: detalleTexto,
+            );
+            enviados++;
+            return;
+          }
+
+          await PushNotificationService.instance.enviar(
+            userIds: [targetId],
+            title: titulo,
+            body: cuerpo,
+            data: {
+              'type': 'cobro_partido_favor',
+              'partido_id': '$partidoId',
+              'detalle': _truncar(detalleTexto, 900),
+            },
+          );
+          enviados++;
+        }),
+      );
+
+      if (enviados == 0) {
+        debugPrint('CobroNotificacion: sin notificaciones en $partidoId');
+      } else {
+        debugPrint('CobroNotificacion: $enviados push(es) para partido $partidoId');
+      }
     } catch (e, st) {
       debugPrint('CobroNotificacionService.notificarCobrosPartido: $e\n$st');
     }
@@ -228,7 +312,7 @@ class CobroNotificacionService {
     required int partidoId,
     required String jugadorId,
     required String jugadorNombre,
-    required double montoPendiente,
+    required double pendienteNeto,
     required DateTime fechaPartido,
   }) async {
     if (!SupabaseConfig.isConfigured) return;
@@ -245,7 +329,7 @@ class CobroNotificacionService {
         params: {
           'name': formatNombreSaludo(jugadorNombre),
           'date': formatFecha(fechaPartido),
-          'amount': formatMoney(montoPendiente),
+          'amount': formatMoney(pendienteNeto),
         },
       );
 
@@ -289,18 +373,18 @@ class CobroNotificacionService {
         .join(' · ');
     final recinto = partido.recinto?.trim();
     final lugar = recinto != null && recinto.isNotEmpty ? ' · $recinto' : '';
-    final pendiente = d.totalATransferir > 0
+    final pendiente = d.pendientePartido > 0
         ? NotificationLocale.tr(
             lang,
             'notifMatchChargePending',
-            params: {'amount': formatMoney(d.totalATransferir)},
+            params: {'amount': formatMoney(d.pendientePartido)},
           )
         : NotificationLocale.tr(
             lang,
             'notifMatchChargeOwes',
             params: {
               'amount': formatMoney(
-                d.saldoRestante > 0 ? d.saldoRestante : d.totalDebido,
+                d.netoAPagarPartido > 0 ? d.netoAPagarPartido : d.totalPartido,
               ),
             },
           );

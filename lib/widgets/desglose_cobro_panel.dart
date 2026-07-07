@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../core/matchpay_design_tokens.dart';
+import '../services/calculation_service.dart';
+import '../domain/cobro_logic.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
@@ -13,21 +15,42 @@ class DesgloseCalculoPanel extends StatelessWidget {
   final DesgloseJugador desglose;
   final bool compact;
   final bool showLineasPartido;
+  /// Si true, solo muestra cargo del partido (sin deuda anterior acumulada).
+  final bool soloPartidoActual;
+  /// Monto a transferir a nivel cuenta (SSOT); anula el cálculo por partido.
+  final double? montoTransferirCuenta;
 
   const DesgloseCalculoPanel({
     super.key,
     required this.desglose,
     this.compact = false,
     this.showLineasPartido = true,
+    this.soloPartidoActual = false,
+    this.montoTransferirCuenta,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final d = desglose;
-    final deudaAnt = d.saldoAnterior > 0 ? d.saldoAnterior : 0.0;
+    final deudaAnt =
+        !soloPartidoActual && d.saldoAnterior > 0 ? d.saldoAnterior : 0.0;
     final saldoFavor = d.saldoAnterior < 0 ? -d.saldoAnterior : 0.0;
-    final aTransferir = d.saldoRestante > 0 ? d.saldoRestante : 0.0;
+    final totalDebido =
+        soloPartidoActual ? d.netoAPagarPartido : d.totalDebido;
+    final aTransferir = soloPartidoActual
+        ? d.pendienteMarginalPartido
+        : (montoTransferirCuenta != null && montoTransferirCuenta! > 0.005
+            ? montoTransferirCuenta!
+            : (d.saldoRestante > 0 ? d.saldoRestante : 0.0));
+    final saldoRestante = soloPartidoActual
+        ? d.saldoRestantePartido
+        : d.saldoRestante;
+    final pagado = soloPartidoActual
+        ? d.partidoCubiertoMarginal
+        : d.saldoRestante <= 0.005;
+    final generaFavor =
+        soloPartidoActual ? d.generaSaldoAFavorPartido : d.generaSaldoAFavor;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,11 +89,11 @@ class DesgloseCalculoPanel extends StatelessWidget {
         Divider(height: compact ? 12 : 16),
         _Fila(
           label: l10n.tr('breakdownTotalDue'),
-          monto: d.totalDebido,
+          monto: totalDebido,
           bold: true,
           compact: compact,
         ),
-        if (d.montoPagado > 0)
+        if (d.montoPagado > 0 && montoTransferirCuenta == null)
           _Fila(
             label: l10n.tr('breakdownPaidAmount'),
             monto: d.montoPagado,
@@ -80,16 +103,14 @@ class DesgloseCalculoPanel extends StatelessWidget {
           ),
         Divider(height: compact ? 12 : 16),
         _Fila(
-          label: d.pagado && d.generaSaldoAFavor
+          label: pagado && generaFavor
               ? l10n.tr('breakdownCreditResult')
               : l10n.tr('breakdownToTransfer'),
-          monto: d.pagado && d.generaSaldoAFavor
-              ? -d.saldoRestante
-              : aTransferir,
+          monto: pagado && generaFavor ? -saldoRestante : aTransferir,
           bold: true,
           destacado: true,
           compact: compact,
-          color: d.pagado
+          color: pagado
               ? Colors.green.shade800
               : (aTransferir > 0 ? Colors.orange.shade900 : Colors.green.shade800),
         ),
@@ -104,6 +125,9 @@ class CobroPartidoCard extends StatelessWidget {
   final String? estadoExtra;
   final Widget? actions;
   final bool compact;
+  final bool showLineasPartido;
+  final bool soloPartidoActual;
+  final double? montoTransferirCuenta;
 
   const CobroPartidoCard({
     super.key,
@@ -112,6 +136,9 @@ class CobroPartidoCard extends StatelessWidget {
     this.estadoExtra,
     this.actions,
     this.compact = false,
+    this.showLineasPartido = true,
+    this.soloPartidoActual = false,
+    this.montoTransferirCuenta,
   });
 
   String _titulo(BuildContext context) {
@@ -151,7 +178,9 @@ class CobroPartidoCard extends StatelessWidget {
               DesgloseCalculoPanel(
                 desglose: desglose!,
                 compact: compact,
-                showLineasPartido: !compact,
+                showLineasPartido: showLineasPartido && !compact,
+                soloPartidoActual: soloPartidoActual,
+                montoTransferirCuenta: montoTransferirCuenta,
               )
             else
               _Fila(
@@ -242,14 +271,53 @@ String tituloDetallePartido(DetallePartido d, MatchPayStrings l10n) {
   return l10n.tr('matchNumber', params: {'id': '${d.partidoId}'});
 }
 
-double montoATransferirCobro(DetallePartido d, DesgloseJugador? desglose) {
-  if (desglose != null) {
-    return desglose.saldoRestante > 0 ? desglose.saldoRestante : 0;
-  }
-  return d.montoPendiente;
+double montoMarginalPartidoCobro(
+  DetallePartido d,
+  DesgloseJugador? desglose, {
+  double? saldoAnteriorPartido,
+}) {
+  if (desglose != null) return desglose.pendienteMarginalPartido;
+  final saldo = saldoAnteriorPartido ?? 0;
+  return CalculationService.pendientePartido(
+    saldoAnterior: saldo,
+    cargoPartido: d.total,
+    montoPagado: d.montoPagado,
+  );
 }
 
-String estadoTextoCobro(DetallePartido d, MatchPayStrings l10n) {
+double montoATransferirCobro(
+  DetallePartido d,
+  DesgloseJugador? desglose, {
+  double? saldoAnteriorPartido,
+}) {
+  if (desglose != null) {
+    return CobroLogic.obtenerPendientePartido(
+      saldoAnteriorAlPartido: desglose.saldoAnterior,
+      cargoPartido: desglose.totalPartido,
+      montoPagadoEnPartido: desglose.montoPagado,
+    );
+  }
+  if (saldoAnteriorPartido != null) {
+    return CobroLogic.obtenerPendientePartido(
+      saldoAnteriorAlPartido: saldoAnteriorPartido,
+      cargoPartido: d.total,
+      montoPagadoEnPartido: d.montoPagado,
+    );
+  }
+  // Sin saldo anterior conocido: no calcular bruto aquí; el caller debe
+  // proveer saldoAnteriorPartido o desglose.
+  return CobroLogic.obtenerPendientePartido(
+    saldoAnteriorAlPartido: 0,
+    cargoPartido: d.total,
+    montoPagadoEnPartido: d.montoPagado,
+  );
+}
+
+String estadoTextoCobro(
+  DetallePartido d,
+  MatchPayStrings l10n, {
+  double? saldoAnteriorAlPartido,
+}) {
   if (d.comprobantePendienteValidacion) {
     final monto = d.montoPagoDeclarado;
     if (monto != null && monto > 0) {
@@ -263,8 +331,12 @@ String estadoTextoCobro(DetallePartido d, MatchPayStrings l10n) {
     }
     return l10n.tr('cobroStatusReceiptReview');
   }
-  if (d.tieneDeudaEnCobro) return l10n.tr('cobroStatusPending');
-  if (d.pagoParcial) return l10n.tr('cobroStatusPartialRegistered');
+  if (saldoAnteriorAlPartido != null) {
+    final estado = d.estadoCobro(snapshotSaldoAnterior: saldoAnteriorAlPartido);
+    if (estado.tieneDeuda) return l10n.tr('cobroStatusPending');
+    if (estado.pagoParcial) return l10n.tr('cobroStatusPartialRegistered');
+    return l10n.tr('cobroStatusPaid');
+  }
   return l10n.tr('cobroStatusPaid');
 }
 

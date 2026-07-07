@@ -10,6 +10,7 @@ import '../utils/matchpay_context.dart';
 import '../widgets/ayuda_tip.dart';
 import '../utils/nav_shell_layout.dart';
 import '../widgets/jugador_avatar.dart';
+import '../widgets/jugador_app_badge.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/shimmer_loading.dart';
 import 'estadisticas_jugadores_screen.dart';
@@ -46,6 +47,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
   Future<void> _showForm({Jugador? jugador}) async {
     final nombreCtrl = TextEditingController(text: jugador?.nombre ?? '');
     final emailCtrl = TextEditingController(text: jugador?.contactEmail ?? '');
+    final whatsappCtrl =
+        TextEditingController(text: jugador?.contactWhatsApp ?? '');
     final activo = ValueNotifier(jugador?.activo ?? true);
 
     final saved = await showDialog<bool>(
@@ -85,6 +88,18 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                 ),
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: whatsappCtrl,
+                decoration: InputDecoration(
+                  labelText: l10n.tr('whatsappLabel'),
+                  hintText: l10n.tr('whatsappHint'),
+                  helperText: l10n.tr('whatsappHelper'),
+                  prefixIcon: const Icon(Icons.chat_outlined),
+                  border: const OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 12),
               ValueListenableBuilder(
@@ -128,12 +143,28 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
 
     final now = DateTime.now();
     final email = emailCtrl.text.trim().toLowerCase();
+    final whatsappRaw = whatsappCtrl.text.trim();
+    final whatsapp = whatsappRaw.isEmpty
+        ? null
+        : formatWhatsAppDisplay(whatsappRaw);
+    if (whatsappRaw.isNotEmpty && normalizeWhatsAppDigits(whatsappRaw) == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.tr('whatsappInvalid')),
+            backgroundColor: MatchPayTokens.accentError,
+          ),
+        );
+      }
+      return;
+    }
     try {
       if (jugador == null) {
         await context.repos.insertJugador(Jugador(
           nombre: nombreCtrl.text.trim(),
           activo: activo.value,
           email: email,
+          telefono: whatsapp,
           createdAt: now,
         ));
       } else {
@@ -141,6 +172,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
           nombre: nombreCtrl.text.trim(),
           activo: activo.value,
           email: email,
+          telefono: whatsapp,
+          clearTelefono: whatsapp == null,
         ));
       }
       if (mounted) {
@@ -406,6 +439,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                           color: MatchPayTokens.accentUrgent,
                         ),
                       ],
+                      const SizedBox(width: 6),
+                      JugadorAppBadge(jugador: j, compact: true),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -427,6 +462,12 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                           icon: Icons.email_outlined,
                           label: j.contactEmail!,
                           color: MatchPayTokens.accentCredit,
+                        ),
+                      if (j.contactWhatsApp != null)
+                        _MiniChip(
+                          icon: Icons.chat_outlined,
+                          label: formatWhatsAppDisplay(j.contactWhatsApp),
+                          color: const Color(0xFF25D366),
                         ),
                     ],
                   ),

@@ -12,7 +12,9 @@ import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../models/recinto.dart';
 import '../services/convocatoria_lista_espera_service.dart';
+import '../services/convocatoria_message_service.dart';
 import '../services/convocatoria_notificacion_service.dart';
+import '../services/whatsapp_share_service.dart';
 import '../services/preferences_service.dart';
 import '../services/supabase_realtime_service.dart';
 import '../utils/formatters.dart';
@@ -21,6 +23,7 @@ import '../widgets/ayuda_tip.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/confirmar_eliminar_partido_dialog.dart';
+import '../widgets/jugador_app_badge.dart';
 import '../widgets/match_sport_picker.dart';
 import '../widgets/mis_recintos_panel.dart';
 import '../widgets/sport_icon.dart';
@@ -56,6 +59,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   SportType _sportType = SportType.padel;
   bool _loading = true;
   bool _guardando = false;
+  String? _enviandoWhatsAppId;
   String? _errorCarga;
   int? _partidoId;
   bool _dirty = false;
@@ -741,6 +745,53 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       arguments: _partidoId,
     );
     if (mounted) Navigator.pop(context, true);
+  }
+
+  Future<void> _enviarConvocatoriaWhatsApp(Jugador jugador) async {
+    if (jugador.tieneMatchPayApp || _partidoId == null) return;
+    if (!jugador.puedeEnviarWhatsApp) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.tr('whatsappNoNumber'))),
+      );
+      return;
+    }
+
+    setState(() => _enviandoWhatsAppId = jugador.keyId);
+    try {
+      final conv =
+          await context.repos.getConvocatoriaCompleta(_partidoId!);
+      if (conv == null) {
+        throw Exception(context.l10n.tr('convocatoriaNotFoundSnack'));
+      }
+      final msg = ConvocatoriaMessageService().construirMensajePersonal(
+        convocatoria: conv,
+        nombreJugador: jugador.nombre,
+      );
+      final ok = await WhatsAppShareService.enviar(
+        mensaje: msg,
+        telefono: jugador.contactWhatsApp,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              ok
+                  ? context.l10n.tr('whatsappOpening')
+                  : context.l10n.tr('whatsappOpenFailed'),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _enviandoWhatsAppId = null);
+    }
   }
 
   Future<void> _eliminarConvocatoria() async {
@@ -1430,8 +1481,57 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                     onChanged: _formularioBloqueado
                         ? null
                         : (v) => _toggleTitular(id, v),
-                    title: Text(j.nombre),
-                    subtitle: j.contactEmail != null ? Text(j.contactEmail!) : null,
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            j.nombre,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        JugadorAppBadge(jugador: j, compact: true),
+                      ],
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (j.contactEmail != null) Text(j.contactEmail!),
+                        if (esTitular &&
+                            _modoSeguimiento &&
+                            !j.tieneMatchPayApp) ...[
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: _enviandoWhatsAppId == id
+                                  ? null
+                                  : () => _enviarConvocatoriaWhatsApp(j),
+                              icon: _enviandoWhatsAppId == id
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.chat_outlined,
+                                      size: 18,
+                                      color: Color(0xFF25D366),
+                                    ),
+                              label: Text(
+                                context.l10n.tr('sendConvocatoriaWhatsApp'),
+                                style: const TextStyle(
+                                  color: Color(0xFF1B8F4E),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     secondary: esTitular
                         ? _EstadoChip(
                             estado: estado,

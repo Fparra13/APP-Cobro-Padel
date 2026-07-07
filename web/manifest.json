@@ -1,6 +1,6 @@
 {
-    "name": "padel_cobro",
-    "short_name": "padel_cobro",
+    "name": "MatchPay",
+    "short_name": "MatchPay",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

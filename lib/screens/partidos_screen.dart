@@ -95,9 +95,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
                       final total = pc.detalles
                           .where((d) => d.asistio)
                           .fold(0.0, (s, d) => s + d.total);
-                      final pendientes = pc.detalles
-                          .where((d) => d.asistio && !d.pagado)
-                          .length;
+                      final pendientes = pc.contarAsistentesConDeudaNeta();
                       final unpaid = pendientes > 0
                           ? context.tr(
                               'matchUnpaidSuffix',
@@ -188,17 +186,27 @@ class _PartidosScreenState extends State<PartidosScreen> {
               ),
               const Divider(),
               ...pc.detalles.where((d) => d.asistio).map(
-                    (d) => ListTile(
+                    (d) {
+                      final snap = pc.snapshotSaldoCobro(d);
+                      final cerrado = snap != null &&
+                          d.partidoCerradoNeto(snapshotSaldoAnterior: snap);
+                      final pendiente = snap != null
+                          ? d
+                              .estadoCobro(snapshotSaldoAnterior: snap)
+                              .pendienteNeto
+                          : d.total;
+                      return ListTile(
                       dense: true,
                       title: Text(d.nombreJugador ?? ''),
                       trailing: Text(
-                        d.pagado ? ctx.tr('paidVerb') : formatMoney(d.total),
+                        cerrado ? ctx.tr('paidVerb') : formatMoney(pendiente),
                         style: TextStyle(
-                          color: d.pagado ? Colors.green : Colors.red,
+                          color: cerrado ? Colors.green : Colors.red,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
+                    );
+                    },
                   ),
               const SizedBox(height: 8),
               Row(

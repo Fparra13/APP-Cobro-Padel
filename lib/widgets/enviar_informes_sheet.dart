@@ -164,7 +164,7 @@ class _EnviarInformesSheetState extends State<EnviarInformesSheet> {
                               ),
                             ),
                             Text(
-                              d.pagado
+                              d.pagadoEnPartido
                                   ? context.tr('paidCheck')
                                   : d.pagoParcial
                                       ? context.tr(
@@ -185,7 +185,7 @@ class _EnviarInformesSheetState extends State<EnviarInformesSheet> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: d.pagado
+                                color: d.pagadoEnPartido
                                     ? Colors.green
                                     : d.pagoParcial
                                         ? Colors.orange

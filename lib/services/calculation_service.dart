@@ -87,4 +87,56 @@ class CalculationService {
     required double totalVariables,
   }) =>
       roundMoney(prorrateoFijo + totalVariables).toDouble();
+
+  /// Neto a pagar por este partido (cargo − saldo a favor; sin deuda anterior).
+  static double netoAPagarPartido({
+    required double saldoAnterior,
+    required double cargoPartido,
+  }) {
+    final favor = saldoFavorAplicado(
+      saldoAnterior: saldoAnterior,
+      cargoPartido: cargoPartido,
+    );
+    final neto = cargoPartido - favor;
+    return neto > 0.005 ? roundMoney(neto).toDouble() : 0;
+  }
+
+  /// Pendiente de este partido (sin sumar deuda anterior acumulada).
+  static double pendientePartido({
+    required double saldoAnterior,
+    required double cargoPartido,
+    required double montoPagado,
+  }) {
+    final neto = netoAPagarPartido(
+      saldoAnterior: saldoAnterior,
+      cargoPartido: cargoPartido,
+    );
+    final rest = roundMoney(neto - montoPagado).toDouble();
+    return rest > 0.005 ? rest : 0;
+  }
+
+  /// Saldo tras abonar solo en el contexto del partido (puede quedar crédito).
+  static double saldoDespuesPagoPartido({
+    required double saldoAnterior,
+    required double cargoPartido,
+    required double montoPagado,
+  }) {
+    final neto = netoAPagarPartido(
+      saldoAnterior: saldoAnterior,
+      cargoPartido: cargoPartido,
+    );
+    return roundMoney(neto - montoPagado).toDouble();
+  }
+
+  static bool partidoCubierto({
+    required double saldoAnterior,
+    required double cargoPartido,
+    required double montoPagado,
+  }) =>
+      pendientePartido(
+        saldoAnterior: saldoAnterior,
+        cargoPartido: cargoPartido,
+        montoPagado: montoPagado,
+      ) <=
+      0.005;
 }

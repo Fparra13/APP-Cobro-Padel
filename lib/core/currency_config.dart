@@ -16,7 +16,7 @@ class CurrencyOption {
 class CurrencyConfig {
   CurrencyConfig._();
 
-  static const defaultCode = 'CLP';
+  static const defaultCode = 'USD';
 
   static const options = <CurrencyOption>[
     CurrencyOption(

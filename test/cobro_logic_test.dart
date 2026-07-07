@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:padel_cobro/domain/cobro_logic.dart';
-import 'package:padel_cobro/models/estado_partido.dart';
-import 'package:padel_cobro/services/calculation_service.dart';
+import 'package:matchpay/domain/cobro_logic.dart';
+import 'package:matchpay/models/estado_partido.dart';
+import 'package:matchpay/services/calculation_service.dart';
 
 void main() {
   group('CobroLogic.estadoPagoPartido', () {
-    test('efectivo total deja saldo en cero y pagado', () {
+    test('efectivo total liquida todo el saldo acumulado', () {
       final r = CobroLogic.estadoPagoPartido(
         saldoAnterior: 5000,
         cargo: 6000,
@@ -14,6 +14,18 @@ void main() {
       expect(r.pagado, isTrue);
       expect(r.montoPagado, 11000);
       expect(r.saldoNuevo, 0);
+      expect(r.concepto, 'Partido pagado');
+    });
+
+    test('pago solo del partido no liquida deuda anterior', () {
+      final r = CobroLogic.estadoPagoPartido(
+        saldoAnterior: 5000,
+        cargo: 6000,
+        montoPagadoOrganizador: 6000,
+      );
+      expect(r.pagado, isTrue);
+      expect(r.montoPagado, 6000);
+      expect(r.saldoNuevo, 5000);
       expect(r.concepto, 'Partido pagado');
     });
 
@@ -64,6 +76,72 @@ void main() {
       );
       expect(r.pagado, isTrue);
       expect(r.concepto, 'Partido pagado');
+    });
+
+    test('saldo a favor cubre partido sin efectivo y consume crédito', () {
+      final r = CobroLogic.estadoPagoPartido(
+        saldoAnterior: -8000,
+        cargo: 6000,
+        montoPagadoOrganizador: 0,
+      );
+      expect(r.pagado, isTrue);
+      expect(r.montoPagado, 0);
+      expect(r.saldoNuevo, -2000);
+      expect(r.concepto, 'Partido cubierto con saldo a favor');
+    });
+  });
+
+  group('CalculationService saldo a favor en partido', () {
+    test('netoAPagarPartido descuenta crédito', () {
+      expect(
+        CalculationService.netoAPagarPartido(
+          saldoAnterior: -8000,
+          cargoPartido: 6000,
+        ),
+        0,
+      );
+      expect(
+        CalculationService.netoAPagarPartido(
+          saldoAnterior: -3000,
+          cargoPartido: 6000,
+        ),
+        3000,
+      );
+    });
+
+    test('pendientePartido sin deuda anterior positiva', () {
+      expect(
+        CalculationService.pendientePartido(
+          saldoAnterior: 5000,
+          cargoPartido: 6000,
+          montoPagado: 0,
+        ),
+        6000,
+      );
+    });
+  });
+
+  group('CobroLogic.totalPendientePartidosImpagos', () {
+    test('no encadena deuda entre partidos (caso Francisco)', () {
+      final total = CobroLogic.totalPendientePartidosImpagos(
+        detallesImpagos: [
+          (total: 8450.0, montoPagado: 0.0),
+          (total: 9550.0, montoPagado: 0.0),
+          (total: 8000.0, montoPagado: 0.0),
+          (total: 8450.0, montoPagado: 0.0),
+        ],
+      );
+      expect(total, 34450);
+    });
+
+    test('resta abonos parciales por partido', () {
+      final total = CobroLogic.totalPendientePartidosImpagos(
+        detallesImpagos: [
+          (total: 8000.0, montoPagado: 3000.0),
+          (total: 6000.0, montoPagado: 0.0),
+        ],
+      );
+      expect(total, 11000);
     });
   });
 
@@ -129,7 +207,7 @@ void main() {
         aprobado: true,
         pagado: false,
         comprobanteValidado: true,
-        pendienteEnCobro: 10000,
+        pendientePartido: 10000,
       );
       expect(d.accion, ComprobanteValidacionAccion.ignorarYaValidado);
     });
@@ -139,7 +217,7 @@ void main() {
         aprobado: true,
         pagado: true,
         comprobanteValidado: false,
-        pendienteEnCobro: 0,
+        pendientePartido: 0,
       );
       expect(d.accion, ComprobanteValidacionAccion.soloMarcarComprobante);
     });
@@ -149,7 +227,7 @@ void main() {
         aprobado: true,
         pagado: false,
         comprobanteValidado: false,
-        pendienteEnCobro: 7000,
+        pendientePartido: 7000,
       );
       expect(d.accion, ComprobanteValidacionAccion.abonarPendiente);
       expect(d.abono, 7000);
@@ -160,7 +238,7 @@ void main() {
         aprobado: true,
         pagado: false,
         comprobanteValidado: false,
-        pendienteEnCobro: 10000,
+        pendientePartido: 10000,
         montoPagoDeclarado: 15000,
       );
       expect(d.accion, ComprobanteValidacionAccion.abonarPendiente);
@@ -172,11 +250,23 @@ void main() {
         aprobado: true,
         pagado: false,
         comprobanteValidado: false,
-        pendienteEnCobro: 5000,
+        pendientePartido: 5000,
         montoPagoDeclarado: 5000,
       );
       expect(d.accion, ComprobanteValidacionAccion.abonarPendiente);
       expect(d.abono, 5000);
+    });
+
+    test('abono mayor al partido conserva monto declarado completo', () {
+      final d = CobroLogic.evaluarValidacionComprobante(
+        aprobado: true,
+        pagado: false,
+        comprobanteValidado: false,
+        pendientePartido: 10000,
+        montoPagoDeclarado: 20000,
+      );
+      expect(d.accion, ComprobanteValidacionAccion.abonarPendiente);
+      expect(d.abono, 20000);
     });
 
     test('rechazo explícito', () {
@@ -184,9 +274,64 @@ void main() {
         aprobado: false,
         pagado: false,
         comprobanteValidado: false,
-        pendienteEnCobro: 10000,
+        pendientePartido: 10000,
       );
       expect(d.accion, ComprobanteValidacionAccion.rechazar);
+    });
+  });
+
+  group('CobroLogic.estadoPagoDetalle', () {
+    test('deuda neta con saldo anterior positivo', () {
+      final e = CobroLogic.estadoPagoDetalle(
+        partidoId: 1,
+        jugadorId: 'u1',
+        cargoPartido: 6000,
+        montoPagadoEnPartido: 0,
+        snapshotSaldoAnterior: 5000,
+      );
+      expect(e.pendienteNeto, 11000);
+      expect(e.tieneDeuda, isTrue);
+      expect(e.partidoCerrado, isFalse);
+      expect(e.pagoParcial, isFalse);
+    });
+
+    test('partido cerrado con crédito aplicado', () {
+      final e = CobroLogic.estadoPagoDetalle(
+        partidoId: 2,
+        jugadorId: 'u2',
+        cargoPartido: 6000,
+        montoPagadoEnPartido: 0,
+        snapshotSaldoAnterior: -8000,
+      );
+      expect(e.partidoCerrado, isTrue);
+      expect(e.tieneDeuda, isFalse);
+      expect(e.pendienteNeto, 0);
+    });
+
+    test('pago parcial neto', () {
+      final e = CobroLogic.estadoPagoDetalle(
+        partidoId: 3,
+        jugadorId: 'u3',
+        cargoPartido: 10000,
+        montoPagadoEnPartido: 4000,
+        snapshotSaldoAnterior: 0,
+      );
+      expect(e.pagoParcial, isTrue);
+      expect(e.partidoCerrado, isFalse);
+      expect(e.pendienteNeto, 6000);
+    });
+
+    test('sin snapshot lanza DatosInconsistentesException', () {
+      expect(
+        () => CobroLogic.estadoPagoDetalle(
+          partidoId: 4,
+          jugadorId: 'u4',
+          cargoPartido: 5000,
+          montoPagadoEnPartido: 0,
+          snapshotSaldoAnterior: null,
+        ),
+        throwsA(isA<DatosInconsistentesException>()),
+      );
     });
   });
 }

@@ -44,6 +44,7 @@ class MatchPayStrings {
   String get navCloud => tr('navCloud');
   String get navConfig => tr('navConfig');
   String get navMyCobros => tr('navMyCobros');
+  String get navOrganizerCobros => tr('navOrganizerCobros');
   String get homeAdminTitle => tr('homeAdminTitle');
   String get configScreenTitle => tr('configScreenTitle');
   String get sharedExpensesTitle => tr('groupExpensesTitle');
@@ -78,8 +79,9 @@ class MatchPayStrings {
 }
 
 extension MatchPayL10n on BuildContext {
+  /// Localización segura en [build] y en callbacks (onPressed, async, etc.).
   MatchPayStrings get l10n => MatchPayStrings.of(
-        Provider.of<AppSettingsController>(this, listen: false).locale,
+        read<AppSettingsController>().locale,
       );
 
   String tr(String key, {Map<String, String> params = const {}}) =>

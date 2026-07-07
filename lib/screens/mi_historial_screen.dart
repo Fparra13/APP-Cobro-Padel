@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_repositories.dart';
+import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/supabase_helpers.dart';
+import '../domain/cobro_logic.dart';
+import '../domain/deuda_explicacion.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/detalle_partido.dart';
+import '../models/saldo_historico.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/formatters.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/player_match_history_tile.dart';
+import '../widgets/player_matches_to_close.dart';
 import '../widgets/shimmer_loading.dart';
 import 'mis_cobros_screen.dart';
 
@@ -22,6 +27,9 @@ class MiHistorialScreen extends StatefulWidget {
 
 class _MiHistorialScreenState extends State<MiHistorialScreen> {
   List<DetallePartido> _partidos = [];
+  Map<int, double> _saldosPorPartido = {};
+  List<SaldoHistorico> _historialSaldo = [];
+  double _saldoAcumulado = 0;
   bool _loading = true;
   String? _error;
 
@@ -39,10 +47,24 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
     try {
       final repos =
           AppRepositories.isReady ? AppRepositories.I : context.repos;
+      final uid = AuthService.instance.currentUser?.id;
       final partidos = await repos.getMisPartidosJugados(limit: 100);
+      final ids = partidos.map((p) => p.partidoId).toSet();
+      final saldos = await repos.getMisSaldosAnterioresPartidos(ids);
+      final historialFuture = uid != null
+          ? repos.getSaldosByJugador(uid)
+          : Future.value(<SaldoHistorico>[]);
+      final jugadorFuture = uid != null
+          ? repos.getJugador(uid)
+          : Future.value(null);
+      final historialSaldo = await historialFuture;
+      final jugador = await jugadorFuture;
       if (!mounted) return;
       setState(() {
         _partidos = partidos;
+        _saldosPorPartido = saldos;
+        _historialSaldo = historialSaldo;
+        _saldoAcumulado = jugador?.saldoAcumulado ?? 0;
         _loading = false;
       });
     } catch (e) {
@@ -66,10 +88,37 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final palette = context.sportPalette;
-    final pagados = _partidos.where((p) => p.pagado).length;
-    final pendientes = _partidos.where((p) => p.tieneDeudaEnCobro).length;
+    final cuentaConDeuda =
+        CobroLogic.obtenerPendienteJugador(saldoAcumulado: _saldoAcumulado) >
+            0.005;
+    final explicacion = cuentaConDeuda
+        ? explicarDeudaJugador(
+            saldoAcumulado: _saldoAcumulado,
+            historial: _historialSaldo,
+          )
+        : null;
+    DetallePartido? ancla;
+    if (explicacion?.partidoIdContexto != null) {
+      for (final p in _partidos) {
+        if (p.partidoId == explicacion!.partidoIdContexto) {
+          ancla = p;
+          break;
+        }
+      }
+    }
+    final pagados = _partidos.where((p) {
+      final snap = _saldosPorPartido[p.partidoId];
+      return snap != null && p.partidoCerradoNeto(snapshotSaldoAnterior: snap);
+    }).length;
+    final pendientes = _partidos.where((p) {
+      final snap = _saldosPorPartido[p.partidoId];
+      return snap != null && p.tieneDeudaNeto(snapshotSaldoAnterior: snap);
+    }).length;
     final totalGastado =
         _partidos.fold<double>(0, (s, p) => s + p.total);
+    final deudaCuenta = CobroLogic.obtenerPendienteJugador(
+      saldoAcumulado: _saldoAcumulado,
+    );
 
     return Scaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
@@ -167,36 +216,57 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
                               height: 108,
                               child: ListView.separated(
                                 scrollDirection: Axis.horizontal,
-                                itemCount: 4,
+                                itemCount: cuentaConDeuda ? 3 : 4,
                                 separatorBuilder: (_, _) =>
                                     const SizedBox(width: 10),
                                 itemBuilder: (context, index) {
-                                  final items = [
-                                    (
-                                      Icons.emoji_events_rounded,
-                                      const Color(0xFFF59E0B),
-                                      '${_partidos.length}',
-                                      l10n.tr('playerStatMatches'),
-                                    ),
-                                    (
-                                      Icons.check_circle_rounded,
-                                      MatchPayTokens.accentSuccess,
-                                      '$pagados',
-                                      l10n.tr('playerMatchPaid'),
-                                    ),
-                                    (
-                                      Icons.schedule_rounded,
-                                      MatchPayTokens.accentUrgent,
-                                      '$pendientes',
-                                      l10n.tr('pendingStatus'),
-                                    ),
-                                    (
-                                      Icons.payments_rounded,
-                                      palette.primary,
-                                      formatMoney(totalGastado),
-                                      l10n.tr('playerStatSpent'),
-                                    ),
-                                  ];
+                                  final items = cuentaConDeuda
+                                      ? [
+                                          (
+                                            Icons.emoji_events_rounded,
+                                            const Color(0xFFF59E0B),
+                                            '${_partidos.length}',
+                                            l10n.tr('playerStatMatches'),
+                                          ),
+                                          (
+                                            Icons.account_balance_wallet_rounded,
+                                            MatchPayTokens.accentUrgent,
+                                            formatMoney(deudaCuenta),
+                                            l10n.tr('playerDebtOnAccount'),
+                                          ),
+                                          (
+                                            Icons.payments_rounded,
+                                            palette.primary,
+                                            formatMoney(totalGastado),
+                                            l10n.tr('playerStatSpent'),
+                                          ),
+                                        ]
+                                      : [
+                                          (
+                                            Icons.emoji_events_rounded,
+                                            const Color(0xFFF59E0B),
+                                            '${_partidos.length}',
+                                            l10n.tr('playerStatMatches'),
+                                          ),
+                                          (
+                                            Icons.check_circle_rounded,
+                                            MatchPayTokens.accentSuccess,
+                                            '$pagados',
+                                            l10n.tr('playerMatchPaid'),
+                                          ),
+                                          (
+                                            Icons.schedule_rounded,
+                                            MatchPayTokens.accentUrgent,
+                                            '$pendientes',
+                                            l10n.tr('pendingStatus'),
+                                          ),
+                                          (
+                                            Icons.payments_rounded,
+                                            palette.primary,
+                                            formatMoney(totalGastado),
+                                            l10n.tr('playerStatSpent'),
+                                          ),
+                                        ];
                                   final e = items[index];
                                   return MatchPayStatChip(
                                     icon: e.$1,
@@ -207,24 +277,34 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
                                 },
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            MatchPaySurfaceCard(
-                              padding: EdgeInsets.zero,
-                              child: Column(
-                                children: [
-                                  for (var i = 0; i < _partidos.length; i++) ...[
-                                    if (i > 0)
-                                      const Divider(
-                                        height: 1,
-                                        indent: 16,
-                                        endIndent: 16,
-                                      ),
-                                    PlayerMatchHistoryTile(
-                                      detalle: _partidos[i],
-                                    ),
-                                  ],
-                                ],
+                            if (explicacion != null) ...[
+                              const SizedBox(height: 16),
+                              PlayerDeudaExplicacionCard(
+                                explicacion: explicacion,
+                                partidoLinea: lineaPartidoDetalle(ancla),
                               ),
+                            ],
+                            const SizedBox(height: 16),
+                            if (cuentaConDeuda) ...[
+                              MatchPaySectionHeader(
+                                title: l10n.tr('playerMatchHistorySection'),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l10n.tr('playerMatchHistoryDebtHint'),
+                                style: MatchPayTokens.bodySmallStyle(),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            PlayerMatchHistoryList(
+                              partidos: _partidos,
+                              saldosPorPartido: _saldosPorPartido,
+                              modo: cuentaConDeuda
+                                  ? PlayerMatchHistorialModo.cuentaConDeuda
+                                  : PlayerMatchHistorialModo.porPartido,
+                              historialSaldo: cuentaConDeuda
+                                  ? _historialSaldo
+                                  : null,
                             ),
                           ],
                         ),

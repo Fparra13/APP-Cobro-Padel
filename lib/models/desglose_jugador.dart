@@ -1,4 +1,5 @@
 import '../constants/conceptos_cobro.dart';
+import '../domain/cobro_logic.dart';
 import '../services/calculation_service.dart';
 import '../utils/formatters.dart';
 import 'costo_variable.dart';
@@ -34,7 +35,7 @@ class DesgloseJugador {
     required this.pagado,
   });
 
-  bool get pagoParcial => montoPagado > 0 && !pagado;
+  bool get pagoParcial => !pagadoEnPartido && montoPagado > 0.005;
 
   String get jugadorKeyId =>
       jugadorSupabaseId ?? (jugadorId > 0 ? jugadorId.toString() : '');
@@ -57,7 +58,49 @@ class DesgloseJugador {
 
   bool get tieneSaldoAFavorAnterior => saldoAnterior < 0;
 
-  bool get generaSaldoAFavor => saldoRestante < 0;
+  bool get generaSaldoAFavor => saldoRestante < -0.005;
+
+  /// Neto a pagar por este partido (sin deuda anterior positiva).
+  double get netoAPagarPartido => CalculationService.netoAPagarPartido(
+        saldoAnterior: saldoAnterior,
+        cargoPartido: totalPartido,
+      );
+
+  /// Pendiente neto en el contexto del partido (incluye deuda anterior positiva).
+  double get pendientePartido => CobroLogic.obtenerPendientePartido(
+        saldoAnteriorAlPartido: saldoAnterior,
+        cargoPartido: totalPartido,
+        montoPagadoEnPartido: montoPagado,
+      );
+
+  /// Pendiente solo del cargo de este partido (sin deuda anterior acumulada).
+  double get pendienteMarginalPartido => CalculationService.pendientePartido(
+        saldoAnterior: saldoAnterior,
+        cargoPartido: totalPartido,
+        montoPagado: montoPagado,
+      );
+
+  bool get partidoCubiertoMarginal => CalculationService.partidoCubierto(
+        saldoAnterior: saldoAnterior,
+        cargoPartido: totalPartido,
+        montoPagado: montoPagado,
+      );
+
+  double get saldoRestantePartido => CobroLogic.saldoTrasMovimiento(
+        saldoAnterior: saldoAnterior,
+        cargoPartido: totalPartido,
+        montoPagado: montoPagado,
+      );
+
+  /// Partido cubierto según snapshot + pagos (no usa [pagado] almacenado).
+  bool get pagadoEnPartido => CobroLogic.partidoEstaCerrado(
+        saldoAnteriorAlPartido: saldoAnterior,
+        cargoPartido: totalPartido,
+        montoPagadoEnPartido: montoPagado,
+      );
+
+  bool get generaSaldoAFavorPartido =>
+      pagadoEnPartido && saldoRestantePartido < -0.005;
 
   List<({String concepto, double monto})> get lineas {
     final items = <({String concepto, double monto})>[];

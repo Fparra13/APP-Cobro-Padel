@@ -20,6 +20,7 @@ import 'screens/historial_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/jugadores_screen.dart';
 import 'screens/mis_cobros_screen.dart';
+import 'screens/organizer_cobros_screen.dart';
 import 'screens/organizar_partido_screen.dart';
 import 'screens/nuevo_partido_screen.dart';
 import 'screens/historial_partidos_screen.dart';
@@ -67,7 +68,7 @@ void main() async {
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider.value(value: SubscriptionService.instance),
       ],
-      child: PadelCobroApp(navigatorKey: _navigatorKey),
+      child: MatchPayApp(navigatorKey: _navigatorKey),
     ),
   );
 }
@@ -79,10 +80,10 @@ void _syncMoneyFormat(AppSettingsController settings) {
   MoneyFormatConfig.dateLocale = settings.locale.languageCode;
 }
 
-class PadelCobroApp extends StatelessWidget {
+class MatchPayApp extends StatelessWidget {
   final GlobalKey<NavigatorState> navigatorKey;
 
-  const PadelCobroApp({super.key, required this.navigatorKey});
+  const MatchPayApp({super.key, required this.navigatorKey});
 
   @override
   Widget build(BuildContext context) {
@@ -335,7 +336,7 @@ class _OrganizerShellState extends State<OrganizerShell>
 
   late final List<Widget Function()> _screenBuilders = [
     () => HomeScreen(onNavigateTab: (i) => setState(() => _index = i)),
-    () => const MisCobrosScreen(),
+    () => const OrganizerCobrosScreen(),
     () => const JugadoresScreen(),
     () => const HistorialPartidosScreen(),
     () => const BackupScreen(),
@@ -375,10 +376,12 @@ class _OrganizerShellState extends State<OrganizerShell>
   }
 
   Future<void> _refreshMisCobrosCount() async {
-    if (!AppRepositories.isReady || !AppRepositories.I.isCloud) return;
+    if (!AppRepositories.isReady) return;
     try {
-      final deudas = await AppRepositories.I.getMisDeudasPendientes();
-      if (mounted) setState(() => _misCobrosCount = deudas.length);
+      final resumen = await AppRepositories.I.getCobrosResumen();
+      if (mounted) {
+        setState(() => _misCobrosCount = resumen.jugadoresConDeuda);
+      }
     } catch (_) {}
   }
 
@@ -442,7 +445,7 @@ class _OrganizerShellState extends State<OrganizerShell>
           NavigationDestination(
             icon: misCobrosIcon(selected: false),
             selectedIcon: misCobrosIcon(selected: true),
-            label: l10n.navMyCobros,
+            label: l10n.navOrganizerCobros,
           ),
           NavigationDestination(
             icon: const Icon(Icons.people_outline),
@@ -482,7 +485,9 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
   int _pendientesCount = 0;
 
   late final List<Widget Function()> _screenBuilders = [
-    () => const PlayerHomeScreen(),
+    () => PlayerHomeScreen(
+          onOpenMisCobros: () => setState(() => _index = 1),
+        ),
     () => const MisCobrosScreen(),
     () => const ConfiguracionScreen(),
   ];
@@ -491,11 +496,15 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    NotificationService.instance.registerPlayerMisCobrosNavigation(() {
+      if (mounted) setState(() => _index = 1);
+    });
     _initPlayer();
   }
 
   @override
   void dispose() {
+    NotificationService.instance.onNavigatePlayerMisCobros = null;
     WidgetsBinding.instance.removeObserver(this);
     SupabaseRealtimeService.instance.unsubscribeAppRefresh();
     super.dispose();

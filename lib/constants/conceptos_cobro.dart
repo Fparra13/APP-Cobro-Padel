@@ -40,7 +40,7 @@ class ConceptosCobro {
         cancha => 'Costo total de la cancha. Se divide entre quienes jugaron.',
         pelotas => 'Pelotas o equipamiento. Se divide entre todos los asistentes.',
         asado => 'Solo quienes se quedaron al asado pagan este ítem.',
-        barraSchop => 'Schop o consumo en barra. Marca quién participó.',
+        barraSchop => 'Consumición o consumo en barra. Marca quién participó.',
         otros => 'Otro gasto compartido. Elige quién lo paga.',
         _ => 'Gasto del partido.',
       };

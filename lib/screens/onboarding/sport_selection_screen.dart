@@ -7,9 +7,11 @@ import '../../core/sport_theme.dart';
 import '../../core/sport_type.dart';
 import '../../l10n/matchpay_strings.dart';
 import '../../utils/matchpay_context.dart';
+import '../../widgets/matchpay_ui.dart';
+import '../../widgets/onboarding_progress.dart';
 import 'intro_onboarding_screen.dart';
 
-/// Paso 2 del onboarding: el usuario elige su deporte principal (solo visual).
+/// Paso 2 del onboarding: el usuario elige su deporte principal (tema visual).
 class SportSelectionScreen extends StatefulWidget {
   const SportSelectionScreen({super.key});
 
@@ -29,26 +31,49 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
     await context.read<AppSettingsController>().completeSportOnboarding(sport);
   }
 
+  Future<void> _volverAlPaso1() async {
+    if (_saving) return;
+    await context.read<AppSettingsController>().revertIntroOnboarding();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final preview = _selected ?? SportType.general;
     final palette = SportThemeConfig.paletteFor(preview);
+    final lang = context.select<AppSettingsController, String>(
+      (s) => s.locale.languageCode,
+    );
 
-    return Theme(
-      data: SportThemeConfig.themeFor(preview),
-      child: Scaffold(
-        backgroundColor: MatchPayTokens.surfaceBase,
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  l10n.tr('sportOnboardingStep'),
-                  style: MatchPayTokens.sectionLabelStyle(),
-                  textAlign: TextAlign.center,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _volverAlPaso1();
+      },
+      child: Theme(
+        data: SportThemeConfig.themeFor(preview),
+        child: Scaffold(
+          backgroundColor: MatchPayTokens.surfaceBase,
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _saving ? null : _volverAlPaso1,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                      label: Text(l10n.tr('onboardingBack')),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                OnboardingProgress(
+                  stepLabel: l10n.tr('sportOnboardingStep'),
+                  current: 2,
+                  total: 2,
+                  accent: palette.primary,
                 ),
                 const SizedBox(height: 20),
                 Text(
@@ -62,10 +87,28 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
                   style: MatchPayTokens.bodySmallStyle(),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  child: _selected == null
+                      ? const SizedBox.shrink(key: ValueKey('no-preview'))
+                      : _SportPreviewBanner(
+                          key: ValueKey(_selected),
+                          sport: _selected!,
+                          lang: lang,
+                          label: l10n.tr('sportOnboardingPreview'),
+                        ),
+                ),
+                if (_selected != null) const SizedBox(height: 16),
                 Expanded(
-                  child: ListView(
-                    children: SportType.values.map(_buildSportCard).toList(),
+                  child: GridView.count(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.88,
+                    children: SportType.values
+                        .map((sport) => _buildSportTile(sport, lang))
+                        .toList(),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -94,89 +137,68 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
           ),
         ),
       ),
+      ),
     );
   }
 
-  Widget _buildSportCard(SportType sport) {
+  Widget _buildSportTile(SportType sport, String lang) {
     final palette = SportThemeConfig.paletteFor(sport);
     final selected = _selected == sport;
-    final lang = context.readSettings().locale.languageCode;
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: selected ? palette.cardBackground : Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        elevation: selected ? 2 : 0,
-        child: InkWell(
-          onTap: () => setState(() => _selected = sport),
-          borderRadius: BorderRadius.circular(18),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: selected ? palette.primary : Colors.grey.shade200,
-                width: selected ? 2 : 1,
-              ),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: palette.primary.withValues(alpha: 0.12),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ]
-                  : null,
+    return Material(
+      color: selected ? palette.cardBackground : Colors.white,
+      borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+      child: InkWell(
+        onTap: () => setState(() => _selected = sport),
+        borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+            border: Border.all(
+              color: selected ? palette.primary : MatchPayTokens.borderSubtle,
+              width: selected ? 2 : 1,
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: palette.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Center(
-                    child: Text(
-                      palette.emoji,
-                      style: const TextStyle(fontSize: 28),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: palette.primary.withValues(alpha: 0.14),
+                      blurRadius: 14,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Align(
+                alignment: Alignment.topRight,
+                child: Icon(
+                  selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                  color: selected ? palette.primary : MatchPayTokens.inkMuted,
+                  size: 22,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        sport.labelForLocale(lang),
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: palette.primaryDark,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _sportDescription(sport),
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
+              ),
+              Text(palette.emoji, style: const TextStyle(fontSize: 36)),
+              const SizedBox(height: 10),
+              Text(
+                sport.labelForLocale(lang),
+                style: MatchPayTokens.titleSmallStyle(
+                  color: palette.primaryDark,
                 ),
-                Icon(
-                  selected ? Icons.check_circle : Icons.circle_outlined,
-                  color: selected ? palette.primary : Colors.grey.shade400,
-                  size: 28,
-                ),
-              ],
-            ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _sportDescription(sport),
+                style: MatchPayTokens.bodySmallStyle(),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ),
@@ -190,6 +212,129 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
       SportType.tennis => context.l10n.sportDescTennis,
       SportType.general => context.l10n.sportDescGeneral,
     };
+  }
+}
+
+class _SportPreviewBanner extends StatelessWidget {
+  final SportType sport;
+  final String lang;
+  final String label;
+
+  const _SportPreviewBanner({
+    super.key,
+    required this.sport,
+    required this.lang,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = SportThemeConfig.paletteFor(sport);
+    final name = sport.labelForLocale(lang);
+
+    return MatchPaySurfaceCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: MatchPayTokens.sectionLabelStyle(accent: true),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: palette.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(palette.emoji, style: const TextStyle(fontSize: 22)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: MatchPayTokens.titleSmallStyle(
+                        color: palette.primaryDark,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _ColorDot(color: palette.primary),
+                        const SizedBox(width: 6),
+                        _ColorDot(color: palette.accent),
+                        const SizedBox(width: 6),
+                        _ColorDot(color: palette.surfaceTint),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: palette.primary,
+              borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.home_rounded, color: Colors.white.withValues(alpha: 0.9), size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  context.l10n.navHome,
+                  style: MatchPayTokens.titleSmallStyle(color: Colors.white),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: palette.accent.withValues(alpha: 0.9),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    context.l10n.appName,
+                    style: MatchPayTokens.statValueStyle(
+                      color: palette.primaryDark,
+                    ).copyWith(fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ColorDot extends StatelessWidget {
+  final Color color;
+
+  const _ColorDot({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 14,
+      height: 14,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: MatchPayTokens.borderSubtle),
+      ),
+    );
   }
 }
 

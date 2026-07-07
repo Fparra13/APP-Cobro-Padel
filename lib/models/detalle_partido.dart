@@ -1,5 +1,6 @@
 import '../core/sport_type.dart';
 import '../core/supabase_parse.dart';
+import '../domain/cobro_logic.dart';
 
 class DetallePartido {
   final int? id;
@@ -43,7 +44,9 @@ class DetallePartido {
     this.sportType,
   });
 
-  bool get pagoParcial => montoPagado > 0 && !pagado;
+  /// @deprecated Usar [pagoParcialNeto].
+  @Deprecated('Usar estadoCobro(snapshot).pagoParcial')
+  bool get pagoParcialLegacy => montoPagado > 0 && !pagado;
 
   /// Pago/abono declarado por el jugador, aún no validado por el organizador.
   bool get comprobantePendienteValidacion {
@@ -54,20 +57,60 @@ class DetallePartido {
     return declarado > 0.005;
   }
 
-  /// Saldo pendiente en este cobro (incluye pagos parciales ya validados).
+  /// @deprecated Usar [CobroLogic.obtenerPendientePartido]. Bruto: ignora crédito.
+  @Deprecated('Usar CobroLogic.obtenerPendientePartido(...)')
   double get montoPendiente {
     final restante = total - montoPagado;
     if (restante <= 0.005) return 0;
     return restante;
   }
 
+  /// Pendiente neto cuando se conoce el saldo anterior al partido.
+  double pendienteNeto({required double saldoAnteriorAlPartido}) =>
+      CobroLogic.obtenerPendientePartido(
+        saldoAnteriorAlPartido: saldoAnteriorAlPartido,
+        cargoPartido: total,
+        montoPagadoEnPartido: montoPagado,
+      );
+
+  /// Estado de cobro con snapshot obligatorio.
+  EstadoPagoDetalle estadoCobro({required double? snapshotSaldoAnterior}) =>
+      CobroLogic.estadoPagoDetalle(
+        partidoId: partidoId,
+        jugadorId: jugadorKeyId,
+        cargoPartido: total,
+        montoPagadoEnPartido: montoPagado,
+        snapshotSaldoAnterior: snapshotSaldoAnterior,
+      );
+
+  bool tieneDeudaNeto({required double snapshotSaldoAnterior}) =>
+      estadoCobro(snapshotSaldoAnterior: snapshotSaldoAnterior).tieneDeuda;
+
+  bool pagoParcialNeto({required double snapshotSaldoAnterior}) =>
+      estadoCobro(snapshotSaldoAnterior: snapshotSaldoAnterior).pagoParcial;
+
+  bool partidoCerradoNeto({required double snapshotSaldoAnterior}) =>
+      estadoCobro(snapshotSaldoAnterior: snapshotSaldoAnterior).partidoCerrado;
+
+  /// @deprecated Usar [estadoCobro] / [tieneDeudaNeto]. Bruto: ignora crédito.
+  @Deprecated('Usar estadoCobro(snapshot).tieneDeuda')
   bool get tieneDeudaEnCobro => !pagado && montoPendiente > 0.005;
 
-  bool get puedeDeclararPago =>
-      !pagado && !comprobantePendienteValidacion;
+  /// @deprecated Usar [estadoCobro] / [pagoParcialNeto].
+  @Deprecated('Usar estadoCobro(snapshot).pagoParcial')
+  bool get pagoParcial => pagoParcialLegacy;
 
+  bool pendientePagoNeto({required double snapshotSaldoAnterior}) =>
+      tieneDeudaNeto(snapshotSaldoAnterior: snapshotSaldoAnterior) &&
+      !comprobantePendienteValidacion;
+
+  /// @deprecated Usar [pendientePagoNeto].
+  @Deprecated('Usar pendientePagoNeto(snapshot)')
   bool get pendientePago =>
       tieneDeudaEnCobro && !comprobantePendienteValidacion;
+
+  bool get puedeDeclararPago =>
+      !comprobantePendienteValidacion;
 
   String get jugadorKeyId =>
       jugadorSupabaseId ?? (jugadorId > 0 ? jugadorId.toString() : '');

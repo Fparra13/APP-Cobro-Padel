@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import '../l10n/matchpay_strings.dart';
 import '../repositories/partido_repository.dart';
 import '../services/recordatorio_service.dart';
+import '../services/whatsapp_share_service.dart';
 import '../utils/formatters.dart';
 import '../utils/single_action.dart';
+import 'jugador_app_badge.dart';
 
 class RecordatorioDeudoresSheet extends StatefulWidget {
   final List<ResumenJugador> deudores;
@@ -54,7 +56,7 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
   bool _feedbackError = false;
 
   int get _conApp => widget.deudores
-      .where((r) => r.jugador.keyId.isNotEmpty)
+      .where((r) => r.jugador.tieneMatchPayApp)
       .length;
 
   double get _totalDeuda =>
@@ -127,7 +129,7 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
 
   Future<void> _enviarUno(ResumenJugador r) async {
     final key = r.jugador.keyId;
-    if (key.isEmpty) {
+    if (key.isEmpty || !r.jugador.tieneMatchPayApp) {
       _mostrarFeedback(
         context.tr('noAppUseCopy', params: {'name': r.jugador.nombre}),
         error: true,
@@ -172,6 +174,41 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
     } catch (e) {
       if (mounted) _mostrarFeedback('$e', error: true);
     }
+  }
+
+  Future<void> _enviarWhatsApp(ResumenJugador r) async {
+    if (r.jugador.tieneMatchPayApp) return;
+    if (!r.jugador.puedeEnviarWhatsApp) {
+      _mostrarFeedback(context.tr('whatsappNoNumber'), error: true);
+      return;
+    }
+    final key = r.jugador.keyId;
+    await runOnce('wa-reminder-$key', () async {
+      setState(() => _enviandoJugadorKey = key);
+      try {
+        final msg = await _service.construirMensaje(
+          jugador: r.jugador,
+          saldo: r.deudaVisible,
+        );
+        final ok = await WhatsAppShareService.enviar(
+          mensaje: msg,
+          telefono: r.jugador.contactWhatsApp,
+        );
+        if (mounted) {
+          _mostrarFeedback(
+            ok
+                ? context.tr('whatsappOpening')
+                : context.tr('whatsappOpenFailed'),
+            error: !ok,
+          );
+        }
+      } catch (e) {
+        if (mounted) _mostrarFeedback('$e', error: true);
+      } finally {
+        if (mounted) setState(() => _enviandoJugadorKey = null);
+      }
+      return null;
+    });
   }
 
   /// Feedback dentro del sheet: el SnackBar del home queda detrás del modal.
@@ -320,7 +357,7 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
                 itemCount: widget.deudores.length,
                 itemBuilder: (_, i) {
                   final r = widget.deudores[i];
-                  final tieneApp = r.jugador.keyId.isNotEmpty;
+                  final tieneApp = r.jugador.tieneMatchPayApp;
                   final enviando = _enviandoJugadorKey == r.jugador.keyId;
 
                   return Card(
@@ -342,9 +379,17 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
                           ),
                         ),
                       ),
-                      title: Text(
-                        r.jugador.nombre,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              r.jugador.nombre,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          JugadorAppBadge(jugador: r.jugador, compact: true),
+                        ],
                       ),
                       subtitle: Text(
                         tieneApp
@@ -368,6 +413,18 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          if (!tieneApp)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.chat_outlined,
+                                size: 20,
+                                color: Color(0xFF25D366),
+                              ),
+                              tooltip: context.tr('sendChargeWhatsApp'),
+                              onPressed: enviando || _enviando
+                                  ? null
+                                  : () => _enviarWhatsApp(r),
+                            ),
                           IconButton(
                             icon: const Icon(Icons.copy_outlined, size: 20),
                             tooltip: context.tr('copyMessageTooltip'),

@@ -5,6 +5,7 @@ import '../core/sport_type.dart';
 import '../core/supabase_config.dart';
 import '../core/supabase_helpers.dart';
 import '../models/convocatoria_jugador.dart';
+import '../models/cobros_resumen.dart';
 import '../models/deuda_partido_anterior.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
@@ -24,6 +25,7 @@ import '../repositories/jugador_repository.dart';
 import '../repositories/jugador_repository_remote.dart';
 import '../repositories/partido_repository.dart';
 import '../repositories/partido_repository_remote.dart';
+import '../domain/organizer_cycle_logic.dart';
 import '../repositories/ranking_repository.dart';
 import '../repositories/recinto_repository_remote.dart';
 import '../repositories/repository_types.dart';
@@ -166,7 +168,7 @@ class AppRepositories {
     return _partidoLocal.getCompletosListaResumen(partidoIds);
   }
 
-  /// Lectura de desglose. [reconciliar] solo al guardar/validar pagos.
+  /// Lectura de desglose. [reconciliar] ya no está soportado.
   Future<List<DesgloseJugador>> getDesglose(
     int partidoId, {
     bool reconciliar = false,
@@ -177,14 +179,43 @@ class AppRepositories {
     return _partidoLocal.getDesglose(partidoId);
   }
 
-  Future<List<ResumenJugador>> getResumenJugadores() {
-    if (useRemote) return _partidoRemote.getResumenJugadores();
+  Future<List<ResumenJugador>> getResumenJugadores({bool reconciliar = false}) {
+    if (useRemote) {
+      return _partidoRemote.getResumenJugadores(reconciliar: reconciliar);
+    }
     return _partidoLocal.getResumenJugadores();
+  }
+
+  Future<CobrosResumen> getCobrosResumen() async {
+    if (useRemote) {
+      return _partidoRemote.getCobrosResumen();
+    }
+    final resumenes = await _partidoLocal.getResumenJugadores();
+    return cobrosResumenDesdeResumenes(resumenes);
+  }
+
+  /// Reparación manual fuera del flujo normal. No invocar al abrir fichas.
+  @Deprecated('Solo reparación manual; no usar en flujo normal')
+  Future<void> reconciliarJugador(String jugadorKey) async {
+    if (useRemote) {
+      await _partidoRemote.reconciliarDetallesJugador(jugadorKey);
+      return;
+    }
+    await _partidoLocal.reconciliarDetallesJugador(_localId(jugadorKey));
   }
 
   Future<PartidoCompleto?> getUltimoPartido() {
     if (useRemote) return _partidoRemote.getUltimoPartido();
     return _partidoLocal.getUltimoPartido();
+  }
+
+  Future<List<PartidoCompleto>> getPartidosJugadosRecientesResumen({
+    int limit = 8,
+  }) {
+    if (useRemote) {
+      return _partidoRemote.getPartidosJugadosRecientesResumen(limit: limit);
+    }
+    return _partidoLocal.getPartidosJugadosRecientesResumen(limit: limit);
   }
 
   Future<int> guardarPartido({
@@ -314,19 +345,21 @@ class AppRepositories {
     required String jugadorId,
     required double monto,
     String concepto = 'Abono manual',
-  }) {
+  }) async {
     if (useRemote) {
-      return _partidoRemote.registrarAbono(
+      await _partidoRemote.registrarAbono(
         jugadorId: jugadorId,
         monto: monto,
         concepto: concepto,
       );
+    } else {
+      await _partidoLocal.registrarAbono(
+        jugadorId: _localId(jugadorId),
+        monto: monto,
+        concepto: concepto,
+      );
     }
-    return _partidoLocal.registrarAbono(
-      jugadorId: _localId(jugadorId),
-      monto: monto,
-      concepto: concepto,
-    );
+    notifyDataChanged();
   }
 
   Future<List<DeudaPartidoAnterior>> getDeudasPartidosAnteriores({
@@ -648,8 +681,12 @@ class AppRepositories {
     throw UnsupportedError('Requiere conexión a Supabase');
   }
 
-  Future<List<DetallePartido>> getMisDeudasPendientes() async {
-    if (useRemote) return _partidoRemote.getMisDeudasPendientes();
+  Future<List<DetallePartido>> getMisDeudasPendientes({
+    bool reconciliar = false,
+  }) async {
+    if (useRemote) {
+      return _partidoRemote.getMisDeudasPendientes(reconciliar: reconciliar);
+    }
     return Future.value([]);
   }
 
@@ -666,6 +703,15 @@ class AppRepositories {
   Future<DesgloseJugador?> getMiDesglosePartido(int partidoId) {
     if (useRemote) return _partidoRemote.getMiDesglosePartido(partidoId);
     return Future.value(null);
+  }
+
+  Future<Map<int, double>> getMisSaldosAnterioresPartidos(
+    Iterable<int> partidoIds,
+  ) {
+    if (useRemote) {
+      return _partidoRemote.getMisSaldosAnterioresPartidos(partidoIds);
+    }
+    return Future.value({});
   }
 
   Future<List<GastoPorConcepto>> getMisGastosPorConcepto({
@@ -701,14 +747,16 @@ class AppRepositories {
   Future<void> validarComprobantePago({
     required int detalleId,
     required bool aprobado,
-  }) {
+  }) async {
     if (useRemote) {
-      return _partidoRemote.validarComprobantePago(
+      await _partidoRemote.validarComprobantePago(
         detalleId: detalleId,
         aprobado: aprobado,
       );
+    } else {
+      throw UnsupportedError('Requiere conexión a Supabase');
     }
-    throw UnsupportedError('Requiere conexión a Supabase');
+    notifyDataChanged();
   }
 
   // --- Saldos ---

@@ -2,15 +2,11 @@ import 'package:sqflite/sqflite.dart';
 
 import '../database/database_helper.dart';
 import '../models/estadisticas_jugador.dart';
-import '../repositories/partido_repository.dart';
 
 class EstadisticasRepository {
   final DatabaseHelper _db = DatabaseHelper.instance;
-  final PartidoRepository _partidoRepo = PartidoRepository();
 
   Future<List<EstadisticasJugador>> getAll() async {
-    await _partidoRepo.repararDetallesInconsistentes();
-
     final db = await _db.database;
     final rows = await db.rawQuery('''
       SELECT

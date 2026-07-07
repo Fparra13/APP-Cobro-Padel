@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -5,7 +7,21 @@ class DatabaseHelper {
   DatabaseHelper._();
   static final DatabaseHelper instance = DatabaseHelper._();
 
+  static const dbFileName = 'matchpay.db';
+  static const legacyDbFileName = 'padel_cobro.db';
+
   static Database? _database;
+
+  static Future<String> resolveDbPath() async {
+    final dbPath = await getDatabasesPath();
+    final path = join(dbPath, dbFileName);
+    final legacyPath = join(dbPath, legacyDbFileName);
+    final legacy = File(legacyPath);
+    if (await legacy.exists() && !await File(path).exists()) {
+      await legacy.rename(path);
+    }
+    return path;
+  }
 
   Future<Database> get database async {
     _database ??= await _initDatabase();
@@ -13,8 +29,7 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'padel_cobro.db');
+    final path = await resolveDbPath();
 
     return openDatabase(
       path,
@@ -253,8 +268,7 @@ class DatabaseHelper {
 
   Future<void> resetDatabase() async {
     await close();
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'padel_cobro.db');
+    final path = await resolveDbPath();
     await deleteDatabase(path);
     _database = await _initDatabase();
   }

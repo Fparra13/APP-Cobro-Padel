@@ -42,39 +42,24 @@ class MensajeCobroService {
 
     lineas.add('Subtotal partido: ${formatMoney(desglose.totalPartido)}');
 
-    if (desglose.saldoAnterior > 0) {
-      if (deudasAnteriores.isNotEmpty) {
-        for (final d in deudasAnteriores) {
-          lineas.add(
-            'Deuda anterior (Partido ${formatFechaCorta(d.fecha)}) '
-            '${formatMoney(d.montoPendiente)}',
-          );
-        }
-      } else {
+    if (desglose.saldoFavorAplicado > 0 && desglose.netoAPagarPartido <= 0) {
+      lineas.add('✅ Partido cubierto con saldo a favor');
+    } else if (desglose.pagadoEnPartido) {
+      if (desglose.generaSaldoAFavorPartido) {
         lineas.add(
-          'Deuda anterior ${formatMoney(desglose.saldoAnterior)}',
-        );
-      }
-    } else if (desglose.saldoAnterior < 0) {
-      lineas.add(
-        'Saldo a favor anterior: ${formatMoney(-desglose.saldoAnterior)}',
-      );
-    }
-
-    if (desglose.pagado) {
-      if (desglose.generaSaldoAFavor) {
-        lineas.add(
-          '✅ Al día — Saldo a favor: ${formatMoney(-desglose.saldoRestante)}',
+          '✅ Al día — Saldo a favor: ${formatMoney(-desglose.saldoRestantePartido)}',
         );
       } else if (desglose.montoPagado > 0) {
         lineas.add('💵 Pagaste: ${formatMoney(desglose.montoPagado)}');
+      } else {
+        lineas.add('✅ Partido al día');
       }
     } else {
       if (desglose.montoPagado > 0) {
         lineas.add('💵 Pagaste: ${formatMoney(desglose.montoPagado)}');
       }
       lineas.add(
-        '💰 Total pendiente: *${formatMoney(desglose.saldoRestante)}*',
+        '💰 Total pendiente: *${formatMoney(desglose.pendientePartido)}*',
       );
     }
 
@@ -84,7 +69,7 @@ class MensajeCobroService {
 
     lineas.add('');
     lineas.addAll(
-      desglose.pagado
+      desglose.pagadoEnPartido
           ? _lineasCierreAlDia(partido.sportType)
           : _lineasCierrePendiente(partido.sportType),
     );
@@ -119,7 +104,7 @@ class MensajeCobroService {
         final sportEmoji = SportThemeConfig.paletteFor(p.sportType).emoji;
         final sportLabel = p.sportType.labelEs;
         final lugar = r != null && r.isNotEmpty ? '$f - $r' : f;
-        lineas.add('• $sportEmoji $sportLabel · $lugar: ${formatMoney(p.montoPendiente)}');
+        lineas.add('• $sportEmoji $sportLabel · $lugar: ${formatMoney(p.pendienteNeto)}');
       }
     }
 

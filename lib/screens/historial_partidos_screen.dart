@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../domain/organizer_cycle_logic.dart';
 import '../core/app_repositories.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/supabase_helpers.dart';
@@ -221,11 +222,7 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
       );
     }
 
-    final pendientesTotal = _partidos.fold<int>(
-      0,
-      (s, p) =>
-          s + p.detalles.where((d) => d.asistio && !d.pagado).length,
-    );
+    final pendientesTotal = jugadoresPendientesUnicos(_partidos);
     final hayConvocatoriasVencidas =
         _convocatorias.any((c) => c.partido.convocatoriaFechaPasada);
 
@@ -596,8 +593,7 @@ class _PartidoCard extends StatelessWidget {
     final fecha = formatFecha(completo.partido.fecha);
     final hora = formatHora(completo.partido.fecha);
     final asistentes = completo.detalles.where((d) => d.asistio).length;
-    final pendientes =
-        completo.detalles.where((d) => d.asistio && !d.pagado).length;
+    final pendientes = completo.contarAsistentesConDeudaNeta();
     final todosPagaron = pendientes == 0;
     final estadoColor = todosPagaron
         ? MatchPayTokens.accentSuccess

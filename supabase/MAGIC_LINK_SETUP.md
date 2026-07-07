@@ -9,8 +9,10 @@ Dashboard → **Authentication** → **URL Configuration** → **Redirect URLs**
 Añade:
 
 ```
-padel-cobro://login-callback
+matchpay://login-callback
 ```
+
+(Puedes mantener temporalmente `padel-cobro://login-callback` si hay usuarios con builds antiguos.)
 
 ## 2. Provider Email
 
@@ -23,7 +25,7 @@ Dashboard → **Authentication** → **Providers** → **Email**
 
 En `AndroidManifest.xml` ya está configurado:
 
-- Scheme: `padel-cobro`
+- Scheme: `matchpay`
 - Host: `login-callback`
 
 ## 4. Trigger de perfiles

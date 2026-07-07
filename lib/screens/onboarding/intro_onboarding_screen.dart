@@ -6,7 +6,9 @@ import '../../core/matchpay_design_tokens.dart';
 import '../../core/sport_theme.dart';
 import '../../core/sport_type.dart';
 import '../../l10n/matchpay_strings.dart';
+import '../../widgets/matchpay_locale_picker.dart';
 import '../../widgets/matchpay_ui.dart';
+import '../../widgets/onboarding_progress.dart';
 
 /// Paso 1 del onboarding: explica el valor de MatchPay antes de elegir deporte.
 class IntroOnboardingScreen extends StatefulWidget {
@@ -40,11 +42,20 @@ class _IntroOnboardingScreenState extends State<IntroOnboardingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                OnboardingProgress(
+                  stepLabel: l10n.tr('introOnboardingStep'),
+                  current: 1,
+                  total: 2,
+                  accent: palette.primary,
+                ),
+                const SizedBox(height: 16),
                 Text(
-                  l10n.tr('introOnboardingStep'),
-                  style: MatchPayTokens.sectionLabelStyle(),
+                  l10n.tr('introOnboardingLanguageHint'),
+                  style: MatchPayTokens.bodySmallStyle(),
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 10),
+                const MatchPayLocalePicker(),
                 const SizedBox(height: 20),
                 Text(
                   l10n.appName,

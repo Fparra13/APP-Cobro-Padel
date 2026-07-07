@@ -102,6 +102,120 @@ String capitalize(String text) {
   return text[0].toUpperCase() + text.substring(1);
 }
 
+/// Normaliza número para wa.me (solo dígitos, prefijo país si falta).
+String? normalizeWhatsAppDigits(String? raw) {
+  if (raw == null) return null;
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty || trimmed.contains('@')) return null;
+
+  var digits = trimmed.replaceAll(RegExp(r'\D'), '');
+  if (digits.startsWith('0')) digits = digits.substring(1);
+  // Chile móvil: 9 dígitos empezando en 9 → +56
+  if (digits.length == 9 && digits.startsWith('9')) {
+    digits = '56$digits';
+  }
+  if (digits.length < 10) return null;
+  return digits;
+}
+
+/// Formato legible para mostrar en ficha (ej. +56 9 1234 5678).
+String formatWhatsAppDisplay(String? stored) {
+  final digits = normalizeWhatsAppDigits(stored);
+  if (digits == null) return stored?.trim() ?? '';
+  if (digits.startsWith('569') && digits.length == 11) {
+    return '+56 ${digits.substring(2, 3)} '
+        '${digits.substring(3, 7)} ${digits.substring(7)}';
+  }
+  return '+$digits';
+}
+
+bool esMismoDia(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _relativeLocalePhrase({
+  required String es,
+  required String en,
+  required String pt,
+}) {
+  final locale = _activeDateLocale;
+  if (locale.startsWith('pt')) return pt;
+  if (locale.startsWith('en')) return en;
+  return es;
+}
+
+/// Tiempo transcurrido desde [fecha] (ej. "Hace 10 min", "Ayer").
+String formatTiempoRelativo(DateTime fecha) {
+  final now = DateTime.now();
+  final diff = now.difference(fecha);
+  if (diff.isNegative) return formatEnCuanto(fecha);
+  if (diff.inMinutes < 1) {
+    return _relativeLocalePhrase(es: 'Ahora', en: 'Just now', pt: 'Agora');
+  }
+  if (diff.inMinutes < 60) {
+    final m = diff.inMinutes;
+    return _relativeLocalePhrase(
+      es: 'Hace $m min',
+      en: '$m min ago',
+      pt: 'Há $m min',
+    );
+  }
+  if (diff.inHours < 24) {
+    final h = diff.inHours;
+    return _relativeLocalePhrase(
+      es: 'Hace $h h',
+      en: '$h h ago',
+      pt: 'Há $h h',
+    );
+  }
+  if (diff.inDays == 1) {
+    return _relativeLocalePhrase(es: 'Ayer', en: 'Yesterday', pt: 'Ontem');
+  }
+  if (diff.inDays < 7) {
+    final d = diff.inDays;
+    return _relativeLocalePhrase(
+      es: 'Hace $d días',
+      en: '$d days ago',
+      pt: 'Há $d dias',
+    );
+  }
+  return formatDiaCorto(fecha);
+}
+
+/// Tiempo hasta [fecha] (ej. "3 horas", "mañana").
+String formatEnCuanto(DateTime fecha) {
+  final now = DateTime.now();
+  final diff = fecha.difference(now);
+  if (diff.isNegative) return formatTiempoRelativo(fecha);
+  if (diff.inMinutes < 60) {
+    final m = diff.inMinutes.clamp(1, 59);
+    return _relativeLocalePhrase(
+      es: '$m minutos',
+      en: '$m minutes',
+      pt: '$m minutos',
+    );
+  }
+  if (diff.inHours < 24) {
+    final h = diff.inHours;
+    return _relativeLocalePhrase(
+      es: '$h horas',
+      en: '$h hours',
+      pt: '$h horas',
+    );
+  }
+  if (diff.inDays == 1) {
+    return _relativeLocalePhrase(es: 'mañana', en: 'tomorrow', pt: 'amanhã');
+  }
+  if (diff.inDays < 7) {
+    final d = diff.inDays;
+    return _relativeLocalePhrase(
+      es: '$d días',
+      en: '$d days',
+      pt: '$d dias',
+    );
+  }
+  return formatDiaCorto(fecha);
+}
+
 /// Saludo corto para mensajes (ej. "Francisco Parra" → "F. P.").
 String formatNombreSaludo(String nombre) {
   final partes = nombre

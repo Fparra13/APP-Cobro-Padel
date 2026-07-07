@@ -1,4 +1,4 @@
-package com.padelcobro.padel_cobro
+package com.matchpay.app
 
 import io.flutter.embedding.android.FlutterActivity
 

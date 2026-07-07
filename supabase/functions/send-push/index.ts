@@ -428,7 +428,7 @@ Deno.serve(async (req) => {
         accessToken,
         sa.project_id,
         token,
-        title ?? "Pádel Cobro",
+        title ?? "MatchPay",
         body ?? "",
         stringData,
       );

@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:sqflite/sqflite.dart';
 
 import '../database/database_helper.dart';
 
@@ -14,12 +13,11 @@ class BackupRepository {
 
   Future<String> exportDatabase() async {
     await _db.database;
-    final dbPath = await getDatabasesPath();
-    final sourcePath = p.join(dbPath, 'padel_cobro.db');
+    final sourcePath = await DatabaseHelper.resolveDbPath();
 
     final exportDir = await _getExportDirectory();
     final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-    final destPath = p.join(exportDir.path, 'padel_cobro_$timestamp.db');
+    final destPath = p.join(exportDir.path, 'matchpay_$timestamp.db');
 
     await File(sourcePath).copy(destPath);
     return destPath;
@@ -42,7 +40,7 @@ class BackupRepository {
 
     final exportDir = await _getExportDirectory();
     final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-    final destPath = p.join(exportDir.path, 'padel_cobro_$timestamp.json');
+    final destPath = p.join(exportDir.path, 'matchpay_$timestamp.json');
 
     await File(destPath).writeAsString(
       const JsonEncoder.withIndent('  ').convert(data),
@@ -54,7 +52,7 @@ class BackupRepository {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(filePath)],
-        text: 'Respaldo Pádel Cobro',
+        text: 'Respaldo MatchPay',
       ),
     );
   }
@@ -67,8 +65,7 @@ class BackupRepository {
     if (result == null || result.files.single.path == null) return false;
 
     await _db.close();
-    final dbPath = await getDatabasesPath();
-    final destPath = p.join(dbPath, 'padel_cobro.db');
+    final destPath = await DatabaseHelper.resolveDbPath();
     await File(result.files.single.path!).copy(destPath);
     await _db.database;
     return true;

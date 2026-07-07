@@ -2,6 +2,36 @@ import '../models/estado_partido.dart';
 import '../services/calculation_service.dart';
 import '../utils/formatters.dart';
 
+/// Datos de cobro incoherentes (p. ej. falta snapshot en historial).
+class DatosInconsistentesException implements Exception {
+  final String message;
+
+  const DatosInconsistentesException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// Estado de cobro de un detalle (lectura). Fuente: snapshot + CobroLogic.
+class EstadoPagoDetalle {
+  final double pendienteNeto;
+  final bool partidoCerrado;
+  final double saldoRestanteTrasPartido;
+  final double montoPagadoEnPartido;
+
+  const EstadoPagoDetalle({
+    required this.pendienteNeto,
+    required this.partidoCerrado,
+    required this.saldoRestanteTrasPartido,
+    required this.montoPagadoEnPartido,
+  });
+
+  bool get tieneDeuda => pendienteNeto > 0.005;
+
+  bool get pagoParcial =>
+      !partidoCerrado && montoPagadoEnPartido > 0.005;
+}
+
 /// Resultado de calcular pago al guardar/completar un partido.
 class EstadoPagoPartidoResult {
   final double montoPagado;
@@ -54,7 +84,11 @@ class CobroLogic {
       saldoAnterior: saldoAnterior,
       cargoPartido: cargo,
     );
-    final pagado = saldoNuevo <= 0;
+    final pagado = CalculationService.partidoCubierto(
+      saldoAnterior: saldoAnterior,
+      cargoPartido: cargo,
+      montoPagado: montoPagado,
+    );
     final concepto = pagado
         ? (montoPagado == 0 && favorAplicado > 0
             ? 'Partido cubierto con saldo a favor'
@@ -82,7 +116,9 @@ class CobroLogic {
     return inputEstado;
   }
 
-  /// Pendiente real en un cobro: deuda anterior + cargo del partido − abonado.
+  /// Pendiente real en un cobro: saldo anterior + cargo del partido − abonado.
+  ///
+  /// Preferir [obtenerPendientePartido] en código nuevo.
   static double pendienteEnCobro({
     required double saldoAnterior,
     required double cargoPartido,
@@ -96,11 +132,237 @@ class CobroLogic {
     return restante > 0.005 ? roundMoney(restante).toDouble() : 0;
   }
 
+  // --- Single Source of Truth (lectura) ---
+  //
+  // Dueño de la deuda: `profiles.saldo_acumulado` (> 0 debe, < 0 crédito).
+  // `saldos_historicos` solo audita cómo se llegó a ese saldo.
+  //
+  // Regla: ninguna pantalla, modelo ni SQL debe calcular deuda con
+  // `total - monto_pagado` sin pasar por estas funciones.
+
+  /// Cuánto debe el jugador ahora mismo.
+  ///
+  /// Fuente única: [saldoAcumulado] de `profiles`.
+  static double obtenerPendienteJugador({required double saldoAcumulado}) {
+    return saldoAcumulado > 0.005
+        ? roundMoney(saldoAcumulado).toDouble()
+        : 0;
+  }
+
+  /// Crédito a favor del jugador (positivo).
+  static double obtenerCreditoJugador({required double saldoAcumulado}) {
+    return saldoAcumulado < -0.005
+        ? roundMoney(-saldoAcumulado).toDouble()
+        : 0;
+  }
+
+  /// Cuánto falta por un partido concreto (contexto del cargo).
+  ///
+  /// [saldoAnteriorAlPartido]: saldo del jugador al registrar ese partido
+  /// (snapshot en `saldos_historicos.saldo_anterior`).
+  static double obtenerPendientePartido({
+    required double saldoAnteriorAlPartido,
+    required double cargoPartido,
+    required double montoPagadoEnPartido,
+  }) {
+    return pendienteEnCobro(
+      saldoAnterior: saldoAnteriorAlPartido,
+      cargoPartido: cargoPartido,
+      montoPagado: montoPagadoEnPartido,
+    );
+  }
+
+  /// Si el cargo del partido quedó cubierto (neto, con crédito aplicado).
+  static bool partidoEstaCerrado({
+    required double saldoAnteriorAlPartido,
+    required double cargoPartido,
+    required double montoPagadoEnPartido,
+  }) =>
+      obtenerPendientePartido(
+        saldoAnteriorAlPartido: saldoAnteriorAlPartido,
+        cargoPartido: cargoPartido,
+        montoPagadoEnPartido: montoPagadoEnPartido,
+      ) <=
+      0.005;
+
+  /// Suma de deuda neta de todos los jugadores del grupo.
+  static double obtenerPendienteGrupo({
+    required Iterable<double> saldosAcumulados,
+  }) {
+    var total = 0.0;
+    for (final saldo in saldosAcumulados) {
+      total += obtenerPendienteJugador(saldoAcumulado: saldo);
+    }
+    return roundMoney(total).toDouble();
+  }
+
+  /// Saldo anterior inmutable de un partido ya registrado.
+  ///
+  /// [snapshotHistorico]: valor de `saldos_historicos.saldo_anterior`.
+  /// Si es null (partido antiguo sin historial), devuelve 0 — no recalcular en UI.
+  static double saldoAnteriorAlPartido({required double? snapshotHistorico}) {
+    if (snapshotHistorico == null) return 0;
+    return roundMoney(snapshotHistorico).toDouble();
+  }
+
+  /// Clave `partidoId:jugadorId` para snapshots en lecturas batch.
+  static String claveSnapshotPartidoJugador({
+    required Object partidoId,
+    required Object jugadorId,
+  }) =>
+      '$partidoId:$jugadorId';
+
+  /// Pendiente neto de un detalle (lectura). Exige snapshot en partido existente.
+  static double pendienteNetoDetalle({
+    required int partidoId,
+    required Object jugadorId,
+    required double cargoPartido,
+    required double montoPagadoEnPartido,
+    required double? snapshotSaldoAnterior,
+  }) {
+    if (snapshotSaldoAnterior == null) {
+      throw DatosInconsistentesException(
+        'Datos inconsistentes: falta snapshot saldo_anterior '
+        '(jugador $jugadorId, partido $partidoId)',
+      );
+    }
+    return obtenerPendientePartido(
+      saldoAnteriorAlPartido: saldoAnteriorAlPartido(
+        snapshotHistorico: snapshotSaldoAnterior,
+      ),
+      cargoPartido: cargoPartido,
+      montoPagadoEnPartido: montoPagadoEnPartido,
+    );
+  }
+
+  /// Estado de cobro de un detalle_partido (lectura UI).
+  static EstadoPagoDetalle estadoPagoDetalle({
+    required int partidoId,
+    required Object jugadorId,
+    required double cargoPartido,
+    required double montoPagadoEnPartido,
+    required double? snapshotSaldoAnterior,
+  }) {
+    final saldoAnt = snapshotSaldoAnterior != null
+        ? saldoAnteriorAlPartido(snapshotHistorico: snapshotSaldoAnterior)
+        : throw DatosInconsistentesException(
+            'Datos inconsistentes: falta snapshot saldo_anterior '
+            '(jugador $jugadorId, partido $partidoId)',
+          );
+    final pendiente = obtenerPendientePartido(
+      saldoAnteriorAlPartido: saldoAnt,
+      cargoPartido: cargoPartido,
+      montoPagadoEnPartido: montoPagadoEnPartido,
+    );
+    return EstadoPagoDetalle(
+      pendienteNeto: pendiente,
+      partidoCerrado: partidoEstaCerrado(
+        saldoAnteriorAlPartido: saldoAnt,
+        cargoPartido: cargoPartido,
+        montoPagadoEnPartido: montoPagadoEnPartido,
+      ),
+      saldoRestanteTrasPartido: saldoTrasMovimiento(
+        saldoAnterior: saldoAnt,
+        cargoPartido: cargoPartido,
+        montoPagado: montoPagadoEnPartido,
+      ),
+      montoPagadoEnPartido: roundMoney(montoPagadoEnPartido).toDouble(),
+    );
+  }
+
+  /// Suma pendiente neto de detalles asistidos (lectura batch).
+  static Map<String, double> pendienteNetoPorJugadorBatch({
+    required Iterable<String> jugadorIds,
+    required List<dynamic> detalleRows,
+    required Map<String, double> snapshotsPorPartidoJugador,
+    required String Function(Map<String, dynamic> row) jugadorIdDeFila,
+    required int Function(Map<String, dynamic> row) partidoIdDeFila,
+  }) {
+    final result = <String, double>{for (final id in jugadorIds) id: 0.0};
+
+    for (final row in detalleRows) {
+      final map = Map<String, dynamic>.from(row as Map);
+      final jid = jugadorIdDeFila(map);
+      if (!result.containsKey(jid)) continue;
+      if (map['asistio'] == false || map['asistio'] == 0) continue;
+
+      final pid = partidoIdDeFila(map);
+      final key = claveSnapshotPartidoJugador(partidoId: pid, jugadorId: jid);
+      final pend = pendienteNetoDetalle(
+        partidoId: pid,
+        jugadorId: jid,
+        cargoPartido: (map['total'] as num).toDouble(),
+        montoPagadoEnPartido: (map['monto_pagado'] as num?)?.toDouble() ?? 0,
+        snapshotSaldoAnterior: snapshotsPorPartidoJugador[key],
+      );
+      if (pend > 0.005) {
+        result[jid] = roundMoney(result[jid]! + pend).toDouble();
+      }
+    }
+
+    return result;
+  }
+
+  /// Saldo vivo para preview **antes** de guardar un partido (formulario).
+  /// No usar en partidos ya registrados; ahí usar [saldoAnteriorAlPartido].
+  static double saldoAnteriorPreview({
+    required double saldoAcumuladoActual,
+    double? snapshotAlEditar,
+  }) =>
+      snapshotAlEditar ?? saldoAcumuladoActual;
+
+  /// Saldo tras aplicar solo un cargo (sin pago).
+  static double saldoTrasCargo({
+    required double saldoAcumulado,
+    required double cargoPartido,
+  }) =>
+      saldoTrasMovimiento(
+        saldoAnterior: saldoAcumulado,
+        cargoPartido: cargoPartido,
+        montoPagado: 0,
+      );
+
+  /// Saldo tras aplicar solo un pago (sin cargo).
+  static double saldoTrasPago({
+    required double saldoAcumulado,
+    required double montoPagado,
+  }) =>
+      saldoTrasMovimiento(
+        saldoAnterior: saldoAcumulado,
+        cargoPartido: 0,
+        montoPagado: montoPagado,
+      );
+
+  /// Saldo tras aplicar cargo y pago (escritura / preview).
+  static double saldoTrasMovimiento({
+    required double saldoAnterior,
+    required double cargoPartido,
+    required double montoPagado,
+  }) =>
+      CalculationService.saldoDespuesPago(
+        saldoAnterior: saldoAnterior,
+        cargoPartido: cargoPartido,
+        montoPagado: montoPagado,
+      );
+
+  /// @deprecated Suma bruta (ignora crédito). Usar [obtenerPendienteJugador].
+  @Deprecated('Usar obtenerPendienteJugador(saldoAcumulado: ...)')
+  static double totalPendientePartidosImpagos({
+    required Iterable<({double total, double montoPagado})> detallesImpagos,
+  }) {
+    var sum = 0.0;
+    for (final d in detallesImpagos) {
+      final p = roundMoney(d.total - d.montoPagado).toDouble();
+      if (p > 0.005) sum += p;
+    }
+    return roundMoney(sum).toDouble();
+  }
+
   static ComprobanteValidacionDecision evaluarValidacionComprobante({
     required bool aprobado,
     required bool pagado,
     required bool comprobanteValidado,
-    required double pendienteEnCobro,
+    required double pendientePartido,
     double? montoPagoDeclarado,
   }) {
     if (!aprobado) {
@@ -113,14 +375,14 @@ class CobroLogic {
         accion: ComprobanteValidacionAccion.ignorarYaValidado,
       );
     }
-    if (pagado || pendienteEnCobro <= 0.005) {
+    if (pagado || pendientePartido <= 0.005) {
       return const ComprobanteValidacionDecision(
         accion: ComprobanteValidacionAccion.soloMarcarComprobante,
       );
     }
     final declarado = montoPagoDeclarado != null && montoPagoDeclarado > 0
         ? roundMoney(montoPagoDeclarado).toDouble()
-        : pendienteEnCobro;
+        : pendientePartido;
     return ComprobanteValidacionDecision(
       accion: ComprobanteValidacionAccion.abonarPendiente,
       abono: declarado,

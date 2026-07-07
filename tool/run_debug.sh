@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 DEVICE="${1:-}"
 FIREBASE_FLAGS=(
   --dart-define=FIREBASE_API_KEY=AIzaSyCkgdPZrbDVJmvnmjx5WfVe4NUUGyiujiw
-  --dart-define=FIREBASE_APP_ID=1:1018372483361:android:dcdceabf580b3647ca7660
+  --dart-define=FIREBASE_APP_ID=1:1018372483361:android:465e4bd9e25e99b2ca7660
   --dart-define=FIREBASE_MESSAGING_SENDER_ID=1018372483361
   --dart-define=FIREBASE_PROJECT_ID=padel-cobro
 )

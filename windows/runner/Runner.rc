@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.padelcobro" "\0"
-            VALUE "FileDescription", "padel_cobro" "\0"
+            VALUE "CompanyName", "MatchPay" "\0"
+            VALUE "FileDescription", "MatchPay" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "padel_cobro" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.padelcobro. All rights reserved." "\0"
-            VALUE "OriginalFilename", "padel_cobro.exe" "\0"
-            VALUE "ProductName", "padel_cobro" "\0"
+            VALUE "InternalName", "matchpay" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 MatchPay. All rights reserved." "\0"
+            VALUE "OriginalFilename", "matchpay.exe" "\0"
+            VALUE "ProductName", "MatchPay" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -1,4 +1,5 @@
 import '../core/supabase_parse.dart';
+import '../utils/formatters.dart';
 
 class Jugador {
   final int? id;
@@ -13,6 +14,8 @@ class Jugador {
   final String? fotoPath;
   /// URL pública en Supabase Storage.
   final String? fotoUrl;
+  /// Token FCM: indica que el jugador abrió la app y recibe push.
+  final String? fcmToken;
   final DateTime createdAt;
 
   const Jugador({
@@ -25,6 +28,7 @@ class Jugador {
     this.telefono,
     this.fotoPath,
     this.fotoUrl,
+    this.fcmToken,
     required this.createdAt,
   });
 
@@ -39,6 +43,23 @@ class Jugador {
     if (t != null && t.contains('@')) return t.toLowerCase();
     return null;
   }
+
+  /// WhatsApp / teléfono móvil (no confundir con email legacy en telefono).
+  String? get contactWhatsApp {
+    final t = telefono?.trim();
+    if (t == null || t.isEmpty || t.contains('@')) return null;
+    return t;
+  }
+
+  /// Perfil vinculado a Supabase (puede tener o no la app instalada).
+  bool get tienePerfilRemoto => supabaseId != null && supabaseId!.isNotEmpty;
+
+  /// App instalada y registrada para notificaciones push.
+  bool get tieneMatchPayApp =>
+      fcmToken != null && fcmToken!.trim().isNotEmpty;
+
+  bool get puedeEnviarWhatsApp =>
+      normalizeWhatsAppDigits(contactWhatsApp) != null;
 
   /// Clave estable para mapas, rutas y repositorios unificados.
   String get keyId => supabaseId ?? id?.toString() ?? '';
@@ -56,6 +77,7 @@ class Jugador {
     String? fotoPath,
     String? fotoUrl,
     bool clearFoto = false,
+    bool clearTelefono = false,
     DateTime? createdAt,
   }) {
     return Jugador(
@@ -65,7 +87,7 @@ class Jugador {
       activo: activo ?? this.activo,
       saldoAcumulado: saldoAcumulado ?? this.saldoAcumulado,
       email: email ?? this.email,
-      telefono: telefono ?? this.telefono,
+      telefono: clearTelefono ? null : (telefono ?? this.telefono),
       fotoPath: clearFoto ? null : (fotoPath ?? this.fotoPath),
       fotoUrl: clearFoto ? null : (fotoUrl ?? this.fotoUrl),
       createdAt: createdAt ?? this.createdAt,
@@ -103,6 +125,7 @@ class Jugador {
       email: SupabaseParse.toStringOrNull(map['email'])?.toLowerCase(),
       telefono: SupabaseParse.toStringOrNull(map['telefono']),
       fotoUrl: SupabaseParse.toStringOrNull(map['foto_url']),
+      fcmToken: SupabaseParse.toStringOrNull(map['fcm_token']),
       createdAt: SupabaseParse.toDateTime(map['created_at']),
     );
   }
@@ -118,7 +141,7 @@ class Jugador {
     final mail = contactEmail;
     if (mail != null) map['email'] = mail;
     final tel = telefono?.trim();
-    if (tel != null && tel.isNotEmpty) map['telefono'] = tel;
+    map['telefono'] = (tel != null && tel.isNotEmpty) ? tel : null;
     final foto = fotoUrl?.trim();
     if (foto != null && foto.isNotEmpty) map['foto_url'] = foto;
     return map;
