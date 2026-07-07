@@ -38,8 +38,7 @@ class RecordatorioService {
   final _prefs = PreferencesService();
   final _jugadorRepo = JugadorRepositoryRemote();
 
-  AppRepositories get _repos =>
-      AppRepositories.isReady ? AppRepositories.I : AppRepositories.create();
+  AppRepositories get _repos => AppRepositories.active;
 
   Future<_DatosCobroPrefs> _loadPrefs() async {
     final data = await Future.wait<String>([

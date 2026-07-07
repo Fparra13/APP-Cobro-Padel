@@ -28,8 +28,7 @@ class ConvocatoriaListaEsperaService {
   /// Ventana para el aviso "te queda menos de 1 h".
   static const recordatorioAntes = Duration(hours: 1);
 
-  AppRepositories get _repos =>
-      AppRepositories.isReady ? AppRepositories.I : AppRepositories.create();
+  AppRepositories get _repos => AppRepositories.active;
 
   int _cuposOcupados(ConvocatoriaCompleta conv) => conv.titulares
       .where((t) => t.estado.esTitularActivo)

@@ -38,8 +38,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   final _prefs = PreferencesService();
 
-  AppRepositories get _repos =>
-      AppRepositories.isReady ? AppRepositories.I : AppRepositories.create();
+  AppRepositories get _repos => AppRepositories.active;
 
   GlobalKey<NavigatorState>? navigatorKey;
   bool _initialized = false;

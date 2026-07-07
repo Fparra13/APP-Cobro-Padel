@@ -22,7 +22,7 @@ class PdfService {
   final _prefs = PreferencesService();
 
   AppRepositories get _repos =>
-      AppRepositories.isReady ? AppRepositories.I : AppRepositories.create();
+      AppRepositories.active;
 
   String _fmt(double v) => formatMoney(v);
 

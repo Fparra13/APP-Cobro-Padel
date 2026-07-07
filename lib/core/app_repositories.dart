@@ -95,9 +95,35 @@ class AppRepositories {
 
   static bool get isReady => _instance != null;
 
+  /// Repositorio activo. Con sesión no crea fallback SQLite silencioso.
+  static AppRepositories get active {
+    if (_instance != null) {
+      _assertCloudWhenLoggedIn(_instance!);
+      return _instance!;
+    }
+    if (AuthService.instance.isLoggedIn) return create();
+    throw StateError(
+      'AppRepositories no inicializado. Inicia sesión de nuevo.',
+    );
+  }
+
+  static void _assertCloudWhenLoggedIn(AppRepositories repos) {
+    if (AuthService.instance.isLoggedIn && !repos.useRemote) {
+      throw StateError(
+        'Repositorio en modo local con sesión activa. '
+        'Cierra sesión e inicia de nuevo.',
+      );
+    }
+  }
+
   static AppRepositories create() {
-    final remote =
-        SupabaseConfig.isConfigured && AuthService.instance.isLoggedIn;
+    final loggedIn = AuthService.instance.isLoggedIn;
+    if (loggedIn && !SupabaseConfig.isConfigured) {
+      throw StateError(
+        'Supabase no está configurado; no se puede usar SQLite con sesión activa.',
+      );
+    }
+    final remote = loggedIn && SupabaseConfig.isConfigured;
     final repos = AppRepositories._(useRemote: remote);
     _instance = repos;
     return repos;

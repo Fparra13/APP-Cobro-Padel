@@ -27,9 +27,7 @@ class CobroNotificacionService {
     if (!SupabaseConfig.isConfigured) return;
 
     try {
-      final repos = AppRepositories.isReady
-          ? AppRepositories.I
-          : AppRepositories.create();
+      final repos =       AppRepositories.active;
       final completo = await repos.getPartidoCompleto(partidoId);
       if (completo == null) {
         debugPrint('CobroNotificacion: partido $partidoId no encontrado');
