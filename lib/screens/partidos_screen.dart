@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/app_repositories.dart';
+import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
 import '../repositories/partido_repository.dart';
 import '../services/pdf_service.dart';
@@ -48,6 +50,29 @@ class _PartidosScreenState extends State<PartidosScreen> {
       arguments: pc.partido.id,
     );
     _load();
+  }
+
+  Future<void> _generarPdf(PartidoCompleto pc) async {
+    try {
+      await _pdfService.generarReportePartido(pc);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            dataActionErrorMessage(
+              context.l10n,
+              e,
+              fallback: (err) => context.tr(
+                'pdfGenerateError',
+                params: {'error': '$err'},
+              ),
+            ),
+          ),
+          backgroundColor: MatchPayTokens.accentError,
+        ),
+      );
+    }
   }
 
   Future<void> _eliminar(PartidoCompleto pc) async {
@@ -126,7 +151,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
                                 case 'edit':
                                   _editar(pc);
                                 case 'pdf':
-                                  _pdfService.generarReportePartido(pc);
+                                  _generarPdf(pc);
                                 case 'delete':
                                   _eliminar(pc);
                               }
@@ -226,7 +251,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
                     child: FilledButton.icon(
                       onPressed: () {
                         Navigator.pop(ctx);
-                        _pdfService.generarReportePartido(pc);
+                        _generarPdf(pc);
                       },
                       icon: const Icon(Icons.picture_as_pdf),
                       label: Text(ctx.tr('pdfLabel')),

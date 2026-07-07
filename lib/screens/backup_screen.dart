@@ -28,7 +28,14 @@ class _BackupScreenState extends State<BackupScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              context.l10n.tr('backupError', params: {'error': '$e'}),
+              dataActionErrorMessage(
+                context.l10n,
+                e,
+                fallback: (err) => context.l10n.tr(
+                  'backupError',
+                  params: {'error': '$err'},
+                ),
+              ),
             ),
             backgroundColor: MatchPayTokens.accentError,
           ),

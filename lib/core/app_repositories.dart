@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../core/auth_service.dart';
+import '../l10n/matchpay_strings.dart';
 import '../core/sport_type.dart';
 import '../core/supabase_config.dart';
 import '../core/supabase_helpers.dart';
@@ -62,6 +63,18 @@ class AppRepositoriesUnavailable implements Exception {
   @override
   String toString() =>
       debugMessage ?? 'AppRepositories cloud no disponible';
+}
+
+/// Mensaje legible para fallos de datos en acciones de usuario (PDF, backup, etc.).
+String dataActionErrorMessage(
+  MatchPayStrings l10n,
+  Object error, {
+  required String Function(Object error) fallback,
+}) {
+  if (error is AppRepositoriesUnavailable) {
+    return l10n.tr('reposUnavailableSnackbar');
+  }
+  return fallback(error);
 }
 
 /// Punto de acceso unificado a datos locales o Supabase.

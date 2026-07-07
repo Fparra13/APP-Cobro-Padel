@@ -181,7 +181,14 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
     } catch (e) {
       if (mounted) {
         _mostrarFeedback(
-          context.tr('pdfGenerateError', params: {'error': '$e'}),
+          dataActionErrorMessage(
+            context.l10n,
+            e,
+            fallback: (err) => context.tr(
+              'pdfGenerateError',
+              params: {'error': '$err'},
+            ),
+          ),
           error: true,
         );
       }

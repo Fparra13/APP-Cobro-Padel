@@ -239,7 +239,14 @@ class _EnviarInformesSheetState extends State<EnviarInformesSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              context.tr('pdfGenerateError', params: {'error': '$e'}),
+              dataActionErrorMessage(
+                context.l10n,
+                e,
+                fallback: (err) => context.tr(
+                  'pdfGenerateError',
+                  params: {'error': '$err'},
+                ),
+              ),
             ),
             backgroundColor: Colors.red.shade700,
           ),
@@ -274,7 +281,14 @@ class _EnviarInformesSheetState extends State<EnviarInformesSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              context.tr('pdfGenerateError', params: {'error': '$e'}),
+              dataActionErrorMessage(
+                context.l10n,
+                e,
+                fallback: (err) => context.tr(
+                  'pdfGenerateError',
+                  params: {'error': '$err'},
+                ),
+              ),
             ),
             backgroundColor: Colors.red.shade700,
           ),
