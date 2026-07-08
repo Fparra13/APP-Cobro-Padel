@@ -91,6 +91,16 @@ class AppSettingsController extends ChangeNotifier {
     await syncSportToProfile();
   }
 
+  /// Alinea el modo de UI con el rol real del perfil (solo organizadores alternan).
+  Future<void> syncUiModeWithRole({required bool isOrganizer}) async {
+    if (isOrganizer) return;
+    if (_uiMode == AppUiMode.player) return;
+    _uiMode = AppUiMode.player;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyUiMode, AppUiMode.player.storageValue);
+  }
+
   /// Cambia entre vista organizador y jugador (solo si el perfil es organizador).
   Future<void> setUiMode(AppUiMode mode) async {
     if (!AuthService.instance.isOrganizer) {

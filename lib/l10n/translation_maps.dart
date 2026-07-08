@@ -775,6 +775,15 @@ class TranslationMaps {
     'introOnboardingLanguageHint':
         'Elige tu idioma. Detectamos el del móvil; puedes cambiarlo aquí.',
     'introOnboardingTitle': 'Tu comunidad deportiva, simplificada',
+    'acquisitionColdStartTitle':
+        'Organiza tus partidos sin cobrar por WhatsApp',
+    'acquisitionColdStartSubtitle':
+        'Convoca a tu grupo, confirma asistencia y lleva los cobros en un solo lugar.',
+    'acquisitionCreateFirstGroup': 'Crear mi primer grupo',
+    'acquisitionAlreadyInvited': '¿Ya te invitaron a un partido?',
+    'acquisitionBenefitInvite': 'Invita a tu grupo con un toque',
+    'acquisitionBenefitCollect': 'Cobra sin perseguir por WhatsApp',
+    'acquisitionBenefitConfirm': 'Todos confirman desde la app',
     'introOnboardingSubtitle':
         'Organiza partidos, confirma asistencia y controla pagos — sin planillas.',
     'introFeatureOrganize': 'Organiza partidos',
@@ -2103,6 +2112,15 @@ class TranslationMaps {
     'introOnboardingLanguageHint':
         'Choose your language. We detected your phone\'s language; you can change it here.',
     'introOnboardingTitle': 'Your sports community, simplified',
+    'acquisitionColdStartTitle':
+        'Organize matches without chasing payments on WhatsApp',
+    'acquisitionColdStartSubtitle':
+        'Invite your group, confirm attendance, and track payments in one place.',
+    'acquisitionCreateFirstGroup': 'Create my first group',
+    'acquisitionAlreadyInvited': 'Already invited to a match?',
+    'acquisitionBenefitInvite': 'Invite your group in one tap',
+    'acquisitionBenefitCollect': 'Collect without WhatsApp chasing',
+    'acquisitionBenefitConfirm': 'Everyone confirms from the app',
     'introOnboardingSubtitle':
         'Organize matches, confirm attendance, and track payments — no spreadsheets.',
     'introFeatureOrganize': 'Organize matches',
@@ -3431,6 +3449,15 @@ class TranslationMaps {
     'introOnboardingLanguageHint':
         'Escolha seu idioma. Detectamos o do dispositivo; você pode alterar aqui.',
     'introOnboardingTitle': 'Sua comunidade esportiva, simplificada',
+    'acquisitionColdStartTitle':
+        'Organize suas partidas sem cobrar pelo WhatsApp',
+    'acquisitionColdStartSubtitle':
+        'Convide seu grupo, confirme presença e controle os pagamentos em um só lugar.',
+    'acquisitionCreateFirstGroup': 'Criar meu primeiro grupo',
+    'acquisitionAlreadyInvited': 'Já foi convidado para uma partida?',
+    'acquisitionBenefitInvite': 'Convide seu grupo com um toque',
+    'acquisitionBenefitCollect': 'Cobre sem ficar cobrando no WhatsApp',
+    'acquisitionBenefitConfirm': 'Todos confirmam pelo app',
     'introOnboardingSubtitle':
         'Organize partidas, confirme presença e controle pagamentos — sem planilhas.',
     'introFeatureOrganize': 'Organize partidas',

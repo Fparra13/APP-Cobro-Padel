@@ -27,9 +27,11 @@ class AuthService {
 
   String? _profileRole;
 
+  static bool isOrganizerRole(String? role) =>
+      role == 'organizer' || role == 'organizador';
+
   /// Rol desde `profiles` (fuente de verdad con RLS).
-  bool get isOrganizer =>
-      _profileRole == 'organizer' || _profileRole == 'organizador';
+  bool get isOrganizer => isOrganizerRole(_profileRole);
 
   String? get profileRole => _profileRole;
 
@@ -64,12 +66,12 @@ class AuthService {
         _profileRole = row['role'] as String? ?? 'jugador';
         return true;
       }
-      final meta = currentUser?.userMetadata;
-      _profileRole = meta?['role'] as String?;
+      // Sin fila en profiles: no inferir organizador desde metadata de auth.
+      _profileRole = 'jugador';
       return false;
     } catch (_) {
-      final meta = currentUser?.userMetadata;
-      _profileRole = meta?['role'] as String?;
+      // Mantener rol previo si ya se cargó; si no, asumir jugador (nunca organizer).
+      _profileRole ??= 'jugador';
       return false;
     }
   }

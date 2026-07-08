@@ -43,6 +43,16 @@
                     android:scheme="matchpay"
                     android:host="login-callback" />
             </intent-filter>
+            <!-- Deep link: invitación a convocatoria -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="matchpay"
+                    android:host="invite"
+                    android:pathPrefix="/" />
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

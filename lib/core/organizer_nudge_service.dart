@@ -18,7 +18,7 @@ class OrganizerNudgeService {
     required int partidosJugados,
     required int invitesRecibidas,
   }) async {
-    if (AuthService.instance.isOrganizer) return true;
+    if (AuthService.instance.isOrganizer) return false;
     if (partidosJugados >= 3 || invitesRecibidas >= 2) return true;
     return false;
   }

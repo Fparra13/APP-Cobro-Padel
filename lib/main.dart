@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/acquisition_controller.dart';
 import 'core/app_repositories.dart';
 import 'core/app_settings_controller.dart';
 import 'core/matchpay_design_tokens.dart';
@@ -24,6 +25,7 @@ import 'screens/organizer_cobros_screen.dart';
 import 'screens/organizar_partido_screen.dart';
 import 'screens/nuevo_partido_screen.dart';
 import 'screens/historial_partidos_screen.dart';
+import 'screens/onboarding/acquisition_screen.dart';
 import 'screens/onboarding/sport_selection_screen.dart';
 import 'screens/player_home_screen.dart';
 import 'services/fcm_service.dart';
@@ -34,6 +36,7 @@ import 'utils/nav_shell_layout.dart';
 import 'widgets/mis_invitaciones_panel.dart';
 import 'utils/formatters.dart' show MoneyFormatConfig;
 import 'l10n/matchpay_strings.dart';
+import 'utils/acquisition_navigation.dart';
 import 'utils/matchpay_context.dart';
 
 final _navigatorKey = GlobalKey<NavigatorState>();
@@ -51,6 +54,8 @@ void main() async {
   }
   final settings = AppSettingsController();
   await settings.load();
+  final acquisition = AcquisitionController.instance;
+  await acquisition.initialize();
   AuthService.instance.initializeAuthListener(
     onSignedIn: () {
       FcmService.instance.initialize();
@@ -66,6 +71,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: settings),
+        ChangeNotifierProvider.value(value: acquisition),
         ChangeNotifierProvider.value(value: SubscriptionService.instance),
       ],
       child: MatchPayApp(navigatorKey: _navigatorKey),
@@ -115,8 +121,10 @@ class MatchPayApp extends StatelessWidget {
         }
         return child ?? const SizedBox.shrink();
       },
-      home: SportOnboardingGate(
-        child: AuthGate(navigatorKey: navigatorKey),
+      home: AcquisitionGate(
+        child: SportOnboardingGate(
+          child: AuthGate(navigatorKey: navigatorKey),
+        ),
       ),
       routes: {
         '/jugadores': (_) => const JugadoresScreen(),
@@ -264,7 +272,6 @@ class RoleAwareShell extends StatefulWidget {
 class _RoleAwareShellState extends State<RoleAwareShell> {
   bool _loading = true;
   bool _loadError = false;
-  bool _isOrganizer = false;
 
   @override
   void initState() {
@@ -273,15 +280,7 @@ class _RoleAwareShellState extends State<RoleAwareShell> {
   }
 
   Future<void> _loadRole() async {
-    final meta = AuthService.instance.currentUser?.userMetadata;
-    final metaRole = meta?['role'] as String?;
-    if (metaRole != null && mounted) {
-      setState(() {
-        _isOrganizer =
-            metaRole == 'organizer' || metaRole == 'organizador';
-        _loading = false;
-      });
-    } else if (mounted) {
+    if (mounted) {
       setState(() {
         _loading = true;
         _loadError = false;
@@ -301,15 +300,18 @@ class _RoleAwareShellState extends State<RoleAwareShell> {
 
     if (!mounted) return;
 
-    final role = AuthService.instance.profileRole;
+    await applyAcquisitionAfterLogin(context);
+
+    if (!mounted) return;
+
     setState(() {
-      _isOrganizer = AuthService.instance.isOrganizer;
-      _loadError = !profileOk && role == null;
+      _loadError = !profileOk && AuthService.instance.profileRole == null;
       _loading = false;
     });
 
     if (!_loadError) {
       unawaited(FcmService.instance.initialize());
+      runPendingAcquisitionNavigation(context);
     }
   }
 
@@ -370,11 +372,10 @@ class _RoleAwareShellState extends State<RoleAwareShell> {
         ),
       );
     }
-    // Organizador puede alternar vista; el rol de pago en BD no cambia.
-    // Leer isOrganizer en vivo (p. ej. tras "Quiero organizar").
+    // Organizador puede alternar vista; el rol viene solo de profiles.role.
     final settings = context.watch<AppSettingsController>();
-    final isOrganizer = AuthService.instance.isOrganizer || _isOrganizer;
-    final showOrganizer = isOrganizer && settings.showOrganizerShell;
+    final showOrganizer =
+        AuthService.instance.isOrganizer && settings.showOrganizerShell;
     return showOrganizer ? const OrganizerShell() : const PlayerShell();
   }
 }

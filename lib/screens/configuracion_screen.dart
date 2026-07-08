@@ -35,7 +35,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   final _rutCtrl = TextEditingController();
 
   bool _loading = true;
-  bool _isOrganizer = true;
+  bool _isOrganizer = false;
   bool _recordatorioActivo = false;
   int _recordatorioDias = 3;
   TimeOfDay _recordatorioHora = const TimeOfDay(hour: 10, minute: 0);
@@ -110,6 +110,46 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _confirmBecomeOrganizer() async {
+    final l10n = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.tr('becomeOrganizerTitle')),
+        content: Text(l10n.tr('becomeOrganizerBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.tr('cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.tr('becomeOrganizerCta')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await AuthService.instance.becomeOrganizer();
+      if (!mounted) return;
+      await context.switchAppUiMode(AppUiMode.organizer);
+      if (!mounted) return;
+      setState(() => _isOrganizer = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.tr('becomeOrganizerDone'))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     }
   }
 
@@ -248,28 +288,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                 ],
                 if (!_isOrganizer && AuthService.instance.isLoggedIn) ...[
                   MatchPaySurfaceCard(
-                    onTap: () async {
-                      try {
-                        await AuthService.instance.becomeOrganizer();
-                        if (!mounted) return;
-                        await context.switchAppUiMode(AppUiMode.organizer);
-                        if (!mounted) return;
-                        setState(() => _isOrganizer = true);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(context.l10n.tr('becomeOrganizerDone')),
-                          ),
-                        );
-                      } catch (e) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('$e'),
-                            backgroundColor: Colors.red.shade700,
-                          ),
-                        );
-                      }
-                    },
+                    onTap: _confirmBecomeOrganizer,
                     child: Row(
                       children: [
                         Container(
