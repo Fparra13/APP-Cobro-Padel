@@ -1,4 +1,5 @@
 import '../core/app_repositories.dart';
+import '../domain/partido_lifecycle.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/estado_partido.dart';
 import 'convocatoria_notificacion_service.dart';
@@ -8,16 +9,22 @@ class ConvocatoriaSyncResult {
   final int vencidos;
   final int promovidos;
   final bool autoConfirmado;
+  final bool reabierta;
 
   const ConvocatoriaSyncResult({
     this.recordatorios = 0,
     this.vencidos = 0,
     this.promovidos = 0,
     this.autoConfirmado = false,
+    this.reabierta = false,
   });
 
   bool get huboCambios =>
-      recordatorios > 0 || vencidos > 0 || promovidos > 0 || autoConfirmado;
+      recordatorios > 0 ||
+      vencidos > 0 ||
+      promovidos > 0 ||
+      autoConfirmado ||
+      reabierta;
 }
 
 /// Lógica automática: recordatorios de plazo, vencimientos, lista de espera y cierre.
@@ -53,7 +60,7 @@ class ConvocatoriaListaEsperaService {
     final repos = AppRepositories.tryActive;
     if (repos == null) return const ConvocatoriaSyncResult();
     var conv = await repos.getConvocatoriaCompleta(partidoId);
-    if (conv == null || conv.partido.esConfirmado) {
+    if (conv == null) {
       return const ConvocatoriaSyncResult();
     }
 
@@ -62,6 +69,30 @@ class ConvocatoriaListaEsperaService {
     var promovidos = 0;
     final now = DateTime.now();
     final partido = conv.partido;
+
+    // 0) Convocatoria expirada (hora del partido): cerrar respuestas pendientes.
+    if (PartidoLifecycle.convocatoriaExpirada(partido, now)) {
+      for (final entry in conv.titulares) {
+        if (entry.estado != EstadoConfirmacion.invitado) continue;
+        final avisar = !entry.notificadoVencimiento;
+        await repos.marcarNoRespondio(
+          partidoId: partidoId,
+          jugadorId: entry.jugador.keyId,
+          notificadoVencimiento: true,
+        );
+        if (avisar) {
+          await _notificaciones.notificarPlazoVencido(
+            jugador: entry.jugador,
+            partidoId: partidoId,
+            fecha: partido.fecha,
+            recinto: partido.recinto ?? '',
+            sportType: partido.sportType,
+          );
+        }
+        vencidos++;
+      }
+      return ConvocatoriaSyncResult(vencidos: vencidos);
+    }
 
     // 1) Recordatorio: invitado, plazo futuro y dentro de la última hora.
     for (final entry in conv.titulares) {
@@ -141,11 +172,20 @@ class ConvocatoriaListaEsperaService {
     }
 
     var autoConfirmado = false;
-    if (conv != null &&
-        conv.confirmados >= conv.partido.cuposMax &&
-        conv.partido.esOrganizando) {
-      await repos.marcarConvocatoriaConfirmada(partidoId);
-      autoConfirmado = true;
+    var reabierta = false;
+    if (conv != null) {
+      if (conv.partido.esConfirmado &&
+          conv.confirmados < conv.partido.cuposMax) {
+        await repos.reabrirConvocatoriaOrganizador(partidoId);
+        reabierta = true;
+        conv = await repos.getConvocatoriaCompleta(partidoId);
+      }
+      if (conv != null &&
+          conv.confirmados >= conv.partido.cuposMax &&
+          conv.partido.esOrganizando) {
+        await repos.marcarConvocatoriaConfirmada(partidoId);
+        autoConfirmado = true;
+      }
     }
 
     return ConvocatoriaSyncResult(
@@ -153,6 +193,7 @@ class ConvocatoriaListaEsperaService {
       vencidos: vencidos,
       promovidos: promovidos,
       autoConfirmado: autoConfirmado,
+      reabierta: reabierta,
     );
   }
 

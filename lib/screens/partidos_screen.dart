@@ -59,16 +59,7 @@ class _PartidosScreenState extends State<PartidosScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            dataActionErrorMessage(
-              context.l10n,
-              e,
-              fallback: (err) => context.tr(
-                'pdfGenerateError',
-                params: {'error': '$err'},
-              ),
-            ),
-          ),
+          content: Text(dataActionErrorMessage(context.l10n, e)),
           backgroundColor: MatchPayTokens.accentError,
         ),
       );

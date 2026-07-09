@@ -158,7 +158,7 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
           _mostrarFeedback(context.tr('reposUnavailableSnackbar'), error: true);
         }
       } catch (e) {
-        if (mounted) _mostrarFeedback('$e', error: true);
+        if (mounted) _mostrarFeedback(context.userError(e), error: true);
       } finally {
         if (mounted) setState(() => _enviandoJugadorKey = null);
       }
@@ -177,7 +177,7 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
         _mostrarFeedback(context.tr('messageCopied'));
       }
     } catch (e) {
-      if (mounted) _mostrarFeedback('$e', error: true);
+      if (mounted) _mostrarFeedback(context.userError(e), error: true);
     }
   }
 
@@ -208,7 +208,7 @@ class _RecordatorioDeudoresSheetState extends State<RecordatorioDeudoresSheet> {
           );
         }
       } catch (e) {
-        if (mounted) _mostrarFeedback('$e', error: true);
+        if (mounted) _mostrarFeedback(context.userError(e), error: true);
       } finally {
         if (mounted) setState(() => _enviandoJugadorKey = null);
       }

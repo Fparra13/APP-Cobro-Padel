@@ -14,12 +14,19 @@ class PagosPorValidarPanel extends StatelessWidget {
   final List<DetallePartido> pagos;
   final VoidCallback? onValidado;
   final bool prominent;
+  final bool readOnly;
+  final VoidCallback? onReadOnlyTap;
+  /// Título ya mostrado en [MatchPaySectionHeader] del home.
+  final bool sectionTitleExternal;
 
   const PagosPorValidarPanel({
     super.key,
     required this.pagos,
     this.onValidado,
     this.prominent = true,
+    this.readOnly = false,
+    this.onReadOnlyTap,
+    this.sectionTitleExternal = false,
   });
 
   List<DetallePartido> get _pendientes =>
@@ -36,6 +43,8 @@ class PagosPorValidarPanel extends StatelessWidget {
           (d) => PagoPorValidarCard(
             detalle: d,
             onValidado: onValidado,
+            readOnly: readOnly,
+            onReadOnlyTap: onReadOnlyTap,
           ),
         )
         .toList();
@@ -64,37 +73,48 @@ class PagosPorValidarPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.verified_user_outlined,
+          if (!sectionTitleExternal)
+            Row(
+              children: [
+                const Icon(
+                  Icons.verified_user_outlined,
+                  color: MatchPayTokens.accentUrgent,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('paymentsToValidateTitle'),
+                        style: MatchPayTokens.titleSmallStyle(
+                          color: MatchPayTokens.accentUrgent,
+                        ),
+                      ),
+                      Text(
+                        context.tr(
+                          'pendingReceiptsCount',
+                          params: {'count': '${_pendientes.length}'},
+                        ),
+                        style: MatchPayTokens.bodySmallStyle(
+                          color: MatchPayTokens.accentUrgent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else
+            Text(
+              context.tr(
+                'pendingReceiptsCount',
+                params: {'count': '${_pendientes.length}'},
+              ),
+              style: MatchPayTokens.bodySmallStyle(
                 color: MatchPayTokens.accentUrgent,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.tr('paymentsToValidateTitle'),
-                      style: MatchPayTokens.titleSmallStyle(
-                        color: MatchPayTokens.accentUrgent,
-                      ),
-                    ),
-                    Text(
-                      context.tr(
-                        'pendingReceiptsCount',
-                        params: {'count': '${_pendientes.length}'},
-                      ),
-                      style: MatchPayTokens.bodySmallStyle(
-                        color: MatchPayTokens.accentUrgent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
           const SizedBox(height: 12),
           ...cards,
         ],
@@ -106,11 +126,15 @@ class PagosPorValidarPanel extends StatelessWidget {
 class PagoPorValidarCard extends StatefulWidget {
   final DetallePartido detalle;
   final VoidCallback? onValidado;
+  final bool readOnly;
+  final VoidCallback? onReadOnlyTap;
 
   const PagoPorValidarCard({
     super.key,
     required this.detalle,
     this.onValidado,
+    this.readOnly = false,
+    this.onReadOnlyTap,
   });
 
   @override
@@ -137,6 +161,10 @@ class _PagoPorValidarCardState extends State<PagoPorValidarCard> {
   }
 
   Future<void> _verComprobante() async {
+    if (widget.readOnly) {
+      widget.onReadOnlyTap?.call();
+      return;
+    }
     final url = detalle.comprobanteUrl;
     if (url == null) return;
     await runOnce('ver-comprobante-${detalle.id}', () async {
@@ -161,7 +189,7 @@ class _PagoPorValidarCardState extends State<PagoPorValidarCard> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$e')),
+            SnackBar(content: Text(context.userError(e))),
           );
         }
       }

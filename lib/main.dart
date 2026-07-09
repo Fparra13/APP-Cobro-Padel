@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -10,10 +11,12 @@ import 'core/acquisition_controller.dart';
 import 'core/app_repositories.dart';
 import 'core/app_settings_controller.dart';
 import 'core/matchpay_design_tokens.dart';
+import 'core/offline_status_controller.dart';
 import 'core/subscription_service.dart';
 import 'core/auth_service.dart';
 import 'core/firebase_config.dart';
 import 'core/supabase_config.dart';
+import 'offline/offline_refresh_coordinator.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/backup_screen.dart';
 import 'screens/configuracion_screen.dart';
@@ -27,23 +30,30 @@ import 'screens/nuevo_partido_screen.dart';
 import 'screens/historial_partidos_screen.dart';
 import 'screens/onboarding/acquisition_screen.dart';
 import 'screens/onboarding/sport_selection_screen.dart';
+import 'screens/mi_historial_screen.dart';
 import 'screens/player_home_screen.dart';
-import 'services/fcm_service.dart';
+import 'services/fcm_service.dart' show FcmService, firebaseMessagingBackgroundHandler;
 import 'services/notification_service.dart';
 import 'services/supabase_realtime_service.dart';
 import 'widgets/lazy_indexed_stack.dart';
+import 'widgets/offline_readonly_banner.dart';
 import 'utils/nav_shell_layout.dart';
 import 'widgets/mis_invitaciones_panel.dart';
 import 'utils/formatters.dart' show MoneyFormatConfig;
 import 'l10n/matchpay_strings.dart';
 import 'utils/acquisition_navigation.dart';
 import 'utils/matchpay_context.dart';
+import 'utils/player_pay_bridge.dart';
 
 final _navigatorKey = GlobalKey<NavigatorState>();
 final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+final offlineRefreshCoordinator = OfflineRefreshCoordinator();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (FirebaseConfig.isConfigured) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
   await initializeDateFormatting('es', null);
   await initializeDateFormatting('es_CL', null);
   await initializeDateFormatting('en', null);
@@ -60,10 +70,14 @@ void main() async {
     onSignedIn: () {
       FcmService.instance.initialize();
       unawaited(settings.syncLocaleToProfile());
+      offlineRefreshCoordinator.init();
       _navigatorKey.currentState?.popUntil((route) => route.isFirst);
     },
   );
-  await NotificationService.instance.initialize(navKey: _navigatorKey);
+  await NotificationService.instance.initialize(
+    navKey: _navigatorKey,
+    messengerKey: _scaffoldMessengerKey,
+  );
   await NotificationService.instance.syncSchedule();
   _syncMoneyFormat(settings);
   await SubscriptionService.instance.load();
@@ -73,6 +87,7 @@ void main() async {
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider.value(value: acquisition),
         ChangeNotifierProvider.value(value: SubscriptionService.instance),
+        ChangeNotifierProvider(create: (_) => OfflineStatusController()),
       ],
       child: MatchPayApp(navigatorKey: _navigatorKey),
     ),
@@ -200,6 +215,7 @@ class AuthGate extends StatelessWidget {
           } on AppRepositoriesUnavailable {
             return const _CloudDataUnavailableScreen();
           }
+          offlineRefreshCoordinator.init();
           return const RoleAwareShell();
         }
         return const LoginScreen();
@@ -468,7 +484,7 @@ class _OrganizerShellState extends State<OrganizerShell>
     final l10n = context.l10n;
     final palette = context.sportPalette;
     final settings = context.watchSettings();
-    final cacheKey = '${settings.sport.dbValue}_${settings.locale.languageCode}';
+    final cacheKey = settings.sport.dbValue;
 
     Widget misCobrosIcon({required bool selected}) {
       final icon = Icon(
@@ -480,52 +496,94 @@ class _OrganizerShellState extends State<OrganizerShell>
     }
 
     return Scaffold(
-      body: NavShellScope(
-        bottomInset: 72,
-        child: LazyIndexedStack(
-          index: _index,
-          cacheKey: cacheKey,
-          itemBuilders: _screenBuilders,
-        ),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) {
-          setState(() => _index = i);
-          if (i == 1) unawaited(_refreshMisCobrosCount());
-        },
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home, color: palette.primary),
-            label: l10n.navHome,
-          ),
-          NavigationDestination(
-            icon: misCobrosIcon(selected: false),
-            selectedIcon: misCobrosIcon(selected: true),
-            label: l10n.navOrganizerCobros,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people, color: palette.primary),
-            label: l10n.navPlayers,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.history),
-            selectedIcon: Icon(Icons.history, color: palette.primary),
-            label: l10n.navHistory,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.cloud_outlined),
-            selectedIcon: Icon(Icons.cloud, color: palette.primary),
-            label: l10n.navCloud,
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings, color: palette.primary),
-            label: l10n.navConfig,
+      body: Column(
+        children: [
+          const OfflineReadonlyBanner(),
+          Expanded(
+            child: NavShellScope(
+              bottomInset: 72,
+              child: LazyIndexedStack(
+                index: _index,
+                cacheKey: cacheKey,
+                itemBuilders: _screenBuilders,
+              ),
+            ),
           ),
         ],
+      ),
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          height: 72,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: Colors.transparent,
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return TextStyle(
+              fontSize: 10,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? palette.primaryDark : MatchPayTokens.inkMuted,
+              letterSpacing: 0,
+              height: 1.15,
+            );
+          }),
+          iconTheme: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return IconThemeData(
+              size: 22,
+              color: selected ? palette.primary : MatchPayTokens.inkMuted,
+            );
+          }),
+        ),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFE8E6E1))),
+          ),
+          child: NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) {
+              if (i == _index) return;
+              setState(() => _index = i);
+              if (i == 1) unawaited(_refreshMisCobrosCount());
+            },
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+            destinations: [
+              NavigationDestination(
+                icon: const Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home, color: palette.primary),
+                label: l10n.navHome,
+              ),
+              NavigationDestination(
+                icon: misCobrosIcon(selected: false),
+                selectedIcon: misCobrosIcon(selected: true),
+                label: l10n.navOrganizerCobros,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.people_outline),
+                selectedIcon: Icon(Icons.people, color: palette.primary),
+                label: l10n.navPlayers,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.history),
+                selectedIcon: Icon(Icons.history, color: palette.primary),
+                label: l10n.navHistory,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.cloud_outlined),
+                selectedIcon: Icon(Icons.cloud, color: palette.primary),
+                label: l10n.navCloud,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.settings_outlined),
+                selectedIcon: Icon(Icons.settings, color: palette.primary),
+                label: l10n.navConfig,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -544,18 +602,50 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
 
   late final List<Widget Function()> _screenBuilders = [
     () => PlayerHomeScreen(
-          onOpenMisCobros: () => setState(() => _index = 1),
+          onOpenMisCobros: () => setState(() => _index = 2),
+          onOpenPartidos: () => setState(() => _index = 1),
+          onPayTotalFromHome: _payTotalFromHome,
+          onPayOtherFromHome: _payOtherFromHome,
+        ),
+    () => MiHistorialScreen(
+          onOpenMisCobros: () => setState(() => _index = 2),
         ),
     () => const MisCobrosScreen(),
     () => const ConfiguracionScreen(),
   ];
+
+  void _payTotalFromHome() {
+    setState(() => _index = 2);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final started = await PlayerPayBridge.instance.requestPayTotal();
+      if (!started && mounted) {
+        NotificationService.instance.showInAppSnack(
+          context.l10n.tr('cobrosNoOpenCharges'),
+          context: context,
+        );
+      }
+    });
+  }
+
+  void _payOtherFromHome() {
+    setState(() => _index = 2);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final started = await PlayerPayBridge.instance.requestPayOther();
+      if (!started && mounted) {
+        NotificationService.instance.showInAppSnack(
+          context.l10n.tr('cobrosNoOpenCharges'),
+          context: context,
+        );
+      }
+    });
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     NotificationService.instance.registerPlayerMisCobrosNavigation(() {
-      if (mounted) setState(() => _index = 1);
+      if (mounted) setState(() => _index = 2);
     });
     _initPlayer();
   }
@@ -599,7 +689,7 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final settings = context.watchSettings();
-    final cacheKey = '${settings.sport.dbValue}_${settings.locale.languageCode}';
+    final cacheKey = settings.sport.dbValue;
     final palette = context.sportPalette;
 
     Widget homeIcon({required bool selected}) {
@@ -616,17 +706,24 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
 
     return Scaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
-      body: NavShellScope(
-        bottomInset: 72,
-        child: LazyIndexedStack(
-          index: _index,
-          cacheKey: cacheKey,
-          itemBuilders: _screenBuilders,
-        ),
+      body: Column(
+        children: [
+          const OfflineReadonlyBanner(),
+          Expanded(
+            child: NavShellScope(
+              bottomInset: 72,
+              child: LazyIndexedStack(
+                index: _index,
+                cacheKey: cacheKey,
+                itemBuilders: _screenBuilders,
+              ),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
-          height: 68,
+          height: 72,
           backgroundColor: Colors.white,
           elevation: 0,
           shadowColor: Colors.transparent,
@@ -635,10 +732,11 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
           labelTextStyle: WidgetStateProperty.resolveWith((states) {
             final selected = states.contains(WidgetState.selected);
             return TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               color: selected ? palette.primaryDark : MatchPayTokens.inkMuted,
-              letterSpacing: 0.1,
+              letterSpacing: 0,
+              height: 1.15,
             );
           }),
           iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -657,14 +755,21 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
           child: NavigationBar(
             selectedIndex: _index,
             onDestinationSelected: (i) async {
+              if (i == _index) return;
               setState(() => _index = i);
               if (i == 0) await _refreshPendientes();
             },
+            labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
             destinations: [
               NavigationDestination(
                 icon: homeIcon(selected: false),
                 selectedIcon: homeIcon(selected: true),
                 label: l10n.navHome,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.sports_soccer_outlined),
+                selectedIcon: Icon(Icons.sports_soccer_rounded, color: palette.primary),
+                label: l10n.navMyMatches,
               ),
               NavigationDestination(
                 icon: const Icon(Icons.receipt_long_outlined),

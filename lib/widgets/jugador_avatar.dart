@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -51,6 +52,7 @@ class _JugadorAvatarState extends State<JugadorAvatar> {
   File? _localFile;
   String? _networkUrl;
   bool _networkFailed = false;
+  int _loadGeneration = 0;
 
   @override
   void initState() {
@@ -68,16 +70,55 @@ class _JugadorAvatarState extends State<JugadorAvatar> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     _networkFailed = false;
-    final file = await JugadorFotoService.instance.resolveFile(widget.fotoPath);
+
+    final localPath = await JugadorFotoService.instance.resolveFile(widget.fotoPath);
+    if (generation != _loadGeneration || !mounted) return;
+
     final url = widget.fotoUrl?.trim();
-    if (mounted) {
+    final hasUrl = url != null && url.isNotEmpty && url.startsWith('http');
+
+    if (localPath != null) {
       setState(() {
-        _localFile = file;
-        _networkUrl =
-            (url != null && url.isNotEmpty && url.startsWith('http')) ? url : null;
+        _localFile = localPath;
+        _networkUrl = null;
       });
+      return;
     }
+
+    File? cachedNetwork;
+    if (hasUrl) {
+      cachedNetwork =
+          await JugadorFotoService.instance.resolveCachedNetworkAvatar(url);
+    }
+    if (generation != _loadGeneration || !mounted) return;
+
+    if (cachedNetwork != null) {
+      setState(() {
+        _localFile = cachedNetwork;
+        _networkUrl = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _localFile = null;
+      _networkUrl = hasUrl ? url : null;
+    });
+
+    if (!hasUrl) return;
+
+    unawaited(
+      JugadorFotoService.instance.cacheNetworkAvatar(url).then((file) {
+        if (generation != _loadGeneration || !mounted || file == null) return;
+        setState(() {
+          _localFile = file;
+          _networkUrl = null;
+          _networkFailed = false;
+        });
+      }),
+    );
   }
 
   void _onNetworkError() {

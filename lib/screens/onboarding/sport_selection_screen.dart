@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/acquisition_controller.dart';
 import '../../core/app_settings_controller.dart';
 import '../../core/matchpay_design_tokens.dart';
 import '../../core/sport_theme.dart';
@@ -10,6 +11,7 @@ import '../../utils/matchpay_context.dart';
 import '../../widgets/matchpay_ui.dart';
 import '../../widgets/onboarding_progress.dart';
 import 'intro_onboarding_screen.dart';
+import 'player_intro_onboarding_screen.dart';
 
 /// Paso 2 del onboarding: el usuario elige su deporte principal (tema visual).
 class SportSelectionScreen extends StatefulWidget {
@@ -338,30 +340,73 @@ class _ColorDot extends StatelessWidget {
   }
 }
 
-/// Onboarding: intro de valor → deporte → login / app.
-class SportOnboardingGate extends StatelessWidget {
+/// Onboarding: intro de valor (según rol) → login / app. Deporte por defecto.
+class SportOnboardingGate extends StatefulWidget {
   final Widget child;
 
   const SportOnboardingGate({super.key, required this.child});
 
   @override
+  State<SportOnboardingGate> createState() => _SportOnboardingGateState();
+}
+
+class _SportOnboardingGateState extends State<SportOnboardingGate> {
+  bool _autoCompleting = false;
+
+  Future<void> _autoCompletePendingSteps() async {
+    if (!mounted || _autoCompleting) return;
+    final settings = context.read<AppSettingsController>();
+    final acq = context.read<AcquisitionController>();
+
+    final skipIntro = acq.skipIntroOnboarding && !settings.introOnboardingComplete;
+    final skipSport = !settings.sportOnboardingComplete;
+
+    if (!skipIntro && !skipSport) return;
+
+    setState(() => _autoCompleting = true);
+    if (skipIntro) {
+      await settings.completeIntroAndDefaultSport();
+    } else if (skipSport) {
+      await settings.completeSportOnboarding(SportType.general);
+    }
+    if (mounted) setState(() => _autoCompleting = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final settings = context.watch<AppSettingsController>();
+    final acq = context.watch<AcquisitionController>();
 
-    if (!settings.isLoaded) {
+    if (!settings.isLoaded || _autoCompleting) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
     if (!settings.introOnboardingComplete) {
-      return const IntroOnboardingScreen();
+      if (acq.skipIntroOnboarding) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _autoCompletePendingSteps();
+        });
+        return const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        );
+      }
+      if (acq.intent == MatchPayAcquisitionIntent.createFirstGroup) {
+        return const IntroOnboardingScreen();
+      }
+      return const PlayerIntroOnboardingScreen();
     }
 
     if (!settings.sportOnboardingComplete) {
-      return const SportSelectionScreen();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _autoCompletePendingSteps();
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
-    return child;
+    return widget.child;
   }
 }

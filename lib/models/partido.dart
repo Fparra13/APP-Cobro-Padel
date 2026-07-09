@@ -1,3 +1,4 @@
+import '../core/supabase_parse.dart';
 import 'estado_partido.dart';
 import '../core/sport_type.dart';
 import '../utils/maps_location.dart';
@@ -20,6 +21,8 @@ class Partido {
   final int horasLimiteRespuesta;
   final SportType sportType;
   final DateTime createdAt;
+  final DateTime? resueltoEn;
+  final int? partidoOrigenId;
 
   const Partido({
     this.id,
@@ -39,6 +42,8 @@ class Partido {
     this.horasLimiteRespuesta = 24,
     this.sportType = SportType.padel,
     required this.createdAt,
+    this.resueltoEn,
+    this.partidoOrigenId,
   });
 
   /// Ubicación para abrir en Maps (exacta si hay link/coords).
@@ -53,15 +58,16 @@ class Partido {
 
   bool get esConfirmado => estado == EstadoPartido.confirmado;
 
+  bool get esCancelado => estado == EstadoPartido.cancelado;
+
   bool get esConvocatoriaPendiente => esOrganizando || esConfirmado;
 
   /// Margen tras la hora del partido antes de tratarla como vencida.
   static const convocatoriaGraceAfterMatch = Duration(hours: 6);
 
-  /// Convocatoria sin cerrar cuyo horario del partido ya pasó (con margen).
+  /// Convocatoria sin cerrar cuyo horario del partido ya pasó.
   bool get convocatoriaFechaPasada =>
-      esConvocatoriaPendiente &&
-      !fecha.isAfter(DateTime.now().subtract(convocatoriaGraceAfterMatch));
+      esConvocatoriaPendiente && !fecha.isAfter(DateTime.now());
 
   double get costoFijoTotal => costoCancha + costoPelotas;
 
@@ -83,6 +89,10 @@ class Partido {
     int? horasLimiteRespuesta,
     SportType? sportType,
     DateTime? createdAt,
+    DateTime? resueltoEn,
+    int? partidoOrigenId,
+    bool clearResueltoEn = false,
+    bool clearPartidoOrigenId = false,
   }) {
     return Partido(
       id: id ?? this.id,
@@ -103,12 +113,16 @@ class Partido {
           horasLimiteRespuesta ?? this.horasLimiteRespuesta,
       sportType: sportType ?? this.sportType,
       createdAt: createdAt ?? this.createdAt,
+      resueltoEn: clearResueltoEn ? null : (resueltoEn ?? this.resueltoEn),
+      partidoOrigenId: clearPartidoOrigenId
+          ? null
+          : (partidoOrigenId ?? this.partidoOrigenId),
     );
   }
 
   Map<String, dynamic> toMap() => {
         'id': id,
-        'fecha': fecha.toIso8601String(),
+        'fecha': SupabaseParse.toTimestamptz(fecha),
         'costo_cancha': costoCancha,
         'costo_pelotas': costoPelotas,
         'recinto': recinto,
@@ -124,11 +138,13 @@ class Partido {
         'horas_limite_respuesta': horasLimiteRespuesta,
         'sport_type': sportType.dbValue,
         'created_at': createdAt.toIso8601String(),
+        if (resueltoEn != null) 'resuelto_en': resueltoEn!.toIso8601String(),
+        if (partidoOrigenId != null) 'partido_origen_id': partidoOrigenId,
       };
 
   factory Partido.fromMap(Map<String, dynamic> map) => Partido(
         id: map['id'] as int?,
-        fecha: DateTime.parse(map['fecha'] as String),
+        fecha: SupabaseParse.toDateTime(map['fecha']),
         costoCancha: (map['costo_cancha'] as num?)?.toDouble() ?? 0,
         costoPelotas: (map['costo_pelotas'] as num?)?.toDouble() ?? 0,
         recinto: map['recinto'] as String?,
@@ -143,12 +159,16 @@ class Partido {
         cuposMax: (map['cupos_max'] as int?) ?? 4,
         horasLimiteRespuesta: (map['horas_limite_respuesta'] as int?) ?? 24,
         sportType: SportType.fromDb(map['sport_type'] as String?),
-        createdAt: DateTime.parse(map['created_at'] as String),
+        createdAt: SupabaseParse.toDateTime(map['created_at']),
+        resueltoEn: map['resuelto_en'] != null
+            ? SupabaseParse.toDateTime(map['resuelto_en'])
+            : null,
+        partidoOrigenId: map['partido_origen_id'] as int?,
       );
 
   factory Partido.fromSupabaseMap(Map<String, dynamic> map) => Partido(
         id: (map['id'] as num).toInt(),
-        fecha: DateTime.parse(map['fecha'] as String),
+        fecha: SupabaseParse.toDateTime(map['fecha']),
         costoCancha: (map['costo_cancha'] as num?)?.toDouble() ?? 0,
         costoPelotas: (map['costo_pelotas'] as num?)?.toDouble() ?? 0,
         recinto: map['recinto'] as String?,
@@ -165,12 +185,18 @@ class Partido {
         cuposMax: (map['cupos_max'] as int?) ?? 4,
         horasLimiteRespuesta: (map['horas_limite_respuesta'] as int?) ?? 24,
         sportType: SportType.fromDb(map['sport_type'] as String?),
-        createdAt: DateTime.parse(map['created_at'] as String),
+        createdAt: SupabaseParse.toDateTime(map['created_at']),
+        resueltoEn: map['resuelto_en'] != null
+            ? SupabaseParse.toDateTime(map['resuelto_en'])
+            : null,
+        partidoOrigenId: map['partido_origen_id'] is num
+            ? (map['partido_origen_id'] as num).toInt()
+            : null,
       );
 
   Map<String, dynamic> toSupabaseMap({String? organizadorId}) => {
         if (id != null) 'id': id,
-        'fecha': fecha.toIso8601String(),
+        'fecha': SupabaseParse.toTimestamptz(fecha),
         'costo_cancha': costoCancha,
         'costo_pelotas': costoPelotas,
         'recinto': recinto,

@@ -1,11 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../domain/organizer_cycle_logic.dart';
+import '../domain/partido_lifecycle.dart';
 import '../core/app_repositories.dart';
+import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
+import '../core/offline_status_controller.dart';
 import '../core/supabase_helpers.dart';
 import '../models/convocatoria_jugador.dart';
-import '../models/partido.dart';
+import '../offline/organizer_home_loader.dart';
+import '../offline/offline_snapshot_store.dart';
+import '../offline/network_errors.dart';
 import '../repositories/partido_repository.dart';
 import '../repositories/ranking_repository.dart';
 import '../services/pdf_service.dart';
@@ -15,9 +23,11 @@ import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../widgets/ayuda_tip.dart';
 import '../widgets/confirmar_eliminar_partido_dialog.dart';
+import '../widgets/friendly_error_panel.dart';
 import '../widgets/partido_detalle_sheet.dart';
 import '../utils/nav_shell_layout.dart';
 import '../widgets/matchpay_ui.dart';
+import '../widgets/offline_no_data_panel.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sport_icon.dart';
 
@@ -38,9 +48,21 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
   List<ConvocatoriaCompleta> _convocatorias = [];
   List<RankingJugador> _ranking = [];
   bool _loading = true;
+  bool _offlineEmpty = false;
   bool _rankingLoading = false;
   bool _rankingLoaded = false;
+  bool _rankingNetworkFailed = false;
+  bool _rankingTabVisited = false;
   String? _error;
+  Timer? _reloadDebounce;
+
+  bool get _readOnly => context.watch<OfflineStatusController>().isReadOnly;
+
+  void _showOfflineWriteBlocked() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.tr('offlineWriteBlocked'))),
+    );
+  }
 
   @override
   void initState() {
@@ -48,24 +70,46 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
     _tabs = TabController(length: 2, vsync: this);
     _tabs.addListener(_onTabChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    AppRepositories.dataRevision.addListener(_onDataChanged);
+  }
+
+  void _onDataChanged() {
+    if (!mounted) return;
+    _reloadDebounce?.cancel();
+    _reloadDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _load(silent: true);
+    });
   }
 
   void _onTabChanged() {
-    if (_tabs.index == 1 && !_rankingLoaded && !_rankingLoading) {
-      _loadRanking();
+    if (_tabs.indexIsChanging) return;
+    if (_tabs.index == 1) {
+      if (!_rankingTabVisited) {
+        setState(() => _rankingTabVisited = true);
+      }
+      if (!_rankingLoaded && !_rankingLoading) {
+        _loadRanking();
+      }
     }
   }
 
   @override
   void dispose() {
+    _reloadDebounce?.cancel();
     _tabs.removeListener(_onTabChanged);
     _tabs.dispose();
+    AppRepositories.dataRevision.removeListener(_onDataChanged);
     super.dispose();
   }
 
   Future<void> _loadRanking() async {
-    if (_rankingLoading) return;
-    setState(() => _rankingLoading = true);
+    if (_rankingLoading || _tabs.index != 1) return;
+    if (context.read<OfflineStatusController>().isReadOnly) return;
+
+    setState(() {
+      _rankingLoading = true;
+      _rankingNetworkFailed = false;
+    });
     try {
       final ranking = await context.repos.getRanking();
       if (mounted) {
@@ -73,90 +117,82 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
           _ranking = ranking;
           _rankingLoaded = true;
           _rankingLoading = false;
+          _rankingNetworkFailed = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _rankingLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              SupabaseHelpers.describeError(e, operacion: 'Ranking'),
-            ),
-          ),
-        );
-      }
+      if (!mounted) return;
+      setState(() {
+        _rankingLoading = false;
+        _rankingNetworkFailed = isNetworkError(e);
+      });
     }
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        _offlineEmpty = false;
+      });
+    }
+
+    final offlineStatus = context.read<OfflineStatusController>();
+    final userId = AuthService.instance.currentUser?.id;
+    final snapshotStore = userId != null
+        ? OfflineSnapshotStore(userId: userId)
+        : null;
+
     try {
-      final repos = context.repos;
-      final results = await Future.wait([
-        repos.getPartidosJugados(),
-        repos.getConvocatoriasActivas(),
-      ]);
-      final list = results[0] as List<Partido>;
-      final convocatorias = results[1] as List<ConvocatoriaCompleta>;
-      final ids = list.map((p) => p.id).whereType<int>().toList();
-      final completos = await repos.getPartidosCompletosListaResumen(ids);
-      if (mounted) {
-        setState(() {
-          _partidos = completos;
-          _convocatorias = convocatorias;
-          _loading = false;
-        });
+      final result = await loadOrganizerHistorialPartidos(
+        repos: context.repos,
+        snapshotStore: snapshotStore,
+      );
+
+      if (!mounted) return;
+
+      switch (result.source) {
+        case OfflineScreenLoadSource.live:
+          offlineStatus.markLive();
+          setState(() {
+            _partidos = result.data!.partidos;
+            _convocatorias = result.data!.convocatorias;
+            _offlineEmpty = false;
+            _error = null;
+          });
+        case OfflineScreenLoadSource.offlineCache:
+          offlineStatus.markOfflineCached(result.snapshotAt!);
+          setState(() {
+            _partidos = result.data!.partidos;
+            _convocatorias = result.data!.convocatorias;
+            _offlineEmpty = false;
+            _error = null;
+          });
+        case OfflineScreenLoadSource.offlineEmpty:
+          offlineStatus.markOfflineEmpty();
+          setState(() {
+            _partidos = [];
+            _convocatorias = [];
+            _offlineEmpty = true;
+          });
+        case OfflineScreenLoadSource.error:
+          offlineStatus.markLive();
+          setState(() {
+            _error = context.userError(
+              result.error!,
+            );
+          });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = SupabaseHelpers.describeError(
-            e,
-            operacion: 'Historial de partidos',
-          );
-        });
-      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Widget _buildErrorState() {
-    final l10n = context.l10n;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.cloud_off_outlined,
-              size: 56,
-              color: MatchPayTokens.inkMuted,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              l10n.tr('historyLoadFailed'),
-              style: MatchPayTokens.titleMediumStyle(),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error ?? l10n.tr('unknownError'),
-              textAlign: TextAlign.center,
-              style: MatchPayTokens.bodySmallStyle(),
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: _load,
-              icon: const Icon(Icons.refresh),
-              label: Text(l10n.tr('retry')),
-            ),
-          ],
-        ),
-      ),
+    return FriendlyErrorPanel(
+      message: _error ?? context.tr('errorGeneric'),
+      onRetry: _load,
     );
   }
 
@@ -198,15 +234,21 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
       ),
       body: _loading
           ? const _HistorialShimmer()
-          : _error != null && _partidos.isEmpty && _convocatorias.isEmpty
-              ? _buildErrorState()
-              : TabBarView(
-                  controller: _tabs,
-                  children: [
-                    _buildHistorial(),
-                    _buildRanking(),
-                  ],
-                ),
+          : IndexedStack(
+              index: _tabs.index,
+              children: [
+                _offlineEmpty
+                    ? const OfflineNoDataPanel()
+                    : _error != null &&
+                            _partidos.isEmpty &&
+                            _convocatorias.isEmpty
+                        ? _buildErrorState()
+                        : _buildHistorial(),
+                _rankingTabVisited
+                    ? _buildRanking()
+                    : const SizedBox.shrink(),
+              ],
+            ),
     );
   }
 
@@ -223,8 +265,11 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
     }
 
     final pendientesTotal = jugadoresPendientesUnicos(_partidos);
-    final hayConvocatoriasVencidas =
-        _convocatorias.any((c) => c.partido.convocatoriaFechaPasada);
+    final hayConvocatoriasVencidas = _convocatorias.any(
+      (c) =>
+          PartidoLifecycle.situacionOrganizador(c) !=
+          ConvocatoriaOrganizadorSituacion.preparando,
+    );
 
     return RefreshIndicator(
       color: palette.primary,
@@ -261,6 +306,10 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
               (c) => _ConvocatoriaCard(
                 convocatoria: c,
                 onTap: () async {
+                  if (_readOnly) {
+                    _showOfflineWriteBlocked();
+                    return;
+                  }
                   await abrirOrganizarPartido(context, partidoId: c.partido.id);
                   _load();
                 },
@@ -298,6 +347,7 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
                 completo: pc,
                 repos: context.repos,
                 pdfService: _pdfService,
+                readOnly: _readOnly,
                 onChanged: _load,
               ),
             ),
@@ -310,8 +360,13 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
   Widget _buildRanking() {
     final l10n = context.l10n;
     final palette = context.sportPalette;
-    if (!_rankingLoaded && !_rankingLoading) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _loadRanking());
+    final readOnly = context.watch<OfflineStatusController>().isReadOnly;
+
+    if (readOnly && !_rankingLoaded) {
+      return _buildRankingOfflineState(l10n);
+    }
+    if (_rankingNetworkFailed && !_rankingLoaded) {
+      return _buildRankingOfflineState(l10n, showRetry: true);
     }
     if (_rankingLoading || (!_rankingLoaded && _ranking.isEmpty)) {
       return const _HistorialShimmer(showTabs: false);
@@ -332,7 +387,9 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
     return RefreshIndicator(
       color: palette.primary,
       onRefresh: () async {
+        if (readOnly) return;
         _rankingLoaded = false;
+        _rankingNetworkFailed = false;
         await _loadRanking();
       },
       child: ListView(
@@ -374,6 +431,41 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
               subtitulo: l10n.tr('rankingNoWorstSubtitle'),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRankingOfflineState(MatchPayStrings l10n, {bool showRetry = false}) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              size: 56,
+              color: MatchPayTokens.inkMuted,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.tr('connectionRequired'),
+              textAlign: TextAlign.center,
+              style: MatchPayTokens.titleSmallStyle(),
+            ),
+            if (showRetry) ...[
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () {
+                  _rankingNetworkFailed = false;
+                  _loadRanking();
+                },
+                icon: const Icon(Icons.refresh),
+                label: Text(l10n.tr('retry')),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -475,17 +567,25 @@ class _ConvocatoriaCard extends StatelessWidget {
     final p = convocatoria.partido;
     final fecha = formatFecha(p.fecha);
     final hora = formatHora(p.fecha);
-    final fechaPasada = p.convocatoriaFechaPasada;
-    final accent = fechaPasada
+    final situacion = PartidoLifecycle.situacionOrganizador(convocatoria);
+    final sinResolver =
+        situacion == ConvocatoriaOrganizadorSituacion.sinResolver;
+    final listoGastos =
+        situacion == ConvocatoriaOrganizadorSituacion.listoParaGastos;
+    final accent = sinResolver
         ? MatchPayTokens.accentUrgent
-        : convocatoria.partido.esConfirmado
-            ? MatchPayTokens.accentSuccess
-            : MatchPayTokens.accentCredit;
-    final iconData = fechaPasada
-        ? Icons.event_busy_rounded
-        : convocatoria.partido.esConfirmado
-            ? Icons.check_circle_rounded
-            : Icons.campaign_rounded;
+        : listoGastos
+            ? MatchPayTokens.accentCredit
+            : convocatoria.partido.esConfirmado
+                ? MatchPayTokens.accentSuccess
+                : MatchPayTokens.accentCredit;
+    final iconData = sinResolver
+        ? Icons.help_outline_rounded
+        : listoGastos
+            ? Icons.receipt_long_rounded
+            : convocatoria.partido.esConfirmado
+                ? Icons.check_circle_rounded
+                : Icons.campaign_rounded;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -522,7 +622,7 @@ class _ConvocatoriaCard extends StatelessWidget {
                           style: MatchPayTokens.titleSmallStyle(),
                         ),
                       ),
-                      if (fechaPasada)
+                      if (sinResolver)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -537,9 +637,26 @@ class _ConvocatoriaCard extends StatelessWidget {
                             ),
                           ),
                           child: Text(
-                            l10n.tr('convocatoriaPastDateBadge'),
+                            l10n.tr('convocatoriaUnresolvedBadge'),
                             style: MatchPayTokens.sectionLabelStyle(
                               color: MatchPayTokens.accentUrgent,
+                            ).copyWith(fontSize: 10, letterSpacing: 0),
+                          ),
+                        )
+                      else if (listoGastos)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: MatchPayTokens.accentCreditBg,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            l10n.tr('convocatoriaPastDateBadge'),
+                            style: MatchPayTokens.sectionLabelStyle(
+                              color: MatchPayTokens.accentCredit,
                             ).copyWith(fontSize: 10, letterSpacing: 0),
                           ),
                         ),
@@ -578,20 +695,21 @@ class _PartidoCard extends StatelessWidget {
   final PartidoCompleto completo;
   final AppRepositories repos;
   final PdfService pdfService;
+  final bool readOnly;
   final VoidCallback onChanged;
 
   const _PartidoCard({
     required this.completo,
     required this.repos,
     required this.pdfService,
+    required this.readOnly,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final fecha = formatFecha(completo.partido.fecha);
-    final hora = formatHora(completo.partido.fecha);
+    final fecha = formatFechaLegibleCorta(completo.partido.fecha);
     final asistentes = completo.detalles.where((d) => d.asistio).length;
     final pendientes = completo.contarAsistentesConDeudaNeta();
     final todosPagaron = pendientes == 0;
@@ -604,45 +722,52 @@ class _PartidoCard extends StatelessWidget {
       child: MatchPaySurfaceCard(
         padding: const EdgeInsets.all(14),
         urgent: !todosPagaron,
-        onTap: () => PartidoDetalleSheet.show(
-          context,
-          completo: completo,
-          repos: repos,
-          pdfService: pdfService,
-          onEditar: () {
-            Navigator.pop(context);
-            Navigator.pushNamed(
-              context,
-              '/editar-partido',
-              arguments: completo.partido.id,
-            ).then((_) => onChanged());
-          },
-          onEliminar: () async {
-            final fecha = formatFecha(completo.partido.fecha);
-            final recinto = completo.partido.recinto?.trim();
-            final ok = await confirmarEliminarPartido(
-              context,
-              titulo: l10n.tr('deleteMatchTitle'),
-              mensaje: recinto != null && recinto.isNotEmpty
-                  ? l10n.tr(
-                      'deleteMatchMessageWithVenue',
-                      params: {'date': fecha, 'venue': recinto},
-                    )
-                  : l10n.tr(
-                      'deleteMatchMessage',
-                      params: {'date': fecha},
-                    ),
-            );
-            if (!ok || !context.mounted) return;
-            await repos.eliminarPartido(completo.partido.id!);
-            if (!context.mounted) return;
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.tr('matchDeleted'))),
-            );
-            onChanged();
-          },
-        ),
+        onTap: () async {
+          await PartidoDetalleSheet.show(
+            context,
+            completo: completo,
+            repos: repos,
+            pdfService: pdfService,
+            onEditar: readOnly
+                ? null
+                : () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(
+                      context,
+                      '/editar-partido',
+                      arguments: completo.partido.id,
+                    ).then((_) => onChanged());
+                  },
+            onEliminar: readOnly
+                ? null
+                : () async {
+                    final fecha = formatFecha(completo.partido.fecha);
+                    final recinto = completo.partido.recinto?.trim();
+                    final ok = await confirmarEliminarPartido(
+                      context,
+                      titulo: l10n.tr('deleteMatchTitle'),
+                      mensaje: recinto != null && recinto.isNotEmpty
+                          ? l10n.tr(
+                              'deleteMatchMessageWithVenue',
+                              params: {'date': fecha, 'venue': recinto},
+                            )
+                          : l10n.tr(
+                              'deleteMatchMessage',
+                              params: {'date': fecha},
+                            ),
+                    );
+                    if (!ok || !context.mounted) return;
+                    await repos.eliminarPartido(completo.partido.id!);
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(l10n.tr('matchDeleted'))),
+                    );
+                    onChanged();
+                  },
+          );
+          onChanged();
+        },
         child: Row(
           children: [
             Container(
@@ -690,17 +815,6 @@ class _PartidoCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 14,
-                        color: MatchPayTokens.inkMuted,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(hora, style: MatchPayTokens.bodySmallStyle()),
-                    ],
-                  ),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,

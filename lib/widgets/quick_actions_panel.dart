@@ -13,28 +13,37 @@ import 'recordatorio_deudores_sheet.dart';
 class QuickActionsPanel extends StatelessWidget {
   final List<ResumenJugador> resumenes;
   final PartidoCompleto? ultimoPartido;
+  final List<DesgloseJugador>? ultimoPartidoDesglose;
   final VoidCallback onRefresh;
   final void Function(int tabIndex)? onNavigateTab;
+  final bool readOnly;
+  final VoidCallback? onReadOnlyTap;
 
   const QuickActionsPanel({
     super.key,
     required this.resumenes,
     required this.onRefresh,
     this.ultimoPartido,
+    this.ultimoPartidoDesglose,
     this.onNavigateTab,
+    this.readOnly = false,
+    this.onReadOnlyTap,
   });
 
   int get _conDeuda => resumenes.where((r) => r.tieneDeuda).length;
 
-  String _ultimoPartidoSubtitulo(MatchPayStrings l10n) {
+  String _ultimoPartidoLineas(MatchPayStrings l10n) {
     final p = ultimoPartido;
-    if (p == null) return l10n.tr('viewPaymentStatus');
-    final fecha = formatDiaCorto(p.partido.fecha);
+    if (p == null) return l10n.tr('lastMatchEmptyHint');
+    return formatFechaCorta(p.partido.fecha);
+  }
+
+  String? _ultimoPartidoRecinto(MatchPayStrings l10n) {
+    final p = ultimoPartido;
+    if (p == null) return null;
     final recinto = p.partido.recinto?.trim();
-    if (recinto != null && recinto.isNotEmpty) {
-      return '$fecha · $recinto';
-    }
-    return fecha;
+    if (recinto == null || recinto.isEmpty) return l10n.tr('noVenue');
+    return recinto;
   }
 
   @override
@@ -45,7 +54,8 @@ class QuickActionsPanel extends StatelessWidget {
       _AccionRapida(
         icon: Icons.history_rounded,
         label: l10n.tr('lastMatch'),
-        subtitulo: _ultimoPartidoSubtitulo(l10n),
+        linea1: _ultimoPartidoLineas(l10n),
+        linea2: _ultimoPartidoRecinto(l10n),
         accent: MatchPayTokens.accentCredit,
         onTap: () => _abrirUltimoPartido(context),
       ),
@@ -53,20 +63,28 @@ class QuickActionsPanel extends StatelessWidget {
         _AccionRapida(
           icon: Icons.chat_rounded,
           label: l10n.tr('remindDebtors'),
-          subtitulo: l10n.tr(
+          linea1: l10n.tr(
             'remindDebtorsPush',
             params: {'count': '$_conDeuda'},
           ),
+          linea2: '',
           accent: MatchPayTokens.accentSuccess,
-          onTap: () => RecordatorioDeudoresSheet.show(
-            context,
-            resumenes: resumenes,
-          ),
+          onTap: () {
+            if (readOnly) {
+              onReadOnlyTap?.call();
+              return;
+            }
+            RecordatorioDeudoresSheet.show(
+              context,
+              resumenes: resumenes,
+            );
+          },
         ),
       _AccionRapida(
         icon: Icons.people_rounded,
         label: l10n.tr('navPlayers'),
-        subtitulo: l10n.tr('manageGroup'),
+        linea1: l10n.tr('manageGroup'),
+        linea2: '',
         accent: MatchPayTokens.inkSecondary,
         onTap: () => onNavigateTab?.call(2),
       ),
@@ -93,17 +111,9 @@ class QuickActionsPanel extends StatelessWidget {
                 ),
               );
             }
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: acciones.length >= 3 ? 2 : acciones.length,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: acciones.length == 1 ? 2.4 : 1.55,
-              ),
-              itemCount: acciones.length,
-              itemBuilder: (_, i) => _AccionCard(accion: acciones[i]),
+            return _AccionesGrid(
+              acciones: acciones,
+              maxWidth: constraints.maxWidth,
             );
           },
         ),
@@ -112,6 +122,10 @@ class QuickActionsPanel extends StatelessWidget {
   }
 
   Future<void> _abrirUltimoPartido(BuildContext context) async {
+    if (readOnly && (ultimoPartidoDesglose == null || ultimoPartidoDesglose!.isEmpty)) {
+      onReadOnlyTap?.call();
+      return;
+    }
     final ultimo =
         ultimoPartido ?? await context.repos.getUltimoPartido();
     if (!context.mounted) return;
@@ -123,9 +137,43 @@ class QuickActionsPanel extends StatelessWidget {
       return;
     }
 
-    final desglose = await context.repos.getDesglose(ultimo.partido.id!);
-    if (!context.mounted) return;
+    final partidoId = ultimo.partido.id;
+    if (partidoId == null) return;
 
+    final cached = ultimoPartidoDesglose;
+    if (cached != null && cached.isNotEmpty) {
+      await _mostrarUltimoPartidoSheet(context, ultimo, cached);
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final desglose = await context.repos.getDesglose(
+        partidoId,
+        reconciliar: false,
+        repararCuenta: false,
+      );
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      await _mostrarUltimoPartidoSheet(context, ultimo, desglose);
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.userError(e))),
+      );
+    }
+  }
+
+  Future<void> _mostrarUltimoPartidoSheet(
+    BuildContext context,
+    PartidoCompleto ultimo,
+    List<DesgloseJugador> desglose,
+  ) async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -146,35 +194,95 @@ class QuickActionsPanel extends StatelessWidget {
   }
 }
 
+class _AccionesGrid extends StatelessWidget {
+  final List<_AccionRapida> acciones;
+  final double maxWidth;
+
+  const _AccionesGrid({
+    required this.acciones,
+    required this.maxWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (acciones.length == 1) {
+      return _AccionCard(accion: acciones.first);
+    }
+
+    final half = (maxWidth - 10) / 2;
+
+    if (acciones.length == 2) {
+      return IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _AccionCard(accion: acciones[0])),
+            const SizedBox(width: 10),
+            Expanded(child: _AccionCard(accion: acciones[1])),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _AccionCard(accion: acciones[0])),
+              const SizedBox(width: 10),
+              Expanded(child: _AccionCard(accion: acciones[1])),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: half,
+          child: _AccionCard(accion: acciones[2]),
+        ),
+      ],
+    );
+  }
+}
+
 class _AccionRapida {
   final IconData icon;
   final String label;
-  final String subtitulo;
+  final String linea1;
+  final String? linea2;
   final Color accent;
   final VoidCallback onTap;
 
   const _AccionRapida({
     required this.icon,
     required this.label,
-    required this.subtitulo,
+    required this.linea1,
+    this.linea2,
     required this.accent,
     required this.onTap,
   });
 }
 
 class _AccionCard extends StatelessWidget {
+  static const _slotLinea2 = 14.0;
+
   final _AccionRapida accion;
 
   const _AccionCard({required this.accion});
 
   @override
   Widget build(BuildContext context) {
+    final subtituloStyle = MatchPayTokens.bodySmallStyle().copyWith(fontSize: 11);
+    final linea2 = accion.linea2?.trim() ?? '';
+
     return MatchPaySurfaceCard(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       onTap: accion.onTap,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.max,
         children: [
           Container(
             padding: const EdgeInsets.all(8),
@@ -184,21 +292,35 @@ class _AccionCard extends StatelessWidget {
             ),
             child: Icon(accion.icon, color: accion.accent, size: 22),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                accion.label,
-                style: MatchPayTokens.titleSmallStyle(),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                accion.subtitulo,
-                maxLines: 2,
+          const SizedBox(height: 8),
+          Text(
+            accion.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: MatchPayTokens.titleSmallStyle(),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            accion.linea1,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: subtituloStyle,
+          ),
+          SizedBox(
+            height: _slotLinea2,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                linea2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 11),
+                style: subtituloStyle.copyWith(
+                  color: linea2.isEmpty
+                      ? Colors.transparent
+                      : MatchPayTokens.inkMuted,
+                ),
               ),
-            ],
+            ),
           ),
         ],
       ),

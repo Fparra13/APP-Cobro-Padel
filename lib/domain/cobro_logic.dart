@@ -375,7 +375,8 @@ class CobroLogic {
         accion: ComprobanteValidacionAccion.ignorarYaValidado,
       );
     }
-    if (pagado || pendientePartido <= 0.005) {
+    // No usar detalle.pagado: puede quedar true con deuda neta pendiente.
+    if (pendientePartido <= 0.005) {
       return const ComprobanteValidacionDecision(
         accion: ComprobanteValidacionAccion.soloMarcarComprobante,
       );

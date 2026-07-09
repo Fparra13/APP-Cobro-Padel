@@ -7,15 +7,16 @@ import '../models/saldo_historico.dart';
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
-import '../core/supabase_helpers.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../utils/cobro_jugador_ui.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
+import '../utils/player_pay_bridge.dart';
 import '../widgets/cobro_pago_flow.dart';
 import '../widgets/cobro_ver_detalle_sheet.dart';
+import '../widgets/friendly_error_panel.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/player_match_history_tile.dart';
 import '../widgets/player_matches_to_close.dart';
@@ -46,12 +47,26 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
   @override
   void initState() {
     super.initState();
+    PlayerPayBridge.instance.registerPayTotalHandler(() async {
+      if (!_hasLoaded) {
+        await _load();
+      }
+      await _pagar(esTotal: true);
+    });
+    PlayerPayBridge.instance.registerPayOtherHandler(() async {
+      if (!_hasLoaded) {
+        await _load();
+      }
+      await _pagar(esTotal: false);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
     AppRepositories.dataRevision.addListener(_onDataChanged);
   }
 
   @override
   void dispose() {
+    PlayerPayBridge.instance.unregisterPayTotalHandler();
+    PlayerPayBridge.instance.unregisterPayOtherHandler();
     _reloadDebounce?.cancel();
     AppRepositories.dataRevision.removeListener(_onDataChanged);
     super.dispose();
@@ -126,7 +141,7 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = SupabaseHelpers.describeError(e, operacion: 'Mis cobros');
+          _error = context.userError(e);
         });
       }
     } finally {
@@ -148,6 +163,8 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
         context: context,
         deudas: _deudas,
         desgloses: _desglosePorPartido,
+        saldosAnterioresPorPartido: _saldoAnteriorPorPartido,
+        saldoAcumuladoJugador: _saldoAcumuladoJugador,
         esTotal: esTotal,
         onCompletado: () => _load(silent: true),
       );
@@ -227,15 +244,9 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
                 padding: NavShellScope.listPadding(context),
                 children: [
                   if (_error != null) ...[
-                    Card(
-                      color: Colors.red.shade50,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          _error!,
-                          style: TextStyle(color: Colors.red.shade900),
-                        ),
-                      ),
+                    FriendlyErrorPanel(
+                      message: _error!,
+                      onRetry: () => _load(silent: false),
                     ),
                     const SizedBox(height: 12),
                   ],

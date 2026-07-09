@@ -1,14 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/app_repositories.dart';
 import '../core/app_settings_controller.dart';
 import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
+import '../core/offline_status_controller.dart';
 import '../core/organizer_nudge_service.dart';
+import '../utils/organizer_subscription_flow.dart';
 import '../core/sport_theme.dart';
-import '../core/supabase_helpers.dart';
 import '../core/sport_type.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/desglose_jugador.dart';
@@ -21,29 +23,40 @@ import '../repositories/partido_repository.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/cobro_jugador_ui.dart';
 import '../utils/formatters.dart';
-import '../widgets/cobro_pago_flow.dart';
-import '../widgets/desglose_cobro_panel.dart';
 import '../widgets/player_matches_to_close.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/mis_invitaciones_panel.dart';
+import '../widgets/offline_no_data_panel.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/player_match_history_tile.dart';
 import '../services/convocatoria_lista_espera_service.dart';
+import '../services/notification_service.dart';
 import '../domain/deuda_explicacion.dart';
 import '../models/saldo_historico.dart';
+import '../offline/player_loader.dart';
+import '../offline/offline_snapshot_store.dart';
+import '../offline/network_errors.dart';
 import '../utils/app_mode_pending.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
 import '../utils/perfil_foto.dart';
 import '../widgets/app_mode_switch_button.dart';
-import 'mi_historial_screen.dart';
 import 'responder_convocatoria_screen.dart';
 
 /// Home jugador: funcionalidad intacta, estética premium y deportiva.
 class PlayerHomeScreen extends StatefulWidget {
   final VoidCallback? onOpenMisCobros;
+  final VoidCallback? onOpenPartidos;
+  final VoidCallback? onPayTotalFromHome;
+  final VoidCallback? onPayOtherFromHome;
 
-  const PlayerHomeScreen({super.key, this.onOpenMisCobros});
+  const PlayerHomeScreen({
+    super.key,
+    this.onOpenMisCobros,
+    this.onOpenPartidos,
+    this.onPayTotalFromHome,
+    this.onPayOtherFromHome,
+  });
 
   @override
   State<PlayerHomeScreen> createState() => _PlayerHomeScreenState();
@@ -62,7 +75,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   bool _primeraCarga = true;
   bool _showOrganizerNudge = false;
   int _organizerPendingCount = 0;
-  bool _pagandoCobro = false;
+  bool _offlineEmpty = false;
   ConvocatoriaCompleta? _heroConvocatoriaCompleta;
   Timer? _reloadDebounce;
   String? _error;
@@ -136,86 +149,136 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       setState(() {
         _loading = true;
         _error = null;
+        _offlineEmpty = false;
       });
     } else if (!silent && mounted) {
-      setState(() => _error = null);
+      setState(() {
+        _error = null;
+        _offlineEmpty = false;
+      });
     }
+
+    final offlineStatus = context.read<OfflineStatusController>();
+    final userId = AuthService.instance.currentUser?.id;
+    final snapshotStore = userId != null
+        ? OfflineSnapshotStore(userId: userId)
+        : null;
+
     try {
       final repos =
           AppRepositories.isReady ? AppRepositories.I : context.repos;
-      final uid = AuthService.instance.currentUser?.id;
       final organizerPendingFuture = AuthService.instance.isOrganizer
           ? _loadOrganizerPendingCount(repos)
           : Future<int>.value(0);
-      final results = await Future.wait([
-        repos.getMisConvocatoriasComoJugador(),
-        repos.getMisDeudasPendientes(reconciliar: false),
-        if (uid != null) repos.getJugador(uid) else Future<Jugador?>.value(null),
-        repos.getEstadisticas(),
-        repos.getMisPartidosJugados(limit: 20),
-        if (uid != null)
-          repos.getSaldosByJugador(uid)
-        else
-          Future<List<SaldoHistorico>>.value([]),
-      ]);
-      final todas = results[0] as List<MiConvocatoria>;
-      final deudas = ordenarDeudasPorFecha(results[1] as List<DetallePartido>);
-      final perfil = results[2] as Jugador?;
-      final statsAll = results[3] as List<EstadisticasJugador>;
-      final partidosJugados = results[4] as List<DetallePartido>;
-      final historialSaldo = results[5] as List<SaldoHistorico>;
-      final organizerPending = await organizerPendingFuture;
-      final partidoIds = {
-        ...deudas.map((d) => d.partidoId),
-        ...partidosJugados.map((p) => p.partidoId),
-      };
-      final saldosPorPartido =
-          await repos.getMisSaldosAnterioresPartidos(partidoIds);
-      EstadisticasJugador? mine;
-      if (uid != null) {
-        for (final s in statsAll) {
-          if (s.jugadorKeyId == uid) {
-            mine = s;
+
+      final result = await loadPlayerHome(
+        repos: repos,
+        snapshotStore: snapshotStore,
+      );
+
+      if (!mounted) return;
+
+      switch (result.source) {
+        case OfflineScreenLoadSource.live:
+          offlineStatus.markLive();
+          await _applyPlayerHomeData(
+            result.data!,
+            organizerPendingFuture: organizerPendingFuture,
+            fromLive: true,
+          );
+        case OfflineScreenLoadSource.offlineCache:
+          offlineStatus.markOfflineCached(result.snapshotAt!);
+          await _applyPlayerHomeData(
+            result.data!,
+            organizerPendingFuture: organizerPendingFuture,
+            fromLive: false,
+          );
+        case OfflineScreenLoadSource.offlineEmpty:
+          offlineStatus.markOfflineEmpty();
+          setState(() {
+            _todas = [];
+            _deudas = [];
+            _partidosJugados = [];
+            _historialSaldo = [];
+            _saldosPorPartido = {};
+            _desglosePorPartido.clear();
+            _perfil = null;
+            _misStats = null;
+            _heroConvocatoriaCompleta = null;
+            _showOrganizerNudge = false;
+            _organizerPendingCount = 0;
+            _offlineEmpty = true;
+            _primeraCarga = false;
+          });
+        case OfflineScreenLoadSource.error:
+          offlineStatus.markLive();
+          final network = isNetworkError(result.error!);
+          final hasVisibleData =
+              _todas.isNotEmpty || _perfil != null || _deudas.isNotEmpty;
+          if (network && (silent || hasVisibleData)) {
+            if (_error != null) {
+              setState(() => _error = null);
+            }
             break;
           }
-        }
+          setState(() {
+            _error = context.userError(result.error!);
+            _primeraCarga = false;
+          });
       }
-      if (mounted) {
-        final showNudge = await OrganizerNudgeService.shouldShowHomeCard(
-          partidosJugados: partidosJugados.length,
-          invitesRecibidas: todas.where((c) => !c.entry.esSuplente).length,
-        );
-        setState(() {
-          _todas = todas;
-          _deudas = deudas;
-          _partidosJugados = partidosJugados;
-          _historialSaldo = historialSaldo;
-          _saldosPorPartido = saldosPorPartido;
-          _desglosePorPartido.clear();
-          _perfil = perfil;
-          _misStats = mine;
-          _showOrganizerNudge = showNudge;
-          _organizerPendingCount = organizerPending;
-          _primeraCarga = false;
-          _loading = false;
-        });
-      }
-      unawaited(_cargarDesgloses(deudas));
-      unawaited(_cargarHeroConvocatoria(_heroConvocatoria));
-      unawaited(
-        ConvocatoriaListaEsperaService().sincronizarPartidos(
-          todas.map((c) => c.partido.id).whereType<int>(),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error =
-              SupabaseHelpers.describeError(e, operacion: 'Inicio jugador');
-          _loading = false;
-        });
-      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _applyPlayerHomeData(
+    PlayerHomeData data, {
+    required Future<int> organizerPendingFuture,
+    required bool fromLive,
+  }) async {
+    final todas = data.convocatorias;
+    final deudas = data.deudas;
+    final showNudge = await OrganizerNudgeService.shouldShowHomeCard(
+      partidosJugados: data.partidosJugados.length,
+      invitesRecibidas: todas.where((c) => !c.entry.esSuplente).length,
+    );
+    final organizerPending = await organizerPendingFuture;
+
+    if (!mounted) return;
+
+    setState(() {
+      _todas = todas;
+      _deudas = deudas;
+      _partidosJugados = data.partidosJugados;
+      _historialSaldo = data.historialSaldo;
+      _saldosPorPartido = data.saldosPorPartido;
+      _desglosePorPartido.clear();
+      _perfil = data.perfil;
+      _misStats = data.misStats;
+      _showOrganizerNudge = showNudge;
+      _organizerPendingCount = organizerPending;
+      _offlineEmpty = false;
+      _error = null;
+      _primeraCarga = false;
+    });
+
+    if (!fromLive) return;
+
+    unawaited(_cargarDesgloses(deudas));
+    unawaited(_cargarHeroConvocatoria(_heroConvocatoria));
+    unawaited(
+      ConvocatoriaListaEsperaService().sincronizarPartidos(
+        todas.map((c) => c.partido.id).whereType<int>(),
+      ),
+    );
+  }
+
+  bool get _readOnly => context.watch<OfflineStatusController>().isReadOnly;
+
+  void _showOfflineWriteBlocked() {
+    NotificationService.instance.showInAppSnack(
+      context.l10n.tr('offlineWriteBlocked'),
+    );
   }
 
   Future<int> _loadOrganizerPendingCount(AppRepositories repos) async {
@@ -245,7 +308,16 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     try {
       final repos =
           AppRepositories.isReady ? AppRepositories.I : context.repos;
-      final conv = await repos.getConvocatoriaCompleta(hero!.partido.id!);
+      final partidoId = hero!.partido.id!;
+      final ConvocatoriaCompleta? conv;
+      if (AuthService.instance.isOrganizer) {
+        conv = await repos.getConvocatoriaCompleta(partidoId);
+      } else {
+        conv = await repos.getConvocatoriaRosterParaJugador(
+          partidoId: partidoId,
+          partido: hero.partido,
+        );
+      }
       if (mounted) setState(() => _heroConvocatoriaCompleta = conv);
     } catch (_) {
       if (mounted) setState(() => _heroConvocatoriaCompleta = null);
@@ -291,13 +363,20 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       final fecha = hero.partido.fecha;
       if (esMismoDia(fecha, DateTime.now())) {
         return l10n.tr(
-          'playerContextPlayToday',
+          'playerContextPlayTodayAt',
           params: {'emoji': emoji, 'time': formatHora(fecha)},
         );
       }
+      final diff = fecha.difference(DateTime.now());
+      if (!diff.isNegative) {
+        return l10n.tr(
+          'playerContextNextIn',
+          params: {'emoji': emoji, 'when': formatEnCuanto(fecha)},
+        );
+      }
       return l10n.tr(
-        'playerContextNextIn',
-        params: {'emoji': emoji, 'when': formatEnCuanto(fecha)},
+        'playerContextMatchAt',
+        params: {'emoji': emoji, 'time': formatHora(fecha)},
       );
     }
     if (deudaTotal > 0.005) {
@@ -357,43 +436,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   }
 
   Future<void> _onBecomeOrganizerTap() async {
-    if (AuthService.instance.isOrganizer) {
-      await _switchToOrganizer();
-      return;
-    }
-    final l10n = context.l10n;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.tr('becomeOrganizerTitle')),
-        content: Text(l10n.tr('becomeOrganizerBody')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.tr('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.tr('becomeOrganizerCta')),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    try {
-      await AuthService.instance.becomeOrganizer();
-      if (!mounted) return;
-      await context.switchAppUiMode(AppUiMode.organizer);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.tr('becomeOrganizerDone'))),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e'), backgroundColor: Colors.red.shade700),
-      );
-    }
+    await openOrganizerSubscriptionFlow(context);
   }
 
   ExplicacionDeudaJugador? get _explicacionDeuda {
@@ -404,31 +447,23 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     );
   }
 
-  Future<void> _pagarDesdeHome({required bool esTotal}) async {
-    if (_pagandoCobro || _deudas.isEmpty) return;
-    setState(() => _pagandoCobro = true);
-    try {
-      await CobroPagoFlow.iniciarPagoGlobal(
-        context: context,
-        deudas: _deudas,
-        desgloses: _desglosePorPartido,
-        esTotal: esTotal,
-        onCompletado: () => _load(silent: true),
-      );
-    } finally {
-      if (mounted) setState(() => _pagandoCobro = false);
-    }
+  void _pagarTotalDesdeHomeTeaser() {
+    widget.onPayTotalFromHome?.call();
   }
 
-  Future<void> _openHistorial() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const MiHistorialScreen()),
-    );
-    if (mounted) _load();
+  void _pagarOtroDesdeHomeTeaser() {
+    widget.onPayOtherFromHome?.call();
+  }
+
+  void _openHistorial() {
+    widget.onOpenPartidos?.call();
   }
 
   Future<void> _cambiarFoto() async {
+    if (_readOnly) {
+      _showOfflineWriteBlocked();
+      return;
+    }
     final perfil = _perfil;
     if (perfil == null) return;
     await editarFotoPerfil(
@@ -441,8 +476,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   }
 
   Future<void> _openConvocatoria(MiConvocatoria c) async {
-    await Navigator.push(
-      context,
+    await Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute(
         builder: (_) => ResponderConvocatoriaScreen(
           partidoId: c.entry.partidoId,
@@ -450,11 +484,13 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
         ),
       ),
     );
-    _load();
+    if (mounted) _load();
   }
 
   bool get _showActivityStrip {
+    if (_partidosJugados.isNotEmpty) return true;
     if (_misStats != null && _misStats!.partidosJugados > 0) return true;
+    if (_semanasJugando >= 2) return true;
     return _invitesRecibidas > 0;
   }
 
@@ -532,7 +568,9 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       backgroundColor: MatchPayTokens.surfaceBase,
       body: _loading && _primeraCarga
           ? const PlayerHomeShimmer()
-          : RefreshIndicator(
+          : _offlineEmpty
+              ? const OfflineNoDataPanel()
+              : RefreshIndicator(
               color: palette.primary,
               onRefresh: () => _load(silent: true),
               child: CustomScrollView(
@@ -548,9 +586,10 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 InkWell(
-                                  onTap: _perfil == null ? null : _cambiarFoto,
+                                  onTap: _readOnly ? null : _cambiarFoto,
                                   borderRadius: BorderRadius.circular(24),
                                   child: Stack(
                                     children: [
@@ -584,7 +623,32 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                                     ],
                                   ),
                                 ),
-                                const Spacer(),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l10n.appName,
+                                        style: MatchPayTokens.displayStyle(
+                                          color: palette.primaryDark,
+                                        ).copyWith(
+                                          fontSize: 20,
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
+                                      Text(
+                                        l10n.tr('playerHomeBrandTagline'),
+                                        style: MatchPayTokens.bodySmallStyle(
+                                          color: MatchPayTokens.inkMuted,
+                                        ).copyWith(fontSize: 11.5),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
                                 if (esAdmin)
                                   AppModeSwitchButton(
                                     targetMode: AppUiMode.organizer,
@@ -612,13 +676,14 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                               ),
                             ),
                             if (headline.isNotEmpty) ...[
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 8),
                               Text(
                                 headline,
                                 style: MatchPayTokens.headlineStyle().copyWith(
-                                  fontSize: 22,
-                                  height: 1.25,
+                                  fontSize: 21,
+                                  height: 1.3,
                                 ),
+                                maxLines: 3,
                               ),
                             ],
                           ],
@@ -632,7 +697,10 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         if (_error != null) ...[
-                          _ErrorBanner(error: _error!, onRetry: _load),
+                          _ErrorBanner(
+                            error: _error!,
+                            onRetry: () => _load(silent: false),
+                          ),
                           const SizedBox(height: 16),
                         ],
 
@@ -678,6 +746,8 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 10),
                           MisInvitacionesPanel(
                             convocatorias: _otrasPendientes,
+                            readOnly: _readOnly,
+                            onReadOnlyTap: _showOfflineWriteBlocked,
                             onRespondido: _load,
                           ),
                           const SizedBox(height: 24),
@@ -705,12 +775,15 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 10),
                           PlayerHomeCobrosTeaser(
                             total: deudaTotal,
-                            pagando: _pagandoCobro,
+                            pagando: false,
                             comprobanteEnRevision: comprobanteEnRevision,
                             explicacion: explicacion,
-                            onPayTotal: () => _pagarDesdeHome(esTotal: true),
-                            onOpenMisCobros:
-                                widget.onOpenMisCobros ?? () {},
+                            onPayTotal: _readOnly
+                                ? _showOfflineWriteBlocked
+                                : _pagarTotalDesdeHomeTeaser,
+                            onPayOther: _readOnly
+                                ? _showOfflineWriteBlocked
+                                : _pagarOtroDesdeHomeTeaser,
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -807,16 +880,23 @@ class _HeroMatchCard extends StatelessWidget {
     final confirmados = conv?.confirmados ?? 0;
     final pendientes = conv?.pendientes ?? 0;
     final roster = conv?.titulares
-            .where((j) => j.estado == EstadoConfirmacion.confirmado)
-            .take(5)
+            .where(
+              (j) =>
+                  j.estado == EstadoConfirmacion.confirmado ||
+                  j.estado == EstadoConfirmacion.invitado,
+            )
+            .take(6)
             .toList() ??
         const <ConvocatoriaJugadorEntry>[];
 
-    return MatchPayTapScale(
-      onTap: onTap,
-      child: Material(
-        color: Colors.transparent,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
         child: Ink(
+          width: double.infinity,
           height: roster.isNotEmpty ? 252 : 228,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
@@ -967,16 +1047,42 @@ class _HeroMatchCard extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                      color: palette.primaryDark,
+                                      color: roster[i].estado ==
+                                              EstadoConfirmacion.confirmado
+                                          ? palette.primaryDark
+                                          : Colors.white.withValues(alpha: 0.55),
                                       width: 2,
                                     ),
                                   ),
-                                  child: JugadorAvatar(
-                                    nombre: roster[i].jugador.nombre,
-                                    fotoUrl: roster[i].jugador.fotoUrl,
-                                    fotoPath: roster[i].jugador.fotoPath,
-                                    size: 30,
-                                    borderRadius: 15,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      JugadorAvatar(
+                                        nombre: roster[i].jugador.nombre,
+                                        fotoUrl: roster[i].jugador.fotoUrl,
+                                        fotoPath: roster[i].jugador.fotoPath,
+                                        size: 30,
+                                        borderRadius: 15,
+                                      ),
+                                      if (roster[i].estado ==
+                                          EstadoConfirmacion.invitado)
+                                        Positioned(
+                                          right: -2,
+                                          bottom: -2,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(2),
+                                            decoration: const BoxDecoration(
+                                              color: Colors.white,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              Icons.schedule_rounded,
+                                              size: 10,
+                                              color: palette.primaryDark,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -1276,36 +1382,33 @@ class _StatsStrip extends StatelessWidget {
     final l10n = context.l10n;
     final items = <(String, String, String)>[];
 
-    if (stats != null && stats!.partidosJugados > 0) {
-      final asistencia = invitesRecibidas > 0
-          ? participacionPct
-          : stats!.porcentajePagoAlDia;
-      items.addAll([
-        (
-          '🏆',
-          '${stats!.partidosJugados}',
-          l10n.tr('playerStatMatchesPride'),
-        ),
-        (
-          '⭐',
-          '${asistencia.toStringAsFixed(0)}%',
-          l10n.tr('playerStatAttendancePride'),
-        ),
-      ]);
-      if (stats!.partidosUltimos90Dias > 0) {
-        items.add((
-          '📅',
-          '${stats!.partidosUltimos90Dias}',
-          l10n.tr('playerStatRecentMatches'),
-        ));
-      }
+    final partidos = stats?.partidosJugados ?? 0;
+    final confirmaciones = (stats?.convocatoriasConfirmadas ?? 0) > 0
+        ? stats!.convocatoriasConfirmadas
+        : invitesConfirmadas;
+
+    if (partidos > 0) {
+      items.add((
+        '🏆',
+        '$partidos',
+        l10n.tr('playerStatMatchesPride'),
+      ));
     }
 
-    if (semanasJugando >= 2) {
+    if (confirmaciones > 0) {
       items.add((
-        '🔥',
-        '$semanasJugando',
-        l10n.tr('playerStatWeeksPride'),
+        '✅',
+        '$confirmaciones',
+        l10n.tr('playerStatConfirmedPride'),
+      ));
+    }
+
+    if (partidos > 0) {
+      final pctPago = stats!.porcentajePagoAlDia;
+      items.add((
+        '💚',
+        '${pctPago.toStringAsFixed(0)}%',
+        l10n.tr('playerStatOnTimePride'),
       ));
     } else if (invitesRecibidas > 0) {
       items.add((
@@ -1315,16 +1418,26 @@ class _StatsStrip extends StatelessWidget {
       ));
     }
 
+    if (items.length < 3 && semanasJugando >= 2) {
+      items.add((
+        '🔥',
+        '$semanasJugando',
+        l10n.tr('playerStatWeeksPride'),
+      ));
+    }
+
     if (items.isEmpty) return const SizedBox.shrink();
+
+    final visible = items.take(3).toList();
 
     return SizedBox(
       height: 116,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: items.length,
+        itemCount: visible.length,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          final e = items[index];
+          final e = visible[index];
           return Container(
             width: 148,
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),

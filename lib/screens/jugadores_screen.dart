@@ -1,17 +1,29 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/app_repositories.dart';
+import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
+import '../core/offline_status_controller.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/jugador.dart';
+import '../offline/organizer_home_loader.dart';
+import '../offline/offline_snapshot_store.dart';
 import '../services/jugador_foto_service.dart';
+import '../services/recordatorio_service.dart';
+import '../services/whatsapp_share_service.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
+import '../utils/single_action.dart';
 import '../widgets/ayuda_tip.dart';
 import '../utils/nav_shell_layout.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/jugador_app_badge.dart';
 import '../widgets/matchpay_ui.dart';
+import '../widgets/offline_no_data_panel.dart';
+import '../widgets/friendly_error_panel.dart';
 import '../widgets/shimmer_loading.dart';
 import 'estadisticas_jugadores_screen.dart';
 
@@ -26,25 +38,107 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
   final _fotoService = JugadorFotoService.instance;
   List<Jugador> _jugadores = [];
   bool _loading = true;
+  bool _offlineEmpty = false;
+  String? _loadError;
+  Timer? _reloadDebounce;
+  String? _enviandoWhatsAppKey;
 
   @override
   void initState() {
     super.initState();
     _load();
+    AppRepositories.dataRevision.addListener(_onDataChanged);
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final list = await context.repos.getJugadores();
-    if (mounted) {
+  @override
+  void dispose() {
+    _reloadDebounce?.cancel();
+    AppRepositories.dataRevision.removeListener(_onDataChanged);
+    super.dispose();
+  }
+
+  void _onDataChanged() {
+    if (!mounted) return;
+    _reloadDebounce?.cancel();
+    _reloadDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (mounted) _load(silent: true);
+    });
+  }
+
+  void _showOfflineWriteBlocked() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.tr('offlineWriteBlocked'))),
+    );
+  }
+
+  bool _isReadOnly(BuildContext context) =>
+      context.read<OfflineStatusController>().isReadOnly;
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent && mounted) {
       setState(() {
-        _jugadores = list;
-        _loading = false;
+        _loading = true;
+        _loadError = null;
+        _offlineEmpty = false;
       });
+    }
+
+    final offlineStatus = context.read<OfflineStatusController>();
+    final userId = AuthService.instance.currentUser?.id;
+    final snapshotStore = userId != null
+        ? OfflineSnapshotStore(userId: userId)
+        : null;
+
+    try {
+      final result = await loadOrganizerJugadores(
+        repos: context.repos,
+        snapshotStore: snapshotStore,
+      );
+
+      if (!mounted) return;
+
+      switch (result.source) {
+        case OfflineScreenLoadSource.live:
+          offlineStatus.markLive();
+          setState(() {
+            _jugadores = result.data!.jugadores;
+            _offlineEmpty = false;
+            _loadError = null;
+          });
+        case OfflineScreenLoadSource.offlineCache:
+          offlineStatus.markOfflineCached(result.snapshotAt!);
+          setState(() {
+            _jugadores = result.data!.jugadores;
+            _offlineEmpty = false;
+            _loadError = null;
+          });
+        case OfflineScreenLoadSource.offlineEmpty:
+          offlineStatus.markOfflineEmpty();
+          setState(() {
+            _jugadores = [];
+            _offlineEmpty = true;
+          });
+        case OfflineScreenLoadSource.error:
+          offlineStatus.markLive();
+          setState(() {
+            _loadError = context.userError(result.error!);
+          });
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
+  bool _esEmailValido(String email) {
+    return RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email);
+  }
+
   Future<void> _showForm({Jugador? jugador}) async {
+    if (_isReadOnly(context)) {
+      _showOfflineWriteBlocked();
+      return;
+    }
+
     final nombreCtrl = TextEditingController(text: jugador?.nombre ?? '');
     final emailCtrl = TextEditingController(text: jugador?.contactEmail ?? '');
     final whatsappCtrl =
@@ -53,93 +147,120 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
 
     final saved = await showDialog<bool>(
       context: context,
+      useRootNavigator: true,
+      barrierDismissible: true,
       builder: (ctx) {
         final l10n = ctx.l10n;
-        return AlertDialog(
-          scrollable: true,
-          icon: Icon(
-            jugador == null ? Icons.person_add_alt_1 : Icons.edit,
-            color: Theme.of(ctx).colorScheme.primary,
-            size: 32,
-          ),
-          title: Text(
-            jugador == null ? l10n.tr('newPlayer') : l10n.tr('editPlayer'),
-          ),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-              TextField(
-                controller: nombreCtrl,
-                decoration: InputDecoration(
-                  labelText: l10n.tr('nameLabel'),
-                  prefixIcon: const Icon(Icons.badge_outlined),
-                  border: const OutlineInputBorder(),
-                ),
-                textCapitalization: TextCapitalization.words,
-                autofocus: true,
+        var formError = '';
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            void validateAndSave() {
+              final nombre = nombreCtrl.text.trim();
+              final emailRaw = emailCtrl.text.trim();
+              if (nombre.isEmpty) {
+                setDialogState(() => formError = l10n.tr('playerNameRequired'));
+                return;
+              }
+              if (emailRaw.isNotEmpty && !_esEmailValido(emailRaw)) {
+                setDialogState(() => formError = l10n.tr('emailFormatInvalid'));
+                return;
+              }
+              Navigator.pop(ctx, true);
+            }
+
+            return AlertDialog(
+              scrollable: true,
+              icon: Icon(
+                jugador == null ? Icons.person_add_alt_1 : Icons.edit,
+                color: Theme.of(ctx).colorScheme.primary,
+                size: 32,
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: emailCtrl,
-                decoration: InputDecoration(
-                  labelText: l10n.tr('emailLabel'),
-                  hintText: l10n.tr('loginEmailHint'),
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  border: const OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.emailAddress,
-                autocorrect: false,
+              title: Text(
+                jugador == null ? l10n.tr('newPlayer') : l10n.tr('editPlayer'),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: whatsappCtrl,
-                decoration: InputDecoration(
-                  labelText: l10n.tr('whatsappLabel'),
-                  hintText: l10n.tr('whatsappHint'),
-                  helperText: l10n.tr('whatsappHelper'),
-                  prefixIcon: const Icon(Icons.chat_outlined),
-                  border: const OutlineInputBorder(),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: nombreCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.tr('nameLabel'),
+                        prefixIcon: const Icon(Icons.badge_outlined),
+                        border: const OutlineInputBorder(),
+                      ),
+                      textCapitalization: TextCapitalization.words,
+                      autofocus: true,
+                      onSubmitted: (_) => validateAndSave(),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: emailCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.tr('emailLabel'),
+                        hintText: l10n.tr('loginEmailHint'),
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        border: const OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: whatsappCtrl,
+                      decoration: InputDecoration(
+                        labelText: l10n.tr('whatsappLabel'),
+                        hintText: l10n.tr('whatsappHint'),
+                        helperText: l10n.tr('whatsappHelper'),
+                        prefixIcon: const Icon(Icons.chat_outlined),
+                        border: const OutlineInputBorder(),
+                      ),
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 12),
+                    ValueListenableBuilder(
+                      valueListenable: activo,
+                      builder: (_, value, _) => SwitchListTile(
+                        secondary: Icon(
+                          value ? Icons.star : Icons.star_border,
+                          color: value
+                              ? MatchPayTokens.accentUrgent
+                              : MatchPayTokens.inkMuted,
+                        ),
+                        title: Text(l10n.tr('regularPlayer')),
+                        subtitle: Text(l10n.tr('regularPlayerSubtitle')),
+                        value: value,
+                        onChanged: (v) => activo.value = v,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    if (formError.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        formError,
+                        style: MatchPayTokens.bodySmallStyle(
+                          color: MatchPayTokens.accentError,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                keyboardType: TextInputType.phone,
               ),
-              const SizedBox(height: 12),
-              ValueListenableBuilder(
-                valueListenable: activo,
-                builder: (_, value, _) => SwitchListTile(
-                  secondary: Icon(
-                    value ? Icons.star : Icons.star_border,
-                    color: value
-                        ? MatchPayTokens.accentUrgent
-                        : MatchPayTokens.inkMuted,
-                  ),
-                  title: Text(l10n.tr('regularPlayer')),
-                  subtitle: Text(l10n.tr('regularPlayerSubtitle')),
-                  value: value,
-                  onChanged: (v) => activo.value = v,
-                  contentPadding: EdgeInsets.zero,
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text(l10n.tr('cancel')),
                 ),
-              ),
-            ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l10n.tr('cancel')),
-            ),
-            FilledButton.icon(
-              onPressed: () {
-                if (nombreCtrl.text.trim().isEmpty) return;
-                if (emailCtrl.text.trim().isEmpty) return;
-                Navigator.pop(ctx, true);
-              },
-              icon: const Icon(Icons.save),
-              label: Text(l10n.tr('save')),
-            ),
-          ],
+                FilledButton.icon(
+                  onPressed: validateAndSave,
+                  icon: const Icon(Icons.save),
+                  label: Text(l10n.tr('save')),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -147,12 +268,13 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
     if (saved != true || !mounted) return;
 
     final now = DateTime.now();
-    final email = emailCtrl.text.trim().toLowerCase();
+    final emailRaw = emailCtrl.text.trim();
+    final email = emailRaw.isEmpty ? null : emailRaw.toLowerCase();
     final whatsappRaw = whatsappCtrl.text.trim();
     final whatsapp = whatsappRaw.isEmpty
         ? null
-        : formatWhatsAppDisplay(whatsappRaw);
-    if (whatsappRaw.isNotEmpty && normalizeWhatsAppDigits(whatsappRaw) == null) {
+        : normalizeWhatsAppDigits(whatsappRaw);
+    if (whatsappRaw.isNotEmpty && whatsapp == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -182,6 +304,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
         ));
       }
       if (mounted) {
+        AppRepositories.notifyDataChanged();
         _load();
         final l10n = context.l10n;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -201,7 +324,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(context.userError(e)),
             backgroundColor: MatchPayTokens.accentError,
             duration: const Duration(seconds: 12),
             action: SnackBarAction(
@@ -215,7 +338,54 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
     }
   }
 
+  Future<void> _enviarCobroWhatsApp(Jugador j) async {
+    if (j.tieneMatchPayApp || !j.puedeEnviarWhatsApp || j.saldoAcumulado <= 0) {
+      return;
+    }
+    final key = j.keyId;
+    await runOnce('wa-cobro-jugador-$key', () async {
+      setState(() => _enviandoWhatsAppKey = key);
+      try {
+        final msg = await RecordatorioService().construirMensaje(
+          jugador: j,
+          saldo: j.saldoAcumulado,
+        );
+        final ok = await WhatsAppShareService.enviar(
+          mensaje: msg,
+          telefono: j.contactWhatsApp,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                ok
+                    ? context.l10n.tr('whatsappOpening')
+                    : context.l10n.tr('whatsappOpenFailed'),
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.userError(e)),
+              backgroundColor: MatchPayTokens.accentError,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _enviandoWhatsAppKey = null);
+      }
+      return null;
+    });
+  }
+
   Future<void> _confirmDelete(Jugador j) async {
+    if (_isReadOnly(context)) {
+      _showOfflineWriteBlocked();
+      return;
+    }
     final confirm = await showDialog<bool>(
       context: context,
       builder: (c) {
@@ -257,6 +427,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final palette = context.sportPalette;
+    final readOnly = context.watch<OfflineStatusController>().isReadOnly;
     final activos = _jugadores.where((j) => j.activo).length;
     final conDeuda = _jugadores.where((j) => j.saldoAcumulado > 0).length;
 
@@ -284,38 +455,52 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
       ),
       body: _loading
           ? const _JugadoresShimmer()
-          : RefreshIndicator(
-              color: palette.primary,
-              onRefresh: _load,
-              child: _jugadores.isEmpty
-                  ? ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: NavShellScope.listPadding(context),
-                      children: [
-                        _buildEmptyState(),
-                      ],
-                    )
-                  : ListView(
-                      padding: NavShellScope.listPadding(
-                        context,
-                        left: 16,
-                        top: 16,
-                        right: 16,
-                      ),
-                      children: [
-                        _buildResumen(activos, conDeuda),
-                        const SizedBox(height: 16),
-                        AyudaTip(texto: l10n.tr('playersHelpTip')),
-                        const SizedBox(height: 16),
-                        ..._jugadores.map(_buildJugadorCard),
-                      ],
+          : _offlineEmpty
+              ? const OfflineNoDataPanel()
+              : _loadError != null && _jugadores.isEmpty
+                  ? _buildLoadErrorState()
+                  : RefreshIndicator(
+                      color: palette.primary,
+                      onRefresh: _load,
+                      child: _jugadores.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: NavShellScope.listPadding(context),
+                              children: [
+                                _buildEmptyState(),
+                              ],
+                            )
+                          : ListView(
+                              padding: NavShellScope.listPadding(
+                                context,
+                                left: 16,
+                                top: 16,
+                                right: 16,
+                              ),
+                              children: [
+                                _buildResumen(activos, conDeuda),
+                                const SizedBox(height: 16),
+                                AyudaTip(texto: l10n.tr('playersHelpTip')),
+                                const SizedBox(height: 16),
+                                ..._jugadores.map(_buildJugadorCard),
+                              ],
+                            ),
                     ),
+      floatingActionButton: readOnly
+          ? null
+          : FloatingActionButton.extended(
+              heroTag: 'jugadores-new-player',
+              onPressed: () => _showForm(),
+              icon: const Icon(Icons.person_add_rounded),
+              label: Text(l10n.tr('newPlayer')),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showForm(),
-        icon: const Icon(Icons.person_add_rounded),
-        label: Text(l10n.tr('newPlayer')),
-      ),
+    );
+  }
+
+  Widget _buildLoadErrorState() {
+    return FriendlyErrorPanel(
+      message: _loadError ?? context.tr('errorGeneric'),
+      onRetry: _load,
     );
   }
 
@@ -404,6 +589,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
     final l10n = context.l10n;
     final deuda = j.saldoAcumulado > 0;
     final conFavor = j.saldoAcumulado < 0;
+    final sinAppManual = !j.tieneMatchPayApp && j.puedeEnviarWhatsApp && deuda;
+    final enviandoWa = _enviandoWhatsAppKey == j.keyId;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -506,6 +693,23 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
             ),
             Column(
               children: [
+                if (sinAppManual)
+                  IconButton.filledTonal(
+                    icon: enviandoWa
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.payments_outlined, size: 22),
+                    tooltip: l10n.tr('sendDebtWhatsApp'),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366).withValues(alpha: 0.15),
+                      foregroundColor: const Color(0xFF1B8F4E),
+                    ),
+                    onPressed: enviandoWa ? null : () => _enviarCobroWhatsApp(j),
+                  ),
+                if (sinAppManual) const SizedBox(height: 4),
                 IconButton.filledTonal(
                   icon: const Icon(Icons.edit_rounded, size: 22),
                   tooltip: l10n.tr('editTooltip'),

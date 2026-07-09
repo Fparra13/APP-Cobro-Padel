@@ -44,6 +44,9 @@ class AcquisitionController extends ChangeNotifier {
   bool get shouldSkipAcquisitionScreen =>
       _resolved || _intent != MatchPayAcquisitionIntent.unknown;
 
+  /// Deep link con partido: saltar intro de valor (ir directo a login).
+  bool get skipIntroOnboarding => _invitePartidoId != null;
+
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     _resolved = prefs.getBool(_keyResolved) ?? false;
@@ -104,10 +107,22 @@ class AcquisitionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Usuario elige flujo jugador (instaló manualmente, sin link).
-  Future<void> chooseInvited() async {
+  /// Usuario elige flujo jugador ("Soy jugador" o enlace de invitación manual).
+  Future<void> choosePlayer() async {
     _intent = MatchPayAcquisitionIntent.invited;
     _resolved = true;
+    await _persist();
+    notifyListeners();
+  }
+
+  /// Alias para compatibilidad con flujos de invitación manual.
+  Future<void> chooseInvited() => choosePlayer();
+
+  /// Vuelve a la pantalla de elección de rol (back desde intro).
+  Future<void> resetColdStartChoice() async {
+    if (_invitePartidoId != null) return;
+    _resolved = false;
+    _intent = MatchPayAcquisitionIntent.unknown;
     await _persist();
     notifyListeners();
   }

@@ -17,6 +17,7 @@ import '../widgets/mis_recintos_panel.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
+import '../utils/organizer_subscription_flow.dart';
 import '../utils/perfil_foto.dart';
 
 class ConfiguracionScreen extends StatefulWidget {
@@ -105,7 +106,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$e'),
+            content: Text(context.userError(e)),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -114,43 +115,7 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   }
 
   Future<void> _confirmBecomeOrganizer() async {
-    final l10n = context.l10n;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.tr('becomeOrganizerTitle')),
-        content: Text(l10n.tr('becomeOrganizerBody')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l10n.tr('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l10n.tr('becomeOrganizerCta')),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-    try {
-      await AuthService.instance.becomeOrganizer();
-      if (!mounted) return;
-      await context.switchAppUiMode(AppUiMode.organizer);
-      if (!mounted) return;
-      setState(() => _isOrganizer = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.tr('becomeOrganizerDone'))),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$e'),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
-    }
+    await openOrganizerSubscriptionFlow(context);
   }
 
   Future<void> _saveBancarios() async {

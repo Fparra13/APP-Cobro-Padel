@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../core/auth_service.dart';
 import '../core/app_repositories.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/jugador.dart';
 import '../services/jugador_foto_service.dart';
 import '../services/supabase_storage_service.dart';
+import '../utils/matchpay_context.dart';
 
 /// El jugador (o admin sobre sí mismo) elige / quita su foto de perfil.
 Future<void> editarFotoPerfil(
@@ -20,6 +22,7 @@ Future<void> editarFotoPerfil(
 
   final opcion = await showModalBottomSheet<String>(
     context: context,
+    useRootNavigator: true,
     builder: (ctx) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -64,9 +67,16 @@ Future<void> editarFotoPerfil(
       return;
     }
 
+    final uid = AuthService.instance.currentUser?.id;
+    final storageJugadorId =
+        uid != null && jugador.supabaseId == uid ? uid : jugador.keyId;
+    if (storageJugadorId.isEmpty) {
+      throw Exception('Perfil sin identificador');
+    }
+
     final result = await fotoService.pickSaveAndSync(
       context: context,
-      jugadorId: jugador.keyId,
+      jugadorId: storageJugadorId,
       replaceLocalPath: jugador.fotoPath,
       replacePublicUrl: jugador.fotoUrl,
       uploadToCloud: repos.isCloud,
@@ -86,7 +96,7 @@ Future<void> editarFotoPerfil(
   } catch (e) {
     if (!context.mounted) return;
     messenger.showSnackBar(
-      SnackBar(content: Text('$e'), backgroundColor: Colors.red.shade700),
+      SnackBar(content: Text(context.userError(e)), backgroundColor: Colors.red.shade700),
     );
   }
 }

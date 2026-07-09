@@ -69,7 +69,7 @@ class _MisRecintosPanelState extends State<MisRecintosPanel> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = '$e';
+          _error = context.userError(e);
         });
       }
     }
@@ -132,7 +132,7 @@ class _MisRecintosPanelState extends State<MisRecintosPanel> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$e'),
+          content: Text(context.userError(e)),
           backgroundColor: Colors.red.shade700,
         ),
       );
@@ -334,7 +334,7 @@ class _AgregarRecintoSheetState extends State<AgregarRecintoSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$e'),
+            content: Text(context.userError(e)),
             backgroundColor: Colors.red.shade700,
           ),
         );

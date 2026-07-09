@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/fcm_service.dart';
+import '../offline/offline_snapshot_store.dart';
 import 'supabase_config.dart';
 
 class AuthService {
@@ -185,7 +186,11 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    final uid = currentUser?.id;
     await FcmService.instance.clearTokenOnLogout();
     await _client?.auth.signOut();
+    if (uid != null) {
+      await OfflineSnapshotStore.clearForUser(uid);
+    }
   }
 }

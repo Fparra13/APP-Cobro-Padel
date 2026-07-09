@@ -119,6 +119,25 @@ void main() {
         6000,
       );
     });
+
+    test('partido cubierto con saldo a favor y abono neto del cargo', () {
+      expect(
+        CobroLogic.obtenerPendientePartido(
+          saldoAnteriorAlPartido: -5000,
+          cargoPartido: 7500,
+          montoPagadoEnPartido: 2500,
+        ),
+        0,
+      );
+      expect(
+        CobroLogic.partidoEstaCerrado(
+          saldoAnteriorAlPartido: -5000,
+          cargoPartido: 7500,
+          montoPagadoEnPartido: 2500,
+        ),
+        isTrue,
+      );
+    });
   });
 
   group('CobroLogic.totalPendientePartidosImpagos', () {
@@ -220,6 +239,18 @@ void main() {
         pendientePartido: 0,
       );
       expect(d.accion, ComprobanteValidacionAccion.soloMarcarComprobante);
+    });
+
+    test('pagado true con deuda neta pendiente aplica abono', () {
+      final d = CobroLogic.evaluarValidacionComprobante(
+        aprobado: true,
+        pagado: true,
+        comprobanteValidado: false,
+        pendientePartido: 3500,
+        montoPagoDeclarado: 10000,
+      );
+      expect(d.accion, ComprobanteValidacionAccion.abonarPendiente);
+      expect(d.abono, 10000);
     });
 
     test('pendiente real genera abono parcial', () {

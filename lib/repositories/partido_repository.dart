@@ -143,7 +143,7 @@ class PartidoRepository {
       SELECT dp.id, dp.total, dp.monto_pagado, dp.partido_id
       FROM detalles_partido dp
       JOIN partidos p ON p.id = dp.partido_id
-      WHERE dp.jugador_id = ? AND dp.asistio = 1 AND dp.pagado = 0
+      WHERE dp.jugador_id = ? AND dp.asistio = 1
       ORDER BY p.fecha ASC, dp.partido_id ASC
       ''',
       [jugadorId],
@@ -317,17 +317,23 @@ class PartidoRepository {
     final rows = await db.query(
       'saldos_historicos',
       columns: ['partido_id', 'jugador_id', 'saldo_anterior'],
-      where: whereParts.join(' AND '),
+      where: '${whereParts.join(' AND ')} AND cargo_partido > 0',
       whereArgs: args,
+      orderBy: 'fecha ASC, id ASC',
     );
 
-    return {
-      for (final r in rows)
-        CobroLogic.claveSnapshotPartidoJugador(
-          partidoId: r['partido_id'] as int,
-          jugadorId: r['jugador_id'] as int,
-        ): (r['saldo_anterior'] as num).toDouble(),
-    };
+    final map = <String, double>{};
+    for (final r in rows) {
+      final key = CobroLogic.claveSnapshotPartidoJugador(
+        partidoId: r['partido_id'] as int,
+        jugadorId: r['jugador_id'] as int,
+      );
+      map.putIfAbsent(
+        key,
+        () => (r['saldo_anterior'] as num).toDouble(),
+      );
+    }
+    return map;
   }
 
   List<DeudaPartidoAnterior> _mapFilasAPendientesNetos(
@@ -598,20 +604,26 @@ class PartidoRepository {
 
     final historicos = await db.query(
       'saldos_historicos',
-      where: 'partido_id = ?',
+      where: 'partido_id = ? AND cargo_partido > 0',
       whereArgs: [partidoId],
+      orderBy: 'fecha ASC, id ASC',
     );
+
+    final saldoPorJugador = <String, double>{};
+    for (final h in historicos) {
+      final jid = (h['jugador_id'] as int).toString();
+      saldoPorJugador.putIfAbsent(
+        jid,
+        () => (h['saldo_anterior'] as num).toDouble(),
+      );
+    }
 
     return PartidoCompleto(
       partido: Partido.fromMap(partidoRows.first),
       detalles: detalleRows.map(DetallePartido.fromMap).toList(),
       costosVariables: costos,
       asignacionesPorCosto: asignaciones,
-      saldoAnteriorPorJugador: {
-        for (final h in historicos)
-          (h['jugador_id'] as int).toString():
-              (h['saldo_anterior'] as num).toDouble(),
-      },
+      saldoAnteriorPorJugador: saldoPorJugador,
     );
   }
 
@@ -632,15 +644,19 @@ class PartidoRepository {
     if (completo == null) return [];
 
     final db = await _db.database;
-    final historicos = await db.query(
-      'saldos_historicos',
-      where: 'partido_id = ?',
-      whereArgs: [partidoId],
+    final snapshots = await _fetchSnapshotsPorPartidoJugadorLocal(
+      db,
+      partidoIds: {partidoId},
     );
-    final saldosAnteriores = {
-      for (final h in historicos)
-        h['jugador_id'] as int: (h['saldo_anterior'] as num).toDouble(),
-    };
+    final saldosAnteriores = <int, double>{};
+    for (final entry in snapshots.entries) {
+      final parts = entry.key.split(':');
+      if (parts.length != 2) continue;
+      final pid = int.tryParse(parts[0]);
+      final jid = int.tryParse(parts[1]);
+      if (pid != partidoId || jid == null) continue;
+      saldosAnteriores[jid] = entry.value;
+    }
 
     for (final d in completo.detalles.where((d) => d.asistio)) {
       if (!saldosAnteriores.containsKey(d.jugadorId)) {
@@ -651,13 +667,36 @@ class PartidoRepository {
       }
     }
 
+    final jugadores = await _jugadorRepo.getAll();
+    final jugadoresPorId = {
+      for (final j in jugadores)
+        if (j.id != null) j.id!: j,
+    };
+
     return DesglosePartido.calcular(
       partido: completo.partido,
       detalles: completo.detalles,
       costosVariables: completo.costosVariables,
       asignacionesPorCosto: completo.asignacionesPorCosto,
       saldosAnteriores: saldosAnteriores,
-    );
+    ).map((d) {
+      final j = jugadoresPorId[d.jugadorId];
+      return DesgloseJugador(
+        jugadorId: d.jugadorId,
+        jugadorSupabaseId: d.jugadorSupabaseId,
+        nombre: d.nombre,
+        saldoAnterior: d.saldoAnterior,
+        cancha: d.cancha,
+        pelotas: d.pelotas,
+        variables: d.variables,
+        totalPartido: d.totalPartido,
+        totalDebido: d.totalDebido,
+        montoPagado: d.montoPagado,
+        saldoRestante: d.saldoRestante,
+        pagado: d.pagado,
+        saldoAcumuladoCuenta: j?.saldoAcumulado,
+      );
+    }).toList();
   }
 
   Future<List<ResumenJugador>> getResumenJugadores() async {

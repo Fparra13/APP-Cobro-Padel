@@ -33,7 +33,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 13,
+      version: 14,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -254,6 +254,14 @@ class DatabaseHelper {
     if (oldVersion < 13) {
       await db.execute(
         'ALTER TABLE convocatoria_jugadores ADD COLUMN recordatorio_plazo_enviado INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (oldVersion < 14) {
+      await db.execute(
+        'ALTER TABLE partidos ADD COLUMN resuelto_en TEXT',
+      );
+      await db.execute(
+        'ALTER TABLE partidos ADD COLUMN partido_origen_id INTEGER',
       );
     }
   }

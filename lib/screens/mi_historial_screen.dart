@@ -3,23 +3,27 @@ import 'package:flutter/material.dart';
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
-import '../core/supabase_helpers.dart';
+import '../core/sport_type.dart';
 import '../domain/cobro_logic.dart';
 import '../domain/deuda_explicacion.dart';
 import '../l10n/matchpay_strings.dart';
+import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/saldo_historico.dart';
 import '../utils/matchpay_context.dart';
-import '../utils/formatters.dart';
+import '../utils/nav_shell_layout.dart';
+import '../widgets/cobro_ver_detalle_sheet.dart';
+import '../widgets/friendly_error_panel.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/player_match_history_tile.dart';
 import '../widgets/player_matches_to_close.dart';
 import '../widgets/shimmer_loading.dart';
-import 'mis_cobros_screen.dart';
 
-/// Historial de partidos del jugador autenticado (no la ficha de admin).
+/// Historial de partidos del jugador (pestaña principal del shell).
 class MiHistorialScreen extends StatefulWidget {
-  const MiHistorialScreen({super.key});
+  final VoidCallback? onOpenMisCobros;
+
+  const MiHistorialScreen({super.key, this.onOpenMisCobros});
 
   @override
   State<MiHistorialScreen> createState() => _MiHistorialScreenState();
@@ -32,18 +36,32 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
   double _saldoAcumulado = 0;
   bool _loading = true;
   String? _error;
+  SportType? _filtroDeporte;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    AppRepositories.dataRevision.addListener(_onDataChanged);
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  @override
+  void dispose() {
+    AppRepositories.dataRevision.removeListener(_onDataChanged);
+    super.dispose();
+  }
+
+  void _onDataChanged() {
+    if (mounted) _load(silent: true);
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final repos =
           AppRepositories.isReady ? AppRepositories.I : context.repos;
@@ -66,22 +84,32 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
         _historialSaldo = historialSaldo;
         _saldoAcumulado = jugador?.saldoAcumulado ?? 0;
         _loading = false;
+        _error = null;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = SupabaseHelpers.describeError(e, operacion: 'Mi historial');
+        _error = context.userError(e);
         _loading = false;
       });
     }
   }
 
-  Future<void> _openMisCobros() async {
-    await Navigator.push(
+  Future<void> _verDetalle(DetallePartido detalle) async {
+    DesgloseJugador? desglose;
+    try {
+      desglose = await context.repos.getMiDesglosePartido(detalle.partidoId);
+    } catch (_) {}
+
+    if (!mounted) return;
+    await CobroVerDetalleSheet.show(
       context,
-      MaterialPageRoute(builder: (_) => const MisCobrosScreen()),
+      detalle: detalle,
+      desglose: desglose,
+      saldoAnteriorAlPartido: _saldosPorPartido[detalle.partidoId],
+      saldoAcumuladoJugador: _saldoAcumulado,
+      historialSaldo: _historialSaldo,
     );
-    _load();
   }
 
   @override
@@ -106,209 +134,189 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
         }
       }
     }
-    final pagados = _partidos.where((p) {
-      final snap = _saldosPorPartido[p.partidoId];
-      return snap != null && p.partidoCerradoNeto(snapshotSaldoAnterior: snap);
-    }).length;
-    final pendientes = _partidos.where((p) {
-      final snap = _saldosPorPartido[p.partidoId];
-      return snap != null && p.tieneDeudaNeto(snapshotSaldoAnterior: snap);
-    }).length;
-    final totalGastado =
-        _partidos.fold<double>(0, (s, p) => s + p.total);
-    final deudaCuenta = CobroLogic.obtenerPendienteJugador(
-      saldoAcumulado: _saldoAcumulado,
-    );
 
-    return Scaffold(
+    final conteoDeportes = conteoDeportesHistorial(_partidos);
+    final partidosVisibles =
+        filtrarPartidosPorDeporte(_partidos, _filtroDeporte);
+    final pagadosVisibles =
+        countPartidosPagadosHistorial(partidosVisibles, _saldosPorPartido);
+    final pendientesVisibles =
+        countPartidosPendientesHistorial(partidosVisibles, _saldosPorPartido);
+
+    return ShellTabScaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
-      appBar: AppBar(
-        title: Text(l10n.tr('playerMatchHistoryTitle')),
-        backgroundColor: MatchPayTokens.surfaceCard,
-        foregroundColor: MatchPayTokens.ink,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          TextButton(
-            onPressed: _openMisCobros,
-            child: Text(l10n.tr('myCharges')),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text(l10n.tr('playerMatchHistoryTitle'))),
       body: _loading
           ? ListView(
-              padding: const EdgeInsets.all(16),
+              padding: NavShellScope.listPadding(context),
               children: const [
                 ShimmerLoading(
-                  height: 108,
-                  borderRadius: BorderRadius.all(Radius.circular(16)),
-                ),
-                SizedBox(height: 14),
-                ShimmerLoading(
-                  height: 72,
+                  height: 168,
                   borderRadius: BorderRadius.all(Radius.circular(20)),
                 ),
-                SizedBox(height: 8),
+                SizedBox(height: 16),
                 ShimmerLoading(
-                  height: 72,
+                  height: 96,
+                  borderRadius: BorderRadius.all(Radius.circular(20)),
+                ),
+                SizedBox(height: 12),
+                ShimmerLoading(
+                  height: 96,
                   borderRadius: BorderRadius.all(Radius.circular(20)),
                 ),
               ],
             )
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: MatchPayTokens.bodySmallStyle(),
-                        ),
-                        const SizedBox(height: 12),
-                        FilledButton(
-                          onPressed: _load,
-                          child: Text(l10n.tr('retry')),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
+              ? FriendlyErrorPanel(message: _error!, onRetry: () => _load())
               : RefreshIndicator(
                   color: palette.primary,
-                  onRefresh: _load,
+                  onRefresh: () => _load(silent: true),
                   child: _partidos.isEmpty
                       ? ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
+                          padding: NavShellScope.listPadding(context),
                           children: [
-                            const SizedBox(height: 80),
-                            MatchPaySurfaceCard(
-                              padding: const EdgeInsets.all(32),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.event_busy_rounded,
-                                    size: 48,
-                                    color: MatchPayTokens.inkMuted,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    l10n.tr('playerMatchHistoryEmpty'),
-                                    textAlign: TextAlign.center,
-                                    style: MatchPayTokens.titleSmallStyle(),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            const SizedBox(height: 24),
+                            _MatchHistoryEmptyState(),
                           ],
                         )
                       : ListView(
-                          padding: EdgeInsets.fromLTRB(
-                            16,
-                            12,
-                            16,
-                            16 + MediaQuery.paddingOf(context).bottom,
-                          ),
+                          padding: NavShellScope.listPadding(context),
                           children: [
-                            SizedBox(
-                              height: 108,
-                              child: ListView.separated(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: cuentaConDeuda ? 3 : 4,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(width: 10),
-                                itemBuilder: (context, index) {
-                                  final items = cuentaConDeuda
-                                      ? [
-                                          (
-                                            Icons.emoji_events_rounded,
-                                            const Color(0xFFF59E0B),
-                                            '${_partidos.length}',
-                                            l10n.tr('playerStatMatches'),
-                                          ),
-                                          (
-                                            Icons.account_balance_wallet_rounded,
-                                            MatchPayTokens.accentUrgent,
-                                            formatMoney(deudaCuenta),
-                                            l10n.tr('playerDebtOnAccount'),
-                                          ),
-                                          (
-                                            Icons.payments_rounded,
-                                            palette.primary,
-                                            formatMoney(totalGastado),
-                                            l10n.tr('playerStatSpent'),
-                                          ),
-                                        ]
-                                      : [
-                                          (
-                                            Icons.emoji_events_rounded,
-                                            const Color(0xFFF59E0B),
-                                            '${_partidos.length}',
-                                            l10n.tr('playerStatMatches'),
-                                          ),
-                                          (
-                                            Icons.check_circle_rounded,
-                                            MatchPayTokens.accentSuccess,
-                                            '$pagados',
-                                            l10n.tr('playerMatchPaid'),
-                                          ),
-                                          (
-                                            Icons.schedule_rounded,
-                                            MatchPayTokens.accentUrgent,
-                                            '$pendientes',
-                                            l10n.tr('pendingStatus'),
-                                          ),
-                                          (
-                                            Icons.payments_rounded,
-                                            palette.primary,
-                                            formatMoney(totalGastado),
-                                            l10n.tr('playerStatSpent'),
-                                          ),
-                                        ];
-                                  final e = items[index];
-                                  return MatchPayStatChip(
-                                    icon: e.$1,
-                                    iconColor: e.$2,
-                                    value: e.$3,
-                                    label: e.$4,
-                                  );
-                                },
-                              ),
+                            PlayerMatchHistoryHero(
+                              totalPartidos: partidosVisibles.length,
+                              pagados: pagadosVisibles,
+                              pendientes: pendientesVisibles,
+                              conteoPorDeporte: conteoDeportes,
+                              deporteSeleccionado: _filtroDeporte,
+                              onDeporteSeleccionado: (sport) {
+                                setState(() => _filtroDeporte = sport);
+                              },
                             ),
-                            if (explicacion != null) ...[
-                              const SizedBox(height: 16),
+                            if (cuentaConDeuda && widget.onOpenMisCobros != null) ...[
+                              const SizedBox(height: 14),
+                              MatchPaySurfaceCard(
+                                urgent: true,
+                                padding: const EdgeInsets.all(14),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: MatchPayTokens.accentUrgentBg,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.account_balance_wallet_outlined,
+                                        color: MatchPayTokens.accentUrgent,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        l10n.tr('playerMatchHistoryDebtBanner'),
+                                        style: MatchPayTokens.bodySmallStyle()
+                                            .copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                    FilledButton.tonal(
+                                      onPressed: widget.onOpenMisCobros,
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor:
+                                            MatchPayTokens.accentUrgentBg,
+                                        foregroundColor:
+                                            MatchPayTokens.accentUrgent,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
+                                      ),
+                                      child: Text(l10n.tr('myCharges')),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (cuentaConDeuda && explicacion != null) ...[
+                              const SizedBox(height: 12),
                               PlayerDeudaExplicacionCard(
                                 explicacion: explicacion,
                                 partidoLinea: lineaPartidoDetalle(ancla),
                               ),
                             ],
-                            const SizedBox(height: 16),
-                            if (cuentaConDeuda) ...[
-                              MatchPaySectionHeader(
-                                title: l10n.tr('playerMatchHistorySection'),
+                            const SizedBox(height: 18),
+                            if (partidosVisibles.isEmpty)
+                              MatchPaySurfaceCard(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  l10n.tr('playerMatchHistoryFilterEmpty'),
+                                  textAlign: TextAlign.center,
+                                  style: MatchPayTokens.bodySmallStyle().copyWith(
+                                    height: 1.4,
+                                  ),
+                                ),
+                              )
+                            else
+                              PlayerMatchHistoryList(
+                                partidos: partidosVisibles,
+                                saldosPorPartido: _saldosPorPartido,
+                                modo: cuentaConDeuda
+                                    ? PlayerMatchHistorialModo.cuentaConDeuda
+                                    : PlayerMatchHistorialModo.porPartido,
+                                historialSaldo: cuentaConDeuda
+                                    ? _historialSaldo
+                                    : null,
+                                groupByMonth: true,
+                                visual: PlayerMatchHistoryVisual.premium,
+                                onPartidoTap: _verDetalle,
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                l10n.tr('playerMatchHistoryDebtHint'),
-                                style: MatchPayTokens.bodySmallStyle(),
-                              ),
-                              const SizedBox(height: 8),
-                            ],
-                            PlayerMatchHistoryList(
-                              partidos: _partidos,
-                              saldosPorPartido: _saldosPorPartido,
-                              modo: cuentaConDeuda
-                                  ? PlayerMatchHistorialModo.cuentaConDeuda
-                                  : PlayerMatchHistorialModo.porPartido,
-                              historialSaldo: cuentaConDeuda
-                                  ? _historialSaldo
-                                  : null,
-                            ),
                           ],
                         ),
                 ),
+    );
+  }
+}
+
+class _MatchHistoryEmptyState extends StatelessWidget {
+  const _MatchHistoryEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 36, 24, 32),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF3F4F6), MatchPayTokens.surfaceCard],
+        ),
+        border: Border.all(color: MatchPayTokens.borderSubtle),
+      ),
+      child: Column(
+        children: [
+          const Text('🏟️', style: TextStyle(fontSize: 48)),
+          const SizedBox(height: 16),
+          Text(
+            l10n.tr('playerMatchHistoryEmpty'),
+            textAlign: TextAlign.center,
+            style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.tr('playerMatchHistoryEmptyHint'),
+            textAlign: TextAlign.center,
+            style: MatchPayTokens.bodySmallStyle().copyWith(height: 1.4),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -16,11 +16,12 @@ Future<void> applyAcquisitionAfterLogin(BuildContext context) async {
 
   switch (acq.intent) {
     case MatchPayAcquisitionIntent.createFirstGroup:
-      if (!AuthService.instance.isOrganizer) {
-        await AuthService.instance.becomeOrganizer();
+      await settings.syncUiModeWithRole(
+        isOrganizer: AuthService.instance.isOrganizer,
+      );
+      if (AuthService.instance.isOrganizer) {
+        acq.markPendingOpenOrganizer();
       }
-      await settings.setUiMode(AppUiMode.organizer);
-      acq.markPendingOpenOrganizer();
     case MatchPayAcquisitionIntent.invited:
       await settings.syncUiModeWithRole(
         isOrganizer: AuthService.instance.isOrganizer,

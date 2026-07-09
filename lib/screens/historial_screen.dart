@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../core/app_repositories.dart';
+import '../core/auth_service.dart';
+import '../core/offline_status_controller.dart';
 import '../core/supabase_helpers.dart';
 import '../domain/deuda_explicacion.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/deuda_partido_anterior.dart';
 import '../models/jugador.dart';
 import '../models/saldo_historico.dart';
-import '../services/jugador_foto_service.dart';
+import '../offline/player_loader.dart';
+import '../offline/offline_snapshot_store.dart';
 import '../services/recordatorio_service.dart';
-import '../services/supabase_storage_service.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
+import '../utils/perfil_foto.dart';
+import '../widgets/friendly_error_panel.dart';
 import '../widgets/jugador_avatar.dart';
+import '../widgets/offline_no_data_panel.dart';
 
 class HistorialScreen extends StatefulWidget {
   final String jugadorKey;
@@ -24,7 +30,6 @@ class HistorialScreen extends StatefulWidget {
 
 class _HistorialScreenState extends State<HistorialScreen> {
   final _recordatorioService = RecordatorioService();
-  final _fotoService = JugadorFotoService.instance;
 
   Jugador? _jugador;
   List<SaldoHistorico> _historial = [];
@@ -35,6 +40,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
   double _totalCargos = 0;
   _FiltroHistorial _filtro = _FiltroHistorial.todos;
   bool _loading = true;
+  bool _offlineEmpty = false;
   String? _error;
 
   @override
@@ -47,54 +53,78 @@ class _HistorialScreenState extends State<HistorialScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _offlineEmpty = false;
     });
 
+    final offlineStatus = context.read<OfflineStatusController>();
+    final userId = AuthService.instance.currentUser?.id;
+    final snapshotStore = userId != null
+        ? OfflineSnapshotStore(userId: userId)
+        : null;
+
     try {
-      final repos = context.repos;
-      final data = await Future.wait([
-        repos.getJugador(widget.jugadorKey),
-        repos.getSaldosByJugador(widget.jugadorKey),
-        repos.getPartidosPendientesJugador(widget.jugadorKey),
-        repos.getResumenPartidosJugador(widget.jugadorKey),
-      ]);
+      final result = await loadPlayerJugadorFicha(
+        repos: context.repos,
+        jugadorKey: widget.jugadorKey,
+        snapshotStore: snapshotStore,
+      );
 
-      final jugador = data[0] as Jugador?;
-      final historial = data[1] as List<SaldoHistorico>;
-      final pendientes = data[2] as List<DeudaPartidoAnterior>;
-      final resumen =
-          data[3] as ({int partidosJugados, int partidosPagados, int partidosImpagos});
+      if (!mounted) return;
 
-      if (jugador == null) {
-        throw Exception(
-          'Jugador no encontrado (id: ${widget.jugadorKey}). '
-          'Puede estar bloqueado por RLS en Supabase.',
-        );
+      switch (result.source) {
+        case OfflineScreenLoadSource.live:
+          offlineStatus.markLive();
+          _applyFichaData(result.data!);
+        case OfflineScreenLoadSource.offlineCache:
+          offlineStatus.markOfflineCached(result.snapshotAt!);
+          _applyFichaData(result.data!);
+        case OfflineScreenLoadSource.offlineEmpty:
+          offlineStatus.markOfflineEmpty();
+          setState(() {
+            _jugador = null;
+            _historial = [];
+            _pendientes = [];
+            _partidosJugados = 0;
+            _partidosPagados = 0;
+            _totalAbonos = 0;
+            _totalCargos = 0;
+            _offlineEmpty = true;
+          });
+        case OfflineScreenLoadSource.error:
+          offlineStatus.markLive();
+          setState(() {
+            _error = context.userError(result.error!);
+          });
       }
-
-      final totalAbonos = historial.fold(0.0, (s, h) => s + h.abono);
-      final totalCargos = historial.fold(0.0, (s, h) => s + h.cargoPartido);
-
-      if (mounted) {
-        setState(() {
-          _jugador = jugador;
-          _historial = historial;
-          _pendientes = pendientes;
-          _partidosJugados = resumen.partidosJugados;
-          _partidosPagados = resumen.partidosPagados;
-          _totalAbonos = totalAbonos;
-          _totalCargos = totalCargos;
-          _loading = false;
-          _error = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = SupabaseHelpers.describeError(e);
-        });
-      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _applyFichaData(PlayerJugadorFichaData data) {
+    final totalAbonos = data.historial.fold(0.0, (s, h) => s + h.abono);
+    final totalCargos =
+        data.historial.fold(0.0, (s, h) => s + h.cargoPartido);
+    setState(() {
+      _jugador = data.jugador;
+      _historial = data.historial;
+      _pendientes = data.pendientes;
+      _partidosJugados = data.partidosJugados;
+      _partidosPagados = data.partidosPagados;
+      _totalAbonos = totalAbonos;
+      _totalCargos = totalCargos;
+      _offlineEmpty = false;
+      _error = null;
+    });
+  }
+
+  bool _isReadOnly(BuildContext context) =>
+      context.read<OfflineStatusController>().isReadOnly;
+
+  void _showOfflineWriteBlocked() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.tr('offlineWriteBlocked'))),
+    );
   }
 
   List<SaldoHistorico> get _historialFiltrado {
@@ -157,76 +187,18 @@ class _HistorialScreenState extends State<HistorialScreen> {
   Color _colorDe(String nombre) => JugadorAvatar.colorDe(nombre);
 
   Future<void> _cambiarFoto() async {
+    if (_isReadOnly(context)) {
+      _showOfflineWriteBlocked();
+      return;
+    }
     final jugador = _jugador;
     if (jugador == null) return;
 
-    final opcion = await showModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.add_a_photo_outlined),
-              title: Text(context.tr('pickPhoto')),
-              onTap: () => Navigator.pop(ctx, 'elegir'),
-            ),
-            if (jugador.fotoPath != null)
-              ListTile(
-                leading: Icon(Icons.delete_outline, color: Colors.red.shade700),
-                title: Text(
-                  context.tr('removePhoto'),
-                  style: TextStyle(color: Colors.red.shade700),
-                ),
-                onTap: () => Navigator.pop(ctx, 'quitar'),
-              ),
-          ],
-        ),
-      ),
+    await editarFotoPerfil(
+      context,
+      jugador: jugador,
+      onDone: _load,
     );
-
-    if (!mounted || opcion == null) return;
-
-    if (opcion == 'quitar') {
-      await _fotoService.delete(jugador.fotoPath);
-      if (context.repos.isCloud && jugador.fotoUrl != null) {
-        await SupabaseStorageService.instance.deleteAvatarPublicUrl(
-          jugador.fotoUrl,
-        );
-      }
-      if (!mounted) return;
-      await context.repos.updateJugador(jugador.copyWith(clearFoto: true));
-      if (!mounted) return;
-      _mostrarSnack(context.tr('photoRemoved'));
-      AppRepositories.notifyDataChanged();
-      _load();
-      return;
-    }
-
-    final result = await _fotoService.pickSaveAndSync(
-      context: context,
-      jugadorId: jugador.keyId,
-      replaceLocalPath: jugador.fotoPath,
-      replacePublicUrl: jugador.fotoUrl,
-      uploadToCloud: context.repos.isCloud,
-    );
-    if (result == null || !mounted) return;
-
-    try {
-      await context.repos.updateJugador(
-        jugador.copyWith(
-          fotoPath: result.localPath,
-          fotoUrl: result.publicUrl,
-        ),
-      );
-    } catch (e) {
-      if (mounted) _mostrarSnack('$e', esError: true);
-      return;
-    }
-    if (!mounted) return;
-    _mostrarSnack(context.tr('photoUpdated'));
-    AppRepositories.notifyDataChanged();
-    _load();
   }
 
   String _etiquetaMes(String key, BuildContext context) {
@@ -244,6 +216,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
   }
 
   Future<void> _registrarPago() async {
+    if (_isReadOnly(context)) {
+      _showOfflineWriteBlocked();
+      return;
+    }
     final jugador = _jugador;
     if (jugador == null || jugador.saldoAcumulado <= 0) return;
 
@@ -258,15 +234,16 @@ class _HistorialScreenState extends State<HistorialScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            20,
-            20,
-            20 + MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: StatefulBuilder(
-            builder: (ctx, setModal) => Column(
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              20 + MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: StatefulBuilder(
+              builder: (ctx, setModal) => Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -364,6 +341,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
               ],
             ),
           ),
+        ),
         );
       },
     );
@@ -416,6 +394,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
   }
 
   Future<void> _enviarNotificacionPush() async {
+    if (_isReadOnly(context)) {
+      _showOfflineWriteBlocked();
+      return;
+    }
     final jugador = _jugador;
     if (jugador == null) return;
 
@@ -437,7 +419,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
     } catch (e) {
       if (mounted) {
         _mostrarSnack(
-          context.tr('pushSendFailed', params: {'error': '$e'}),
+          context.tr('errorGeneric'),
           esError: true,
         );
       }
@@ -467,15 +449,19 @@ class _HistorialScreenState extends State<HistorialScreen> {
       appBar: AppBar(
         title: Text(context.tr('homePlayerSheetTitle')),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildErrorState()
-              : RefreshIndicator(
-              onRefresh: _load,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
+      body: SafeArea(
+        top: false,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _offlineEmpty
+                ? const OfflineNoDataPanel()
+                : _error != null
+                    ? _buildErrorState()
+                    : RefreshIndicator(
+                    onRefresh: _load,
+                    child: CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
                   SliverToBoxAdapter(child: _buildFicha(jugador, color, alDia, conFavor, saldo)),
                   SliverToBoxAdapter(child: _buildEstadisticas(alDia, conFavor)),
                   if (_explicacionDeuda != null)
@@ -515,54 +501,18 @@ class _HistorialScreenState extends State<HistorialScreen> {
                         ),
                       ];
                     }),
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                ],
-              ),
-            ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                      ],
+                    ),
+                  ),
+      ),
     );
   }
 
   Widget _buildErrorState() {
-    final error = _error ?? context.tr('unknownError');
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.cloud_off_rounded, size: 56, color: Colors.red.shade400),
-            const SizedBox(height: 16),
-            Text(
-              context.tr('playerSheetLoadFailed'),
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey.shade800,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.red.shade200),
-              ),
-              child: SelectableText(
-                error,
-                style: TextStyle(fontSize: 13, color: Colors.red.shade900),
-              ),
-            ),
-            const SizedBox(height: 20),
-            FilledButton.icon(
-              onPressed: _load,
-              icon: const Icon(Icons.refresh),
-              label: Text(context.tr('retry')),
-            ),
-          ],
-        ),
-      ),
+    return FriendlyErrorPanel(
+      message: _error ?? context.tr('playerSheetLoadFailed'),
+      onRetry: _load,
     );
   }
 
@@ -574,6 +524,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
     double saldo,
   ) {
     final nombre = jugador?.nombre ?? '';
+    final readOnly = context.watch<OfflineStatusController>().isReadOnly;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -606,7 +557,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
             child: Row(
               children: [
                 GestureDetector(
-                  onTap: _cambiarFoto,
+                  onTap: readOnly ? null : _cambiarFoto,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -899,6 +850,8 @@ class _HistorialScreenState extends State<HistorialScreen> {
   }
 
   Widget _buildAcciones(bool alDia, bool conFavor) {
+    if (_isReadOnly(context)) return const SizedBox.shrink();
+
     final tieneEmail = _jugador?.contactEmail != null;
     final puedePagar = !alDia && !conFavor;
 

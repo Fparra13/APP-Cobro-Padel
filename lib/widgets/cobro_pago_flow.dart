@@ -11,6 +11,7 @@ import '../l10n/matchpay_strings.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../services/comprobante_service.dart';
+import '../services/notification_service.dart';
 import '../services/supabase_storage_service.dart';
 import '../utils/cobro_jugador_ui.dart';
 import '../utils/formatters.dart';
@@ -19,50 +20,75 @@ import '../utils/formatters.dart';
 class CobroPagoFlow {
   CobroPagoFlow._();
 
+  static BuildContext _overlayContext(BuildContext context) {
+    return NotificationService.instance.navigatorKey?.currentContext ?? context;
+  }
+
+  static void _snack(BuildContext context, String message) {
+    NotificationService.instance.showInAppSnack(
+      message,
+      context: context,
+    );
+  }
+
   static Future<void> iniciarPagoGlobal({
     required BuildContext context,
     required List<DetallePartido> deudas,
     required Map<int, DesgloseJugador?> desgloses,
     required bool esTotal,
+    Map<int, double>? saldosAnterioresPorPartido,
+    double? saldoAcumuladoJugador,
     VoidCallback? onCompletado,
   }) async {
-    if (deudas.isEmpty) return;
+    final overlay = _overlayContext(context);
+    if (!overlay.mounted) return;
 
-    final pendienteRevision = deudas.any((d) => d.comprobantePendienteValidacion);
+    if (deudas.isEmpty) {
+      _snack(overlay, overlay.l10n.tr('cobrosNoOpenCharges'));
+      return;
+    }
+
+    final pendienteRevision =
+        deudas.any((d) => d.comprobantePendienteValidacion);
     if (pendienteRevision) {
-      await _mostrarComprobanteEnRevision(context);
+      await mostrarComprobanteEnRevision(overlay);
       return;
     }
 
     final ancla = detalleAnclaPago(deudas);
-    if (ancla?.id == null) return;
+    if (ancla?.id == null) {
+      _snack(overlay, overlay.l10n.tr('cobrosChargeUnavailable'));
+      return;
+    }
 
-    double? saldoAcumulado;
-    final uid = AuthService.instance.currentUser?.id;
-    if (uid != null && AppRepositories.isReady) {
-      final jugador = await AppRepositories.I.getJugador(uid);
-      saldoAcumulado = jugador?.saldoAcumulado;
+    double? saldoAcumulado = saldoAcumuladoJugador;
+    if (saldoAcumulado == null) {
+      final uid = AuthService.instance.currentUser?.id;
+      if (uid != null && AppRepositories.isReady) {
+        final jugador = await AppRepositories.I.getJugador(uid);
+        saldoAcumulado = jugador?.saldoAcumulado;
+      }
     }
 
     final total = totalPendienteCobros(
       deudas,
       desgloses,
+      saldosAnterioresPorPartido: saldosAnterioresPorPartido,
       saldoAcumuladoJugador: saldoAcumulado,
     );
     if (total <= 0.005 && esTotal) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.tr('noDebtInCharge'))),
-        );
+      if (overlay.mounted) {
+        _snack(overlay, overlay.l10n.tr('noDebtInCharge'));
       }
       return;
     }
 
-    final l10n = context.l10n;
+    final l10n = overlay.l10n;
     double monto;
     if (esTotal) {
       final ok = await showDialog<bool>(
-        context: context,
+        context: overlay,
+        useRootNavigator: true,
         builder: (ctx) => AlertDialog(
           title: Text(l10n.tr('cobrosPayDialogTitle')),
           content: Column(
@@ -101,16 +127,16 @@ class CobroPagoFlow {
           ],
         ),
       );
-      if (ok != true || !context.mounted) return;
+      if (ok != true || !overlay.mounted) return;
       monto = total;
     } else {
-      final abono = await _pedirMontoAbono(context, total);
-      if (abono == null || !context.mounted) return;
+      final abono = await _pedirMontoAbono(overlay, total);
+      if (abono == null || !overlay.mounted) return;
       monto = abono;
     }
 
     await _subirComprobante(
-      context: context,
+      context: overlay,
       detalle: ancla!,
       montoDeclarado: monto,
       esAbono: !esTotal,
@@ -118,13 +144,16 @@ class CobroPagoFlow {
     );
   }
 
-  static Future<void> _mostrarComprobanteEnRevision(BuildContext context) async {
+  static Future<void> mostrarComprobanteEnRevision(BuildContext context) async {
+    final overlay = _overlayContext(context);
+    if (!overlay.mounted) return;
     await showDialog<void>(
-      context: context,
+      context: overlay,
+      useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         icon: Icon(Icons.hourglass_top_rounded, color: Colors.orange.shade800),
-        title: Text(context.l10n.tr('paymentPendingApprovalTitle')),
-        content: Text(context.l10n.tr('paymentPendingApprovalBody')),
+        title: Text(overlay.l10n.tr('paymentPendingApprovalTitle')),
+        content: Text(overlay.l10n.tr('paymentPendingApprovalBody')),
         actions: [
           FilledButton(
             onPressed: () => Navigator.pop(ctx),
@@ -145,6 +174,7 @@ class CobroPagoFlow {
     );
     return showDialog<double>(
       context: context,
+      useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         title: Text(l10n.tr('partialAmountTitle')),
         content: Column(
@@ -207,6 +237,7 @@ class CobroPagoFlow {
     final l10n = context.l10n;
     final continuar = await showDialog<bool>(
       context: context,
+      useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         title: Text(l10n.tr('receiptRequiredTitle')),
         content: Text(
@@ -264,14 +295,11 @@ class CobroPagoFlow {
         esAbono: esAbono,
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              l10n.tr(
-                esAbono ? 'paymentSentPartial' : 'paymentSentFull',
-                params: {'amount': formatMoney(montoDeclarado)},
-              ),
-            ),
+        _snack(
+          context,
+          l10n.tr(
+            esAbono ? 'paymentSentPartial' : 'paymentSentFull',
+            params: {'amount': formatMoney(montoDeclarado)},
           ),
         );
         AppRepositories.notifyDataChanged();
@@ -279,12 +307,7 @@ class CobroPagoFlow {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$e'),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
+        _snack(context, context.userError(e));
       }
     }
   }

@@ -5,6 +5,7 @@ import '../core/supabase_helpers.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/estadisticas_jugador.dart';
 import '../utils/formatters.dart';
+import '../widgets/friendly_error_panel.dart';
 import '../widgets/ayuda_tip.dart';
 import '../widgets/jugador_avatar.dart';
 
@@ -117,10 +118,7 @@ class _EstadisticasJugadoresScreenState
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = SupabaseHelpers.describeError(
-            e,
-            operacion: 'Estadísticas',
-          );
+          _error = context.userError(e);
         });
       }
     }
@@ -177,30 +175,7 @@ class _EstadisticasJugadoresScreenState
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.cloud_off_outlined,
-                            size: 48, color: Colors.grey.shade600),
-                        const SizedBox(height: 12),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey.shade700),
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: _load,
-                          icon: const Icon(Icons.refresh),
-                          label: Text(context.tr('retry')),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
+              ? FriendlyErrorPanel(message: _error!, onRetry: _load)
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [

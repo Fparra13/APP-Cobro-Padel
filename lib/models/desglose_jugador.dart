@@ -19,6 +19,8 @@ class DesgloseJugador {
   final double montoPagado;
   final double saldoRestante;
   final bool pagado;
+  /// Saldo vivo en cuenta (`profiles.saldo_acumulado`), lectura batch en desglose.
+  final double? saldoAcumuladoCuenta;
 
   const DesgloseJugador({
     this.jugadorId = 0,
@@ -33,7 +35,16 @@ class DesgloseJugador {
     required this.montoPagado,
     required this.saldoRestante,
     required this.pagado,
+    this.saldoAcumuladoCuenta,
   });
+
+  /// Crédito a favor en la cuenta del jugador (no solo en este partido).
+  double get creditoCuenta {
+    if (saldoAcumuladoCuenta == null) return 0;
+    return CobroLogic.obtenerCreditoJugador(
+      saldoAcumulado: saldoAcumuladoCuenta!,
+    );
+  }
 
   bool get pagoParcial => !pagadoEnPartido && montoPagado > 0.005;
 

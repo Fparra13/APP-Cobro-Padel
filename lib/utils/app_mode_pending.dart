@@ -1,4 +1,5 @@
 import '../domain/organizer_cycle_logic.dart';
+import '../domain/partido_lifecycle.dart';
 import '../models/detalle_partido.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/convocatoria_jugador.dart';
@@ -24,11 +25,25 @@ int organizerModePendingCount({
   var count = 0;
 
   count += convocatorias
-      .where((c) => c.partido.convocatoriaFechaPasada)
+      .where(
+        (c) =>
+            PartidoLifecycle.situacionOrganizador(c) ==
+            ConvocatoriaOrganizadorSituacion.sinResolver,
+      )
+      .length;
+
+  count += convocatorias
+      .where(
+        (c) =>
+            PartidoLifecycle.situacionOrganizador(c) ==
+            ConvocatoriaOrganizadorSituacion.listoParaGastos,
+      )
       .length;
 
   for (final c in convocatorias.where(
-    (c) => !c.partido.convocatoriaFechaPasada,
+    (c) =>
+        PartidoLifecycle.situacionOrganizador(c) ==
+        ConvocatoriaOrganizadorSituacion.preparando,
   )) {
     final cupos = c.partido.cuposMax;
     final faltan =

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../core/auth_service.dart';
 import '../l10n/matchpay_strings.dart';
+import '../utils/user_facing_error.dart';
 import '../core/sport_type.dart';
 import '../core/supabase_config.dart';
 import '../core/supabase_helpers.dart';
@@ -68,13 +69,12 @@ class AppRepositoriesUnavailable implements Exception {
 /// Mensaje legible para fallos de datos en acciones de usuario (PDF, backup, etc.).
 String dataActionErrorMessage(
   MatchPayStrings l10n,
-  Object error, {
-  required String Function(Object error) fallback,
-}) {
+  Object error,
+) {
   if (error is AppRepositoriesUnavailable) {
     return l10n.tr('reposUnavailableSnackbar');
   }
-  return fallback(error);
+  return userFacingError(error, tr: l10n.tr);
 }
 
 /// Punto de acceso unificado a datos locales o Supabase.
@@ -231,9 +231,14 @@ class AppRepositories {
   Future<List<DesgloseJugador>> getDesglose(
     int partidoId, {
     bool reconciliar = false,
+    bool repararCuenta = true,
   }) {
     if (useRemote) {
-      return _partidoRemote.getDesglose(partidoId, reconciliar: reconciliar);
+      return _partidoRemote.getDesglose(
+        partidoId,
+        reconciliar: reconciliar,
+        repararCuenta: repararCuenta,
+      );
     }
     return _partidoLocal.getDesglose(partidoId);
   }
@@ -478,6 +483,19 @@ class AppRepositories {
     return _convocatoriaLocal.getCompleta(partidoId);
   }
 
+  Future<ConvocatoriaCompleta?> getConvocatoriaRosterParaJugador({
+    required int partidoId,
+    required Partido partido,
+  }) {
+    if (useRemote) {
+      return _convocatoriaRemote.getRosterParaJugador(
+        partidoId: partidoId,
+        partido: partido,
+      );
+    }
+    return _convocatoriaLocal.getCompleta(partidoId);
+  }
+
   Future<int> crearConvocatoria({
     required DateTime fecha,
     String? recinto,
@@ -648,6 +666,29 @@ class AppRepositories {
     return _convocatoriaLocal.marcarConfirmado(partidoId);
   }
 
+  Future<void> reabrirConvocatoriaOrganizador(int partidoId) {
+    if (useRemote) {
+      return _convocatoriaRemote.reabrirConvocatoriaOrganizador(partidoId);
+    }
+    return _convocatoriaLocal.reabrirConvocatoriaOrganizador(partidoId);
+  }
+
+  Future<void> actualizarOrdenListaEspera({
+    required int partidoId,
+    required List<String> jugadorIdsEnOrden,
+  }) {
+    if (useRemote) {
+      return _convocatoriaRemote.actualizarOrdenListaEspera(
+        partidoId: partidoId,
+        jugadorIdsEnOrden: jugadorIdsEnOrden,
+      );
+    }
+    return _convocatoriaLocal.actualizarOrdenListaEspera(
+      partidoId: partidoId,
+      jugadorIdsEnOrden: jugadorIdsEnOrden,
+    );
+  }
+
   Future<void> marcarNoRespondio({
     required int partidoId,
     required String jugadorId,
@@ -693,6 +734,27 @@ class AppRepositories {
   Future<void> eliminarConvocatoria(int partidoId) {
     if (useRemote) return _convocatoriaRemote.eliminar(partidoId);
     return _convocatoriaLocal.eliminar(partidoId);
+  }
+
+  Future<void> cancelarConvocatoria(int partidoId) {
+    if (useRemote) return _convocatoriaRemote.cancelar(partidoId);
+    return _convocatoriaLocal.cancelar(partidoId);
+  }
+
+  Future<void> reprogramarConvocatoria({
+    required int partidoId,
+    required DateTime nuevaFecha,
+  }) {
+    if (useRemote) {
+      return _convocatoriaRemote.reprogramar(
+        partidoId: partidoId,
+        nuevaFecha: nuevaFecha,
+      );
+    }
+    return _convocatoriaLocal.reprogramar(
+      partidoId: partidoId,
+      nuevaFecha: nuevaFecha,
+    );
   }
 
   Future<List<ConvocatoriaJugadorEntry>> getMisConvocatoriasPendientes() async {

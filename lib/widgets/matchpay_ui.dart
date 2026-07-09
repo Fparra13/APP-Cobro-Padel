@@ -3,23 +3,89 @@ import 'package:flutter/material.dart';
 import '../core/matchpay_design_tokens.dart';
 import 'shimmer_loading.dart';
 
+/// Punto pequeño con pulso suave (opacidad) para títulos de sección urgentes.
+class MatchPayPulsingDot extends StatefulWidget {
+  final Color color;
+
+  const MatchPayPulsingDot({super.key, required this.color});
+
+  @override
+  State<MatchPayPulsingDot> createState() => _MatchPayPulsingDotState();
+}
+
+class _MatchPayPulsingDotState extends State<MatchPayPulsingDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_controller.value);
+        final alpha = 0.35 + t * 0.65;
+        return Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: widget.color.withValues(alpha: alpha),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: alpha * 0.45),
+                blurRadius: 3 + t * 2,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 /// Encabezado de sección estándar MatchPay.
 class MatchPaySectionHeader extends StatelessWidget {
   final String title;
   final int? count;
   final bool accent;
+  /// Punto animado junto al título (opción E: vida en el encabezado, no en bordes).
+  final bool pulseDot;
 
   const MatchPaySectionHeader({
     super.key,
     required this.title,
     this.count,
     this.accent = false,
+    this.pulseDot = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final dotColor = accent
+        ? MatchPayTokens.accentUrgent
+        : MatchPayTokens.accentCredit;
+
     return Row(
       children: [
+        if (pulseDot) ...[
+          MatchPayPulsingDot(color: dotColor),
+          const SizedBox(width: 8),
+        ],
         Text(
           title.toUpperCase(),
           style: MatchPayTokens.sectionLabelStyle(accent: accent),
@@ -119,16 +185,23 @@ class _MatchPayTapScaleState extends State<MatchPayTapScale> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: widget.onTap == null ? null : (_) => _setPressed(true),
-      onTapUp: widget.onTap == null ? null : (_) => _setPressed(false),
-      onTapCancel: widget.onTap == null ? null : () => _setPressed(false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.98 : 1,
-        duration: const Duration(milliseconds: 90),
-        curve: Curves.easeOut,
-        child: widget.child,
+    final child = AnimatedScale(
+      scale: _pressed ? 0.98 : 1,
+      duration: const Duration(milliseconds: 90),
+      curve: Curves.easeOut,
+      child: widget.child,
+    );
+
+    if (widget.onTap == null) return child;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onTap,
+        onHighlightChanged: _setPressed,
+        splashColor: Colors.white24,
+        highlightColor: Colors.white10,
+        child: child,
       ),
     );
   }

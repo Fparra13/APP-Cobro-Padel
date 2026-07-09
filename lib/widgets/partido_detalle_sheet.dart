@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../core/matchpay_design_tokens.dart';
 import '../core/app_repositories.dart';
-import '../core/supabase_helpers.dart';
+import '../domain/cobro_logic.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/desglose_jugador.dart';
 import '../models/jugador.dart';
@@ -81,9 +82,7 @@ class PartidoDetalleSheet extends StatefulWidget {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            SupabaseHelpers.describeError(e, operacion: 'Detalle del partido'),
-          ),
+          content: Text(context.userError(e)),
           backgroundColor: Colors.red.shade700,
         ),
       );
@@ -106,9 +105,20 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
   String? _feedback;
   bool _feedbackError = false;
   Map<String, Jugador> _jugadoresPorId = {};
+  late PartidoCompleto _completo;
+  late List<DesgloseJugador> _desglose;
+  bool _recargando = false;
 
-  PartidoCompleto get completo => widget.completo;
-  List<DesgloseJugador> get desglose => widget.desglose;
+  @override
+  void initState() {
+    super.initState();
+    _completo = widget.completo;
+    _desglose = widget.desglose;
+    _cargarJugadores();
+  }
+
+  PartidoCompleto get completo => _completo;
+  List<DesgloseJugador> get desglose => _desglose;
   PdfService get pdfService => widget.pdfService;
 
   List<DesgloseJugador> get _deudores =>
@@ -126,10 +136,24 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
         return j != null && !j.tieneMatchPayApp;
       }).toList();
 
-  @override
-  void initState() {
-    super.initState();
-    _cargarJugadores();
+  Future<void> _recargarTrasPago() async {
+    final partidoId = _completo.partido.id;
+    if (partidoId == null || _recargando) return;
+    setState(() => _recargando = true);
+    try {
+      final results = await Future.wait([
+        AppRepositories.I.getPartidoCompleto(partidoId),
+        AppRepositories.I.getDesglose(partidoId, reconciliar: false),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _completo = results[0] as PartidoCompleto? ?? _completo;
+        _desglose = results[1] as List<DesgloseJugador>;
+      });
+      await _cargarJugadores();
+    } finally {
+      if (mounted) setState(() => _recargando = false);
+    }
   }
 
   Future<void> _cargarJugadores() async {
@@ -180,17 +204,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
       }
     } catch (e) {
       if (mounted) {
-        _mostrarFeedback(
-          dataActionErrorMessage(
-            context.l10n,
-            e,
-            fallback: (err) => context.tr(
-              'pdfGenerateError',
-              params: {'error': '$err'},
-            ),
-          ),
-          error: true,
-        );
+        _mostrarFeedback(context.userError(e), error: true);
       }
     }
   }
@@ -251,7 +265,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
           _mostrarFeedback(context.tr('chargeMessageCopied'));
         }
       } catch (e) {
-        if (mounted) _mostrarFeedback('$e', error: true);
+        if (mounted) _mostrarFeedback(context.userError(e), error: true);
       }
       return null;
     });
@@ -284,7 +298,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
           );
         }
       } catch (e) {
-        if (mounted) _mostrarFeedback('$e', error: true);
+        if (mounted) _mostrarFeedback(context.userError(e), error: true);
       } finally {
         if (mounted) setState(() => _enviandoPushKey = null);
       }
@@ -326,7 +340,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
           );
         }
       } catch (e) {
-        if (mounted) _mostrarFeedback('$e', error: true);
+        if (mounted) _mostrarFeedback(context.userError(e), error: true);
       } finally {
         if (mounted) setState(() => _enviandoWhatsAppKey = null);
       }
@@ -380,7 +394,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final fecha = formatFechaHora(completo.partido.fecha);
+    final fecha = formatFechaLegible(completo.partido.fecha);
     final pendientes = _deudores.length;
 
     return ScaffoldMessenger(
@@ -411,7 +425,9 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
                             ),
                             Text(
                               fecha,
-                              style: TextStyle(color: Colors.grey.shade600),
+                              style: MatchPayTokens.titleSmallStyle(
+                                color: MatchPayTokens.ink,
+                              ),
                             ),
                             if (completo.partido.recinto != null &&
                                 completo.partido.recinto!.trim().isNotEmpty)
@@ -679,9 +695,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
                       const SizedBox(height: 20),
                       _SeccionComprobantesPago(
                         completo: completo,
-                        onValidado: () {
-                          if (mounted) Navigator.pop(context);
-                        },
+                        onValidado: _recargarTrasPago,
                       ),
                       const SizedBox(height: 8),
                     ],
@@ -818,6 +832,24 @@ class _JugadorCobroCard extends StatelessWidget {
     required this.onPdf,
   });
 
+  String? _notaCreditoCuenta(BuildContext context) {
+    if (!desglose.pagadoEnPartido || desglose.generaSaldoAFavorPartido) {
+      return null;
+    }
+    final credito = desglose.creditoCuenta > 0.005
+        ? desglose.creditoCuenta
+        : (jugador != null
+            ? CobroLogic.obtenerCreditoJugador(
+                saldoAcumulado: jugador!.saldoAcumulado,
+              )
+            : 0.0);
+    if (credito <= 0.005) return null;
+    return context.tr(
+      'accountCreditAfterMatchNote',
+      params: {'amount': formatMoney(credito)},
+    );
+  }
+
   String _estado(BuildContext context) {
     if (desglose.pagadoEnPartido) {
       return desglose.generaSaldoAFavorPartido
@@ -844,6 +876,7 @@ class _JugadorCobroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final debe = desglose.pendientePartido > 0.005;
+    final notaCredito = _notaCreditoCuenta(context);
     final estadoColor = desglose.pagadoEnPartido
         ? Colors.green.shade800
         : Colors.red.shade700;
@@ -886,6 +919,17 @@ class _JugadorCobroCard extends StatelessWidget {
                           color: estadoColor,
                         ),
                       ),
+                      if (notaCredito != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          notaCredito,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.blue.shade700,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -905,7 +949,7 @@ class _JugadorCobroCard extends StatelessWidget {
               desglose: desglose,
               compact: true,
               showLineasPartido: true,
-              soloPartidoActual: true,
+              soloPartidoActual: false,
             ),
             const SizedBox(height: 10),
             Row(

@@ -1,4 +1,5 @@
 import 'convocatoria_jugador.dart';
+import '../domain/partido_lifecycle.dart';
 import 'estado_partido.dart';
 import 'partido.dart';
 
@@ -12,12 +13,17 @@ class MiConvocatoria {
     required this.partido,
   });
 
-  bool get requiereRespuesta =>
-      !entry.esSuplente && entry.estado == EstadoConfirmacion.invitado;
+  bool get requiereRespuesta => PartidoLifecycle.puedeResponderJugador(this);
+
+  bool get puedeDeclinarTrasConfirmar =>
+      PartidoLifecycle.puedeDeclinarTrasConfirmar(this);
+
+  bool get convocatoriaExpirada =>
+      PartidoLifecycle.convocatoriaExpirada(partido);
 
   bool get estaConfirmado =>
       !entry.esSuplente && entry.estado == EstadoConfirmacion.confirmado;
 
   bool get esProximo =>
-      partido.esConvocatoriaPendiente && !partido.convocatoriaFechaPasada;
+      partido.esConvocatoriaPendiente && !convocatoriaExpirada;
 }

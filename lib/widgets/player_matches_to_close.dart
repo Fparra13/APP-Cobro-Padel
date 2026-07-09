@@ -9,6 +9,7 @@ import '../domain/deuda_explicacion.dart';
 import '../utils/cobro_jugador_ui.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
+import 'cobro_pago_flow.dart';
 import '../widgets/desglose_cobro_panel.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/sport_icon.dart';
@@ -188,14 +189,14 @@ class DeudaExplicacionLineas extends StatelessWidget {
   }
 }
 
-/// Teaser compacto de cobros para el Home (sin duplicar Mis cobros).
+/// Teaser compacto de cobros para el Home (detalle completo en Mis cobros).
 class PlayerHomeCobrosTeaser extends StatelessWidget {
   final double total;
   final bool pagando;
   final bool comprobanteEnRevision;
   final ExplicacionDeudaJugador? explicacion;
   final VoidCallback onPayTotal;
-  final VoidCallback onOpenMisCobros;
+  final VoidCallback onPayOther;
 
   const PlayerHomeCobrosTeaser({
     super.key,
@@ -204,7 +205,7 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
     required this.comprobanteEnRevision,
     this.explicacion,
     required this.onPayTotal,
-    required this.onOpenMisCobros,
+    required this.onPayOther,
   });
 
   @override
@@ -281,39 +282,53 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: FilledButton(
-                    onPressed:
-                        (pagando || comprobanteEnRevision) ? null : onPayTotal,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: MatchPayTokens.accentUrgent,
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: FilledButton(
+              onPressed: pagando
+                  ? null
+                  : () {
+                      if (comprobanteEnRevision) {
+                        CobroPagoFlow.mostrarComprobanteEnRevision(context);
+                        return;
+                      }
+                      onPayTotal();
+                    },
+              style: FilledButton.styleFrom(
+                backgroundColor: MatchPayTokens.accentUrgent,
+              ),
+              child: pagando
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      l10n.tr('cobrosPayTotalBtn'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    child: pagando
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            l10n.tr('cobrosPayTotalBtn'),
-                            style: const TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              TextButton(
-                onPressed: onOpenMisCobros,
-                child: Text(l10n.tr('playerHomeOpenMisCobros')),
-              ),
-            ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton(
+              onPressed: pagando
+                  ? null
+                  : () {
+                      if (comprobanteEnRevision) {
+                        CobroPagoFlow.mostrarComprobanteEnRevision(context);
+                        return;
+                      }
+                      onPayOther();
+                    },
+              child: Text(l10n.tr('cobrosAbonoShort')),
+            ),
           ),
         ],
       ),

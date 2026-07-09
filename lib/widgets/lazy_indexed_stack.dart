@@ -23,34 +23,44 @@ class _LazyIndexedStackState extends State<LazyIndexedStack> {
   final Map<int, Widget> _cache = {};
   Object? _lastCacheKey;
 
-  @override
-  void didUpdateWidget(LazyIndexedStack oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.cacheKey != widget.cacheKey) {
-      _cache.clear();
-      _visited.clear();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  void _invalidateCacheIfNeeded() {
     if (_lastCacheKey != widget.cacheKey) {
       _cache.clear();
       _visited.clear();
       _lastCacheKey = widget.cacheKey;
     }
+  }
 
-    _visited.add(widget.index);
-    for (final i in _visited) {
-      _cache.putIfAbsent(i, widget.itemBuilders[i]);
+  @override
+  void didUpdateWidget(LazyIndexedStack oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cacheKey != widget.cacheKey) {
+      _invalidateCacheIfNeeded();
     }
+  }
+
+  Widget _childForIndex(int i) {
+    return _cache.putIfAbsent(i, widget.itemBuilders[i]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _invalidateCacheIfNeeded();
+    _visited.add(widget.index);
 
     return IndexedStack(
       index: widget.index,
-      children: List.generate(
-        widget.itemBuilders.length,
-        (i) => _cache[i] ?? const SizedBox.shrink(),
-      ),
+      sizing: StackFit.expand,
+      children: List.generate(widget.itemBuilders.length, (i) {
+        if (!_visited.contains(i)) {
+          return const SizedBox.shrink();
+        }
+        final child = RepaintBoundary(child: _childForIndex(i));
+        return TickerMode(
+          enabled: i == widget.index,
+          child: child,
+        );
+      }),
     );
   }
 }

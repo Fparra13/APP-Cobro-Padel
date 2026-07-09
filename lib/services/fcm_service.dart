@@ -41,8 +41,6 @@ class FcmService {
       final messaging = _messagingOrNull;
       if (messaging == null) return;
 
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
       try {
         await messaging
             .requestPermission(
@@ -205,6 +203,6 @@ class FcmService {
 }
 
 @pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await FirebaseConfig.ensureInitialized();
 }

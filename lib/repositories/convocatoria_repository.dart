@@ -254,7 +254,10 @@ class ConvocatoriaRepository {
   Future<Jugador?> promoverSiguienteSuplente(int partidoId) async {
     final conv = await getCompleta(partidoId);
     if (conv == null) return null;
-    if (conv.confirmados >= conv.partido.cuposMax) return null;
+    final ocupados = conv.titulares
+        .where((t) => t.estado.esTitularActivo)
+        .length;
+    if (ocupados >= conv.partido.cuposMax) return null;
     if (conv.suplentes.isEmpty) return null;
 
     final suplente = conv.suplentes.first;
@@ -332,8 +335,91 @@ class ConvocatoriaRepository {
     );
   }
 
+  Future<void> reabrirConvocatoriaOrganizador(int partidoId) async {
+    final db = await _db.database;
+    await db.update(
+      'partidos',
+      {'estado': EstadoPartido.organizando.dbValue},
+      where: 'id = ?',
+      whereArgs: [partidoId],
+    );
+  }
+
+  Future<void> actualizarOrdenListaEspera({
+    required int partidoId,
+    required List<String> jugadorIdsEnOrden,
+  }) async {
+    final db = await _db.database;
+    for (var i = 0; i < jugadorIdsEnOrden.length; i++) {
+      final id = jugadorIdsEnOrden[i];
+      if (id.isEmpty) continue;
+      await db.update(
+        'convocatoria_jugadores',
+        {'orden_espera': i + 1},
+        where: 'partido_id = ? AND jugador_id = ?',
+        whereArgs: [partidoId, id],
+      );
+    }
+  }
+
   Future<void> eliminar(int partidoId) async {
     final db = await _db.database;
     await db.delete('partidos', where: 'id = ?', whereArgs: [partidoId]);
+  }
+
+  Future<void> cancelar(int partidoId) async {
+    final db = await _db.database;
+    await db.update(
+      'partidos',
+      {
+        'estado': EstadoPartido.cancelado.dbValue,
+        'resuelto_en': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [partidoId],
+    );
+    await db.delete(
+      'convocatoria_jugadores',
+      where: 'partido_id = ?',
+      whereArgs: [partidoId],
+    );
+  }
+
+  Future<void> reprogramar({
+    required int partidoId,
+    required DateTime nuevaFecha,
+  }) async {
+    final db = await _db.database;
+    final conv = await getCompleta(partidoId);
+    if (conv == null) {
+      throw Exception('Convocatoria no encontrada');
+    }
+
+    final limite = DateTime.now().add(
+      Duration(hours: conv.partido.horasLimiteRespuesta),
+    ).toIso8601String();
+
+    await db.update(
+      'partidos',
+      {
+        'fecha': nuevaFecha.toIso8601String(),
+        'estado': EstadoPartido.organizando.dbValue,
+        'resuelto_en': null,
+      },
+      where: 'id = ?',
+      whereArgs: [partidoId],
+    );
+
+    await db.update(
+      'convocatoria_jugadores',
+      {
+        'tiempo_limite': limite,
+        'notificado_vencimiento': 0,
+        'recordatorio_plazo_enviado': 0,
+      },
+      where:
+          'partido_id = ? AND es_suplente = 0 AND estado_confirmacion = ?',
+      whereArgs: [partidoId, EstadoConfirmacion.invitado.dbValue],
+    );
   }
 }

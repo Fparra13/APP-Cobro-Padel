@@ -73,6 +73,34 @@ const moneyInputFormatters = [MoneyInputFormatter()];
 String formatFecha(DateTime fecha) =>
     DateFormat('dd/MM/yyyy', _activeDateLocale).format(fecha);
 
+/// Fecha legible (ej. "Lunes 6 de julio 2026"), sin hora.
+String formatFechaLegible(DateTime fecha) {
+  final locale = _activeDateLocale;
+  if (locale.startsWith('en')) {
+    return DateFormat('EEEE, MMMM d, y', locale).format(fecha);
+  }
+  if (locale.startsWith('pt')) {
+    return capitalize(
+      DateFormat("EEEE, d 'de' MMMM 'de' y", locale).format(fecha),
+    );
+  }
+  return capitalize(DateFormat("EEEE d 'de' MMMM y", locale).format(fecha));
+}
+
+/// Versión compacta para listas (evita textos largos en PT: "Seg, 8 de jul 2026").
+String formatFechaLegibleCorta(DateTime fecha) {
+  final locale = _activeDateLocale;
+  if (locale.startsWith('en')) {
+    return DateFormat('EEE, MMM d, y', locale).format(fecha);
+  }
+  if (locale.startsWith('pt')) {
+    return capitalize(
+      DateFormat("EEE, d 'de' MMM y", locale).format(fecha),
+    );
+  }
+  return capitalize(DateFormat("EEE d 'de' MMM y", locale).format(fecha));
+}
+
 String formatFechaCorta(DateTime fecha) =>
     DateFormat('dd/MM/yy', _activeDateLocale).format(fecha);
 

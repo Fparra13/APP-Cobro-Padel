@@ -23,10 +23,16 @@ class SupabaseParse {
   static DateTime toDateTime(dynamic value, {DateTime? fallback}) {
     if (value == null) return fallback ?? DateTime.now();
     try {
-      return DateTime.parse(value.toString());
+      return DateTime.parse(value.toString()).toLocal();
     } catch (_) {
       return fallback ?? DateTime.now();
     }
+  }
+
+  /// Serializa un [DateTime] local (p. ej. del date picker) a timestamptz UTC.
+  static String toTimestamptz(DateTime value) {
+    final instant = value.isUtc ? value : value.toUtc();
+    return instant.toIso8601String();
   }
 
   static bool toBool(dynamic value, {bool fallback = true}) {

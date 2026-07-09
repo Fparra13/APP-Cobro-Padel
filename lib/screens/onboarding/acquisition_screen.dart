@@ -10,7 +10,7 @@ import '../../core/sport_type.dart';
 import '../../l10n/matchpay_strings.dart';
 import '../../widgets/matchpay_ui.dart';
 
-/// Pantalla cold start: propuesta de valor + dos caminos (organizar vs invitado).
+/// Pantalla cold start: propuesta de valor + caminos organizador / jugador.
 class AcquisitionScreen extends StatelessWidget {
   const AcquisitionScreen({super.key});
 
@@ -54,60 +54,37 @@ class AcquisitionScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 28),
-                MatchPaySurfaceCard(
-                  elevated: true,
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    children: [
-                      _BenefitRow(
-                        icon: Icons.campaign_rounded,
-                        color: palette.primary,
-                        text: l10n.tr('acquisitionBenefitInvite'),
-                      ),
-                      const SizedBox(height: 12),
-                      _BenefitRow(
-                        icon: Icons.payments_rounded,
-                        color: MatchPayTokens.accentUrgent,
-                        text: l10n.tr('acquisitionBenefitCollect'),
-                      ),
-                      const SizedBox(height: 12),
-                      _BenefitRow(
-                        icon: Icons.check_circle_outline_rounded,
-                        color: MatchPayTokens.accentSuccess,
-                        text: l10n.tr('acquisitionBenefitConfirm'),
-                      ),
-                    ],
-                  ),
+                _PathCard(
+                  icon: Icons.event_available_rounded,
+                  iconColor: palette.primary,
+                  title: l10n.tr('acquisitionOrganizeFirstMatch'),
+                  subtitle: l10n.tr('acquisitionOrganizeFirstMatchSub'),
+                  onTap: () => _onOrganize(context),
+                ),
+                const SizedBox(height: 12),
+                _PathCard(
+                  icon: Icons.people_rounded,
+                  iconColor: MatchPayTokens.accentSuccess,
+                  title: l10n.tr('acquisitionImPlayer'),
+                  subtitle: l10n.tr('acquisitionImPlayerSub'),
+                  onTap: () => _onPlayer(context),
                 ),
                 const Spacer(flex: 2),
-                FilledButton(
-                  onPressed: () => _onCreateGroup(context),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(54),
-                    backgroundColor: palette.primary,
-                    shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(MatchPayTokens.radiusButton),
-                    ),
-                  ),
-                  child: Text(
-                    l10n.tr('acquisitionCreateFirstGroup'),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 16,
-                    ),
-                  ),
+                Text(
+                  l10n.tr('acquisitionAlreadyInvitedQuestion'),
+                  textAlign: TextAlign.center,
+                  style: MatchPayTokens.bodySmallStyle(),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
                 Center(
                   child: TextButton(
-                    onPressed: () => _onAlreadyInvited(context),
+                    onPressed: () => _onPlayer(context),
                     child: Text(
-                      l10n.tr('acquisitionAlreadyInvited'),
+                      l10n.tr('acquisitionJoinWithInviteLink'),
                       style: MatchPayTokens.bodySmallStyle(
                         color: palette.primaryDark,
                       ).copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         decoration: TextDecoration.underline,
                         decorationColor: palette.primary.withValues(alpha: 0.5),
                       ),
@@ -122,52 +99,82 @@ class AcquisitionScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _onCreateGroup(BuildContext context) async {
+  Future<void> _onOrganize(BuildContext context) async {
     await context.read<AcquisitionController>().chooseCreateFirstGroup();
   }
 
-  Future<void> _onAlreadyInvited(BuildContext context) async {
-    await context.read<AcquisitionController>().chooseInvited();
+  Future<void> _onPlayer(BuildContext context) async {
+    await context.read<AcquisitionController>().choosePlayer();
   }
 }
 
-class _BenefitRow extends StatelessWidget {
+class _PathCard extends StatelessWidget {
   final IconData icon;
-  final Color color;
-  final String text;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
-  const _BenefitRow({
+  const _PathCard({
     required this.icon,
-    required this.color,
-    required this.text,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: color, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
+    return MatchPaySurfaceCard(
+      elevated: true,
+      padding: EdgeInsets.zero,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
           child: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              text,
-              style: MatchPayTokens.bodySmallStyle(
-                color: MatchPayTokens.inkSecondary,
-              ).copyWith(height: 1.35),
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 26),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: MatchPayTokens.titleSmallStyle(
+                          color: MatchPayTokens.ink,
+                        ).copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: MatchPayTokens.bodySmallStyle(
+                          color: MatchPayTokens.inkSecondary,
+                        ).copyWith(height: 1.35),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: MatchPayTokens.inkMuted,
+                ),
+              ],
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }

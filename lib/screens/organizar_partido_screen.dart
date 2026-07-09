@@ -10,11 +10,10 @@ import '../models/convocatoria_jugador.dart';
 import '../models/estado_partido.dart';
 import '../models/jugador.dart';
 import '../models/partido.dart';
+import '../domain/partido_lifecycle.dart';
 import '../models/recinto.dart';
 import '../services/convocatoria_lista_espera_service.dart';
-import '../services/convocatoria_message_service.dart';
 import '../services/convocatoria_notificacion_service.dart';
-import '../services/whatsapp_share_service.dart';
 import '../services/preferences_service.dart';
 import '../services/supabase_realtime_service.dart';
 import '../utils/formatters.dart';
@@ -23,8 +22,10 @@ import '../widgets/ayuda_tip.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/confirmar_eliminar_partido_dialog.dart';
+import '../widgets/convocatoria_whatsapp_sin_app_sheet.dart';
 import '../widgets/jugador_app_badge.dart';
 import '../widgets/match_sport_picker.dart';
+import '../widgets/friendly_error_panel.dart';
 import '../widgets/mis_recintos_panel.dart';
 import '../widgets/sport_icon.dart';
 
@@ -49,6 +50,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   final _cuposCtrl = TextEditingController(text: '4');
 
   List<Jugador> _habituales = [];
+  final Map<String, Jugador> _jugadoresPorId = {};
   List<Recinto> _recintosGuardados = [];
   Recinto? _recintoSeleccionado;
   final List<String> _titulares = [];
@@ -59,12 +61,12 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   SportType _sportType = SportType.padel;
   bool _loading = true;
   bool _guardando = false;
-  String? _enviandoWhatsAppId;
   String? _errorCarga;
   int? _partidoId;
   bool _dirty = false;
   bool _partidoConfirmado = false;
   bool _convocatoriaEnviada = false;
+  bool _convocatoriaExpiradaAlCargar = false;
   DateTime? _ultimoSnackPromocionAt;
 
   bool get _modoSeguimiento => _convocatoriaEnviada && !_partidoConfirmado;
@@ -72,6 +74,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   bool get _formularioBloqueado => _convocatoriaEnviada || _partidoConfirmado;
 
   bool get _puedeEditarEstados => _modoSeguimiento;
+
+  bool get _puedeEditarListaEspera =>
+      _convocatoriaEnviada && !_fechaPartidoPasada;
 
   bool get _cuposLlenos => _confirmados >= _cuposMax;
 
@@ -85,14 +90,42 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       .where((id) => _estados[id] == EstadoConfirmacion.invitado)
       .length;
 
-  bool get _fechaPartidoPasada => !_fechaPartido.isAfter(
-        DateTime.now().subtract(Partido.convocatoriaGraceAfterMatch),
-      );
+  bool get _fechaPartidoPasada => !_fechaPartido.isAfter(DateTime.now());
 
   bool get _puedeRegistrarCobros =>
-      _partidoConfirmado || (_convocatoriaEnviada && _fechaPartidoPasada);
+      PartidoLifecycle.puedeRegistrarGastosDesdeOrganizar(
+        partido: Partido(
+          fecha: _fechaPartido,
+          estado: _partidoConfirmado
+              ? EstadoPartido.confirmado
+              : EstadoPartido.organizando,
+          createdAt: DateTime.now(),
+        ),
+        convocatoriaEnviada: _convocatoriaEnviada,
+      );
 
   int get _enEsperaCount => _listaEspera.length;
+
+  List<Jugador> get _titularesSinApp => _titulares
+      .map(_jugadorPorId)
+      .whereType<Jugador>()
+      .where((j) => !j.tieneMatchPayApp)
+      .toList();
+
+  void _indexarJugadores(Iterable<Jugador> jugadores) {
+    for (final j in jugadores) {
+      if (j.keyId.isNotEmpty) _jugadoresPorId[j.keyId] = j;
+    }
+  }
+
+  Jugador? _jugadorPorId(String id) => _jugadoresPorId[id];
+
+  List<Jugador> _jugadoresTitularesEnPantalla() {
+    if (_formularioBloqueado) {
+      return _titulares.map(_jugadorPorId).whereType<Jugador>().toList();
+    }
+    return _habituales.where((j) => j.keyId.isNotEmpty).toList();
+  }
 
   bool _esTitular(String id) => _titulares.contains(id);
 
@@ -174,6 +207,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           ? AppRepositories.I
           : context.repos;
       final habituales = await repos.getJugadores(soloActivos: true);
+      _jugadoresPorId.clear();
+      _indexarJugadores(habituales);
       final recintosGuardados = await repos.getMisRecintos();
       final ultimoRecinto = await _prefs.ultimoRecinto;
 
@@ -189,6 +224,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           _cuposCtrl.text = conv.partido.cuposMax.toString();
           _horasLimite = conv.partido.horasLimiteRespuesta;
           _partidoConfirmado = conv.partido.esConfirmado;
+          _convocatoriaExpiradaAlCargar =
+              PartidoLifecycle.convocatoriaExpirada(conv.partido);
           _convocatoriaEnviada = conv.titulares
               .any((entry) => entry.tiempoLimite != null);
           _aplicarDesdeConvocatoria(conv);
@@ -242,7 +279,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
-          _errorCarga = e.toString();
+          _errorCarga = context.userError(e);
         });
       }
     }
@@ -257,12 +294,14 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       if (id.isEmpty) continue;
       _titulares.add(id);
       _estados[id] = entry.estado;
+      _jugadoresPorId[id] = entry.jugador;
     }
     for (final entry in conv.suplentes) {
       final id = entry.jugador.keyId;
       if (id.isEmpty) continue;
       _listaEspera.add(id);
       _estados[id] = entry.estado;
+      _jugadoresPorId[id] = entry.jugador;
     }
     _partidoConfirmado = conv.partido.esConfirmado;
     if (!_partidoConfirmado) {
@@ -272,14 +311,16 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   Future<void> _sincronizarAutomatico() async {
-    if (_partidoId == null || _partidoConfirmado || !_convocatoriaEnviada) {
+    if (_partidoId == null || !_convocatoriaEnviada) {
       return;
     }
     final result = await _listaEsperaService.sincronizar(_partidoId!);
     if (!result.huboCambios || !mounted) return;
     final conv = await context.repos.getConvocatoriaCompleta(_partidoId!);
     if (conv == null || !mounted) return;
-    setState(() => _aplicarDesdeConvocatoria(conv));
+    setState(() {
+      _aplicarDesdeConvocatoria(conv);
+    });
     if (result.autoConfirmado && mounted) {
       setState(() => _partidoConfirmado = true);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -339,12 +380,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     });
   }
 
-  String _nombreJugador(String id) {
-    for (final j in _habituales) {
-      if (j.keyId == id) return j.nombre;
-    }
-    return context.l10n.tr('playerDefaultName');
-  }
+  String _nombreJugador(String id) =>
+      _jugadorPorId(id)?.nombre ?? context.l10n.tr('playerDefaultName');
 
   void _marcarDirty() {
     if (!_dirty) setState(() => _dirty = true);
@@ -403,20 +440,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     });
   }
 
-  void _toggleListaEspera(String id, bool? value) {
-    setState(() {
-      if (value == true) {
-        _titulares.remove(id);
-        if (!_listaEspera.contains(id)) _listaEspera.add(id);
-        _estados[id] = EstadoConfirmacion.invitado;
-      } else {
-        _listaEspera.remove(id);
-        if (!_titulares.contains(id)) _estados.remove(id);
-      }
-      _dirty = true;
-    });
-  }
-
   void _moverEspera(int oldIndex, int newIndex) {
     setState(() {
       if (newIndex > oldIndex) newIndex -= 1;
@@ -424,23 +447,84 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       _listaEspera.insert(newIndex, id);
       _dirty = true;
     });
+    if (_puedeEditarListaEspera && _partidoId != null) {
+      unawaited(_persistirOrdenListaEspera());
+    }
+  }
+
+  Future<void> _persistirOrdenListaEspera() async {
+    if (_partidoId == null || _listaEspera.isEmpty) return;
+    try {
+      await context.repos.actualizarOrdenListaEspera(
+        partidoId: _partidoId!,
+        jugadorIdsEnOrden: List.from(_listaEspera),
+      );
+      if (mounted) setState(() => _dirty = false);
+    } catch (e) {
+      if (mounted) _mostrarError(context.userError(e));
+    }
+  }
+
+  List<Jugador> get _habitualesParaListaEspera => _habituales
+      .where((j) {
+        final id = j.keyId;
+        return id.isNotEmpty && !_esTitular(id) && !_esSuplente(id);
+      })
+      .toList();
+
+  Future<void> _agregarAListaEspera(Jugador jugador) async {
+    final id = jugador.keyId;
+    if (id.isEmpty || _esTitular(id) || _esSuplente(id)) return;
+
+    setState(() {
+      _listaEspera.add(id);
+      _estados[id] = EstadoConfirmacion.invitado;
+      _dirty = true;
+    });
+
+    if (_partidoId == null) return;
+
+    if (_convocatoriaEnviada) {
+      await _guardar(silencioso: true, actualizarGuardando: false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.tr(
+                'organizeWaitlistAddedSnack',
+                params: {'name': jugador.nombre},
+              ),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _quitarDeListaEspera(String id) async {
+    setState(() {
+      _listaEspera.remove(id);
+      _estados.remove(id);
+      _dirty = true;
+    });
+    if (_partidoId != null && _convocatoriaEnviada) {
+      await _guardar(silencioso: true, actualizarGuardando: false);
+    }
   }
 
   void _seleccionarTodosTitulares() {
     setState(() {
       _titulares.clear();
-      _listaEspera.clear();
-      _estados.clear();
+      _estados.removeWhere((id, _) => !_listaEspera.contains(id));
       var count = 0;
       for (final j in _habituales) {
         if (j.keyId.isEmpty) continue;
         if (count < _cuposMax) {
           _titulares.add(j.keyId);
-        } else {
-          _listaEspera.add(j.keyId);
+          _listaEspera.remove(j.keyId);
+          _estados[j.keyId] = EstadoConfirmacion.invitado;
+          count++;
         }
-        _estados[j.keyId] = EstadoConfirmacion.invitado;
-        count++;
       }
       _dirty = true;
     });
@@ -473,6 +557,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
   Future<void> _ciclarEstado(String id) async {
     if (!_puedeEditarEstados || !_esTitular(id)) return;
+    if (_jugadorPorId(id)?.tieneMatchPayApp == true) return;
 
     final actual = _estados[id] ?? EstadoConfirmacion.invitado;
     final siguiente = actual.siguiente();
@@ -574,8 +659,17 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           sportType: _sportType,
         );
       } else {
+        final partidoId = _partidoId!;
+        final reabrirConvocatoria = _convocatoriaExpiradaAlCargar &&
+            _fechaPartido.isAfter(DateTime.now());
+        if (reabrirConvocatoria) {
+          await repos.reprogramarConvocatoria(
+            partidoId: partidoId,
+            nuevaFecha: _fechaPartido,
+          );
+        }
         await repos.actualizarConvocatoria(
-          partidoId: _partidoId!,
+          partidoId: partidoId,
           fecha: _fechaPartido,
           recinto: recinto.nombre.trim(),
           recintoId: recinto.id,
@@ -597,7 +691,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       }
       return true;
     } catch (e) {
-      _mostrarError('$e');
+      _mostrarError(context.userError(e));
       return false;
     } finally {
       if (actualizarGuardando && mounted) {
@@ -682,8 +776,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         horasLimite: _horasLimite,
       );
 
-      final titularesJugadores =
-          _habituales.where((j) => _esTitular(j.keyId)).toList();
+      final titularesJugadores = _titulares
+          .map(_jugadorPorId)
+          .whereType<Jugador>()
+          .toList();
       await _notificaciones.notificarConvocatoriaTitulares(
         titulares: titularesJugadores,
         partidoId: _partidoId!,
@@ -702,13 +798,29 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.tr('organizeInviteSentSnack'))),
       );
+      if (_titularesSinApp.isNotEmpty) {
+        await ConvocatoriaWhatsAppSinAppSheet.show(
+          context,
+          partidoId: _partidoId!,
+          jugadores: _titularesSinApp,
+          estados: Map.from(_estados),
+        );
+      }
     } catch (e) {
-      _mostrarError(
-        context.l10n.tr('organizeSendFailed', params: {'error': '$e'}),
-      );
+      _mostrarError(context.userError(e));
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
+  }
+
+  Future<void> _mostrarWhatsAppSinAppSheet() async {
+    if (_partidoId == null || _titularesSinApp.isEmpty) return;
+    await ConvocatoriaWhatsAppSinAppSheet.show(
+      context,
+      partidoId: _partidoId!,
+      jugadores: _titularesSinApp,
+      estados: Map.from(_estados),
+    );
   }
 
   Future<void> _registrarCobros() async {
@@ -745,53 +857,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       arguments: _partidoId,
     );
     if (mounted) Navigator.pop(context, true);
-  }
-
-  Future<void> _enviarConvocatoriaWhatsApp(Jugador jugador) async {
-    if (jugador.tieneMatchPayApp || _partidoId == null) return;
-    if (!jugador.puedeEnviarWhatsApp) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.tr('whatsappNoNumber'))),
-      );
-      return;
-    }
-
-    setState(() => _enviandoWhatsAppId = jugador.keyId);
-    try {
-      final conv =
-          await context.repos.getConvocatoriaCompleta(_partidoId!);
-      if (conv == null) {
-        throw Exception(context.l10n.tr('convocatoriaNotFoundSnack'));
-      }
-      final msg = ConvocatoriaMessageService().construirMensajePersonal(
-        convocatoria: conv,
-        nombreJugador: jugador.nombre,
-      );
-      final ok = await WhatsAppShareService.enviar(
-        mensaje: msg,
-        telefono: jugador.contactWhatsApp,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              ok
-                  ? context.l10n.tr('whatsappOpening')
-                  : context.l10n.tr('whatsappOpenFailed'),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _enviandoWhatsAppId = null);
-    }
   }
 
   Future<void> _eliminarConvocatoria() async {
@@ -940,44 +1005,15 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _errorCarga != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline,
-                            size: 48, color: Colors.red.shade700),
-                        const SizedBox(height: 12),
-                        Text(
-                          context.l10n.tr('organizeLoadFailed'),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _errorCarga!,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.black54),
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _loading = true;
-                              _errorCarga = null;
-                            });
-                            _load();
-                          },
-                          icon: const Icon(Icons.refresh),
-                          label: Text(context.l10n.tr('retry')),
-                        ),
-                      ],
-                    ),
-                  ),
+              ? FriendlyErrorPanel(
+                  message: _errorCarga!,
+                  onRetry: () {
+                    setState(() {
+                      _loading = true;
+                      _errorCarga = null;
+                    });
+                    _load();
+                  },
                 )
               : ListView(
               padding: const EdgeInsets.all(12),
@@ -1087,33 +1123,68 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   ),
                 ),
               )
-            else if (_cuposLlenos)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Text(
-                  context.l10n.tr('organizeAutoConfirmInProgress'),
-                  style: MatchPayTokens.titleSmallStyle(
-                    color: MatchPayTokens.accentUrgent,
-                  ).copyWith(fontSize: 13),
-                  textAlign: TextAlign.center,
-                ),
-              )
-            else
+            else if (_partidoConfirmado && !_puedeRegistrarCobros)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   context.l10n.tr(
-                    'organizeNeedMoreConfirmed',
-                    params: {
-                      'remaining': '${_cuposMax - _confirmados}',
-                    },
+                    'organizeChargesAfterMatch',
+                    params: {'when': _formatoFechaHora(_fechaPartido)},
                   ),
                   style: MatchPayTokens.bodySmallStyle(
-                    color: MatchPayTokens.accentUrgent,
+                    color: MatchPayTokens.inkMuted,
                   ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
                   textAlign: TextAlign.center,
                 ),
-              ),
+              )
+            else if (_modoSeguimiento) ...[
+              if (_titularesSinApp.isNotEmpty)
+                OutlinedButton.icon(
+                  onPressed: _mostrarWhatsAppSinAppSheet,
+                  icon: const Icon(
+                    Icons.chat_outlined,
+                    color: Color(0xFF25D366),
+                  ),
+                  label: Text(context.l10n.tr('organizeWhatsAppNoAppButton')),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    foregroundColor: const Color(0xFF1B8F4E),
+                    side: const BorderSide(color: Color(0xFF25D366)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(MatchPayTokens.radiusButton),
+                    ),
+                  ),
+                ),
+              if (_titularesSinApp.isNotEmpty) const SizedBox(height: 8),
+              if (_cuposLlenos)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    context.l10n.tr('organizeAutoConfirmInProgress'),
+                    style: MatchPayTokens.titleSmallStyle(
+                      color: MatchPayTokens.accentUrgent,
+                    ).copyWith(fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    context.l10n.tr(
+                      'organizeNeedMoreConfirmed',
+                      params: {
+                        'remaining': '${_cuposMax - _confirmados}',
+                      },
+                    ),
+                    style: MatchPayTokens.bodySmallStyle(
+                      color: MatchPayTokens.accentUrgent,
+                    ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ]
             ],
           ),
         ),
@@ -1383,7 +1454,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   Widget _buildListaJugadores() {
-    if (_habituales.isEmpty) {
+    if (_habituales.isEmpty && _titulares.isEmpty) {
       return MatchPaySurfaceCard(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -1446,35 +1517,11 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       : context.l10n.tr('organizeStartersHintDraft'),
                   style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 12),
                 ),
-                if (_modoSeguimiento) ...[
-                  const SizedBox(height: 8),
-                  ExpansionTile(
-                    tilePadding: EdgeInsets.zero,
-                    title: Text(
-                      context.l10n.tr('organizeManualFallbackTitle'),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          context.l10n.tr('organizeManualFallbackHint'),
-                          style: MatchPayTokens.bodySmallStyle(
-                            color: MatchPayTokens.accentUrgent,
-                          ).copyWith(fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
                 const SizedBox(height: 8),
-                ..._habituales.map((j) {
+                ..._jugadoresTitularesEnPantalla().map((j) {
                   final id = j.keyId;
-                  if (id.isEmpty) return const SizedBox.shrink();
-                  final esTitular = _esTitular(id);
+                  final esTitular =
+                      _formularioBloqueado ? true : _esTitular(id);
                   final estado = _estados[id] ?? EstadoConfirmacion.invitado;
                   return CheckboxListTile(
                     value: esTitular,
@@ -1493,51 +1540,15 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                         JugadorAppBadge(jugador: j, compact: true),
                       ],
                     ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (j.contactEmail != null) Text(j.contactEmail!),
-                        if (esTitular &&
-                            _modoSeguimiento &&
-                            !j.tieneMatchPayApp) ...[
-                          const SizedBox(height: 6),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: _enviandoWhatsAppId == id
-                                  ? null
-                                  : () => _enviarConvocatoriaWhatsApp(j),
-                              icon: _enviandoWhatsAppId == id
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.chat_outlined,
-                                      size: 18,
-                                      color: Color(0xFF25D366),
-                                    ),
-                              label: Text(
-                                context.l10n.tr('sendConvocatoriaWhatsApp'),
-                                style: const TextStyle(
-                                  color: Color(0xFF1B8F4E),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
                     secondary: esTitular
                         ? _EstadoChip(
                             estado: estado,
-                            onTap: _puedeEditarEstados
+                            onTap: _puedeEditarEstados && !j.tieneMatchPayApp
                                 ? () => _ciclarEstado(id)
-                                : () {},
+                                : null,
+                            tooltip: j.tieneMatchPayApp && _puedeEditarEstados
+                                ? context.l10n.tr('organizeStatusRespondInApp')
+                                : null,
                           )
                         : null,
                     controlAffinity: ListTileControlAffinity.leading,
@@ -1561,54 +1572,112 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 context.l10n.tr('organizeWaitlistHint'),
                 style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 12),
               ),
+              if (_puedeEditarListaEspera && !_formularioBloqueado) ...[
+                const SizedBox(height: 6),
+                Text(
+                  context.l10n.tr('organizeWaitlistHintTracking'),
+                  style: MatchPayTokens.bodySmallStyle(
+                    color: MatchPayTokens.accentCredit,
+                  ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ],
+              const SizedBox(height: 8),
+              if (!_formularioBloqueado && _habitualesParaListaEspera.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _habitualesParaListaEspera.map((j) {
+                    return ActionChip(
+                      avatar: const Icon(Icons.person_add_alt_1, size: 18),
+                      label: Text(j.nombre),
+                      onPressed: () => _agregarAListaEspera(j),
+                    );
+                  }).toList(),
+                ),
+              if (_formularioBloqueado &&
+                  _puedeEditarListaEspera &&
+                  _habitualesParaListaEspera.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                ..._habituales.map((j) {
-                  final id = j.keyId;
-                  if (id.isEmpty || _esTitular(id)) {
-                    return const SizedBox.shrink();
-                  }
-                  return CheckboxListTile(
-                    value: _esSuplente(id),
-                    onChanged: _formularioBloqueado
-                        ? null
-                        : (v) => _toggleListaEspera(id, v),
-                    title: Text(j.nombre),
-                    subtitle: _esSuplente(id)
-                        ? Text(
-                            context.l10n.tr(
-                              'organizeWaitlistPriority',
-                              params: {
-                                'n': '${_listaEspera.indexOf(id) + 1}',
-                              },
-                            ),
-                            style: MatchPayTokens.bodySmallStyle(
-                              color: const Color(0xFF7C3AED),
-                            ).copyWith(fontSize: 12),
-                          )
-                        : null,
-                    controlAffinity: ListTileControlAffinity.leading,
-                  );
-                }),
-                if (_listaEspera.isNotEmpty) ...[
-                  const Divider(),
-                  ReorderableListView(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    onReorder: _formularioBloqueado ? (_, __) {} : _moverEspera,
-                    children: [
-                      for (var i = 0; i < _listaEspera.length; i++)
-                        ListTile(
-                          key: ValueKey(_listaEspera[i]),
-                          leading: CircleAvatar(
-                            radius: 14,
-                            child: Text('${i + 1}'),
-                          ),
-                          title: Text(_nombreJugador(_listaEspera[i])),
-                          trailing: const Icon(Icons.drag_handle),
-                        ),
-                    ],
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _habitualesParaListaEspera.map((j) {
+                    return ActionChip(
+                      avatar: const Icon(Icons.person_add_alt_1, size: 18),
+                      label: Text(j.nombre),
+                      onPressed: () => _agregarAListaEspera(j),
+                    );
+                  }).toList(),
+                ),
+              ],
+              if (_listaEspera.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    context.l10n.tr('organizeWaitlistEmpty'),
+                    style: MatchPayTokens.bodySmallStyle(
+                      color: MatchPayTokens.inkMuted,
+                    ),
                   ),
-                ],
+                )
+              else ...[
+                const SizedBox(height: 8),
+                ReorderableListView(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  onReorder: (!_formularioBloqueado || _puedeEditarListaEspera)
+                      ? _moverEspera
+                      : (_, __) {},
+                  children: [
+                    for (var i = 0; i < _listaEspera.length; i++)
+                      ListTile(
+                        key: ValueKey(_listaEspera[i]),
+                        leading: CircleAvatar(
+                          radius: 14,
+                          backgroundColor:
+                              const Color(0xFF7C3AED).withValues(alpha: 0.15),
+                          child: Text(
+                            '${i + 1}',
+                            style: const TextStyle(
+                              color: Color(0xFF7C3AED),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        title: Text(_nombreJugador(_listaEspera[i])),
+                        subtitle: Text(
+                          context.l10n.tr(
+                            'organizeWaitlistPriority',
+                            params: {'n': '${i + 1}'},
+                          ),
+                          style: MatchPayTokens.bodySmallStyle(
+                            color: const Color(0xFF7C3AED),
+                          ).copyWith(fontSize: 12),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!_formularioBloqueado ||
+                                _puedeEditarListaEspera)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.remove_circle_outline,
+                                  color: Colors.red.shade400,
+                                  size: 22,
+                                ),
+                                tooltip: context.l10n
+                                    .tr('organizeWaitlistRemove'),
+                                onPressed: () =>
+                                    _quitarDeListaEspera(_listaEspera[i]),
+                              ),
+                            const Icon(Icons.drag_handle),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ],
                 if (sinSeleccion)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
@@ -1629,9 +1698,14 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
 class _EstadoChip extends StatelessWidget {
   final EstadoConfirmacion estado;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final String? tooltip;
 
-  const _EstadoChip({required this.estado, required this.onTap});
+  const _EstadoChip({
+    required this.estado,
+    required this.onTap,
+    this.tooltip,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1658,30 +1732,36 @@ class _EstadoChip extends StatelessWidget {
         ),
     };
 
-    return MatchPayTapScale(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
-          border: Border.all(color: color.withValues(alpha: 0.35)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: MatchPayTokens.titleSmallStyle(color: color).copyWith(
-                fontSize: 12,
-              ),
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: MatchPayTokens.titleSmallStyle(color: color).copyWith(
+              fontSize: 12,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+
+    Widget child = chip;
+    if (onTap != null) {
+      child = MatchPayTapScale(onTap: onTap, child: chip);
+    }
+    if (tooltip != null) {
+      child = Tooltip(message: tooltip!, child: child);
+    }
+    return child;
   }
 }
 

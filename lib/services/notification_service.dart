@@ -48,6 +48,7 @@ class NotificationService {
   }
 
   GlobalKey<NavigatorState>? navigatorKey;
+  GlobalKey<ScaffoldMessengerState>? scaffoldMessengerKey;
   bool _initialized = false;
   bool _launchPayloadHandledThisSession = false;
   VoidCallback? onNavigateOrganizerHome;
@@ -84,9 +85,11 @@ class NotificationService {
 
   Future<void> initialize({
     required GlobalKey<NavigatorState> navKey,
+    GlobalKey<ScaffoldMessengerState>? messengerKey,
   }) async {
     if (_initialized) return;
     navigatorKey = navKey;
+    scaffoldMessengerKey = messengerKey;
 
     tz.initializeTimeZones();
     try {
@@ -477,6 +480,28 @@ class NotificationService {
       await _convocatoriaDetails(),
       payload: '$payloadComprobantePrefix$partidoId:$detalleId',
     );
+  }
+
+  void showInAppSnack(
+    String message, {
+    BuildContext? context,
+    Color? backgroundColor,
+    Duration duration = const Duration(seconds: 5),
+  }) {
+    final snackBar = SnackBar(
+      content: Text(message),
+      backgroundColor: backgroundColor,
+      duration: duration,
+    );
+    final global = scaffoldMessengerKey?.currentState;
+    if (global != null) {
+      global.showSnackBar(snackBar);
+      return;
+    }
+    if (context != null) {
+      final local = ScaffoldMessenger.maybeOf(context);
+      local?.showSnackBar(snackBar);
+    }
   }
 
   /// Jugador: comprobante rechazado por el organizador.

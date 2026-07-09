@@ -14,6 +14,7 @@ class JugadorFotoService {
   static final JugadorFotoService instance = JugadorFotoService._();
 
   static const subdir = 'fotos_jugadores';
+  static const urlCacheSubdir = 'fotos_jugadores/url_cache';
   final ImagePicker _picker = ImagePicker();
 
   Future<Directory> _storageDir() async {
@@ -33,9 +34,57 @@ class JugadorFotoService {
     return null;
   }
 
+  Future<File?> resolveCachedNetworkAvatar(String url) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty || !trimmed.startsWith('http')) return null;
+    final docs = await getApplicationDocumentsDirectory();
+    final file = File(
+      p.join(docs.path, urlCacheSubdir, '${trimmed.hashCode.abs()}.img'),
+    );
+    if (await file.exists()) return file;
+    return null;
+  }
+
+  /// Descarga y guarda en disco para uso offline. Falla en silencio sin red.
+  Future<File?> cacheNetworkAvatar(String url) async {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty || !trimmed.startsWith('http')) return null;
+
+    final cached = await resolveCachedNetworkAvatar(trimmed);
+    if (cached != null) return cached;
+
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(Uri.parse(trimmed));
+      final response = await request.close().timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200) return null;
+      final bytes = await response.fold<List<int>>(
+        <int>[],
+        (prev, chunk) => prev..addAll(chunk),
+      );
+      if (bytes.isEmpty) return null;
+
+      final docs = await getApplicationDocumentsDirectory();
+      final dir = Directory(p.join(docs.path, urlCacheSubdir));
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      final file = File(
+        p.join(dir.path, '${trimmed.hashCode.abs()}.img'),
+      );
+      await file.writeAsBytes(bytes, flush: true);
+      return file;
+    } catch (_) {
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
   Future<ImageSource?> askSource(BuildContext context) {
     return showModalBottomSheet<ImageSource>(
       context: context,
+      useRootNavigator: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,

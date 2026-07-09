@@ -1,3 +1,5 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../core/supabase_helpers.dart';
 import '../models/jugador.dart';
 
@@ -41,39 +43,67 @@ class JugadorRepositoryRemote {
     });
   }
 
-  /// Crea o actualiza un jugador por email (no requiere registro previo).
+  /// Crea o actualiza un jugador (email opcional; vincula por correo si existe).
   Future<Jugador> crear({
     required String nombre,
-    required String email,
+    String? email,
     String? telefono,
     bool activo = true,
   }) async {
-    final normalized = email.trim().toLowerCase();
-    if (!_esEmailValido(normalized)) {
+    final trimmedName = nombre.trim();
+    if (trimmedName.isEmpty) {
+      throw Exception('El jugador debe tener un nombre');
+    }
+
+    final mailRaw = email?.trim().toLowerCase();
+    final mail = (mailRaw != null && mailRaw.isNotEmpty) ? mailRaw : null;
+    if (mail != null && !_esEmailValido(mail)) {
       throw Exception('Email inválido: $email');
     }
-    final tel = telefono?.trim();
 
-    final existente = await getByEmail(normalized);
-    if (existente != null) {
-      final actualizado = existente.copyWith(
-        nombre: nombre.trim(),
-        activo: activo,
-        email: normalized,
-        telefono: tel != null && tel.isNotEmpty ? tel : existente.telefono,
-      );
-      await actualizar(actualizado);
-      return actualizado;
+    final telRaw = telefono?.trim();
+    final tel = (telRaw != null && telRaw.isNotEmpty) ? telRaw : null;
+
+    if (mail != null) {
+      final existente = await getByEmail(mail);
+      if (existente != null) {
+        final actualizado = existente.copyWith(
+          nombre: trimmedName,
+          activo: activo,
+          email: mail,
+          telefono: tel ?? existente.telefono,
+        );
+        await actualizar(actualizado);
+        return actualizado;
+      }
     }
 
     return SupabaseHelpers.guard('Crear jugador', () async {
+      try {
+        final row = await _client.rpc(
+          'crear_jugador_organizador',
+          params: {
+            'p_nombre': trimmedName,
+            'p_email': mail,
+            'p_telefono': tel,
+            'p_activo': activo,
+          },
+        );
+        return Jugador.fromSupabaseMap(
+          Map<String, dynamic>.from(row as Map),
+        );
+      } on PostgrestException catch (e) {
+        if (e.code != 'PGRST202') rethrow;
+        // RPC aún no desplegada: fallback directo.
+      }
+
       final payload = <String, dynamic>{
-        'nombre': nombre.trim(),
-        'email': normalized,
+        'nombre': trimmedName,
         'activo': activo,
         'role': 'jugador',
       };
-      if (tel != null && tel.isNotEmpty) payload['telefono'] = tel;
+      if (mail != null) payload['email'] = mail;
+      if (tel != null) payload['telefono'] = tel;
       final row = await _client
           .from('profiles')
           .insert(payload)
@@ -128,13 +158,9 @@ class JugadorRepositoryRemote {
   }
 
   Future<int> insert(Jugador jugador) async {
-    final email = jugador.contactEmail;
-    if (email == null || email.isEmpty) {
-      throw Exception('El jugador debe tener un email');
-    }
     final creado = await crear(
       nombre: jugador.nombre,
-      email: email,
+      email: jugador.contactEmail,
       telefono: jugador.contactWhatsApp,
       activo: jugador.activo,
     );

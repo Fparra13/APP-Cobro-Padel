@@ -18,12 +18,16 @@ class MisInvitacionesPanel extends StatelessWidget {
   final List<MiConvocatoria> convocatorias;
   final VoidCallback? onRespondido;
   final bool compact;
+  final bool readOnly;
+  final VoidCallback? onReadOnlyTap;
 
   const MisInvitacionesPanel({
     super.key,
     required this.convocatorias,
     this.onRespondido,
     this.compact = false,
+    this.readOnly = false,
+    this.onReadOnlyTap,
   });
 
   static Future<List<MiConvocatoria>> cargarPendientes(
@@ -46,6 +50,8 @@ class MisInvitacionesPanel extends StatelessWidget {
               child: _ConvocatoriaAccionCard(
                 convocatoria: c,
                 compact: compact,
+                readOnly: readOnly,
+                onReadOnlyTap: onReadOnlyTap,
                 onRespondido: onRespondido,
               ),
             ),
@@ -80,11 +86,15 @@ class ProximosPartidosPanel extends StatelessWidget {
 class _ConvocatoriaAccionCard extends StatefulWidget {
   final MiConvocatoria convocatoria;
   final bool compact;
+  final bool readOnly;
+  final VoidCallback? onReadOnlyTap;
   final VoidCallback? onRespondido;
 
   const _ConvocatoriaAccionCard({
     required this.convocatoria,
     this.compact = false,
+    this.readOnly = false,
+    this.onReadOnlyTap,
     this.onRespondido,
   });
 
@@ -100,6 +110,10 @@ class _ConvocatoriaAccionCardState extends State<_ConvocatoriaAccionCard> {
   Partido get partido => c.partido;
 
   Future<void> _responder(bool confirmo) async {
+    if (widget.readOnly) {
+      widget.onReadOnlyTap?.call();
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -166,9 +180,7 @@ class _ConvocatoriaAccionCardState extends State<_ConvocatoriaAccionCard> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                context.tr('backupError', params: {'error': '$e'}),
-              ),
+              content: Text(context.userError(e)),
               backgroundColor: Colors.red.shade700,
             ),
           );
@@ -181,8 +193,7 @@ class _ConvocatoriaAccionCardState extends State<_ConvocatoriaAccionCard> {
   }
 
   Future<void> _abrirDetalle() async {
-    await Navigator.push(
-      context,
+    await Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute(
         builder: (_) => ResponderConvocatoriaScreen(
           partidoId: c.entry.partidoId,
@@ -198,51 +209,59 @@ class _ConvocatoriaAccionCardState extends State<_ConvocatoriaAccionCard> {
     final limite = c.entry.tiempoLimite;
     final theme = Theme.of(context);
 
-    return MatchPayTapScale(
-      onTap: _enviando ? null : _abrirDetalle,
-      child: MatchPaySurfaceCard(
-        urgent: true,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: MatchPayTokens.accentUrgent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: SportIcon(
-                    size: 22,
-                    color: MatchPayTokens.accentUrgent,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.tr('pendingConvocatoria'),
-                        style: MatchPayTokens.sectionLabelStyle(
-                          color: MatchPayTokens.accentUrgent,
-                        ).copyWith(letterSpacing: 0.3, fontSize: 12),
+    return MatchPaySurfaceCard(
+      urgent: true,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _enviando ? null : _abrirDetalle,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: MatchPayTokens.accentUrgent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      Text(
-                        formatDiaCompleto(partido.fecha),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      child: SportIcon(
+                        size: 22,
+                        color: MatchPayTokens.accentUrgent,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.tr('pendingConvocatoria'),
+                            style: MatchPayTokens.sectionLabelStyle(
+                              color: MatchPayTokens.accentUrgent,
+                            ).copyWith(letterSpacing: 0.3, fontSize: 12),
+                          ),
+                          Text(
+                            formatDiaCompleto(partido.fecha),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!widget.compact)
+                      Icon(Icons.open_in_new, color: Colors.orange.shade700),
+                  ],
                 ),
-                if (!widget.compact)
-                    Icon(Icons.open_in_new, color: Colors.orange.shade700),
-                ],
               ),
+            ),
+          ),
               if (partido.recinto != null && partido.recinto!.isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Row(
@@ -333,7 +352,6 @@ class _ConvocatoriaAccionCardState extends State<_ConvocatoriaAccionCard> {
               ),
             ],
           ),
-        ),
     );
   }
 }

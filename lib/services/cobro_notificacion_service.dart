@@ -340,6 +340,7 @@ class CobroNotificacionService {
           titulo: titulo,
           cuerpo: cuerpo,
         );
+        NotificationService.instance.showInAppSnack(cuerpo);
         return;
       }
 

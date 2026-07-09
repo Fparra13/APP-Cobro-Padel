@@ -1,10 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/app_repositories.dart';
+import '../core/offline_status_controller.dart';
 import '../core/matchpay_design_tokens.dart';
-import '../core/organizer_nudge_service.dart';
 import '../core/sport_theme.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/convocatoria_jugador.dart';
@@ -12,6 +13,7 @@ import '../models/estado_partido.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/partido.dart';
 import '../services/convocatoria_lista_espera_service.dart';
+import '../services/notification_service.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/single_action.dart';
@@ -70,6 +72,9 @@ class _ResponderConvocatoriaScreenState
 
   bool get _requiereRespuesta => _data?.requiereRespuesta ?? false;
 
+  bool get _puedeDeclinarTrasConfirmar =>
+      _data?.puedeDeclinarTrasConfirmar ?? false;
+
   bool get _yaRespondio {
     final e = _entry;
     if (e == null) return false;
@@ -94,6 +99,12 @@ class _ResponderConvocatoriaScreenState
   }
 
   Future<void> _responder(bool confirmo) async {
+    if (context.read<OfflineStatusController>().isReadOnly) {
+      NotificationService.instance.showInAppSnack(
+        context.l10n.tr('offlineWriteBlocked'),
+      );
+      return;
+    }
     final partido = _data?.partido;
     final ok = await showDialog<bool>(
       context: context,
@@ -153,6 +164,7 @@ class _ResponderConvocatoriaScreenState
           confirmo: confirmo,
         );
         await ConvocatoriaListaEsperaService().sincronizar(widget.partidoId);
+        AppRepositories.notifyDataChanged();
         await _load();
         if (!mounted) return null;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -164,9 +176,6 @@ class _ResponderConvocatoriaScreenState
             ),
           ),
         );
-        if (confirmo) {
-          unawaited(OrganizerNudgeService.maybeShowAfterConfirm(context));
-        }
         if (!_requiereRespuesta) {
           Navigator.pop(context, true);
         }
@@ -174,7 +183,7 @@ class _ResponderConvocatoriaScreenState
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$e'),
+              content: Text(context.userError(e)),
               backgroundColor: Colors.red.shade700,
             ),
           );
@@ -295,6 +304,30 @@ class _ResponderConvocatoriaScreenState
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  )
+                else if (_puedeDeclinarTrasConfirmar)
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      child: OutlinedButton.icon(
+                        onPressed: _enviando ? null : () => _responder(false),
+                        icon: _enviando
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.event_busy_outlined),
+                        label: Text(context.l10n.tr('respondDeclineAfterConfirm')),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(52),
+                          foregroundColor: Colors.red.shade700,
+                          side: BorderSide(color: Colors.red.shade300),
+                        ),
                       ),
                     ),
                   ),

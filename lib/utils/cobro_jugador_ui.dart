@@ -124,7 +124,7 @@ double totalPendienteCobros(
   Map<int, double>? saldosAnterioresPorPartido,
   double? saldoAcumuladoJugador,
 }) {
-  if (saldoAcumuladoJugador != null) {
+  if (saldoAcumuladoJugador != null && saldoAcumuladoJugador > 0.005) {
     return CobroLogic.obtenerPendienteJugador(
       saldoAcumulado: saldoAcumuladoJugador,
     );

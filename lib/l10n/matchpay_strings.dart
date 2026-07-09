@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/app_settings_controller.dart';
 import 'translation_maps.dart';
 import 'payment_concept_l10n.dart';
+import '../utils/user_facing_error.dart';
 
 /// Localización MatchPay — delega en [TranslationMaps].
 class MatchPayStrings {
@@ -44,6 +45,7 @@ class MatchPayStrings {
   String get navCloud => tr('navCloud');
   String get navConfig => tr('navConfig');
   String get navMyCobros => tr('navMyCobros');
+  String get navMyMatches => tr('navMyMatches');
   String get navOrganizerCobros => tr('navOrganizerCobros');
   String get homeAdminTitle => tr('homeAdminTitle');
   String get configScreenTitle => tr('configScreenTitle');
@@ -86,4 +88,8 @@ extension MatchPayL10n on BuildContext {
 
   String tr(String key, {Map<String, String> params = const {}}) =>
       l10n.tr(key, params: params);
+
+  /// Error legible para UI (sin códigos técnicos).
+  String userError(Object error) =>
+      userFacingError(error, tr: tr);
 }

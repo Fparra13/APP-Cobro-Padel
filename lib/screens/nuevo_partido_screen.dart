@@ -9,6 +9,7 @@ import '../models/estado_pago_jugador.dart';
 import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../models/shared_expense_entry.dart';
+import '../domain/gasto_compartido_logic.dart';
 import '../core/app_repositories.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/supabase_helpers.dart';
@@ -97,6 +98,15 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     return entry.participantes;
   }
 
+  Set<String> _participantesRepartoGasto(SharedExpenseEntry entry) =>
+      GastoCompartidoLogic.participantesReparto(
+        participantesExplicitos: _participantesDeGasto(entry),
+        asistentes: _asistentes,
+        repartoEntreTodos: entry.repartoEntreTodos,
+        sinParticipantesExplicito: entry.sinParticipantesExplicito,
+        monto: entry.monto,
+      );
+
   Future<void> _loadData() async {
     try {
       final repos = AppRepositories.isReady
@@ -136,9 +146,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              SupabaseHelpers.describeError(e, operacion: 'Cargar partido'),
-            ),
+            content: Text(context.userError(e)),
             backgroundColor: Colors.red.shade700,
             action: SnackBarAction(
               label: context.tr('retry'),
@@ -259,6 +267,8 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
               iconKey: icon,
               participantes: asigs.map((a) => a.jugadorKeyId).toSet(),
               comprobantePath: cv.comprobantePath,
+              repartoEntreTodos: false,
+              sinParticipantesExplicito: false,
             ),
           );
         }
@@ -347,12 +357,16 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     double total = 0;
     for (final gasto in _gastosCompartidos) {
       final monto = gasto.monto;
-      if (monto > 0 && _participantesDeGasto(gasto).contains(jugadorId)) {
-        total += CalculationService.prorratear(
-          monto,
-          _participantesDeGasto(gasto).length,
-        );
+      if (monto <= 0) continue;
+      if (ConceptosCobro.esFijo(gasto.label) && _monto(gasto.label) > 0) {
+        continue;
       }
+      final participantes = _participantesRepartoGasto(gasto);
+      total += GastoCompartidoLogic.cuotaJugador(
+        montoTotal: monto,
+        participantes: participantes,
+        jugadorId: jugadorId,
+      );
     }
     for (final cobro in _cobrosIndividuales[jugadorId] ?? []) {
       if (cobro.guardado) total += cobro.monto;
@@ -360,14 +374,15 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     return total;
   }
 
-  void _inicializarParticipantesGasto(SharedExpenseEntry entry) {
-    if (entry.monto <= 0 || _asistentes.isEmpty) return;
-    final set = _participantesDeGasto(entry);
-    if (set.isEmpty) set.addAll(_asistentes);
-  }
-
   void _toggleParticipanteGasto(SharedExpenseEntry entry, String jugadorId) {
     setState(() {
+      if (entry.repartoEntreTodos) {
+        entry.participantes
+          ..clear()
+          ..addAll(_asistentes);
+        entry.repartoEntreTodos = false;
+      }
+      entry.sinParticipantesExplicito = false;
       final set = _participantesDeGasto(entry);
       if (set.contains(jugadorId)) {
         set.remove(jugadorId);
@@ -381,22 +396,24 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     setState(() {
       final set = _participantesDeGasto(entry);
       set.clear();
-      if (todos) set.addAll(_asistentes);
+      entry.repartoEntreTodos = todos;
+      entry.sinParticipantesExplicito = !todos;
     });
   }
 
   double _prorrateoGasto(SharedExpenseEntry entry) {
     final monto = entry.monto;
-    final n = _participantesDeGasto(entry).length;
-    if (monto <= 0 || n == 0) return 0;
-    return CalculationService.prorratear(monto, n);
+    final participantes = _participantesRepartoGasto(entry);
+    if (monto <= 0 || participantes.isEmpty) return 0;
+    return CalculationService.prorratear(monto, participantes.length);
   }
 
   double _cargoPartido(Jugador j) {
     if (!_asistentes.contains(j.keyId)) return 0;
-    return _prorrateoCancha() +
-        _prorrateoPelotas() +
-        _variablesParaJugador(j.keyId);
+    return CalculationService.cargoPartido(
+      prorrateoFijo: _prorrateoCancha() + _prorrateoPelotas(),
+      totalVariables: _variablesParaJugador(j.keyId),
+    );
   }
 
   double _saldoFavorAplicado(Jugador j) =>
@@ -565,10 +582,8 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       final monto = gasto.monto;
       final label = gasto.label;
       if (monto <= 0 || label.isEmpty) continue;
-      _inicializarParticipantesGasto(gasto);
-      final participantes = _participantesDeGasto(gasto)
-          .where((id) => _asistentes.contains(id))
-          .toList();
+      if (ConceptosCobro.esFijo(label) && _monto(label) > 0) continue;
+      final participantes = _participantesRepartoGasto(gasto).toList();
       if (participantes.isEmpty) continue;
       list.add((
         concepto: label,
@@ -761,10 +776,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         _showError(l10n.tr('errorSharedExpenseName'));
         return;
       }
-      _inicializarParticipantesGasto(gasto);
-      final n = _participantesDeGasto(gasto)
-          .where((id) => _asistentes.contains(id))
-          .length;
+      final n = _participantesRepartoGasto(gasto).length;
       if (n == 0) {
         _showError(
           l10n.tr('errorMarkParticipants', params: {'label': gasto.label}),
@@ -851,7 +863,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         if (mounted) Navigator.pop(context);
       }
     } catch (e) {
-      _showError(l10n.tr('errorSaving', params: {'error': '$e'}));
+      _showError(context.userError(e));
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
@@ -1413,7 +1425,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     final monto = entry.monto;
     final theme = Theme.of(context);
     final color = entry.iconKey.colorFor(theme);
-    final participantes = _participantesDeGasto(entry);
+    final participantes = _participantesRepartoGasto(entry);
     final asistentesList =
         _habituales.where((j) => _asistentes.contains(j.keyId)).toList();
     final n = participantes.length;
@@ -1479,7 +1491,11 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                   ComprobanteService.instance.delete(entry.comprobantePath);
                   entry.comprobantePath = null;
                 }
-                _inicializarParticipantesGasto(entry);
+                if (entry.monto <= 0) {
+                  entry.repartoEntreTodos = true;
+                  entry.sinParticipantesExplicito = false;
+                  entry.participantes.clear();
+                }
                 setState(() {});
               },
             ),
@@ -1712,7 +1728,9 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       _asistentes.addAll(_habituales.map((x) => x.keyId));
       for (final g in _gastosCompartidos) {
         if (g.monto > 0) {
-          g.participantes.addAll(_asistentes);
+          g.repartoEntreTodos = true;
+          g.sinParticipantesExplicito = false;
+          g.participantes.clear();
         }
       }
       // Con muchos jugadores, colapsar deja la pantalla legible.
@@ -1940,16 +1958,17 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                if (asistio && !modoNube)
+                if (asistio && !modoNube && !_esOrganizando)
                   Text(
                     l10n.tr('toTransfer', params: {
                       'amount': formatMoney(aTransferir),
                     }),
                     style: const TextStyle(fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.end,
                   ),
               ],
             ),
-            if (asistio && pago != null && !modoNube) ...[
+            if (asistio && pago != null && !modoNube && !_esOrganizando) ...[
               const SizedBox(height: 8),
               SegmentedButton<TipoPago>(
                 segments: [
@@ -2339,12 +2358,18 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             const SizedBox(height: 8),
             ...asistentesList.map((j) {
               final pago = _pagoDe(j.keyId);
+              final cargo = _cargoPartido(j);
               final totalDeb = _netoAPagarPartido(j);
               final restante = _saldoRestante(j);
               final aTransferir = _pendientePartido(j);
               String estado;
               Color color;
-              if (restante <= 0) {
+              if (_esOrganizando) {
+                estado = l10n.tr('matchAmountShort', params: {
+                  'amount': formatMoney(cargo),
+                });
+                color = Colors.purple.shade800;
+              } else if (restante <= 0) {
                 estado = restante < 0
                     ? l10n.tr('summaryCreditBalance', params: {
                         'amount': formatMoney(-restante),

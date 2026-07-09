@@ -2,16 +2,25 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../core/app_repositories.dart';
 import '../core/app_settings_controller.dart';
+import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
+import '../core/offline_status_controller.dart';
+import '../core/supabase_helpers.dart';
+import '../offline/organizer_home_loader.dart';
+import '../offline/organizer_home_snapshot.dart';
+import '../offline/offline_snapshot_store.dart';
+import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/cobros_resumen.dart';
 import '../repositories/partido_repository.dart';
 import '../domain/organizer_cycle_logic.dart';
+import '../domain/partido_lifecycle.dart';
 import '../services/convocatoria_lista_espera_service.dart';
 import '../utils/formatters.dart';
 import '../utils/app_navigation.dart';
@@ -21,11 +30,13 @@ import '../widgets/desglose_cobro_panel.dart' show ordenarDeudasPorFecha;
 import '../widgets/matchpay_ui.dart';
 import '../widgets/app_mode_switch_button.dart';
 import '../widgets/organizer_cycle_hero.dart';
+import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/organizer_group_summary.dart';
 import '../widgets/quick_actions_panel.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
+import '../widgets/friendly_error_panel.dart';
 import '../widgets/mis_invitaciones_panel.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -41,12 +52,15 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ResumenJugador> _resumenes = [];
   List<ConvocatoriaCompleta> _convocatorias = [];
   List<PartidoCompleto> _partidosJugadosRecientes = [];
+  List<DesgloseJugador> _ultimoPartidoDesglose = [];
   List<MiConvocatoria> _misInvitaciones = [];
   List<DetallePartido> _pagosPorValidar = [];
   List<DetallePartido> _misDeudas = [];
   CobrosResumen _cobrosResumen = CobrosResumen.zero;
   bool _loading = true;
   bool _primeraCarga = true;
+  bool _offlineEmpty = false;
+  String? _loadError;
   Timer? _reloadDebounce;
 
   @override
@@ -73,52 +87,115 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _load({bool silent = false}) async {
     if (!silent || _primeraCarga) {
-      setState(() => _loading = true);
+      setState(() {
+        _loading = true;
+        _loadError = null;
+        _offlineEmpty = false;
+      });
     }
+
+    final offlineStatus = context.read<OfflineStatusController>();
+    final userId = AuthService.instance.currentUser?.id;
+    final snapshotStore = userId != null
+        ? OfflineSnapshotStore(userId: userId)
+        : null;
+
     try {
-      final repos = context.repos;
-      // Reconciliar antes de cargar partidos para que hero y cobros coincidan.
-      final resumenes = await repos.getResumenJugadores(
-        reconciliar: false,
+      final result = await loadOrganizerHome(
+        repos: context.repos,
+        snapshotStore: snapshotStore,
       );
-      final cobrosResumen = cobrosResumenDesdeResumenes(resumenes);
-      final results = await Future.wait([
-        Future<List<ResumenJugador>>.value(resumenes),
-        repos.getConvocatoriasActivas(),
-        MisInvitacionesPanel.cargarPendientes(repos),
-        repos.isCloud
-            ? repos.getPagosPorValidar()
-            : Future<List<DetallePartido>>.value([]),
-        repos.isCloud
-            ? repos.getMisDeudasPendientes()
-            : Future<List<DetallePartido>>.value([]),
-        repos.getPartidosJugadosRecientesResumen(limit: 8),
-      ]);
-      final convocatorias = results[1] as List<ConvocatoriaCompleta>;
-      if (mounted) {
-        setState(() {
-          _resumenes = results[0] as List<ResumenJugador>;
-          _convocatorias = convocatorias;
-          _misInvitaciones = results[2] as List<MiConvocatoria>;
-          _pagosPorValidar = results[3] as List<DetallePartido>;
-          _misDeudas = ordenarDeudasPorFecha(results[4] as List<DetallePartido>);
-          _partidosJugadosRecientes =
-              results[5] as List<PartidoCompleto>;
-          _cobrosResumen = cobrosResumen;
-          _primeraCarga = false;
-        });
+
+      if (!mounted) return;
+
+      switch (result.source) {
+        case OrganizerHomeLoadSource.live:
+          offlineStatus.markLive();
+          _applyOrganizerHomeData(result.data!);
+        case OrganizerHomeLoadSource.offlineCache:
+          offlineStatus.markOfflineCached(result.snapshotAt!);
+          _applyOrganizerHomeData(result.data!);
+        case OrganizerHomeLoadSource.offlineEmpty:
+          offlineStatus.markOfflineEmpty();
+          setState(() {
+            _resumenes = [];
+            _convocatorias = [];
+            _misInvitaciones = [];
+            _pagosPorValidar = [];
+            _misDeudas = [];
+            _partidosJugadosRecientes = [];
+            _ultimoPartidoDesglose = [];
+            _cobrosResumen = CobrosResumen.zero;
+            _offlineEmpty = true;
+            _primeraCarga = false;
+          });
+        case OrganizerHomeLoadSource.error:
+          offlineStatus.markLive();
+          setState(() {
+            _loadError = context.userError(result.error!);
+            _primeraCarga = false;
+          });
       }
-      unawaited(
-        ConvocatoriaListaEsperaService().sincronizarPartidos(
-          convocatorias
-              .where((c) => c.partido.esOrganizando)
-              .map((c) => c.partido.id)
-              .whereType<int>(),
-        ),
-      );
+
+      if (result.source == OrganizerHomeLoadSource.live &&
+          result.data != null) {
+        unawaited(
+          ConvocatoriaListaEsperaService().sincronizarPartidos(
+            result.data!.convocatorias
+                .where((c) => c.partido.esOrganizando)
+                .map((c) => c.partido.id)
+                .whereType<int>(),
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _applyOrganizerHomeData(OrganizerHomeData data) {
+    setState(() {
+      _resumenes = data.resumenes;
+      _convocatorias = data.convocatorias;
+      _misInvitaciones = data.misInvitaciones;
+      _pagosPorValidar = data.pagosPorValidar;
+      _misDeudas = data.misDeudas;
+      _partidosJugadosRecientes = data.partidosJugadosRecientes;
+      _ultimoPartidoDesglose = data.ultimoPartidoDesglose;
+      _cobrosResumen = data.cobrosResumen;
+      _offlineEmpty = false;
+      _loadError = null;
+      _primeraCarga = false;
+    });
+  }
+
+  bool get _readOnly => context.watch<OfflineStatusController>().isReadOnly;
+
+  void _showOfflineWriteBlocked() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.tr('offlineWriteBlocked'))),
+    );
+  }
+
+  Future<void> _runWriteAction(Future<void> Function() action) async {
+    if (_readOnly) {
+      _showOfflineWriteBlocked();
+      return;
+    }
+    await action();
+  }
+
+  Future<void> _openOrganizerPartido(int? partidoId) async {
+    if (partidoId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.tr('convocatoriaOpenUnavailable'))),
+        );
+      }
+      return;
+    }
+    await abrirOrganizarPartido(context, partidoId: partidoId);
+    if (mounted) _load();
   }
 
   int get _playerPendingCount => playerModePendingCount(
@@ -128,6 +205,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int get _jugadoresAlDia =>
       _resumenes.where((r) => !r.tieneDeuda).length;
+
+  bool get _hasPagosPendientes => _pagosPorValidar
+      .any((d) => d.comprobantePendienteValidacion);
+
+  bool get _convocatoriasNeedAttention => _convocatoriasEnLista.any((c) {
+        final situacion = PartidoLifecycle.situacionOrganizador(c);
+        if (situacion == ConvocatoriaOrganizadorSituacion.sinResolver) {
+          return true;
+        }
+        return situacion == ConvocatoriaOrganizadorSituacion.preparando &&
+            c.partido.esOrganizando;
+      });
 
   PartidoCompleto? get _ultimoPartido => _partidosJugadosRecientes.isNotEmpty
       ? _partidosJugadosRecientes.first
@@ -145,6 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (cycle.phase) {
       case OrganizerCyclePhase.empty:
       case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.needsResolution:
       case OrganizerCyclePhase.registerExpenses:
         return true;
       case OrganizerCyclePhase.collecting:
@@ -158,30 +248,107 @@ class _HomeScreenState extends State<HomeScreen> {
     final featuredId = snap.convocatoria?.partido.id;
     if (featuredId == null ||
         (snap.phase != OrganizerCyclePhase.preparing &&
+            snap.phase != OrganizerCyclePhase.needsResolution &&
             snap.phase != OrganizerCyclePhase.registerExpenses)) {
       return _convocatorias;
     }
     return _convocatorias.where((c) => c.partido.id != featuredId).toList();
   }
 
+  Future<void> _abrirRegistrarGastos(int partidoId) async {
+    await Navigator.pushNamed(
+      context,
+      '/registrar-partido',
+      arguments: partidoId,
+    );
+  }
+
+  Future<void> _cancelarConvocatoria(int partidoId) async {
+    final l10n = context.l10n;
+    final ok = await confirmarEliminarPartido(
+      context,
+      titulo: l10n.tr('organizerCycleCancelConfirmTitle'),
+      mensaje: l10n.tr('organizerCycleCancelConfirmBody'),
+      consecuencias: [
+        l10n.tr('organizerCycleCancelConsequence1'),
+        l10n.tr('organizerCycleCancelConsequence2'),
+      ],
+    );
+    if (!ok || !mounted) return;
+    await _runWriteAction(() async {
+      await context.repos.cancelarConvocatoria(partidoId);
+      if (mounted) _load();
+    });
+  }
+
+  Future<void> _reprogramarConvocatoria(ConvocatoriaCompleta convocatoria) async {
+    final partidoId = convocatoria.partido.id;
+    if (partidoId == null) return;
+
+    final fecha = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 1)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      locale: Localizations.localeOf(context),
+    );
+    if (fecha == null || !mounted) return;
+
+    final hora = await showTimePicker(
+      context: context,
+      initialTime: const TimeOfDay(hour: 20, minute: 0),
+    );
+    if (hora == null || !mounted) return;
+
+    final nuevaFecha = DateTime(
+      fecha.year,
+      fecha.month,
+      fecha.day,
+      hora.hour,
+      hora.minute,
+    );
+    if (!nuevaFecha.isAfter(DateTime.now())) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.tr('organizerCycleRescheduleFutureError')),
+        ),
+      );
+      return;
+    }
+
+    await _runWriteAction(() async {
+      await context.repos.reprogramarConvocatoria(
+        partidoId: partidoId,
+        nuevaFecha: nuevaFecha,
+      );
+      if (mounted) _load();
+    });
+  }
+
   Future<void> _onCyclePrimaryAction() async {
     final snap = _cycleSnapshot;
     switch (snap.phase) {
       case OrganizerCyclePhase.empty:
+        if (_readOnly) {
+          _showOfflineWriteBlocked();
+          return;
+        }
         await showOrganizerMatchMenu(context);
       case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.needsResolution:
         final id = snap.convocatoria?.partido.id;
         if (id != null) {
           await abrirOrganizarPartido(context, partidoId: id);
         }
       case OrganizerCyclePhase.registerExpenses:
+        if (_readOnly) {
+          _showOfflineWriteBlocked();
+          return;
+        }
         final id = snap.convocatoria?.partido.id;
         if (id != null) {
-          await Navigator.pushNamed(
-            context,
-            '/registrar-partido',
-            arguments: id,
-          );
+          await _abrirRegistrarGastos(id);
         }
       case OrganizerCyclePhase.collecting:
         widget.onNavigateTab?.call(1);
@@ -204,7 +371,11 @@ class _HomeScreenState extends State<HomeScreen> {
           Positioned.fill(
             child: _loading && _primeraCarga
                 ? const PlayerHomeShimmer()
-                : RefreshIndicator(
+                : _loadError != null
+                    ? _buildLoadErrorState()
+                    : _offlineEmpty
+                        ? _buildOfflineEmptyState()
+                        : RefreshIndicator(
                     color: palette.primary,
                     onRefresh: _load,
                     child: CustomScrollView(
@@ -274,25 +445,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               ? () => widget.onNavigateTab!(1)
                               : null,
                         ),
-                        const SizedBox(height: 24),
-                        QuickActionsPanel(
-                          resumenes: _resumenes,
-                          ultimoPartido: _ultimoPartido,
-                          onRefresh: _load,
-                          onNavigateTab: widget.onNavigateTab,
-                        ),
-                        if (_mostrarHeroOperativo(cycle)) ...[
-                          const SizedBox(height: 24),
-                          OrganizerCycleHero(
-                            snapshot: cycle,
-                            onPrimaryAction: _onCyclePrimaryAction,
-                            onCreateMatch: () =>
-                                showOrganizerMatchMenu(context),
-                          ),
-                        ],
-                        if (_pagosPorValidar
-                            .any((d) => d.comprobantePendienteValidacion)) ...[
-                          const SizedBox(height: 24),
+                        if (_hasPagosPendientes) ...[
+                          const SizedBox(height: 16),
                           MatchPaySectionHeader(
                             title: l10n.tr('paymentsToValidateTitle'),
                             count: _pagosPorValidar
@@ -301,23 +455,64 @@ class _HomeScreenState extends State<HomeScreen> {
                                 )
                                 .length,
                             accent: true,
+                            pulseDot: true,
                           ),
                           const SizedBox(height: 10),
                           PagosPorValidarPanel(
                             pagos: _pagosPorValidar,
                             onValidado: _load,
-                            prominent: false,
+                            prominent: true,
+                            sectionTitleExternal: true,
+                            readOnly: _readOnly,
+                            onReadOnlyTap: _showOfflineWriteBlocked,
                           ),
                         ],
+                        if (_mostrarHeroOperativo(cycle)) ...[
+                          const SizedBox(height: 20),
+                          OrganizerCycleHero(
+                              snapshot: cycle,
+                              onPrimaryAction: _onCyclePrimaryAction,
+                              onCreateMatch: () =>
+                                  showOrganizerMatchMenu(context),
+                              onMarkPlayed: cycle.convocatoria?.partido.id ==
+                                      null
+                                  ? null
+                                  : () => _abrirRegistrarGastos(
+                                        cycle.convocatoria!.partido.id!,
+                                      ),
+                              onReschedule: cycle.convocatoria == null
+                                  ? null
+                                  : () => _reprogramarConvocatoria(
+                                        cycle.convocatoria!,
+                                      ),
+                              onCancel: cycle.convocatoria?.partido.id == null
+                                  ? null
+                                  : () => _cancelarConvocatoria(
+                                        cycle.convocatoria!.partido.id!,
+                                      ),
+                            ),
+                        ],
                         if (_convocatoriasEnLista.isNotEmpty) ...[
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 20),
                           MatchPaySectionHeader(
                             title: l10n.tr('homeActiveConvocatorias'),
                             count: _convocatoriasEnLista.length,
+                            accent: _convocatoriasNeedAttention,
+                            pulseDot: _convocatoriasNeedAttention,
                           ),
                           const SizedBox(height: 10),
                           _buildConvocatoriasActivas(_convocatoriasEnLista),
                         ],
+                        const SizedBox(height: 20),
+                        QuickActionsPanel(
+                          resumenes: _resumenes,
+                          ultimoPartido: _ultimoPartido,
+                          ultimoPartidoDesglose: _ultimoPartidoDesglose,
+                          onRefresh: _load,
+                          onNavigateTab: widget.onNavigateTab,
+                          readOnly: _readOnly,
+                          onReadOnlyTap: _showOfflineWriteBlocked,
+                        ),
                         const SizedBox(height: 88),
                       ]),
                     ),
@@ -326,11 +521,61 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
           ),
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: OrganizerPartidoFab(
-              onPressed: () => showOrganizerMatchMenu(context),
+          if (!_readOnly)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: OrganizerPartidoFab(
+                onPressed: () => showOrganizerMatchMenu(context),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadErrorState() {
+    return FriendlyErrorPanel(
+      message: _loadError ?? context.tr('errorGeneric'),
+      onRetry: _load,
+    );
+  }
+
+  Widget _buildOfflineEmptyState() {
+    final l10n = context.l10n;
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.cloud_off_outlined,
+                      size: 56,
+                      color: MatchPayTokens.inkMuted,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      l10n.tr('offlineNoDataAvailable'),
+                      textAlign: TextAlign.center,
+                      style: MatchPayTokens.titleSmallStyle(),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.tr('offlineNoDataAvailableHint'),
+                      textAlign: TextAlign.center,
+                      style: MatchPayTokens.bodySmallStyle(),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -340,24 +585,44 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildConvocatoriasActivas(List<ConvocatoriaCompleta> convocatorias) {
     final l10n = context.l10n;
-    final vencidas = convocatorias
-        .where((c) => c.partido.convocatoriaFechaPasada)
+    final sinResolver = convocatorias
+        .where(
+          (c) =>
+              PartidoLifecycle.situacionOrganizador(c) ==
+              ConvocatoriaOrganizadorSituacion.sinResolver,
+        )
+        .toList();
+    final listasGastos = convocatorias
+        .where(
+          (c) =>
+              PartidoLifecycle.situacionOrganizador(c) ==
+              ConvocatoriaOrganizadorSituacion.listoParaGastos,
+        )
         .toList();
     final proximas = convocatorias
-        .where((c) => !c.partido.convocatoriaFechaPasada)
+        .where(
+          (c) =>
+              PartidoLifecycle.situacionOrganizador(c) ==
+              ConvocatoriaOrganizadorSituacion.preparando,
+        )
         .toList();
 
-    Widget grupos(List<ConvocatoriaCompleta> lista, {required bool fechaPasada}) {
+    Widget grupos(
+      List<ConvocatoriaCompleta> lista, {
+      required ConvocatoriaOrganizadorSituacion situacion,
+    }) {
       final enEspera =
           lista.where((c) => c.partido.esOrganizando).toList();
       final confirmadas =
           lista.where((c) => c.partido.esConfirmado).toList();
+      final esPreparando =
+          situacion == ConvocatoriaOrganizadorSituacion.preparando;
 
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (enEspera.isNotEmpty) ...[
-            if (!fechaPasada)
+            if (esPreparando)
               _ConvocatoriaGrupo(
                 titulo: l10n.tr('homeWaiting'),
                 icono: Icons.hourglass_top_rounded,
@@ -367,20 +632,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ...enEspera.map(
               (c) => _ConvocatoriaTile(
                 convocatoria: c,
-                fechaPasada: fechaPasada,
-                onTap: () async {
-                  await abrirOrganizarPartido(
-                    context,
-                    partidoId: c.partido.id,
-                  );
-                  _load();
-                },
+                situacion: situacion,
+                onTap: () => _openOrganizerPartido(c.partido.id),
               ),
             ),
           ],
           if (confirmadas.isNotEmpty) ...[
             if (enEspera.isNotEmpty) const SizedBox(height: 10),
-            if (!fechaPasada)
+            if (esPreparando)
               _ConvocatoriaGrupo(
                 titulo: l10n.tr('homeConfirmed'),
                 icono: Icons.check_circle_rounded,
@@ -391,14 +650,8 @@ class _HomeScreenState extends State<HomeScreen> {
               (c) => _ConvocatoriaTile(
                 convocatoria: c,
                 confirmado: true,
-                fechaPasada: fechaPasada,
-                onTap: () async {
-                  await abrirOrganizarPartido(
-                    context,
-                    partidoId: c.partido.id,
-                  );
-                  _load();
-                },
+                situacion: situacion,
+                onTap: () => _openOrganizerPartido(c.partido.id),
               ),
             ),
           ],
@@ -406,32 +659,57 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    return MatchPaySurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (vencidas.isNotEmpty) ...[
-            _ConvocatoriaGrupo(
-              titulo: l10n.tr('homePastConvocatorias'),
-              icono: Icons.event_busy_rounded,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (sinResolver.isNotEmpty) ...[
+          _ConvocatoriaGrupo(
+            titulo: l10n.tr('homeUnresolvedConvocatorias'),
+            icono: Icons.help_outline_rounded,
+            color: MatchPayTokens.accentUrgent,
+            cantidad: sinResolver.length,
+          ),
+          Text(
+            l10n.tr('homeUnresolvedConvocatoriasHint'),
+            style: MatchPayTokens.bodySmallStyle(
               color: MatchPayTokens.accentUrgent,
-              cantidad: vencidas.length,
             ),
-            Text(
-              l10n.tr('homePastConvocatoriasHint'),
-              style: MatchPayTokens.bodySmallStyle(
-                color: MatchPayTokens.accentUrgent,
-              ),
-            ),
-            const SizedBox(height: 8),
-            grupos(vencidas, fechaPasada: true),
-          ],
-          if (proximas.isNotEmpty) ...[
-            if (vencidas.isNotEmpty) const SizedBox(height: 14),
-            grupos(proximas, fechaPasada: false),
-          ],
+          ),
+          const SizedBox(height: 8),
+          grupos(
+            sinResolver,
+            situacion: ConvocatoriaOrganizadorSituacion.sinResolver,
+          ),
         ],
-      ),
+        if (listasGastos.isNotEmpty) ...[
+          if (sinResolver.isNotEmpty) const SizedBox(height: 14),
+          _ConvocatoriaGrupo(
+            titulo: l10n.tr('homePastConvocatorias'),
+            icono: Icons.event_busy_rounded,
+            color: MatchPayTokens.accentCredit,
+            cantidad: listasGastos.length,
+          ),
+          Text(
+            l10n.tr('homePastConvocatoriasHint'),
+            style: MatchPayTokens.bodySmallStyle(
+              color: MatchPayTokens.inkSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          grupos(
+            listasGastos,
+            situacion: ConvocatoriaOrganizadorSituacion.listoParaGastos,
+          ),
+        ],
+        if (proximas.isNotEmpty) ...[
+          if (sinResolver.isNotEmpty || listasGastos.isNotEmpty)
+            const SizedBox(height: 14),
+          grupos(
+            proximas,
+            situacion: ConvocatoriaOrganizadorSituacion.preparando,
+          ),
+        ],
+      ],
     );
   }
 }
@@ -473,21 +751,22 @@ class _ConvocatoriaGrupo extends StatelessWidget {
 class _ConvocatoriaTile extends StatelessWidget {
   final ConvocatoriaCompleta convocatoria;
   final bool confirmado;
-  final bool fechaPasada;
+  final ConvocatoriaOrganizadorSituacion situacion;
   final VoidCallback onTap;
 
   const _ConvocatoriaTile({
     required this.convocatoria,
     required this.onTap,
+    required this.situacion,
     this.confirmado = false,
-    this.fechaPasada = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final c = convocatoria;
-    final fecha = formatDiaCorto(c.partido.fecha);
+    final fecha = formatFechaLegibleCorta(c.partido.fecha);
+    final hora = formatHora(c.partido.fecha);
     final pendientes = c.invitados - c.confirmados - c.rechazados;
     final recinto = c.partido.recinto ?? l10n.tr('noVenue');
     final confirmadosLine = l10n.tr('homeConvocatoriaConfirmedLine', params: {
@@ -498,97 +777,122 @@ class _ConvocatoriaTile extends StatelessWidget {
         ? ' · ${l10n.tr('homeConvocatoriaPendingShort', params: {'count': '$pendientes'})}'
         : '';
 
-    final tileColor = fechaPasada
-        ? MatchPayTokens.accentUrgentBg
-        : confirmado
-            ? MatchPayTokens.accentSuccessBg
-            : MatchPayTokens.surfaceInset;
-    final iconBg = fechaPasada
+    final sinResolver =
+        situacion == ConvocatoriaOrganizadorSituacion.sinResolver;
+    final listoGastos =
+        situacion == ConvocatoriaOrganizadorSituacion.listoParaGastos;
+
+    final iconBg = sinResolver
         ? MatchPayTokens.accentUrgentBorder.withValues(alpha: 0.35)
-        : confirmado
-            ? MatchPayTokens.accentSuccess.withValues(alpha: 0.15)
-            : MatchPayTokens.accentCredit.withValues(alpha: 0.12);
-    final iconColor = fechaPasada
+        : listoGastos
+            ? MatchPayTokens.accentCredit.withValues(alpha: 0.15)
+            : confirmado
+                ? MatchPayTokens.accentSuccess.withValues(alpha: 0.15)
+                : MatchPayTokens.accentCredit.withValues(alpha: 0.12);
+    final iconColor = sinResolver
         ? MatchPayTokens.accentUrgent
-        : confirmado
-            ? MatchPayTokens.accentSuccess
-            : MatchPayTokens.accentCredit;
-    final iconData = fechaPasada
-        ? Icons.event_busy_rounded
-        : confirmado
-            ? Icons.check_circle_rounded
-            : Icons.campaign_rounded;
+        : listoGastos
+            ? MatchPayTokens.accentCredit
+            : confirmado
+                ? MatchPayTokens.accentSuccess
+                : MatchPayTokens.accentCredit;
+    final iconData = sinResolver
+        ? Icons.help_outline_rounded
+        : listoGastos
+            ? Icons.receipt_long_rounded
+            : confirmado
+                ? Icons.check_circle_rounded
+                : Icons.campaign_rounded;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Material(
-        color: tileColor,
-        borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: iconBg,
-                    borderRadius: BorderRadius.circular(10),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: MatchPaySurfaceCard(
+        onTap: onTap,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        urgent: sinResolver,
+        elevated: true,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(iconData, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    fecha,
+                    style: MatchPayTokens.titleSmallStyle(),
                   ),
-                  child: Icon(iconData, color: iconColor, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Text(
+                    '$hora · $recinto',
+                    style: MatchPayTokens.bodySmallStyle(
+                      color: MatchPayTokens.inkSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            fecha,
-                            style: MatchPayTokens.titleSmallStyle(),
+                      Expanded(
+                        child: Text(
+                          '$confirmadosLine$pendientesLine',
+                          style: MatchPayTokens.bodySmallStyle(),
+                        ),
+                      ),
+                      if (sinResolver)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
                           ),
-                          if (fechaPasada) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: MatchPayTokens.accentUrgentBg,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: MatchPayTokens.accentUrgentBorder
-                                      .withValues(alpha: 0.6),
-                                ),
-                              ),
-                              child: Text(
-                                l10n.tr('convocatoriaPastDateBadge'),
-                                style: MatchPayTokens.sectionLabelStyle(
-                                  color: MatchPayTokens.accentUrgent,
-                                ).copyWith(fontSize: 10, letterSpacing: 0),
-                              ),
+                          decoration: BoxDecoration(
+                            color: MatchPayTokens.accentUrgentBg,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: MatchPayTokens.accentUrgentBorder
+                                  .withValues(alpha: 0.6),
                             ),
-                          ],
-                        ],
-                      ),
-                      Text(
-                        '$recinto · $confirmadosLine$pendientesLine',
-                        style: MatchPayTokens.bodySmallStyle(),
-                      ),
+                          ),
+                          child: Text(
+                            l10n.tr('convocatoriaUnresolvedBadge'),
+                            style: MatchPayTokens.sectionLabelStyle(
+                              color: MatchPayTokens.accentUrgent,
+                            ).copyWith(fontSize: 10, letterSpacing: 0),
+                          ),
+                        )
+                      else if (listoGastos)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: MatchPayTokens.accentCreditBg,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            l10n.tr('convocatoriaPastDateBadge'),
+                            style: MatchPayTokens.sectionLabelStyle(
+                              color: MatchPayTokens.accentCredit,
+                            ).copyWith(fontSize: 10, letterSpacing: 0),
+                          ),
+                        ),
                     ],
                   ),
-                ),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: MatchPayTokens.inkMuted,
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: MatchPayTokens.inkMuted,
+            ),
+          ],
         ),
       ),
     );

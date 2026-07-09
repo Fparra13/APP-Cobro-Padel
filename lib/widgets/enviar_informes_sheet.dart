@@ -238,16 +238,7 @@ class _EnviarInformesSheetState extends State<EnviarInformesSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              dataActionErrorMessage(
-                context.l10n,
-                e,
-                fallback: (err) => context.tr(
-                  'pdfGenerateError',
-                  params: {'error': '$err'},
-                ),
-              ),
-            ),
+            content: Text(dataActionErrorMessage(context.l10n, e)),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -280,16 +271,7 @@ class _EnviarInformesSheetState extends State<EnviarInformesSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              dataActionErrorMessage(
-                context.l10n,
-                e,
-                fallback: (err) => context.tr(
-                  'pdfGenerateError',
-                  params: {'error': '$err'},
-                ),
-              ),
-            ),
+            content: Text(dataActionErrorMessage(context.l10n, e)),
             backgroundColor: Colors.red.shade700,
           ),
         );

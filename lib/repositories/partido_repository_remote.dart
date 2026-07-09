@@ -89,6 +89,65 @@ class PartidoRepositoryRemote {
         montoPagadoOrganizador: montoPagadoOrganizador,
       );
 
+  /// Primer snapshot de cargo (`cargo_partido > 0`) por partido+jugador.
+  Future<Map<String, double>> _fetchSnapshotsSaldoAnteriorCobroBatch({
+    Iterable<int>? partidoIds,
+    Iterable<String>? jugadorIds,
+  }) async {
+    if (partidoIds != null && partidoIds.isEmpty) return {};
+
+    var query = _client
+        .from('saldos_historicos')
+        .select('partido_id, jugador_id, saldo_anterior, fecha, id')
+        .gt('cargo_partido', 0);
+    if (partidoIds != null) {
+      query = query.inFilter('partido_id', partidoIds.toList());
+    }
+    if (jugadorIds != null && jugadorIds.isNotEmpty) {
+      query = query.inFilter('jugador_id', jugadorIds.toList());
+    }
+
+    final rows = await query
+        .order('fecha', ascending: true)
+        .order('id', ascending: true);
+
+    final map = <String, double>{};
+    for (final row in rows as List) {
+      final pid = SupabaseParse.toInt(row['partido_id']);
+      final jid = row['jugador_id']?.toString();
+      if (jid == null || pid <= 0) continue;
+      final key = CobroLogic.claveSnapshotPartidoJugador(
+        partidoId: pid,
+        jugadorId: jid,
+      );
+      map.putIfAbsent(
+        key,
+        () => SupabaseParse.toDouble(row['saldo_anterior']),
+      );
+    }
+    return map;
+  }
+
+  Future<Map<String, double>> _fetchSaldosCuentaBatch(
+    Iterable<String> jugadorIds,
+  ) async {
+    final ids = jugadorIds.where((id) => id.isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return {};
+
+    final rows = await _client
+        .from('profiles')
+        .select('id, saldo_acumulado')
+        .inFilter('id', ids);
+
+    final map = <String, double>{};
+    for (final row in rows as List) {
+      final id = row['id']?.toString();
+      if (id == null || id.isEmpty) continue;
+      map[id] = SupabaseParse.toDouble(row['saldo_acumulado']);
+    }
+    return map;
+  }
+
   /// Snapshot inmutable al registrar el cargo. Error si falta en partido existente.
   Future<double> _requerirSaldoAnteriorSnapshot({
     required String jugadorId,
@@ -151,7 +210,62 @@ class PartidoRepositoryRemote {
     return roundMoney(jugador.saldoAcumulado).toDouble();
   }
 
-  /// Aplica un pago sobre detalles impagos (parte del flujo registrarPago).
+  /// Si el saldo del perfil es menor que la suma de pendientes en detalles,
+  /// reparte la diferencia (abonos registrados en cuenta pero no en detalle).
+  Future<bool> _sincronizarDetallesConSaldoPerfil(String jugadorId) async {
+    final jugador = await _jugadorRepo.getById(jugadorId);
+    if (jugador == null) return false;
+
+    final saldoPerfil = roundMoney(jugador.saldoAcumulado).toDouble();
+    if (saldoPerfil < -0.005) return false;
+
+    final rows = await _client
+        .from('detalles_partido')
+        .select('partido_id, total, monto_pagado')
+        .eq('jugador_id', jugadorId)
+        .eq('asistio', true);
+    if ((rows as List).isEmpty) return false;
+
+    final partidoIds = <int>{};
+    for (final row in rows) {
+      partidoIds.add(SupabaseParse.toInt(row['partido_id']));
+    }
+    final snapshots = await _fetchSnapshotsSaldoAnteriorCobroBatch(
+      partidoIds: partidoIds,
+      jugadorIds: [jugadorId],
+    );
+
+    var sumPendiente = 0.0;
+    for (final row in rows) {
+      final map = Map<String, dynamic>.from(row);
+      final partidoId = SupabaseParse.toInt(map['partido_id']);
+      final key = CobroLogic.claveSnapshotPartidoJugador(
+        partidoId: partidoId,
+        jugadorId: jugadorId,
+      );
+      final saldoAnt = CobroLogic.saldoAnteriorAlPartido(
+        snapshotHistorico: snapshots[key] ?? 0,
+      );
+      sumPendiente += CobroLogic.obtenerPendientePartido(
+        saldoAnteriorAlPartido: saldoAnt,
+        cargoPartido: SupabaseParse.toDouble(map['total']),
+        montoPagadoEnPartido: SupabaseParse.toDouble(map['monto_pagado']),
+      );
+    }
+    sumPendiente = roundMoney(sumPendiente).toDouble();
+
+    final exceso = roundMoney(sumPendiente - saldoPerfil).toDouble();
+    if (exceso <= 0.005) return false;
+
+    await _aplicarPagoEnDetallesImpagos(
+      jugadorId: jugadorId,
+      monto: exceso,
+      fecha: DateTime.now(),
+    );
+    return true;
+  }
+
+  /// Aplica un pago sobre detalles con deuda neta pendiente (FIFO por fecha).
   Future<void> _aplicarPagoEnDetallesImpagos({
     required String jugadorId,
     required double monto,
@@ -163,8 +277,7 @@ class PartidoRepositoryRemote {
         .from('detalles_partido')
         .select('id, total, monto_pagado, partido_id, partidos!inner(fecha)')
         .eq('jugador_id', jugadorId)
-        .eq('asistio', true)
-        .eq('pagado', false);
+        .eq('asistio', true);
 
     final sorted = (rows as List).map((row) {
       final map = Map<String, dynamic>.from(row);
@@ -185,13 +298,21 @@ class PartidoRepositoryRemote {
         return a.partidoId.compareTo(b.partidoId);
       });
 
+    final snapshots = await _fetchSnapshotsSaldoAnteriorCobroBatch(
+      partidoIds: sorted.map((r) => r.partidoId).toSet(),
+      jugadorIds: [jugadorId],
+    );
+
     var restante = roundMoney(monto).toDouble();
     for (final row in sorted) {
       if (restante <= 0.005) break;
 
-      final saldoAnt = await _requerirSaldoAnteriorSnapshot(
-        jugadorId: jugadorId,
+      final snapKey = CobroLogic.claveSnapshotPartidoJugador(
         partidoId: row.partidoId,
+        jugadorId: jugadorId,
+      );
+      final saldoAnt = CobroLogic.saldoAnteriorAlPartido(
+        snapshotHistorico: snapshots[snapKey] ?? 0,
       );
       final pendiente = CobroLogic.obtenerPendientePartido(
         saldoAnteriorAlPartido: saldoAnt,
@@ -506,19 +627,18 @@ class PartidoRepositoryRemote {
           .select('*, profiles:jugador_id(nombre)')
           .inFilter('partido_id', partidoIds);
 
-      final histRows = await _client
-          .from('saldos_historicos')
-          .select('partido_id, jugador_id, saldo_anterior')
-          .inFilter('partido_id', partidoIds);
+      final histRows = await _fetchSnapshotsSaldoAnteriorCobroBatch(
+        partidoIds: partidoIds,
+      );
 
       final saldosPorPartido = <int, Map<String, double>>{};
-      for (final row in histRows as List) {
-        final map = Map<String, dynamic>.from(row);
-        final pid = SupabaseParse.toInt(map['partido_id']);
-        final jid = map['jugador_id']?.toString();
-        if (jid == null) continue;
-        saldosPorPartido.putIfAbsent(pid, () => {})[jid] =
-            SupabaseParse.toDouble(map['saldo_anterior']);
+      for (final entry in histRows.entries) {
+        final parts = entry.key.split(':');
+        if (parts.length != 2) continue;
+        final pid = int.tryParse(parts[0]);
+        final jid = parts[1];
+        if (pid == null || jid.isEmpty) continue;
+        saldosPorPartido.putIfAbsent(pid, () => {})[jid] = entry.value;
       }
 
       final partidoMap = <int, Partido>{
@@ -565,41 +685,43 @@ class PartidoRepositoryRemote {
   Future<List<DesgloseJugador>> getDesglose(
     int partidoId, {
     bool reconciliar = false,
+    bool repararCuenta = true,
   }) async {
     if (reconciliar) {
       throw UnsupportedError(
         'reconciliar en getDesglose ya no está soportado; use reparar manual',
       );
     }
-    final completo = await getCompleto(partidoId);
+    var completo = await getCompleto(partidoId);
     if (completo == null) return [];
-
-    final histRows = await _client
-        .from('saldos_historicos')
-        .select('jugador_id, saldo_anterior')
-        .eq('partido_id', partidoId);
-
-    final saldosAnteriores = <String, double>{
-      for (final h in histRows as List)
-        h['jugador_id'] as String: (h['saldo_anterior'] as num).toDouble(),
-    };
 
     final asistentes =
         completo.detalles.where((d) => d.asistio && d.jugadorSupabaseId != null);
-    final n = asistentes.length;
-    if (n == 0) return [];
+    final asistenteIds = asistentes.map((d) => d.jugadorSupabaseId!).toSet();
 
-    final canchaU = CalculationService.prorrateoCancha(
-      costoCancha: completo.partido.costoCancha,
-      cantidadAsistentes: n,
+    if (repararCuenta) {
+      var sincronizado = false;
+      for (final jid in asistenteIds) {
+        if (await _sincronizarDetallesConSaldoPerfil(jid)) {
+          sincronizado = true;
+        }
+      }
+      if (sincronizado) {
+        completo = await getCompleto(partidoId) ?? completo;
+      }
+    }
+
+    final snapshots = await _fetchSnapshotsSaldoAnteriorCobroBatch(
+      partidoIds: [partidoId],
     );
-    final pelotasU = CalculationService.prorrateoPelotas(
-      costoPelotas: completo.partido.costoPelotas,
-      cantidadAsistentes: n,
-    );
+
+    final asistentesFinal =
+        completo.detalles.where((d) => d.asistio && d.jugadorSupabaseId != null);
+    final asistenteIdsFinal =
+        asistentesFinal.map((d) => d.jugadorSupabaseId!).toSet();
 
     final varsPorJugador = <String, Map<String, double>>{};
-    for (final d in asistentes) {
+    for (final d in asistentesFinal) {
       varsPorJugador[d.jugadorSupabaseId!] = {};
     }
 
@@ -613,24 +735,39 @@ class PartidoRepositoryRemote {
       }
     }
 
+    final costoCancha = completo.partido.costoCancha;
+    final costoPelotas = completo.partido.costoPelotas;
+    final totalFijo = costoCancha + costoPelotas;
+
+    final saldosCuenta = await _fetchSaldosCuentaBatch(asistenteIdsFinal);
+
     final desgloses = <DesgloseJugador>[];
-    for (final d in asistentes) {
+    for (final d in asistentesFinal) {
       final jid = d.jugadorSupabaseId!;
-      if (!saldosAnteriores.containsKey(jid)) {
+      final snapKey = CobroLogic.claveSnapshotPartidoJugador(
+        partidoId: partidoId,
+        jugadorId: jid,
+      );
+      if (!snapshots.containsKey(snapKey)) {
         throw DatosInconsistentesException(
           'Datos inconsistentes: falta snapshot saldo_anterior '
           '(jugador $jid, partido $partidoId)',
         );
       }
       final saldoAnt = CobroLogic.saldoAnteriorAlPartido(
-        snapshotHistorico: saldosAnteriores[jid],
+        snapshotHistorico: snapshots[snapKey],
       );
+      final pf = roundMoney(d.prorrateoFijo).toDouble();
+      var cancha = 0.0;
+      var pelotas = 0.0;
+      if (totalFijo > 0 && pf > 0) {
+        cancha = pf * (costoCancha / totalFijo);
+        pelotas = pf * (costoPelotas / totalFijo);
+      } else if (pf > 0) {
+        cancha = pf;
+      }
       final vars = varsPorJugador[jid] ?? {};
-      final totalVars = vars.values.fold(0.0, (s, v) => s + v);
-      final totalPartido = CalculationService.cargoPartido(
-        prorrateoFijo: canchaU + pelotasU,
-        totalVariables: totalVars,
-      );
+      final totalPartido = roundMoney(d.total).toDouble();
       final totalDebido = CalculationService.totalDebido(
         saldoAnterior: saldoAnt,
         cargoPartido: totalPartido,
@@ -647,14 +784,15 @@ class PartidoRepositoryRemote {
           jugadorSupabaseId: jid,
           nombre: d.nombreJugador ?? '',
           saldoAnterior: roundMoney(saldoAnt).toDouble(),
-          cancha: canchaU,
-          pelotas: pelotasU,
+          cancha: roundMoney(cancha).toDouble(),
+          pelotas: roundMoney(pelotas).toDouble(),
           variables: vars,
           totalPartido: totalPartido,
-          totalDebido: totalDebido,
+          totalDebido: roundMoney(totalDebido).toDouble(),
           montoPagado: montoPagado,
-          saldoRestante: saldoRestante,
+          saldoRestante: roundMoney(saldoRestante).toDouble(),
           pagado: d.pagado,
+          saldoAcumuladoCuenta: saldosCuenta[jid],
         ),
       );
     }
@@ -684,18 +822,7 @@ class PartidoRepositoryRemote {
       partidoIds.add(SupabaseParse.toInt(map['partido_id']));
     }
     if (partidoIds.isEmpty) return {};
-
-    final histRows = await _client
-        .from('saldos_historicos')
-        .select('partido_id, jugador_id, saldo_anterior')
-        .inFilter('partido_id', partidoIds.toList())
-        .gt('cargo_partido', 0);
-
-    return {
-      for (final row in histRows as List)
-        '${SupabaseParse.toInt(row['partido_id'])}:${row['jugador_id']}':
-            SupabaseParse.toDouble(row['saldo_anterior']),
-    };
+    return _fetchSnapshotsSaldoAnteriorCobroBatch(partidoIds: partidoIds);
   }
 
   Future<List<ResumenJugador>> getResumenJugadores({bool reconciliar = false}) async {
@@ -1831,18 +1958,14 @@ class PartidoRepositoryRemote {
     if (candidatos.isEmpty) return [];
 
     final partidoIds = candidatos.map((d) => d.partidoId).toSet().toList();
-    final saldoRows = await _client
-        .from('saldos_historicos')
-        .select('partido_id, saldo_anterior')
-        .eq('jugador_id', uid)
-        .inFilter('partido_id', partidoIds)
-        .gt('cargo_partido', 0);
-
-    final saldoPorPartido = {
-      for (final row in saldoRows as List)
-        SupabaseParse.toInt(row['partido_id']):
-            SupabaseParse.toDouble(row['saldo_anterior']),
-    };
+    final saldoPorPartido = <int, double>{};
+    for (final entry in (await _fetchSnapshotsSaldoAnteriorCobroBatch(
+      partidoIds: partidoIds,
+      jugadorIds: [uid],
+    )).entries) {
+      final pid = int.tryParse(entry.key.split(':').first);
+      if (pid != null) saldoPorPartido[pid] = entry.value;
+    }
 
     return candidatos.where((d) {
       if (d.comprobantePendienteValidacion) return true;
@@ -2055,15 +2178,13 @@ class PartidoRepositoryRemote {
           }).eq('id', detalleId);
           final jugadorRechazo = await _jugadorRepo.getById(jugadorId);
           final pendienteNeto = pendientePartido;
-          unawaited(
-            _cobroNotificaciones.notificarComprobanteRechazado(
-              detalleId: detalleId,
-              partidoId: partidoId,
-              jugadorId: jugadorId,
-              jugadorNombre: jugadorRechazo?.nombre ?? 'Jugador',
-              pendienteNeto: pendienteNeto,
-              fechaPartido: fechaPartido,
-            ),
+          await _cobroNotificaciones.notificarComprobanteRechazado(
+            detalleId: detalleId,
+            partidoId: partidoId,
+            jugadorId: jugadorId,
+            jugadorNombre: jugadorRechazo?.nombre ?? 'Jugador',
+            pendienteNeto: pendienteNeto,
+            fechaPartido: fechaPartido,
           );
           return;
         case ComprobanteValidacionAccion.ignorarYaValidado:

@@ -218,6 +218,25 @@ class AppSettingsController extends ChangeNotifier {
     await prefs.setBool(_keyIntroOnboarded, true);
   }
 
+  /// Completa intro y deporte por defecto (sin pantalla de deporte).
+  Future<void> completeIntroAndDefaultSport({
+    SportType sport = SportType.general,
+  }) async {
+    if (!_introOnboardingComplete) {
+      _introOnboardingComplete = true;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyIntroOnboarded, true);
+    }
+    if (!_sportOnboardingComplete) {
+      _sport = sport;
+      _sportOnboardingComplete = true;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keySport, sport.dbValue);
+      await prefs.setBool(_keySportOnboarded, true);
+    }
+    notifyListeners();
+  }
+
   /// Vuelve al paso 1 del onboarding (idioma + valor).
   Future<void> revertIntroOnboarding() async {
     if (!_introOnboardingComplete || _sportOnboardingComplete) return;

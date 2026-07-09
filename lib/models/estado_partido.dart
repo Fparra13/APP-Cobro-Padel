@@ -1,7 +1,8 @@
 enum EstadoPartido {
   organizando,
   confirmado,
-  jugado;
+  jugado,
+  cancelado;
 
   String get dbValue => name;
 
@@ -11,6 +12,10 @@ enum EstadoPartido {
         return EstadoPartido.organizando;
       case 'confirmado':
         return EstadoPartido.confirmado;
+      case 'cancelado':
+        return EstadoPartido.cancelado;
+      case 'jugado':
+        return EstadoPartido.jugado;
       default:
         return EstadoPartido.jugado;
     }

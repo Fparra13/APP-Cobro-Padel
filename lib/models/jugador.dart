@@ -78,6 +78,7 @@ class Jugador {
     String? fotoUrl,
     bool clearFoto = false,
     bool clearTelefono = false,
+    bool clearEmail = false,
     DateTime? createdAt,
   }) {
     return Jugador(
@@ -86,7 +87,7 @@ class Jugador {
       nombre: nombre ?? this.nombre,
       activo: activo ?? this.activo,
       saldoAcumulado: saldoAcumulado ?? this.saldoAcumulado,
-      email: email ?? this.email,
+      email: clearEmail ? null : (email ?? this.email),
       telefono: clearTelefono ? null : (telefono ?? this.telefono),
       fotoPath: clearFoto ? null : (fotoPath ?? this.fotoPath),
       fotoUrl: clearFoto ? null : (fotoUrl ?? this.fotoUrl),
@@ -138,8 +139,7 @@ class Jugador {
     };
     final id = supabaseId;
     if (id != null && id.isNotEmpty) map['id'] = id;
-    final mail = contactEmail;
-    if (mail != null) map['email'] = mail;
+    map['email'] = contactEmail;
     final tel = telefono?.trim();
     map['telefono'] = (tel != null && tel.isNotEmpty) ? tel : null;
     final foto = fotoUrl?.trim();

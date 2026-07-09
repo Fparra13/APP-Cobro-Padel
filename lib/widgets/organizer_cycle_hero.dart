@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../domain/partido_lifecycle.dart';
 import '../domain/organizer_cycle_logic.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/sport_theme.dart';
@@ -15,6 +16,7 @@ import 'matchpay_ui.dart';
 enum OrganizerCyclePhase {
   empty,
   preparing,
+  needsResolution,
   registerExpenses,
   collecting,
   allPaid,
@@ -48,15 +50,35 @@ class OrganizerCycleSnapshot {
     required List<PartidoCompleto> partidosJugadosRecientes,
     List<ResumenJugador> resumenesGrupo = const [],
   }) {
-    final vencidas = convocatorias
-        .where((c) => c.partido.convocatoriaFechaPasada)
+    final sinResolver = convocatorias
+        .where(
+          (c) =>
+              PartidoLifecycle.situacionOrganizador(c) ==
+              ConvocatoriaOrganizadorSituacion.sinResolver,
+        )
         .toList()
       ..sort((a, b) => b.partido.fecha.compareTo(a.partido.fecha));
 
-    if (vencidas.isNotEmpty) {
+    if (sinResolver.isNotEmpty) {
+      return OrganizerCycleSnapshot(
+        phase: OrganizerCyclePhase.needsResolution,
+        convocatoria: sinResolver.first,
+      );
+    }
+
+    final listasParaGastos = convocatorias
+        .where(
+          (c) =>
+              PartidoLifecycle.situacionOrganizador(c) ==
+              ConvocatoriaOrganizadorSituacion.listoParaGastos,
+        )
+        .toList()
+      ..sort((a, b) => b.partido.fecha.compareTo(a.partido.fecha));
+
+    if (listasParaGastos.isNotEmpty) {
       return OrganizerCycleSnapshot(
         phase: OrganizerCyclePhase.registerExpenses,
-        convocatoria: vencidas.first,
+        convocatoria: listasParaGastos.first,
       );
     }
 
@@ -106,7 +128,11 @@ class OrganizerCycleSnapshot {
     }
 
     final proximas = convocatorias
-        .where((c) => !c.partido.convocatoriaFechaPasada)
+        .where(
+          (c) =>
+              PartidoLifecycle.situacionOrganizador(c) ==
+              ConvocatoriaOrganizadorSituacion.preparando,
+        )
         .toList()
       ..sort((a, b) => a.partido.fecha.compareTo(b.partido.fecha));
 
@@ -126,6 +152,8 @@ class OrganizerCycleSnapshot {
         return l10n.tr('organizerCyclePhaseEmpty');
       case OrganizerCyclePhase.preparing:
         return l10n.tr('organizerCyclePhasePreparing');
+      case OrganizerCyclePhase.needsResolution:
+        return l10n.tr('organizerCyclePhaseNeedsResolution');
       case OrganizerCyclePhase.registerExpenses:
         return l10n.tr('organizerCyclePhaseRegister');
       case OrganizerCyclePhase.collecting:
@@ -141,12 +169,18 @@ class OrganizerCycleHero extends StatelessWidget {
   final OrganizerCycleSnapshot snapshot;
   final VoidCallback onPrimaryAction;
   final VoidCallback? onCreateMatch;
+  final VoidCallback? onMarkPlayed;
+  final VoidCallback? onReschedule;
+  final VoidCallback? onCancel;
 
   const OrganizerCycleHero({
     super.key,
     required this.snapshot,
     required this.onPrimaryAction,
     this.onCreateMatch,
+    this.onMarkPlayed,
+    this.onReschedule,
+    this.onCancel,
   });
 
   @override
@@ -158,6 +192,13 @@ class OrganizerCycleHero extends StatelessWidget {
         return _PreparingHero(
           convocatoria: snapshot.convocatoria!,
           onTap: onPrimaryAction,
+        );
+      case OrganizerCyclePhase.needsResolution:
+        return _ResolutionHero(
+          convocatoria: snapshot.convocatoria!,
+          onMarkPlayed: onMarkPlayed ?? onPrimaryAction,
+          onReschedule: onReschedule ?? onPrimaryAction,
+          onCancel: onCancel,
         );
       case OrganizerCyclePhase.registerExpenses:
         return _RegisterHero(
@@ -195,7 +236,9 @@ class _CycleHeroShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = Material(
+    final content = ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: Material(
       color: Colors.transparent,
       child: Ink(
         decoration: BoxDecoration(
@@ -220,6 +263,7 @@ class _CycleHeroShell extends StatelessWidget {
           ),
         ),
         child: Stack(
+          clipBehavior: Clip.hardEdge,
           children: [
             Positioned(
               right: -20,
@@ -301,8 +345,11 @@ class _CycleHeroShell extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
 
+    // Solo envolver con tap global si no hay botón CTA (evita zona de toque
+    // invisible que bloquea la lista de convocatorias debajo del hero).
     if (onTap == null || ctaLabel != null) return content;
 
     return MatchPayTapScale(onTap: onTap!, child: content);
@@ -479,6 +526,128 @@ class _PreparingHero extends StatelessWidget {
       ),
       ctaLabel: l10n.tr('organizerCycleViewConvocatoria'),
       onTap: onTap,
+    );
+  }
+}
+
+class _ResolutionHero extends StatelessWidget {
+  final ConvocatoriaCompleta convocatoria;
+  final VoidCallback onMarkPlayed;
+  final VoidCallback onReschedule;
+  final VoidCallback? onCancel;
+
+  const _ResolutionHero({
+    required this.convocatoria,
+    required this.onMarkPlayed,
+    required this.onReschedule,
+    this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final p = convocatoria.partido;
+    final palette = SportThemeConfig.paletteFor(p.sportType);
+    final confirmados = convocatoria.confirmados;
+    final cupos = p.cuposMax;
+
+    return _CycleHeroShell(
+      palette: palette,
+      phaseLabel: l10n.tr('organizerCyclePhaseNeedsResolution'),
+      title: l10n.tr('organizerCycleUnresolvedTitle'),
+      subtitle: l10n.tr('organizerCycleUnresolvedBody'),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            formatDiaCompleto(p.fecha),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.88),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.tr(
+              'organizerCycleUnresolvedRoster',
+              params: {
+                'confirmed': '$confirmados',
+                'slots': '$cupos',
+              },
+            ),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.82),
+              fontSize: 12.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ResolutionChip(
+                label: l10n.tr('organizerCycleUnresolvedMarkPlayed'),
+                icon: Icons.sports_tennis_rounded,
+                onTap: onMarkPlayed,
+              ),
+              _ResolutionChip(
+                label: l10n.tr('organizerCycleUnresolvedReschedule'),
+                icon: Icons.event_repeat_rounded,
+                onTap: onReschedule,
+              ),
+              if (onCancel != null)
+                _ResolutionChip(
+                  label: l10n.tr('organizerCycleUnresolvedCancel'),
+                  icon: Icons.cancel_outlined,
+                  onTap: onCancel!,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResolutionChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ResolutionChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: Colors.white),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

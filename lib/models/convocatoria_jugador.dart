@@ -1,3 +1,4 @@
+import '../core/supabase_parse.dart';
 import 'estado_partido.dart';
 import 'jugador.dart';
 import 'partido.dart';
@@ -91,7 +92,7 @@ class ConvocatoriaJugadorEntry {
           map['es_suplente'] == true,
       ordenEspera: map['orden_espera'] as int?,
       tiempoLimite: tiempoRaw != null
-          ? DateTime.parse(tiempoRaw.toString())
+          ? SupabaseParse.toDateTime(tiempoRaw)
           : null,
       notificadoVencimiento: (map['notificado_vencimiento'] as int? ?? 0) ==
               1 ||
@@ -116,7 +117,7 @@ class ConvocatoriaJugadorEntry {
       esSuplente: map['es_suplente'] as bool? ?? false,
       ordenEspera: (map['orden_espera'] as num?)?.toInt(),
       tiempoLimite: tiempoRaw != null
-          ? DateTime.parse(tiempoRaw.toString())
+          ? SupabaseParse.toDateTime(tiempoRaw)
           : null,
       notificadoVencimiento: map['notificado_vencimiento'] as bool? ?? false,
       recordatorioPlazoEnviado:

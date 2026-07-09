@@ -10,6 +10,7 @@ import '../../core/matchpay_design_tokens.dart';
 import '../../core/sport_theme.dart';
 import '../../core/supabase_config.dart';
 import '../../l10n/matchpay_strings.dart';
+import '../../utils/matchpay_context.dart';
 import '../../widgets/matchpay_ui.dart';
 import '../../widgets/sport_icon.dart';
 
@@ -146,10 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e, st) {
       debugPrint('LoginScreen._enviarMagicLink: $e\n$st');
       if (!mounted) return;
-      final msg = e is Exception
-          ? e.toString().replaceFirst('Exception: ', '')
-          : '$e';
-      _mostrarError(msg.isEmpty ? 'No se pudo enviar el enlace.' : msg);
+      _mostrarError(context.userError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -288,6 +286,14 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 14),
+        Text(
+          l10n.tr('loginMagicLinkHint'),
+          textAlign: TextAlign.center,
+          style: MatchPayTokens.bodySmallStyle(
+            color: MatchPayTokens.inkSecondary,
+          ).copyWith(height: 1.4),
+        ),
       ],
     );
   }
@@ -407,13 +413,13 @@ class _LoginHero extends StatelessWidget {
         children: [
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 350),
-            child: _LoginLottie(
-              key: ValueKey(linkEnviado),
-              asset: linkEnviado
-                  ? 'assets/lottie/login_email_sent.json'
-                  : 'assets/lottie/login_welcome.json',
-              palette: palette,
-            ),
+            child: linkEnviado
+                ? _LoginLottie(
+                    key: const ValueKey('sent'),
+                    asset: 'assets/lottie/login_email_sent.json',
+                    palette: palette,
+                  )
+                : _LoginTrophy(key: const ValueKey('welcome')),
           ),
           const SizedBox(height: 4),
           Text(
@@ -432,6 +438,32 @@ class _LoginHero extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LoginTrophy extends StatelessWidget {
+  const _LoginTrophy({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 120,
+      child: Center(
+        child: Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.emoji_events_rounded,
+            size: 52,
+            color: Color(0xFFFFD54F),
+          ),
+        ),
       ),
     );
   }

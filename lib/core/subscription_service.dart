@@ -26,7 +26,7 @@ class SubscriptionService extends ChangeNotifier {
     switch (feature) {
       // Libre hasta integrar Play Billing (paywall era solo un stub).
       case ProFeature.createMatch:
-        return true;
+        return isPro;
       case ProFeature.automateCharges:
       case ProFeature.viewStatistics:
       case ProFeature.managePlayers:

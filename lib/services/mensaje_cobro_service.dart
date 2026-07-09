@@ -42,6 +42,12 @@ class MensajeCobroService {
 
     lineas.add('Subtotal partido: ${formatMoney(desglose.totalPartido)}');
 
+    if (desglose.saldoAnterior > 0.005) {
+      lineas.add(
+        '• Deuda anterior: ${formatMoney(desglose.saldoAnterior)}',
+      );
+    }
+
     if (desglose.saldoFavorAplicado > 0 && desglose.netoAPagarPartido <= 0) {
       lineas.add('✅ Partido cubierto con saldo a favor');
     } else if (desglose.pagadoEnPartido) {

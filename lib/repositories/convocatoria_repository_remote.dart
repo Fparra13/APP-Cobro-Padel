@@ -92,6 +92,47 @@ class ConvocatoriaRepositoryRemote {
     });
   }
 
+  /// Roster completo para jugadores invitados (RLS solo devuelve la fila propia).
+  Future<ConvocatoriaCompleta?> getRosterParaJugador({
+    required int partidoId,
+    required Partido partido,
+  }) async {
+    return SupabaseHelpers.guard('Roster convocatoria jugador', () async {
+      try {
+        final raw = await _client.rpc(
+          'get_convocatoria_roster_jugador',
+          params: {'p_partido_id': partidoId},
+        );
+        if (raw == null) return null;
+        final map = Map<String, dynamic>.from(raw as Map);
+        final titularesJson = map['titulares'];
+        if (titularesJson is! List) return null;
+
+        final jugadores = titularesJson.map((item) {
+          final row = Map<String, dynamic>.from(item as Map);
+          final jugador = Jugador(
+            supabaseId: row['jugador_id']?.toString(),
+            nombre: row['nombre'] as String? ?? 'Jugador',
+            fotoUrl: row['foto_url'] as String?,
+            createdAt: DateTime.now(),
+          );
+          return ConvocatoriaJugadorEntry(
+            partidoId: partidoId,
+            jugador: jugador,
+            estado: EstadoConfirmacion.fromDb(
+              row['estado_confirmacion'] as String?,
+            ),
+            esSuplente: row['es_suplente'] as bool? ?? false,
+          );
+        }).toList();
+
+        return ConvocatoriaCompleta(partido: partido, jugadores: jugadores);
+      } catch (_) {
+        return null;
+      }
+    });
+  }
+
   Map<String, dynamic> _rowForInput(
     ConvocatoriaJugadorInput input,
     int horasLimite, {
@@ -105,9 +146,9 @@ class ConvocatoriaRepositoryRemote {
     } else if (conTiempoLimite &&
         !input.esSuplente &&
         input.estado == EstadoConfirmacion.invitado) {
-      tiempoLimite = DateTime.now()
-          .add(Duration(hours: horasLimite))
-          .toIso8601String();
+      tiempoLimite = SupabaseParse.toTimestamptz(
+        DateTime.now().add(Duration(hours: horasLimite)),
+      );
     }
     return {
       'jugador_id': input.jugadorId,
@@ -225,7 +266,10 @@ class ConvocatoriaRepositoryRemote {
     return SupabaseHelpers.guard('Promover suplente', () async {
       final conv = await getCompleta(partidoId);
       if (conv == null) return null;
-      if (conv.confirmados >= conv.partido.cuposMax) return null;
+      final ocupados = conv.titulares
+          .where((t) => t.estado.esTitularActivo)
+          .length;
+      if (ocupados >= conv.partido.cuposMax) return null;
       if (conv.suplentes.isEmpty) return null;
 
       final suplente = conv.suplentes.first;
@@ -239,7 +283,7 @@ class ConvocatoriaRepositoryRemote {
         'es_suplente': false,
         'orden_espera': null,
         'estado_confirmacion': EstadoConfirmacion.invitado.dbValue,
-        'tiempo_limite': limite.toIso8601String(),
+        'tiempo_limite': SupabaseParse.toTimestamptz(limite),
         'notificado_vencimiento': false,
         'recordatorio_plazo_enviado': false,
       }).eq('partido_id', partidoId).eq('jugador_id', jugadorId);
@@ -268,7 +312,7 @@ class ConvocatoriaRepositoryRemote {
       final partidoRow = await _client
           .from('partidos')
           .insert({
-            'fecha': fecha.toIso8601String(),
+            'fecha': SupabaseParse.toTimestamptz(fecha),
             'recinto': recinto,
             'recinto_id': recintoId,
             'recinto_maps_url': recintoMapsUrl,
@@ -301,8 +345,9 @@ class ConvocatoriaRepositoryRemote {
     required int horasLimite,
   }) async {
     await SupabaseHelpers.guard('Activar tiempos límite', () async {
-      final limite =
-          DateTime.now().add(Duration(hours: horasLimite)).toIso8601String();
+      final limite = SupabaseParse.toTimestamptz(
+        DateTime.now().add(Duration(hours: horasLimite)),
+      );
       await _client
           .from('convocatoria_jugadores')
           .update({'tiempo_limite': limite})
@@ -320,8 +365,102 @@ class ConvocatoriaRepositoryRemote {
     });
   }
 
+  /// Vuelve a `organizando` si faltan confirmados (p. ej. titular se bajó).
+  Future<void> reabrirConvocatoriaOrganizador(int partidoId) async {
+    await SupabaseHelpers.guard('Reabrir convocatoria', () async {
+      await _client.from('partidos').update({
+        'estado': EstadoPartido.organizando.dbValue,
+      }).eq('id', partidoId);
+    });
+  }
+
+  Future<void> actualizarOrdenListaEspera({
+    required int partidoId,
+    required List<String> jugadorIdsEnOrden,
+  }) async {
+    await SupabaseHelpers.guard('Orden lista de espera', () async {
+      for (var i = 0; i < jugadorIdsEnOrden.length; i++) {
+        final id = jugadorIdsEnOrden[i];
+        if (id.isEmpty) continue;
+        await _client.from('convocatoria_jugadores').update({
+          'orden_espera': i + 1,
+        }).eq('partido_id', partidoId).eq('jugador_id', id);
+      }
+    });
+  }
+
   Future<void> eliminar(int partidoId) async {
     await _partidoRepo.eliminarPartido(partidoId);
+  }
+
+  Future<void> cancelar(int partidoId) async {
+    await SupabaseHelpers.guard('Cancelar convocatoria', () async {
+      try {
+        await _client.rpc(
+          'cancelar_convocatoria_organizador',
+          params: {'p_partido_id': partidoId},
+        );
+        return;
+      } catch (_) {
+        // RPC no desplegado: fallback manual.
+      }
+
+      await _client.from('partidos').update({
+        'estado': EstadoPartido.cancelado.dbValue,
+        'resuelto_en': SupabaseParse.toTimestamptz(DateTime.now()),
+      }).eq('id', partidoId);
+
+      await _client
+          .from('convocatoria_jugadores')
+          .delete()
+          .eq('partido_id', partidoId);
+    });
+  }
+
+  Future<void> reprogramar({
+    required int partidoId,
+    required DateTime nuevaFecha,
+  }) async {
+    await SupabaseHelpers.guard('Reprogramar convocatoria', () async {
+      try {
+        await _client.rpc(
+          'reprogramar_convocatoria_organizador',
+          params: {
+            'p_partido_id': partidoId,
+            'p_nueva_fecha': SupabaseParse.toTimestamptz(nuevaFecha),
+          },
+        );
+        return;
+      } catch (_) {
+        // RPC no desplegado: fallback manual.
+      }
+
+      final conv = await getCompleta(partidoId);
+      if (conv == null) {
+        throw Exception('Convocatoria no encontrada');
+      }
+
+      final limite = DateTime.now().add(
+        Duration(hours: conv.partido.horasLimiteRespuesta),
+      );
+
+      await _client.from('partidos').update({
+        'fecha': SupabaseParse.toTimestamptz(nuevaFecha),
+        'estado': EstadoPartido.organizando.dbValue,
+        'resuelto_en': null,
+      }).eq('id', partidoId);
+
+      await _client
+          .from('convocatoria_jugadores')
+          .update({
+            'tiempo_limite': SupabaseParse.toTimestamptz(limite),
+            'notificado_vencimiento': false,
+            'recordatorio_plazo_enviado': false,
+          })
+          .eq('partido_id', partidoId)
+          .eq('es_suplente', false)
+          .eq('estado_confirmacion', EstadoConfirmacion.invitado.dbValue);
+    });
   }
 
   Future<void> actualizar({
@@ -353,7 +492,7 @@ class ConvocatoriaRepositoryRemote {
       }
 
       await _client.from('partidos').update({
-        'fecha': fecha.toIso8601String(),
+        'fecha': SupabaseParse.toTimestamptz(fecha),
         'recinto': recinto,
         'recinto_id': recintoId,
         'recinto_maps_url': recintoMapsUrl,

@@ -11,6 +11,10 @@ class SharedExpenseEntry {
   ExpenseIconKey iconKey;
   final Set<String> participantes;
   String? comprobantePath;
+  /// Reparte entre todos los asistentes hasta que el organizador ajuste los chips.
+  bool repartoEntreTodos;
+  /// Si true, el organizador marcó explícitamente que nadie paga este gasto.
+  bool sinParticipantesExplicito;
 
   SharedExpenseEntry({
     required this.id,
@@ -19,6 +23,8 @@ class SharedExpenseEntry {
     this.iconKey = ExpenseIconKey.general,
     Set<String>? participantes,
     this.comprobantePath,
+    this.repartoEntreTodos = true,
+    this.sinParticipantesExplicito = false,
   })  : labelCtrl = TextEditingController(text: label),
         montoCtrl = TextEditingController(text: monto),
         participantes = participantes ?? {};
@@ -41,5 +47,7 @@ class SharedExpenseEntry {
         iconKey: iconKey,
         participantes: Set.from(participantes),
         comprobantePath: comprobantePath,
+        repartoEntreTodos: repartoEntreTodos,
+        sinParticipantesExplicito: sinParticipantesExplicito,
       );
 }
