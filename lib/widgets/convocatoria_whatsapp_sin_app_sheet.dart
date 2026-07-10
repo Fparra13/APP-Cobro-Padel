@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_repositories.dart';
+import '../core/auth_service.dart';
+import '../core/supabase_helpers.dart';
+import '../core/supabase_parse.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/estado_partido.dart';
 import '../models/jugador.dart';
@@ -77,9 +80,11 @@ class _ConvocatoriaWhatsAppSinAppSheetState
         if (conv == null) {
           throw Exception(context.tr('convocatoriaNotFoundSnack'));
         }
+        final nombreOrganizador = await _nombreOrganizador();
         final msg = ConvocatoriaMessageService().construirMensajePersonal(
           convocatoria: conv,
           nombreJugador: jugador.nombre,
+          nombreOrganizador: nombreOrganizador,
         );
         final ok = await WhatsAppShareService.enviar(
           mensaje: msg,
@@ -100,6 +105,24 @@ class _ConvocatoriaWhatsAppSinAppSheetState
       }
       return null;
     });
+  }
+
+  Future<String> _nombreOrganizador() async {
+    final uid = AuthService.instance.currentUser?.id;
+    if (uid == null) return '';
+    try {
+      final row = await SupabaseHelpers.client
+          .from('profiles')
+          .select('nombre')
+          .eq('id', uid)
+          .maybeSingle();
+      return SupabaseParse.toStringOrNull(
+            Map<String, dynamic>.from(row ?? {})['nombre'],
+          ) ??
+          '';
+    } catch (_) {
+      return '';
+    }
   }
 
   void _mostrarFeedback(String msg, {bool error = false}) {

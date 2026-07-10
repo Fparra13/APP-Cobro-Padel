@@ -1,4 +1,5 @@
 import '../domain/organizer_cycle_logic.dart';
+import '../domain/estado_partido_publico.dart';
 import '../domain/partido_lifecycle.dart';
 import '../models/detalle_partido.dart';
 import '../models/mi_convocatoria.dart';
@@ -40,11 +41,16 @@ int organizerModePendingCount({
       )
       .length;
 
-  for (final c in convocatorias.where(
-    (c) =>
-        PartidoLifecycle.situacionOrganizador(c) ==
-        ConvocatoriaOrganizadorSituacion.preparando,
-  )) {
+  count += convocatorias.where((c) {
+    final estado = PartidoEstadoPublicoView.resolve(c).estado;
+    return estado == EstadoPartidoPublico.enEvaluacion ||
+        estado == EstadoPartidoPublico.reprogramado;
+  }).length;
+
+  for (final c in convocatorias.where((c) {
+    final estado = PartidoEstadoPublicoView.resolve(c).estado;
+    return estado == EstadoPartidoPublico.esperandoConfirmaciones;
+  })) {
     final cupos = c.partido.cuposMax;
     final faltan =
         cupos > 0 ? (cupos - c.confirmados).clamp(0, cupos) : 0;

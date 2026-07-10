@@ -83,6 +83,46 @@ class ConvocatoriaNotificacionService {
     }
   }
 
+  /// Aviso a titular confirmado cuando el partido se reprograma.
+  Future<void> notificarReprogramacionTitular({
+    required Jugador jugador,
+    required int partidoId,
+    required DateTime fecha,
+    required String recinto,
+    required SportType sportType,
+  }) async {
+    await _enviarAJugadorConvocatoria(
+      jugador: jugador,
+      partidoId: partidoId,
+      tituloKey: 'notifReprogramadoTitle',
+      cuerpoKey: 'notifReprogramadoBody',
+      fecha: fecha,
+      recinto: recinto,
+      sportType: sportType,
+      localIdOffset: 4000,
+    );
+  }
+
+  /// Recordatorio manual del organizador a invitados sin respuesta.
+  Future<void> notificarRecordatorioManual({
+    required Jugador jugador,
+    required int partidoId,
+    required DateTime fecha,
+    required String recinto,
+    required SportType sportType,
+  }) async {
+    await _enviarAJugadorConvocatoria(
+      jugador: jugador,
+      partidoId: partidoId,
+      tituloKey: 'notifRecordatorioManualTitle',
+      cuerpoKey: 'notifRecordatorioManualBody',
+      fecha: fecha,
+      recinto: recinto,
+      sportType: sportType,
+      localIdOffset: 4100,
+    );
+  }
+
   /// Recordatorio cuando queda menos de 1 h de plazo.
   Future<void> notificarRecordatorioPlazo({
     required Jugador jugador,
@@ -170,41 +210,6 @@ class ConvocatoriaNotificacionService {
       );
     } catch (e) {
       debugPrint('Push convocatoria plazo: $e');
-    }
-  }
-
-  Future<void> notificarPromocionTitular({
-    required Jugador jugador,
-    required int partidoId,
-  }) async {
-    final uid = AuthService.instance.currentUser?.id;
-    final id = await _resolverIdNotificacion(jugador);
-    if (id.isEmpty) return;
-
-    final lang = await NotificationLocale.forUser(id);
-    final tituloLoc = NotificationLocale.tr(lang, 'notifPromocionTitle');
-    final cuerpoLoc = NotificationLocale.tr(lang, 'notifPromocionBodyInApp');
-
-    if (uid != null && id == uid) {
-      await NotificationService.instance.showPromocionTitular(
-        partidoId: partidoId,
-      );
-    }
-
-    if (!SupabaseConfig.isConfigured) return;
-
-    try {
-      await PushNotificationService.instance.enviar(
-        userIds: [id],
-        title: tituloLoc,
-        body: cuerpoLoc,
-        data: {
-          'type': 'convocatoria',
-          'partido_id': '$partidoId',
-        },
-      );
-    } catch (e) {
-      debugPrint('Push promoción (no bloquea): $e');
     }
   }
 

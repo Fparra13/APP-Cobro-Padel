@@ -305,14 +305,7 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
             ..._convocatorias.map(
               (c) => _ConvocatoriaCard(
                 convocatoria: c,
-                onTap: () async {
-                  if (_readOnly) {
-                    _showOfflineWriteBlocked();
-                    return;
-                  }
-                  await abrirOrganizarPartido(context, partidoId: c.partido.id);
-                  _load();
-                },
+                onTap: () => _abrirConvocatoria(c),
               ),
             ),
             const SizedBox(height: 16),
@@ -468,6 +461,21 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _abrirConvocatoria(ConvocatoriaCompleta convocatoria) async {
+    final partidoId = convocatoria.partido.id;
+    if (partidoId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.tr('convocatoriaOpenUnavailable')),
+        ),
+      );
+      return;
+    }
+    await abrirOrganizarPartido(context, partidoId: partidoId);
+    if (mounted) _load();
   }
 
   Widget _buildStatsHeader({

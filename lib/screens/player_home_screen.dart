@@ -15,7 +15,6 @@ import '../core/sport_type.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
-import '../models/estado_partido.dart';
 import '../models/estadisticas_jugador.dart';
 import '../models/jugador.dart';
 import '../models/mi_convocatoria.dart';
@@ -28,10 +27,12 @@ import '../widgets/jugador_avatar.dart';
 import '../widgets/mis_invitaciones_panel.dart';
 import '../widgets/offline_no_data_panel.dart';
 import '../widgets/matchpay_ui.dart';
+import '../widgets/partido_estado_publico.dart';
 import '../widgets/player_match_history_tile.dart';
 import '../services/convocatoria_lista_espera_service.dart';
 import '../services/notification_service.dart';
 import '../domain/deuda_explicacion.dart';
+import '../domain/estado_partido_publico.dart';
 import '../models/saldo_historico.dart';
 import '../offline/player_loader.dart';
 import '../offline/offline_snapshot_store.dart';
@@ -877,17 +878,10 @@ class _HeroMatchCard extends StatelessWidget {
     final palette = SportThemeConfig.paletteFor(p.sportType);
     final recinto = p.recinto?.trim();
     final conv = convocatoriaCompleta;
-    final confirmados = conv?.confirmados ?? 0;
-    final pendientes = conv?.pendientes ?? 0;
-    final roster = conv?.titulares
-            .where(
-              (j) =>
-                  j.estado == EstadoConfirmacion.confirmado ||
-                  j.estado == EstadoConfirmacion.invitado,
-            )
-            .take(6)
-            .toList() ??
-        const <ConvocatoriaJugadorEntry>[];
+    final statusView = PartidoEstadoPublicoView.resolveJugador(
+      convocatoria,
+      conv,
+    );
 
     return Material(
       color: Colors.transparent,
@@ -897,7 +891,6 @@ class _HeroMatchCard extends StatelessWidget {
         onTap: onTap,
         child: Ink(
           width: double.infinity,
-          height: roster.isNotEmpty ? 252 : 228,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: LinearGradient(
@@ -954,29 +947,8 @@ class _HeroMatchCard extends StatelessWidget {
                           ),
                         ),
                         const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            p.esOrganizando
-                                ? l10n.tr('playerHeroMatchTypeOpen')
-                                : l10n.tr('playerHeroMatchTypeReady'),
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.95),
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
-                    const Spacer(),
                     Text(
                       formatDiaCompleto(p.fecha),
                       style: const TextStyle(
@@ -1017,77 +989,15 @@ class _HeroMatchCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (conv != null && (confirmados > 0 || pendientes > 0)) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        l10n.tr(
-                          'playerHeroRosterLine',
-                          params: {
-                            'confirmed': '$confirmados',
-                            'pending': '$pendientes',
-                          },
-                        ),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                    if (roster.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        height: 34,
-                        child: Stack(
-                          children: [
-                            for (var i = 0; i < roster.length; i++)
-                              Positioned(
-                                left: i * 22.0,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: roster[i].estado ==
-                                              EstadoConfirmacion.confirmado
-                                          ? palette.primaryDark
-                                          : Colors.white.withValues(alpha: 0.55),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      JugadorAvatar(
-                                        nombre: roster[i].jugador.nombre,
-                                        fotoUrl: roster[i].jugador.fotoUrl,
-                                        fotoPath: roster[i].jugador.fotoPath,
-                                        size: 30,
-                                        borderRadius: 15,
-                                      ),
-                                      if (roster[i].estado ==
-                                          EstadoConfirmacion.invitado)
-                                        Positioned(
-                                          right: -2,
-                                          bottom: -2,
-                                          child: Container(
-                                            padding: const EdgeInsets.all(2),
-                                            decoration: const BoxDecoration(
-                                              color: Colors.white,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: Icon(
-                                              Icons.schedule_rounded,
-                                              size: 10,
-                                              color: palette.primaryDark,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                    if (statusView != null) ...[
+                      const SizedBox(height: 14),
+                      PartidoEstadoPublicoMessage(
+                        view: statusView,
+                        fechaPartido: p.fecha,
+                        jugadorConvocatoria: convocatoria,
+                        textColor: Colors.white,
+                        titleSize: 15,
+                        bodySize: 13,
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -1309,6 +1219,8 @@ class _SecondaryMatchCard extends StatelessWidget {
     final p = convocatoria.partido;
     final recinto = p.recinto?.trim();
     final palette = SportThemeConfig.paletteFor(p.sportType);
+    final estadoView =
+        PartidoEstadoPublicoView.resolveJugador(convocatoria, null);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -1338,15 +1250,28 @@ class _SecondaryMatchCard extends StatelessWidget {
                       style: MatchPayTokens.titleSmallStyle(),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      [
-                        if (recinto != null && recinto.isNotEmpty) recinto,
+                    if (estadoView != null)
+                      PartidoEstadoPublicoBadge(
+                        view: estadoView,
+                        compact: true,
+                      )
+                    else
+                      Text(
                         context.l10n.tr('respondConfirmedStatus'),
-                      ].join(' · '),
-                      style: MatchPayTokens.bodySmallStyle().copyWith(
-                        fontSize: 12.5,
+                        style: MatchPayTokens.bodySmallStyle().copyWith(
+                          fontSize: 12.5,
+                        ),
                       ),
-                    ),
+                    if (recinto != null && recinto.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        recinto,
+                        style: MatchPayTokens.bodySmallStyle().copyWith(
+                          fontSize: 12.5,
+                          color: MatchPayTokens.inkSecondary,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

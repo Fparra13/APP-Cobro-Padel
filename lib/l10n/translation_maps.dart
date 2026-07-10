@@ -92,6 +92,7 @@ class TranslationMaps {
     'homeAdminTagline': 'Organiza, convoca y cobra sin planillas',
     'organizerCyclePhaseEmpty': 'Sin partidos activos',
     'organizerCyclePhasePreparing': 'Preparar el partido',
+    'organizerCyclePhaseAtRisk': 'Partido en evaluación',
     'organizerCyclePhaseNeedsResolution': 'Resolver partido',
     'organizerCyclePhaseRegister': 'Registrar gastos',
     'organizerCyclePhaseCollecting': 'Cobros pendientes',
@@ -112,6 +113,7 @@ class TranslationMaps {
     'organizerCycleViewConvocatoria': 'Ver convocatoria',
     'organizerCycleConfirmedBadge': '{count} confirmados',
     'organizerCyclePendingBadge': '{count} pendientes',
+    'organizerCycleAtRiskOpen': 'Ver convocatoria',
     'organizerCycleUnresolvedTitle': 'Este partido quedó sin confirmar',
     'organizerCycleUnresolvedBody':
         'Pasó la hora del partido. Indica qué ocurrió antes de registrar gastos.',
@@ -169,6 +171,48 @@ class TranslationMaps {
         'Todos pagaron ese partido. Puedes organizar el siguiente.',
     'organizerCycleAllPaidMatchRef': 'Partido del {date} · {place}',
     'organizerCycleAllPaidMatchDate': 'Partido del {date}',
+    'matchStatusConfirmedShort': 'Partido confirmado',
+    'matchStatusWaitingShort': 'Faltan jugadores',
+    'matchStatusEvaluatingShort': 'Pendiente de decisión',
+    'matchStatusRescheduledShort': 'Partido reprogramado',
+    'matchStatusCancelledShort': 'Partido cancelado',
+    'matchStatusPlayedShort': 'Partido jugado',
+    'matchStatusConfirmedTitle': 'Partido confirmado',
+    'matchStatusConfirmedBody':
+        '{confirmed} de {max} jugadores confirmados. ¡Todo listo!',
+    'matchStatusWaitingTitle': 'Faltan jugadores',
+    'matchStatusWaitingBody':
+        'Aún faltan {missing} jugador(es) por confirmar. '
+        'El organizador está esperando las respuestas.',
+    'matchStatusEvaluatingTitle': 'Pendiente de decisión',
+    'matchStatusEvaluatingBody':
+        'Aún no hay jugadores suficientes. '
+        'El organizador está evaluando si reprogramar o cancelar el partido.',
+    'matchStatusRescheduledTitle': 'Partido reprogramado',
+    'matchStatusRescheduledBody':
+        'El partido fue reprogramado para el {date}.',
+    'matchStatusCancelledTitle': 'Partido cancelado',
+    'matchStatusCancelledBody':
+        'El organizador canceló este partido.',
+    'matchStatusPlayedTitle': 'Partido jugado',
+    'matchStatusPlayedBody': 'Este partido ya se jugó.',
+    'matchStatusPlayerYouConfirmed': 'Tú ya confirmaste ✅',
+    'matchStatusPlayerYouPending': 'Te falta confirmar ⏳',
+    'matchStatusPlayerYouDeclined': 'Indicaste que no puedes',
+    'organizerCycleRemindPending': 'Recordar pendientes',
+    'organizerCycleDeleteConvocatoria': 'Eliminar convocatoria',
+    'convocatoriaLoadUnavailable':
+        'No se pudo cargar esta convocatoria. Puedes eliminarla si ya no la necesitas.',
+    'reprogramPickDateTitle': 'Nueva fecha del partido',
+    'reprogramPickTimeTitle': 'Nueva hora del partido',
+    'reprogramConfirmTitle': '¿Reprogramar y avisar?',
+    'reprogramConfirmBody':
+        'Se moverá el partido al {date} y se avisará a todos los titulares (app y WhatsApp).',
+    'reprogramConfirmAction': 'Reprogramar y avisar',
+    'reprogramSuccessSnack':
+        'Partido reprogramado · {push} push · {whatsapp} WhatsApp',
+    'remindPendingNoneSnack': 'No hay invitados pendientes de confirmar',
+    'remindPendingSuccessSnack': 'Recordatorio enviado a {count} jugadores',
     'homeSportMode': 'Deporte principal: {sport}',
     'configScreenTitle': 'Configuración',
     'loginSubtitleLinkSent': 'Te enviamos un enlace de acceso',
@@ -786,6 +830,19 @@ class TranslationMaps {
     'organizeRecentVenues': 'Recintos recientes',
     'organizeMaxSlotsLabel': 'Cupos máximos',
     'organizeResponseDeadlineLabel': 'Tiempo límite para confirmar',
+    'organizeResponseDeadlineNeedDate':
+        'Primero elige la fecha del partido para calcular el plazo.',
+    'organizeResponseDeadlineHint': 'Confirmar antes del {deadline}.',
+    'organizeResponseDeadlineCapped':
+        'Plazo ajustado · máx. 6 h antes ({deadline}).',
+    'organizePickMatchWhenTitle': '¿Cuándo es el partido?',
+    'organizePickMatchWhenSubtitle':
+        'Elige fecha y hora antes de enviar la convocatoria.',
+    'organizePickMatchWhenAction': 'Elegir fecha y hora',
+    'organizePickMatchWhenChange': 'Toca para cambiar fecha u hora',
+    'organizeMatchDateRequired': 'Elige la fecha y hora del partido',
+    'organizeMatchDateMustBeFuture':
+        'La fecha del partido debe ser en el futuro',
     'organizeHoursCount': '{n} hora(s)',
     'organizeAddRegularPlayersFirst': 'Agrega jugadores habituales primero',
     'organizeStartersTitle': 'Titulares (máx. {max})',
@@ -1379,7 +1436,7 @@ class TranslationMaps {
         'Avisos de jugadores con pagos pendientes',
     'notifChannelConvocatoriaName': 'Convocatorias',
     'notifChannelConvocatoriaDesc':
-        'Invitaciones a partidos y promociones desde lista de espera',
+        'Invitaciones a partidos',
     'notifDailyBody': 'Revisa si hay jugadores con pagos pendientes',
     'notifOnePlayerUnpaidTitle': '1 jugador sin pagar',
     'notifNPlayersUnpaidTitle': '{count} jugadores sin pagar',
@@ -1395,14 +1452,20 @@ class TranslationMaps {
     'notifConvocadoTitle': '{emoji} Convocatoria de {sport}',
     'notifConvocadoBody':
         '📍 {venue} · {date} · Responde en {hours} h',
-    'notifPromocionTitle': 'Cupo disponible',
+    'notifPromocionTitle': '{emoji} Convocatoria de {sport}',
     'notifPromocionBody':
-        'Entraste como titular desde lista de espera. Toca para confirmar.',
+        '📍 {venue} · {date} · Responde en {hours} h',
     'notifConvocadoBodyInApp':
         '📍 {venue} · {date} · Responde en {hours} h en la app',
     'notifDeadlineReminderTitle': 'Queda poco para responder',
     'notifDeadlineReminderBody':
         'Te queda menos de 1 h para confirmar si vas al partido de {sport} · {date} en {venue}.',
+    'notifReprogramadoTitle': 'Partido reprogramado',
+    'notifReprogramadoBody':
+        '{emoji} {sport} · {venue} · Nueva fecha: {date}',
+    'notifRecordatorioManualTitle': 'Confirma tu asistencia',
+    'notifRecordatorioManualBody':
+        '{emoji} {sport} · {venue} · {date} · El organizador te recuerda confirmar.',
     'notifDeadlineMissedTitle': 'Plazo vencido',
     'notifDeadlineMissedBody':
         'No alcanzaste a responder y se liberó tu cupo del partido de {sport} · {date}. Si aún puedes ir, avisa al organizador.',
@@ -1440,7 +1503,7 @@ class TranslationMaps {
         'Este partido no tiene pin exacto; Maps buscará por el nombre.',
     'openVenueMapError': 'No se pudo abrir el mapa',
     'notifPromocionBodyInApp':
-        'Entraste como titular desde lista de espera. Confirma en la app.',
+        '📍 {venue} · {date} · Responde en {hours} h en la app',
     'notifOrganizerConfirmTitle': '✅ Confirmación de jugador',
     'notifOrganizerDeclineTitle': '❌ Jugador no puede ir',
     'notifOrganizerConfirmBody':
@@ -1550,6 +1613,7 @@ class TranslationMaps {
     'homeAdminTagline': 'Organize, invite and collect — no spreadsheets',
     'organizerCyclePhaseEmpty': 'No active matches',
     'organizerCyclePhasePreparing': 'Prepare the match',
+    'organizerCyclePhaseAtRisk': 'Match under review',
     'organizerCyclePhaseNeedsResolution': 'Resolve match',
     'organizerCyclePhaseRegister': 'Log expenses',
     'organizerCyclePhaseCollecting': 'Pending collections',
@@ -1570,6 +1634,7 @@ class TranslationMaps {
     'organizerCycleViewConvocatoria': 'View invite list',
     'organizerCycleConfirmedBadge': '{count} confirmed',
     'organizerCyclePendingBadge': '{count} pending',
+    'organizerCycleAtRiskOpen': 'View invite list',
     'organizerCycleUnresolvedTitle': 'This match was never confirmed',
     'organizerCycleUnresolvedBody':
         'Match time has passed. Say what happened before logging expenses.',
@@ -1627,6 +1692,46 @@ class TranslationMaps {
         'Everyone paid for that match. Ready for the next one.',
     'organizerCycleAllPaidMatchRef': 'Match on {date} · {place}',
     'organizerCycleAllPaidMatchDate': 'Match on {date}',
+    'matchStatusConfirmedShort': 'Match confirmed',
+    'matchStatusWaitingShort': 'Players missing',
+    'matchStatusEvaluatingShort': 'Pending decision',
+    'matchStatusRescheduledShort': 'Match rescheduled',
+    'matchStatusCancelledShort': 'Match cancelled',
+    'matchStatusPlayedShort': 'Match played',
+    'matchStatusConfirmedTitle': 'Match confirmed',
+    'matchStatusConfirmedBody':
+        '{confirmed} of {max} players confirmed. All set!',
+    'matchStatusWaitingTitle': 'Players still needed',
+    'matchStatusWaitingBody':
+        '{missing} player(s) still need to confirm. '
+        'The organizer is waiting for responses.',
+    'matchStatusEvaluatingTitle': 'Pending decision',
+    'matchStatusEvaluatingBody':
+        'There are not enough players yet. '
+        'The organizer is deciding whether to reschedule or cancel.',
+    'matchStatusRescheduledTitle': 'Match rescheduled',
+    'matchStatusRescheduledBody': 'The match was rescheduled to {date}.',
+    'matchStatusCancelledTitle': 'Match cancelled',
+    'matchStatusCancelledBody': 'The organizer cancelled this match.',
+    'matchStatusPlayedTitle': 'Match played',
+    'matchStatusPlayedBody': 'This match has already been played.',
+    'matchStatusPlayerYouConfirmed': 'You confirmed ✅',
+    'matchStatusPlayerYouPending': 'You still need to confirm ⏳',
+    'matchStatusPlayerYouDeclined': 'You indicated you cannot attend',
+    'organizerCycleRemindPending': 'Remind pending',
+    'organizerCycleDeleteConvocatoria': 'Delete invite',
+    'convocatoriaLoadUnavailable':
+        'Could not load this invite. You can delete it if you no longer need it.',
+    'reprogramPickDateTitle': 'New match date',
+    'reprogramPickTimeTitle': 'New match time',
+    'reprogramConfirmTitle': 'Reschedule and notify?',
+    'reprogramConfirmBody':
+        'The match will move to {date} and all roster players will be notified (app and WhatsApp).',
+    'reprogramConfirmAction': 'Reschedule and notify',
+    'reprogramSuccessSnack':
+        'Match rescheduled · {push} push · {whatsapp} WhatsApp',
+    'remindPendingNoneSnack': 'No pending invitations to remind',
+    'remindPendingSuccessSnack': 'Reminder sent to {count} players',
     'homeSportMode': 'Primary sport: {sport}',
     'configScreenTitle': 'Settings',
     'loginSubtitleLinkSent': 'We sent you a sign-in link',
@@ -2236,6 +2341,18 @@ class TranslationMaps {
     'organizeRecentVenues': 'Recent venues',
     'organizeMaxSlotsLabel': 'Maximum slots',
     'organizeResponseDeadlineLabel': 'Response deadline',
+    'organizeResponseDeadlineNeedDate':
+        'Pick the match date first to calculate the deadline.',
+    'organizeResponseDeadlineHint': 'Confirm by {deadline}.',
+    'organizeResponseDeadlineCapped':
+        'Adjusted · max 6 h before match ({deadline}).',
+    'organizePickMatchWhenTitle': 'When is the match?',
+    'organizePickMatchWhenSubtitle':
+        'Pick date and time before sending the invite.',
+    'organizePickMatchWhenAction': 'Pick date and time',
+    'organizePickMatchWhenChange': 'Tap to change date or time',
+    'organizeMatchDateRequired': 'Pick the match date and time',
+    'organizeMatchDateMustBeFuture': 'The match must be in the future',
     'organizeHoursCount': '{n} hour(s)',
     'organizeAddRegularPlayersFirst': 'Add regular players first',
     'organizeStartersTitle': 'Starters (max. {max})',
@@ -2825,7 +2942,7 @@ class TranslationMaps {
     'notifChannelRemindersDesc': 'Alerts for players with pending payments',
     'notifChannelConvocatoriaName': 'Match invitations',
     'notifChannelConvocatoriaDesc':
-        'Match invitations and waitlist promotions',
+        'Match invitations',
     'notifDailyBody': 'Check if any players have pending payments',
     'notifOnePlayerUnpaidTitle': '1 player has not paid',
     'notifNPlayersUnpaidTitle': '{count} players have not paid',
@@ -2841,14 +2958,20 @@ class TranslationMaps {
     'notifConvocadoTitle': '{emoji} {sport} invitation',
     'notifConvocadoBody':
         '📍 {venue} · {date} · Reply within {hours} h',
-    'notifPromocionTitle': 'Spot available',
+    'notifPromocionTitle': '{emoji} {sport} invitation',
     'notifPromocionBody':
-        'You moved from the waitlist to a starter spot. Tap to confirm.',
+        '📍 {venue} · {date} · Respond within {hours} h',
     'notifConvocadoBodyInApp':
         '📍 {venue} · {date} · Reply within {hours} h in the app',
     'notifDeadlineReminderTitle': 'Time is running out',
     'notifDeadlineReminderBody':
         'You have less than 1 h to confirm the {sport} match · {date} at {venue}.',
+    'notifReprogramadoTitle': 'Match rescheduled',
+    'notifReprogramadoBody':
+        '{emoji} {sport} · {venue} · New date: {date}',
+    'notifRecordatorioManualTitle': 'Confirm your attendance',
+    'notifRecordatorioManualBody':
+        '{emoji} {sport} · {venue} · {date} · The organizer is reminding you to confirm.',
     'notifDeadlineMissedTitle': 'Deadline passed',
     'notifDeadlineMissedBody':
         'You did not reply in time and your spot for the {sport} match · {date} was released. If you can still go, tell the organizer.',
@@ -2886,7 +3009,7 @@ class TranslationMaps {
         'This match has no exact pin; Maps will search by name.',
     'openVenueMapError': 'Could not open maps',
     'notifPromocionBodyInApp':
-        'You moved from the waitlist to a starter spot. Confirm in the app.',
+        '📍 {venue} · {date} · Respond within {hours} h in the app',
     'notifOrganizerConfirmTitle': '✅ Player confirmed',
     'notifOrganizerDeclineTitle': '❌ Player cannot attend',
     'notifOrganizerConfirmBody':
@@ -2996,6 +3119,7 @@ class TranslationMaps {
     'homeAdminTagline': 'Organize, convide e cobre sem planilhas',
     'organizerCyclePhaseEmpty': 'Sem partidas ativas',
     'organizerCyclePhasePreparing': 'Preparar a partida',
+    'organizerCyclePhaseAtRisk': 'Partida em avaliação',
     'organizerCyclePhaseNeedsResolution': 'Resolver partida',
     'organizerCyclePhaseRegister': 'Registrar gastos',
     'organizerCyclePhaseCollecting': 'Cobranças pendentes',
@@ -3073,6 +3197,46 @@ class TranslationMaps {
         'Todos pagaram essa partida. Você pode organizar a próxima.',
     'organizerCycleAllPaidMatchRef': 'Partida de {date} · {place}',
     'organizerCycleAllPaidMatchDate': 'Partida de {date}',
+    'matchStatusConfirmedShort': 'Partida confirmada',
+    'matchStatusWaitingShort': 'Faltam jogadores',
+    'matchStatusEvaluatingShort': 'Decisão pendente',
+    'matchStatusRescheduledShort': 'Partida remarcada',
+    'matchStatusCancelledShort': 'Partida cancelada',
+    'matchStatusPlayedShort': 'Partida jogada',
+    'matchStatusConfirmedTitle': 'Partida confirmada',
+    'matchStatusConfirmedBody':
+        '{confirmed} de {max} jogadores confirmados. Tudo pronto!',
+    'matchStatusWaitingTitle': 'Faltam jogadores',
+    'matchStatusWaitingBody':
+        'Ainda faltam {missing} jogador(es) para confirmar. '
+        'O organizador está aguardando as respostas.',
+    'matchStatusEvaluatingTitle': 'Decisão pendente',
+    'matchStatusEvaluatingBody':
+        'Ainda não há jogadores suficientes. '
+        'O organizador está avaliando remarcar ou cancelar a partida.',
+    'matchStatusRescheduledTitle': 'Partida remarcada',
+    'matchStatusRescheduledBody': 'A partida foi remarcada para {date}.',
+    'matchStatusCancelledTitle': 'Partida cancelada',
+    'matchStatusCancelledBody': 'O organizador cancelou esta partida.',
+    'matchStatusPlayedTitle': 'Partida jogada',
+    'matchStatusPlayedBody': 'Esta partida já foi jogada.',
+    'matchStatusPlayerYouConfirmed': 'Você já confirmou ✅',
+    'matchStatusPlayerYouPending': 'Falta você confirmar ⏳',
+    'matchStatusPlayerYouDeclined': 'Você indicou que não pode ir',
+    'organizerCycleRemindPending': 'Lembrar pendentes',
+    'organizerCycleDeleteConvocatoria': 'Excluir convite',
+    'convocatoriaLoadUnavailable':
+        'Não foi possível carregar este convite. Você pode excluí-lo se não precisar mais.',
+    'reprogramPickDateTitle': 'Nova data da partida',
+    'reprogramPickTimeTitle': 'Novo horário da partida',
+    'reprogramConfirmTitle': 'Remarcar e avisar?',
+    'reprogramConfirmBody':
+        'A partida será movida para {date} e todos os titulares serão avisados (app e WhatsApp).',
+    'reprogramConfirmAction': 'Remarcar e avisar',
+    'reprogramSuccessSnack':
+        'Partida remarcada · {push} push · {whatsapp} WhatsApp',
+    'remindPendingNoneSnack': 'Não há convites pendentes para lembrar',
+    'remindPendingSuccessSnack': 'Lembrete enviado a {count} jogadores',
     'homeSportMode': 'Esporte principal: {sport}',
     'configScreenTitle': 'Configurações',
     'loginSubtitleLinkSent': 'Enviamos um link de acesso',
@@ -3690,6 +3854,19 @@ class TranslationMaps {
     'organizeRecentVenues': 'Locais recentes',
     'organizeMaxSlotsLabel': 'Vagas máximas',
     'organizeResponseDeadlineLabel': 'Prazo para confirmar',
+    'organizeResponseDeadlineNeedDate':
+        'Escolha primeiro a data da partida para calcular o prazo.',
+    'organizeResponseDeadlineHint': 'Confirmar até {deadline}.',
+    'organizeResponseDeadlineCapped':
+        'Prazo ajustado · máx. 6 h antes ({deadline}).',
+    'organizePickMatchWhenTitle': 'Quando é a partida?',
+    'organizePickMatchWhenSubtitle':
+        'Escolha data e hora antes de enviar a convocatória.',
+    'organizePickMatchWhenAction': 'Escolher data e hora',
+    'organizePickMatchWhenChange': 'Toque para alterar data ou hora',
+    'organizeMatchDateRequired': 'Escolha a data e hora da partida',
+    'organizeMatchDateMustBeFuture':
+        'A data da partida deve ser no futuro',
     'organizeHoursCount': '{n} hora(s)',
     'organizeAddRegularPlayersFirst': 'Adicione jogadores habituais primeiro',
     'organizeStartersTitle': 'Titulares (máx. {max})',
@@ -4283,7 +4460,7 @@ class TranslationMaps {
         'Avisos de jogadores com pagamentos pendentes',
     'notifChannelConvocatoriaName': 'Convocações',
     'notifChannelConvocatoriaDesc':
-        'Convites para partidas e promoções da lista de espera',
+        'Convites para partidas',
     'notifDailyBody': 'Verifique se há jogadores com pagamentos pendentes',
     'notifOnePlayerUnpaidTitle': '1 jogador não pagou',
     'notifNPlayersUnpaidTitle': '{count} jogadores não pagaram',
@@ -4299,14 +4476,20 @@ class TranslationMaps {
     'notifConvocadoTitle': '{emoji} Convocatória de {sport}',
     'notifConvocadoBody':
         '📍 {venue} · {date} · Responda em {hours} h',
-    'notifPromocionTitle': 'Vaga disponível',
+    'notifPromocionTitle': '{emoji} Convocatória de {sport}',
     'notifPromocionBody':
-        'Você entrou como titular da lista de espera. Toque para confirmar.',
+        '📍 {venue} · {date} · Responda em {hours} h',
     'notifConvocadoBodyInApp':
         '📍 {venue} · {date} · Responda em {hours} h no app',
     'notifDeadlineReminderTitle': 'Pouco tempo para responder',
     'notifDeadlineReminderBody':
         'Resta menos de 1 h para confirmar se vai à partida de {sport} · {date} em {venue}.',
+    'notifReprogramadoTitle': 'Partida remarcada',
+    'notifReprogramadoBody':
+        '{emoji} {sport} · {venue} · Nova data: {date}',
+    'notifRecordatorioManualTitle': 'Confirme sua presença',
+    'notifRecordatorioManualBody':
+        '{emoji} {sport} · {venue} · {date} · O organizador lembra você de confirmar.',
     'notifDeadlineMissedTitle': 'Prazo encerrado',
     'notifDeadlineMissedBody':
         'Você não respondeu a tempo e sua vaga na partida de {sport} · {date} foi liberada. Se ainda puder ir, avise o organizador.',
@@ -4344,7 +4527,7 @@ class TranslationMaps {
         'Esta partida não tem pin exato; o Maps buscará pelo nome.',
     'openVenueMapError': 'Não foi possível abrir o mapa',
     'notifPromocionBodyInApp':
-        'Você entrou como titular da lista de espera. Confirme no app.',
+        '📍 {venue} · {date} · Responda em {hours} h no app',
     'notifOrganizerConfirmTitle': '✅ Confirmação de jogador',
     'notifOrganizerDeclineTitle': '❌ Jogador não pode ir',
     'notifOrganizerConfirmBody':

@@ -1,5 +1,6 @@
 -- El jugador puede subir/actualizar/eliminar su propia foto en avatars/{user_id}/...
 
+DROP POLICY IF EXISTS "Jugador sube su avatar" ON storage.objects;
 CREATE POLICY "Jugador sube su avatar"
   ON storage.objects FOR INSERT
   WITH CHECK (
@@ -7,6 +8,7 @@ CREATE POLICY "Jugador sube su avatar"
     AND (storage.foldername(name))[1] = auth.uid()::text
   );
 
+DROP POLICY IF EXISTS "Jugador actualiza su avatar" ON storage.objects;
 CREATE POLICY "Jugador actualiza su avatar"
   ON storage.objects FOR UPDATE
   USING (
@@ -18,6 +20,7 @@ CREATE POLICY "Jugador actualiza su avatar"
     AND (storage.foldername(name))[1] = auth.uid()::text
   );
 
+DROP POLICY IF EXISTS "Jugador elimina su avatar" ON storage.objects;
 CREATE POLICY "Jugador elimina su avatar"
   ON storage.objects FOR DELETE
   USING (

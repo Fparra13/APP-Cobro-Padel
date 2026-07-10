@@ -20,6 +20,8 @@ import '../models/mi_convocatoria.dart';
 import '../models/cobros_resumen.dart';
 import '../repositories/partido_repository.dart';
 import '../domain/organizer_cycle_logic.dart';
+import '../widgets/partido_estado_publico.dart';
+import '../domain/estado_partido_publico.dart';
 import '../domain/partido_lifecycle.dart';
 import '../services/convocatoria_lista_espera_service.dart';
 import '../utils/formatters.dart';
@@ -30,6 +32,8 @@ import '../widgets/desglose_cobro_panel.dart' show ordenarDeudasPorFecha;
 import '../widgets/matchpay_ui.dart';
 import '../widgets/app_mode_switch_button.dart';
 import '../widgets/organizer_cycle_hero.dart';
+import '../utils/reprogramar_convocatoria_flow.dart';
+import '../utils/convocatoria_organizador_actions.dart';
 import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/organizer_group_summary.dart';
 import '../widgets/quick_actions_panel.dart';
@@ -234,6 +238,7 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (cycle.phase) {
       case OrganizerCyclePhase.empty:
       case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.atRisk:
       case OrganizerCyclePhase.needsResolution:
       case OrganizerCyclePhase.registerExpenses:
         return true;
@@ -249,6 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (featuredId == null ||
         (snap.phase != OrganizerCyclePhase.preparing &&
             snap.phase != OrganizerCyclePhase.needsResolution &&
+            snap.phase != OrganizerCyclePhase.atRisk &&
             snap.phase != OrganizerCyclePhase.registerExpenses)) {
       return _convocatorias;
     }
@@ -261,6 +267,21 @@ class _HomeScreenState extends State<HomeScreen> {
       '/registrar-partido',
       arguments: partidoId,
     );
+  }
+
+  Future<void> _eliminarConvocatoria(ConvocatoriaCompleta convocatoria) async {
+    if (_readOnly) {
+      _showOfflineWriteBlocked();
+      return;
+    }
+    final partidoId = convocatoria.partido.id;
+    if (partidoId == null) return;
+    final ok = await confirmarYEliminarConvocatoria(
+      context,
+      partidoId: partidoId,
+      convocatoria: convocatoria,
+    );
+    if (ok && mounted) _load();
   }
 
   Future<void> _cancelarConvocatoria(int partidoId) async {
@@ -282,48 +303,26 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _reprogramarConvocatoria(ConvocatoriaCompleta convocatoria) async {
-    final partidoId = convocatoria.partido.id;
-    if (partidoId == null) return;
-
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().add(const Duration(days: 1)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      locale: Localizations.localeOf(context),
-    );
-    if (fecha == null || !mounted) return;
-
-    final hora = await showTimePicker(
-      context: context,
-      initialTime: const TimeOfDay(hour: 20, minute: 0),
-    );
-    if (hora == null || !mounted) return;
-
-    final nuevaFecha = DateTime(
-      fecha.year,
-      fecha.month,
-      fecha.day,
-      hora.hour,
-      hora.minute,
-    );
-    if (!nuevaFecha.isAfter(DateTime.now())) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.tr('organizerCycleRescheduleFutureError')),
-        ),
-      );
+    if (_readOnly) {
+      _showOfflineWriteBlocked();
       return;
     }
+    final ok = await ReprogramarConvocatoriaFlow.ejecutar(
+      context,
+      convocatoria: convocatoria,
+    );
+    if (ok && mounted) _load();
+  }
 
-    await _runWriteAction(() async {
-      await context.repos.reprogramarConvocatoria(
-        partidoId: partidoId,
-        nuevaFecha: nuevaFecha,
-      );
-      if (mounted) _load();
-    });
+  Future<void> _recordarPendientes(ConvocatoriaCompleta convocatoria) async {
+    if (_readOnly) {
+      _showOfflineWriteBlocked();
+      return;
+    }
+    await ReprogramarConvocatoriaFlow.recordarPendientes(
+      context,
+      convocatoria: convocatoria,
+    );
   }
 
   Future<void> _onCyclePrimaryAction() async {
@@ -336,6 +335,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         await showOrganizerMatchMenu(context);
       case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.atRisk:
       case OrganizerCyclePhase.needsResolution:
         final id = snap.convocatoria?.partido.id;
         if (id != null) {
@@ -490,6 +490,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                   : () => _cancelarConvocatoria(
                                         cycle.convocatoria!.partido.id!,
                                       ),
+                              onRemindPending: cycle.convocatoria == null
+                                  ? null
+                                  : () => _recordarPendientes(
+                                        cycle.convocatoria!,
+                                      ),
+                              onDelete: cycle.convocatoria?.partido.id == null
+                                  ? null
+                                  : () => _eliminarConvocatoria(
+                                        cycle.convocatoria!,
+                                      ),
                             ),
                         ],
                         if (_convocatoriasEnLista.isNotEmpty) ...[
@@ -634,6 +644,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 convocatoria: c,
                 situacion: situacion,
                 onTap: () => _openOrganizerPartido(c.partido.id),
+                onDelete: _readOnly
+                    ? null
+                    : () => _eliminarConvocatoria(c),
               ),
             ),
           ],
@@ -652,6 +665,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 confirmado: true,
                 situacion: situacion,
                 onTap: () => _openOrganizerPartido(c.partido.id),
+                onDelete: _readOnly
+                    ? null
+                    : () => _eliminarConvocatoria(c),
               ),
             ),
           ],
@@ -753,12 +769,14 @@ class _ConvocatoriaTile extends StatelessWidget {
   final bool confirmado;
   final ConvocatoriaOrganizadorSituacion situacion;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   const _ConvocatoriaTile({
     required this.convocatoria,
     required this.onTap,
     required this.situacion,
     this.confirmado = false,
+    this.onDelete,
   });
 
   @override
@@ -781,6 +799,9 @@ class _ConvocatoriaTile extends StatelessWidget {
         situacion == ConvocatoriaOrganizadorSituacion.sinResolver;
     final listoGastos =
         situacion == ConvocatoriaOrganizadorSituacion.listoParaGastos;
+    final estadoPublico = !sinResolver && !listoGastos
+        ? PartidoEstadoPublicoView.resolve(c)
+        : null;
 
     final iconBg = sinResolver
         ? MatchPayTokens.accentUrgentBorder.withValues(alpha: 0.35)
@@ -836,6 +857,13 @@ class _ConvocatoriaTile extends StatelessWidget {
                       color: MatchPayTokens.inkSecondary,
                     ),
                   ),
+                  if (estadoPublico != null) ...[
+                    const SizedBox(height: 6),
+                    PartidoEstadoPublicoBadge(
+                      view: estadoPublico,
+                      compact: true,
+                    ),
+                  ],
                   const SizedBox(height: 2),
                   Row(
                     children: [
@@ -888,6 +916,13 @@ class _ConvocatoriaTile extends StatelessWidget {
                 ],
               ),
             ),
+            if (onDelete != null)
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded),
+                tooltip: context.l10n.tr('deleteTooltip'),
+                color: MatchPayTokens.inkMuted,
+                onPressed: onDelete,
+              ),
             Icon(
               Icons.chevron_right_rounded,
               color: MatchPayTokens.inkMuted,

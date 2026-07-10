@@ -1,19 +1,24 @@
-import '../core/sport_theme.dart';
 import '../models/convocatoria_jugador.dart';
 import '../utils/formatters.dart';
 
 class ConvocatoriaMessageService {
-  String construirMensaje(ConvocatoriaCompleta convocatoria) {
+  /// Invitación al jugador: idéntica para titular inicial o cupo liberado después.
+  String construirInvitacion({
+    required ConvocatoriaCompleta convocatoria,
+    required String nombreOrganizador,
+  }) {
     final p = convocatoria.partido;
-    final fecha = formatDiaMensaje(p.fecha);
+    final fecha = formatFechaLegible(p.fecha);
     final hora = formatHora(p.fecha);
     final recinto = p.recinto?.trim();
-    final confirmados = convocatoria.confirmados;
-    final cupos = p.cuposMax;
+    final sportLabel = p.sportType.labelEs.toLowerCase();
+    final organizador = nombreOrganizador.trim().isEmpty
+        ? 'Tu organizador'
+        : nombreOrganizador.trim();
 
-    final sportPalette = SportThemeConfig.paletteFor(p.sportType);
     final buffer = StringBuffer()
-      ..writeln('${sportPalette.emoji} *Convocatoria ${p.sportType.labelEs.toLowerCase()}*')
+      ..writeln('$organizador te invitó a un partido de $sportLabel.')
+      ..writeln()
       ..writeln('📅 $fecha · $hora');
 
     if (recinto != null && recinto.isNotEmpty) {
@@ -21,13 +26,13 @@ class ConvocatoriaMessageService {
     }
 
     buffer
-      ..writeln('👥 Cupos: $cupos · Confirmados: $confirmados/$cupos')
-      ..writeln('⏱ Tiempo para confirmar: ${p.horasLimiteRespuesta}h')
-      ..writeln('📋 Lista de espera: ${convocatoria.enEspera} jugador(es)')
+      ..writeln()
+      ..writeln('¿Puedes asistir?')
+      ..writeln('⏱ Tienes ${p.horasLimiteRespuesta} h para responder')
       ..writeln()
       ..writeln('Responde en este chat:')
-      ..writeln('✅ Voy - [tu nombre]')
-      ..writeln('❌ No voy - [tu nombre]');
+      ..writeln('✅ Confirmar - [tu nombre]')
+      ..writeln('❌ No asistir - [tu nombre]');
 
     if (p.notas?.trim().isNotEmpty ?? false) {
       buffer
@@ -41,10 +46,14 @@ class ConvocatoriaMessageService {
   String construirMensajePersonal({
     required ConvocatoriaCompleta convocatoria,
     required String nombreJugador,
+    required String nombreOrganizador,
   }) {
     final saludo = nombreJugador.trim().isEmpty
         ? ''
         : 'Hola ${nombreJugador.trim()}!\n\n';
-    return '$saludo${construirMensaje(convocatoria)}';
+    return '$saludo${construirInvitacion(
+      convocatoria: convocatoria,
+      nombreOrganizador: nombreOrganizador,
+    )}';
   }
 }

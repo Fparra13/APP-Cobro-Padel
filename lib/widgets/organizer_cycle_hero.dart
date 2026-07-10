@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../domain/estado_partido_publico.dart';
 import '../domain/partido_lifecycle.dart';
 import '../domain/organizer_cycle_logic.dart';
 import '../core/matchpay_design_tokens.dart';
@@ -10,12 +11,14 @@ import '../models/estado_partido.dart';
 import '../repositories/partido_repository.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
+import '../widgets/partido_estado_publico.dart';
 import 'jugador_avatar.dart';
 import 'matchpay_ui.dart';
 
 enum OrganizerCyclePhase {
   empty,
   preparing,
+  atRisk,
   needsResolution,
   registerExpenses,
   collecting,
@@ -63,6 +66,22 @@ class OrganizerCycleSnapshot {
       return OrganizerCycleSnapshot(
         phase: OrganizerCyclePhase.needsResolution,
         convocatoria: sinResolver.first,
+      );
+    }
+
+    final enEvaluacion = convocatorias
+        .where((c) {
+          final view = PartidoEstadoPublicoView.resolve(c);
+          return view.estado == EstadoPartidoPublico.enEvaluacion ||
+              view.estado == EstadoPartidoPublico.reprogramado;
+        })
+        .toList()
+      ..sort((a, b) => a.partido.fecha.compareTo(b.partido.fecha));
+
+    if (enEvaluacion.isNotEmpty) {
+      return OrganizerCycleSnapshot(
+        phase: OrganizerCyclePhase.atRisk,
+        convocatoria: enEvaluacion.first,
       );
     }
 
@@ -152,6 +171,8 @@ class OrganizerCycleSnapshot {
         return l10n.tr('organizerCyclePhaseEmpty');
       case OrganizerCyclePhase.preparing:
         return l10n.tr('organizerCyclePhasePreparing');
+      case OrganizerCyclePhase.atRisk:
+        return l10n.tr('organizerCyclePhaseAtRisk');
       case OrganizerCyclePhase.needsResolution:
         return l10n.tr('organizerCyclePhaseNeedsResolution');
       case OrganizerCyclePhase.registerExpenses:
@@ -172,6 +193,8 @@ class OrganizerCycleHero extends StatelessWidget {
   final VoidCallback? onMarkPlayed;
   final VoidCallback? onReschedule;
   final VoidCallback? onCancel;
+  final VoidCallback? onRemindPending;
+  final VoidCallback? onDelete;
 
   const OrganizerCycleHero({
     super.key,
@@ -181,6 +204,8 @@ class OrganizerCycleHero extends StatelessWidget {
     this.onMarkPlayed,
     this.onReschedule,
     this.onCancel,
+    this.onRemindPending,
+    this.onDelete,
   });
 
   @override
@@ -192,6 +217,16 @@ class OrganizerCycleHero extends StatelessWidget {
         return _PreparingHero(
           convocatoria: snapshot.convocatoria!,
           onTap: onPrimaryAction,
+          onRemindPending: onRemindPending,
+        );
+      case OrganizerCyclePhase.atRisk:
+        return _AtRiskHero(
+          convocatoria: snapshot.convocatoria!,
+          onOpenConvocatoria: onPrimaryAction,
+          onReschedule: onReschedule ?? onPrimaryAction,
+          onCancel: onCancel,
+          onRemindPending: onRemindPending,
+          onDelete: onDelete,
         );
       case OrganizerCyclePhase.needsResolution:
         return _ResolutionHero(
@@ -199,6 +234,7 @@ class OrganizerCycleHero extends StatelessWidget {
           onMarkPlayed: onMarkPlayed ?? onPrimaryAction,
           onReschedule: onReschedule ?? onPrimaryAction,
           onCancel: onCancel,
+          onDelete: onDelete,
         );
       case OrganizerCyclePhase.registerExpenses:
         return _RegisterHero(
@@ -380,10 +416,12 @@ class _EmptyHero extends StatelessWidget {
 class _PreparingHero extends StatelessWidget {
   final ConvocatoriaCompleta convocatoria;
   final VoidCallback onTap;
+  final VoidCallback? onRemindPending;
 
   const _PreparingHero({
     required this.convocatoria,
     required this.onTap,
+    this.onRemindPending,
   });
 
   @override
@@ -441,6 +479,14 @@ class _PreparingHero extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          PartidoEstadoPublicoMessage(
+            view: PartidoEstadoPublicoView.resolve(convocatoria),
+            fechaPartido: p.fecha,
+            textColor: Colors.white,
+            titleSize: 14,
+            bodySize: 12.5,
+          ),
+          const SizedBox(height: 12),
           if (cupos > 0)
             Text(
               l10n.tr(
@@ -522,10 +568,99 @@ class _PreparingHero extends StatelessWidget {
               ),
             ),
           ],
+          if (pendientes > 0 && onRemindPending != null) ...[
+            const SizedBox(height: 14),
+            _ResolutionChip(
+              label: l10n.tr('organizerCycleRemindPending'),
+              icon: Icons.notifications_active_outlined,
+              onTap: onRemindPending!,
+            ),
+          ],
         ],
       ),
       ctaLabel: l10n.tr('organizerCycleViewConvocatoria'),
       onTap: onTap,
+    );
+  }
+}
+
+class _AtRiskHero extends StatelessWidget {
+  final ConvocatoriaCompleta convocatoria;
+  final VoidCallback onOpenConvocatoria;
+  final VoidCallback onReschedule;
+  final VoidCallback? onCancel;
+  final VoidCallback? onRemindPending;
+  final VoidCallback? onDelete;
+
+  const _AtRiskHero({
+    required this.convocatoria,
+    required this.onOpenConvocatoria,
+    required this.onReschedule,
+    this.onCancel,
+    this.onRemindPending,
+    this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final p = convocatoria.partido;
+    final palette = SportThemeConfig.paletteFor(p.sportType);
+    final view = PartidoEstadoPublicoView.resolve(convocatoria);
+    final pendientes = convocatoria.pendientes;
+
+    return _CycleHeroShell(
+      palette: palette,
+      phaseLabel: l10n.tr('organizerCyclePhaseAtRisk'),
+      title: formatDiaCompleto(p.fecha),
+      subtitle: p.recinto?.trim(),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PartidoEstadoPublicoMessage(
+            view: view,
+            fechaPartido: p.fecha,
+            textColor: Colors.white,
+            titleSize: 15,
+            bodySize: 13,
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ResolutionChip(
+                label: l10n.tr('organizerCycleAtRiskOpen'),
+                icon: Icons.groups_rounded,
+                onTap: onOpenConvocatoria,
+              ),
+              if (pendientes > 0 && onRemindPending != null)
+                _ResolutionChip(
+                  label: l10n.tr('organizerCycleRemindPending'),
+                  icon: Icons.notifications_active_outlined,
+                  onTap: onRemindPending!,
+                ),
+              _ResolutionChip(
+                label: l10n.tr('organizerCycleUnresolvedReschedule'),
+                icon: Icons.event_repeat_rounded,
+                onTap: onReschedule,
+              ),
+              if (onCancel != null)
+                _ResolutionChip(
+                  label: l10n.tr('organizerCycleUnresolvedCancel'),
+                  icon: Icons.cancel_outlined,
+                  onTap: onCancel!,
+                ),
+              if (onDelete != null)
+                _ResolutionChip(
+                  label: l10n.tr('organizerCycleDeleteConvocatoria'),
+                  icon: Icons.delete_outline_rounded,
+                  onTap: onDelete!,
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -535,12 +670,14 @@ class _ResolutionHero extends StatelessWidget {
   final VoidCallback onMarkPlayed;
   final VoidCallback onReschedule;
   final VoidCallback? onCancel;
+  final VoidCallback? onDelete;
 
   const _ResolutionHero({
     required this.convocatoria,
     required this.onMarkPlayed,
     required this.onReschedule,
     this.onCancel,
+    this.onDelete,
   });
 
   @override
@@ -601,6 +738,12 @@ class _ResolutionHero extends StatelessWidget {
                   label: l10n.tr('organizerCycleUnresolvedCancel'),
                   icon: Icons.cancel_outlined,
                   onTap: onCancel!,
+                ),
+              if (onDelete != null)
+                _ResolutionChip(
+                  label: l10n.tr('organizerCycleDeleteConvocatoria'),
+                  icon: Icons.delete_outline_rounded,
+                  onTap: onDelete!,
                 ),
             ],
           ),

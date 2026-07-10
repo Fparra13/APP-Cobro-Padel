@@ -10,14 +10,19 @@ import '../models/convocatoria_jugador.dart';
 import '../models/estado_partido.dart';
 import '../models/jugador.dart';
 import '../models/partido.dart';
+import '../domain/convocatoria_plazo_respuesta.dart';
+import '../domain/estado_partido_publico.dart';
 import '../domain/partido_lifecycle.dart';
 import '../models/recinto.dart';
+import '../services/convocatoria_comunicacion_service.dart';
 import '../services/convocatoria_lista_espera_service.dart';
 import '../services/convocatoria_notificacion_service.dart';
 import '../services/preferences_service.dart';
 import '../services/supabase_realtime_service.dart';
 import '../utils/formatters.dart';
+import '../utils/convocatoria_organizador_actions.dart';
 import '../utils/matchpay_context.dart';
+import '../widgets/partido_estado_publico.dart';
 import '../widgets/ayuda_tip.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../widgets/matchpay_ui.dart';
@@ -57,7 +62,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   final List<String> _listaEspera = [];
   final Map<String, EstadoConfirmacion> _estados = {};
   int _horasLimite = 24;
-  DateTime _fechaPartido = DateTime.now().add(const Duration(hours: 2));
+  DateTime? _fechaPartido;
   SportType _sportType = SportType.padel;
   bool _loading = true;
   bool _guardando = false;
@@ -68,6 +73,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   bool _convocatoriaEnviada = false;
   bool _convocatoriaExpiradaAlCargar = false;
   DateTime? _ultimoSnackPromocionAt;
+  ConvocatoriaCompleta? _convocatoriaCompleta;
 
   bool get _modoSeguimiento => _convocatoriaEnviada && !_partidoConfirmado;
 
@@ -90,12 +96,41 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       .where((id) => _estados[id] == EstadoConfirmacion.invitado)
       .length;
 
-  bool get _fechaPartidoPasada => !_fechaPartido.isAfter(DateTime.now());
+  bool get _fechaPartidoPasada =>
+      _fechaPartido == null || !_fechaPartido!.isAfter(DateTime.now());
+
+  bool get _tieneFechaPartido => _fechaPartido != null;
+
+  List<int> get _opcionesPlazo {
+    if (_fechaPartido == null) {
+      return ConvocatoriaPlazoRespuesta.opcionesExtendidas;
+    }
+    return ConvocatoriaPlazoRespuesta.opcionesPermitidas(_fechaPartido!);
+  }
+
+  DateTime get _sugerenciaInicialPicker {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day + 1, 20, 0);
+  }
+
+  void _ajustarPlazoTrasCambioFecha({bool primeraVez = false}) {
+    if (_fechaPartido == null) return;
+    _horasLimite = primeraVez
+        ? ConvocatoriaPlazoRespuesta.sugerirHoras(_fechaPartido!)
+        : ConvocatoriaPlazoRespuesta.ajustarHoras(
+            _horasLimite,
+            _fechaPartido!,
+          );
+  }
+
+  bool get _mostrarResumenConvocatoria =>
+      _convocatoriaEnviada || _partidoConfirmado;
 
   bool get _puedeRegistrarCobros =>
+      _fechaPartido != null &&
       PartidoLifecycle.puedeRegistrarGastosDesdeOrganizar(
         partido: Partido(
-          fecha: _fechaPartido,
+          fecha: _fechaPartido!,
           estado: _partidoConfirmado
               ? EstadoPartido.confirmado
               : EstadoPartido.organizando,
@@ -216,20 +251,27 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
       if (_partidoId != null) {
         final conv = await repos.getConvocatoriaCompleta(_partidoId!);
-        if (conv != null) {
-          _fechaPartido = conv.partido.fecha;
-          _sportType = conv.partido.sportType;
-          recintoSel = _recintoDesdePartido(conv.partido, recintosGuardados);
-          _notasCtrl.text = conv.partido.notas ?? '';
-          _cuposCtrl.text = conv.partido.cuposMax.toString();
-          _horasLimite = conv.partido.horasLimiteRespuesta;
-          _partidoConfirmado = conv.partido.esConfirmado;
-          _convocatoriaExpiradaAlCargar =
-              PartidoLifecycle.convocatoriaExpirada(conv.partido);
-          _convocatoriaEnviada = conv.titulares
-              .any((entry) => entry.tiempoLimite != null);
-          _aplicarDesdeConvocatoria(conv);
+        if (conv == null) {
+          if (mounted) {
+            setState(() {
+              _loading = false;
+              _errorCarga = context.l10n.tr('convocatoriaLoadUnavailable');
+            });
+          }
+          return;
         }
+        _fechaPartido = conv.partido.fecha;
+        _sportType = conv.partido.sportType;
+        recintoSel = _recintoDesdePartido(conv.partido, recintosGuardados);
+        _notasCtrl.text = conv.partido.notas ?? '';
+        _cuposCtrl.text = conv.partido.cuposMax.toString();
+        _horasLimite = conv.partido.horasLimiteRespuesta;
+        _partidoConfirmado = conv.partido.esConfirmado;
+        _convocatoriaExpiradaAlCargar =
+            PartidoLifecycle.convocatoriaExpirada(conv.partido);
+        _convocatoriaEnviada =
+            conv.titulares.any((entry) => entry.tiempoLimite != null);
+        _aplicarDesdeConvocatoria(conv);
         if (!_partidoConfirmado && _convocatoriaEnviada) {
           await _listaEsperaService.sincronizar(_partidoId!);
           final actualizada = await repos.getConvocatoriaCompleta(_partidoId!);
@@ -286,6 +328,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   void _aplicarDesdeConvocatoria(ConvocatoriaCompleta conv) {
+    _convocatoriaCompleta = conv;
     _titulares.clear();
     _listaEspera.clear();
     _estados.clear();
@@ -346,36 +389,76 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           ),
         );
       }
+      final sinAppPromovidos = result.invitadosPromovidos
+          .where((j) => !j.tieneMatchPayApp && j.puedeEnviarWhatsApp)
+          .toList();
+      if (sinAppPromovidos.isNotEmpty && mounted) {
+        await ConvocatoriaWhatsAppSinAppSheet.show(
+          context,
+          partidoId: _partidoId!,
+          jugadores: sinAppPromovidos,
+          estados: Map.from(_estados),
+        );
+      }
     }
   }
 
-  String _formatoFechaHora(DateTime fecha) => formatDiaCompleto(fecha);
+  String _formatoFechaHora(DateTime? fecha) =>
+      fecha == null ? '' : formatDiaCompleto(fecha);
 
   Future<void> _pickFecha() async {
     if (_formularioBloqueado) return;
+    final sugerida = _fechaPartido ?? _sugerenciaInicialPicker;
+    final now = DateTime.now();
+    final initialDate = sugerida.isAfter(now)
+        ? sugerida
+        : DateTime(now.year, now.month, now.day);
+
     final fecha = await showDatePicker(
       context: context,
-      initialDate: _fechaPartido,
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      locale: const Locale('es', 'CL'),
+      initialDate: initialDate,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 365)),
+      locale: Localizations.localeOf(context),
+      helpText: context.l10n.tr('reprogramPickDateTitle'),
     );
     if (fecha == null || !mounted) return;
 
+    final horaInicial = _fechaPartido != null
+        ? TimeOfDay.fromDateTime(_fechaPartido!)
+        : const TimeOfDay(hour: 20, minute: 0);
+
     final hora = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(_fechaPartido),
+      initialTime: horaInicial,
+      helpText: context.l10n.tr('reprogramPickTimeTitle'),
     );
-    if (hora == null) return;
+    if (hora == null || !mounted) return;
 
+    final nueva = DateTime(
+      fecha.year,
+      fecha.month,
+      fecha.day,
+      hora.hour,
+      hora.minute,
+    );
+    if (!nueva.isAfter(DateTime.now())) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.tr('organizerCycleRescheduleFutureError'),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    final primeraVez = _fechaPartido == null;
     setState(() {
-      _fechaPartido = DateTime(
-        fecha.year,
-        fecha.month,
-        fecha.day,
-        hora.hour,
-        hora.minute,
-      );
+      _fechaPartido = nueva;
+      _ajustarPlazoTrasCambioFecha(primeraVez: primeraVez);
       _dirty = true;
     });
   }
@@ -620,6 +703,15 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       return false;
     }
 
+    if (_fechaPartido == null) {
+      _mostrarError(context.l10n.tr('organizeMatchDateRequired'));
+      return false;
+    }
+    if (!_fechaPartido!.isAfter(DateTime.now())) {
+      _mostrarError(context.l10n.tr('organizeMatchDateMustBeFuture'));
+      return false;
+    }
+
     final recinto = _recintoSeleccionado;
     if (recinto == null || recinto.nombre.trim().isEmpty) {
       _mostrarError(context.l10n.tr('venueRequiredError'));
@@ -646,7 +738,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       final repos = context.repos;
       if (_partidoId == null) {
         _partidoId = await repos.crearConvocatoria(
-          fecha: _fechaPartido,
+          fecha: _fechaPartido!,
           recinto: recinto.nombre.trim(),
           recintoId: recinto.id,
           recintoMapsUrl: recinto.mapsUrl,
@@ -661,16 +753,33 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       } else {
         final partidoId = _partidoId!;
         final reabrirConvocatoria = _convocatoriaExpiradaAlCargar &&
-            _fechaPartido.isAfter(DateTime.now());
+            _fechaPartido!.isAfter(DateTime.now());
         if (reabrirConvocatoria) {
           await repos.reprogramarConvocatoria(
             partidoId: partidoId,
-            nuevaFecha: _fechaPartido,
+            nuevaFecha: _fechaPartido!,
           );
+          final fresh = await repos.getConvocatoriaCompleta(partidoId);
+          if (fresh != null && mounted) {
+            final result = await ConvocatoriaComunicacionService()
+                .avisarReprogramacion(fresh);
+            if (result.sinApp.isNotEmpty && mounted) {
+              final estados = {
+                for (final e in fresh.titulares)
+                  e.jugador.keyId: e.estado,
+              };
+              await ConvocatoriaWhatsAppSinAppSheet.show(
+                context,
+                partidoId: partidoId,
+                jugadores: result.sinApp,
+                estados: estados,
+              );
+            }
+          }
         }
         await repos.actualizarConvocatoria(
           partidoId: partidoId,
-          fecha: _fechaPartido,
+          fecha: _fechaPartido!,
           recinto: recinto.nombre.trim(),
           recintoId: recinto.id,
           recintoMapsUrl: recinto.mapsUrl,
@@ -682,6 +791,12 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           jugadores: jugadores,
           sportType: _sportType,
         );
+        if (_convocatoriaEnviada && mounted) {
+          final fresh = await repos.getConvocatoriaCompleta(partidoId);
+          if (fresh != null && mounted) {
+            setState(() => _aplicarDesdeConvocatoria(fresh));
+          }
+        }
       }
 
       await _prefs.saveUltimoRecinto(recinto.nombre.trim());
@@ -783,7 +898,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       await _notificaciones.notificarConvocatoriaTitulares(
         titulares: titularesJugadores,
         partidoId: _partidoId!,
-        fecha: _fechaPartido,
+        fecha: _fechaPartido!,
         horasLimite: _horasLimite,
         recinto: recinto.nombre.trim(),
         sportType: _sportType,
@@ -860,20 +975,13 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   Future<void> _eliminarConvocatoria() async {
-    final ok = await confirmarEliminarPartido(
+    if (_partidoId == null) return;
+    final ok = await confirmarYEliminarConvocatoria(
       context,
-      titulo: context.l10n.tr('organizeDeleteInviteTitle'),
-      mensaje: context.l10n.tr('organizeDeleteInviteMessage'),
-      consecuencias: [
-        context.l10n.tr('organizeDeleteInviteConsequence1'),
-        context.l10n.tr('organizeDeleteInviteConsequence2'),
-        context.l10n.tr('organizeDeleteInviteConsequence3'),
-      ],
+      partidoId: _partidoId!,
+      convocatoria: _convocatoriaCompleta,
     );
-    if (!ok || _partidoId == null) return;
-
-    await context.repos.eliminarConvocatoria(_partidoId!);
-    if (mounted) Navigator.pop(context, true);
+    if (ok && mounted) Navigator.pop(context, true);
   }
 
   Future<void> _abrirMapaRecinto() async {
@@ -1005,15 +1113,35 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _errorCarga != null
-              ? FriendlyErrorPanel(
-                  message: _errorCarga!,
-                  onRetry: () {
-                    setState(() {
-                      _loading = true;
-                      _errorCarga = null;
-                    });
-                    _load();
-                  },
+              ? Column(
+                  children: [
+                    Expanded(
+                      child: FriendlyErrorPanel(
+                        message: _errorCarga!,
+                        onRetry: () {
+                          setState(() {
+                            _loading = true;
+                            _errorCarga = null;
+                          });
+                          _load();
+                        },
+                      ),
+                    ),
+                    if (_partidoId != null)
+                      SafeArea(
+                        minimum: const EdgeInsets.all(16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _eliminarConvocatoria,
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            label: Text(
+                              context.l10n.tr('organizerCycleDeleteConvocatoria'),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 )
               : ListView(
               padding: const EdgeInsets.all(12),
@@ -1027,8 +1155,24 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                               ? context.l10n.tr('organizeHelpTracking')
                               : context.l10n.tr('organizeHelpDraft'),
                 ),
+                if (_convocatoriaEnviada && _convocatoriaCompleta != null) ...[
+                  const SizedBox(height: 12),
+                  MatchPaySurfaceCard(
+                    padding: const EdgeInsets.all(14),
+                    child: PartidoEstadoPublicoMessage(
+                      view: PartidoEstadoPublicoView.resolve(
+                        _convocatoriaCompleta!,
+                      ),
+                      fechaPartido: _convocatoriaCompleta!.partido.fecha,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
-                _buildResumen(),
+                _buildFechaHoraHero(),
+                if (_mostrarResumenConvocatoria) ...[
+                  const SizedBox(height: 12),
+                  _buildResumen(),
+                ],
                 const SizedBox(height: 12),
                 _buildDatosPartido(),
                 const SizedBox(height: 12),
@@ -1193,6 +1337,145 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     );
   }
 
+  Widget _buildFechaHoraHero() {
+    final l10n = context.l10n;
+    final palette = context.sportPalette;
+    final fecha = _fechaPartido;
+    final bloqueado = _formularioBloqueado;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: bloqueado ? null : _pickFecha,
+        borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: fecha == null
+                  ? [
+                      MatchPayTokens.accentCredit.withValues(alpha: 0.14),
+                      MatchPayTokens.accentCredit.withValues(alpha: 0.06),
+                    ]
+                  : [
+                      palette.primary.withValues(alpha: 0.16),
+                      palette.primary.withValues(alpha: 0.06),
+                    ],
+            ),
+            border: Border.all(
+              color: fecha == null
+                  ? MatchPayTokens.accentCredit.withValues(alpha: 0.45)
+                  : palette.primary.withValues(alpha: 0.35),
+              width: fecha == null ? 1.5 : 1,
+            ),
+            boxShadow: MatchPayTokens.shadowCard(elevated: fecha != null),
+          ),
+          padding: const EdgeInsets.all(18),
+          child: fecha == null
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: MatchPayTokens.accentCredit
+                                .withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.event_rounded,
+                            color: MatchPayTokens.accentCredit,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.tr('organizePickMatchWhenTitle'),
+                                style: MatchPayTokens.titleMediumStyle(
+                                  color: MatchPayTokens.accentCredit,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                l10n.tr('organizePickMatchWhenSubtitle'),
+                                style: MatchPayTokens.bodySmallStyle(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (!bloqueado) ...[
+                      const SizedBox(height: 14),
+                      FilledButton.icon(
+                        onPressed: _pickFecha,
+                        icon: const Icon(Icons.calendar_month_rounded),
+                        label: Text(l10n.tr('organizePickMatchWhenAction')),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: MatchPayTokens.accentCredit,
+                          minimumSize: const Size.fromHeight(44),
+                        ),
+                      ),
+                    ],
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.tr('dateAndTime').toUpperCase(),
+                      style: MatchPayTokens.sectionLabelStyle(
+                        color: palette.primary,
+                      ).copyWith(letterSpacing: 0.8),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      formatDiaCompleto(fecha),
+                      style: MatchPayTokens.titleMediumStyle(
+                        color: palette.primaryDark,
+                      ).copyWith(fontSize: 20, height: 1.2),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      formatHora(fecha),
+                      style: TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        color: palette.primaryDark,
+                        height: 1.05,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      formatEnCuanto(fecha),
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.inkSecondary,
+                      ).copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    if (!bloqueado) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        l10n.tr('organizePickMatchWhenChange'),
+                        style: MatchPayTokens.bodySmallStyle(
+                          color: palette.primary,
+                        ).copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildResumen() {
     final palette = context.sportPalette;
     return MatchPaySurfaceCard(
@@ -1288,6 +1571,32 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     );
   }
 
+  String? _buildPlazoHelperText() {
+    final fecha = _fechaPartido;
+    if (fecha == null) return null;
+    final l10n = context.l10n;
+    final limite = ConvocatoriaPlazoRespuesta.calcularTiempoLimite(
+      enviadoEn: DateTime.now(),
+      horasLimite: _horasLimite,
+      fechaPartido: fecha,
+    );
+    final deadline = formatFechaHora(limite);
+    final recortado = ConvocatoriaPlazoRespuesta.plazoRecortadoPorPartido(
+      horasLimite: _horasLimite,
+      fechaPartido: fecha,
+    );
+    if (recortado) {
+      return l10n.tr(
+        'organizeResponseDeadlineCapped',
+        params: {'deadline': deadline},
+      );
+    }
+    return l10n.tr(
+      'organizeResponseDeadlineHint',
+      params: {'deadline': deadline},
+    );
+  }
+
   Widget _buildDatosPartido() {
     return MatchPaySurfaceCard(
       child: Column(
@@ -1309,16 +1618,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       }),
             ),
             const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.calendar_today),
-              title: Text(context.l10n.tr('dateAndTime')),
-              subtitle: Text(_formatoFechaHora(_fechaPartido)),
-              trailing: _formularioBloqueado
-                  ? null
-                  : const Icon(Icons.chevron_right),
-              onTap: _formularioBloqueado ? null : _pickFecha,
-            ),
             InputDecorator(
               decoration: InputDecoration(
                 labelText: context.l10n.tr('venueLabelRequired'),
@@ -1409,12 +1708,18 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<int>(
-              value: _horasLimite,
+              value: _opcionesPlazo.contains(_horasLimite)
+                  ? _horasLimite
+                  : _opcionesPlazo.last,
               decoration: InputDecoration(
                 labelText: context.l10n.tr('organizeResponseDeadlineLabel'),
                 prefixIcon: const Icon(Icons.timer_outlined),
+                helperText: _fechaPartido == null
+                    ? context.l10n.tr('organizeResponseDeadlineNeedDate')
+                    : _buildPlazoHelperText(),
+                helperMaxLines: 2,
               ),
-              items: [1, 2, 4, 8, 24]
+              items: _opcionesPlazo
                   .map(
                     (h) => DropdownMenuItem(
                       value: h,
@@ -1427,7 +1732,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                     ),
                   )
                   .toList(),
-              onChanged: _formularioBloqueado
+              onChanged: _formularioBloqueado || _fechaPartido == null
                   ? null
                   : (v) {
                       if (v == null) return;

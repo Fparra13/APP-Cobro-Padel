@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../domain/convocatoria_plazo_respuesta.dart';
 import '../domain/cobro_logic.dart';
 import '../core/sport_type.dart';
 import '../core/supabase_helpers.dart';
@@ -345,9 +346,21 @@ class ConvocatoriaRepositoryRemote {
     required int horasLimite,
   }) async {
     await SupabaseHelpers.guard('Activar tiempos límite', () async {
-      final limite = SupabaseParse.toTimestamptz(
-        DateTime.now().add(Duration(hours: horasLimite)),
+      final partidoRow = await _client
+          .from('partidos')
+          .select('fecha')
+          .eq('id', partidoId)
+          .maybeSingle();
+      final fechaRaw = partidoRow?['fecha'] as String?;
+      final fechaPartido = fechaRaw != null
+          ? DateTime.parse(fechaRaw)
+          : DateTime.now().add(Duration(hours: horasLimite));
+      final limiteDt = ConvocatoriaPlazoRespuesta.calcularTiempoLimite(
+        enviadoEn: DateTime.now(),
+        horasLimite: horasLimite,
+        fechaPartido: fechaPartido,
       );
+      final limite = SupabaseParse.toTimestamptz(limiteDt);
       await _client
           .from('convocatoria_jugadores')
           .update({'tiempo_limite': limite})
@@ -361,6 +374,7 @@ class ConvocatoriaRepositoryRemote {
     await SupabaseHelpers.guard('Confirmar partido', () async {
       await _client.from('partidos').update({
         'estado': EstadoPartido.confirmado.dbValue,
+        'reprogramado_en': null,
       }).eq('id', partidoId);
     });
   }
@@ -590,6 +604,7 @@ class ConvocatoriaRepositoryRemote {
       jugador,
       resolvedPartidoId,
     );
+    if (entry.esSuplente) return null;
     return MiConvocatoria(entry: entry, partido: partido);
   }
 
@@ -620,7 +635,8 @@ class ConvocatoriaRepositoryRemote {
       final rows = await _client
           .from('convocatoria_jugadores')
           .select('*, partidos!inner(*)')
-          .eq('jugador_id', uid);
+          .eq('jugador_id', uid)
+          .eq('es_suplente', false);
 
       final result = <MiConvocatoria>[];
       for (final raw in rows as List) {
@@ -662,6 +678,7 @@ class ConvocatoriaRepositoryRemote {
           .select('*, partidos!inner(*)')
           .eq('partido_id', partidoId)
           .eq('jugador_id', uid)
+          .eq('es_suplente', false)
           .maybeSingle();
       if (row == null) return null;
 

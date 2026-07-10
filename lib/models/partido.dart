@@ -23,6 +23,7 @@ class Partido {
   final DateTime createdAt;
   final DateTime? resueltoEn;
   final int? partidoOrigenId;
+  final DateTime? reprogramadoEn;
 
   const Partido({
     this.id,
@@ -44,6 +45,7 @@ class Partido {
     required this.createdAt,
     this.resueltoEn,
     this.partidoOrigenId,
+    this.reprogramadoEn,
   });
 
   /// Ubicación para abrir en Maps (exacta si hay link/coords).
@@ -91,8 +93,10 @@ class Partido {
     DateTime? createdAt,
     DateTime? resueltoEn,
     int? partidoOrigenId,
+    DateTime? reprogramadoEn,
     bool clearResueltoEn = false,
     bool clearPartidoOrigenId = false,
+    bool clearReprogramadoEn = false,
   }) {
     return Partido(
       id: id ?? this.id,
@@ -117,6 +121,9 @@ class Partido {
       partidoOrigenId: clearPartidoOrigenId
           ? null
           : (partidoOrigenId ?? this.partidoOrigenId),
+      reprogramadoEn: clearReprogramadoEn
+          ? null
+          : (reprogramadoEn ?? this.reprogramadoEn),
     );
   }
 
@@ -164,6 +171,9 @@ class Partido {
             ? SupabaseParse.toDateTime(map['resuelto_en'])
             : null,
         partidoOrigenId: map['partido_origen_id'] as int?,
+        reprogramadoEn: map['reprogramado_en'] != null
+            ? SupabaseParse.toDateTime(map['reprogramado_en'])
+            : null,
       );
 
   factory Partido.fromSupabaseMap(Map<String, dynamic> map) => Partido(
@@ -191,6 +201,9 @@ class Partido {
             : null,
         partidoOrigenId: map['partido_origen_id'] is num
             ? (map['partido_origen_id'] as num).toInt()
+            : null,
+        reprogramadoEn: map['reprogramado_en'] != null
+            ? SupabaseParse.toDateTime(map['reprogramado_en'])
             : null,
       );
 

@@ -2,6 +2,7 @@ import '../core/app_repositories.dart';
 import '../domain/partido_lifecycle.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/estado_partido.dart';
+import '../models/jugador.dart';
 import 'convocatoria_notificacion_service.dart';
 
 class ConvocatoriaSyncResult {
@@ -10,6 +11,7 @@ class ConvocatoriaSyncResult {
   final int promovidos;
   final bool autoConfirmado;
   final bool reabierta;
+  final List<Jugador> invitadosPromovidos;
 
   const ConvocatoriaSyncResult({
     this.recordatorios = 0,
@@ -17,6 +19,7 @@ class ConvocatoriaSyncResult {
     this.promovidos = 0,
     this.autoConfirmado = false,
     this.reabierta = false,
+    this.invitadosPromovidos = const [],
   });
 
   bool get huboCambios =>
@@ -67,6 +70,7 @@ class ConvocatoriaListaEsperaService {
     var recordatorios = 0;
     var vencidos = 0;
     var promovidos = 0;
+    final invitadosPromovidos = <Jugador>[];
     final now = DateTime.now();
     final partido = conv.partido;
 
@@ -91,7 +95,10 @@ class ConvocatoriaListaEsperaService {
         }
         vencidos++;
       }
-      return ConvocatoriaSyncResult(vencidos: vencidos);
+      return ConvocatoriaSyncResult(
+        vencidos: vencidos,
+        invitadosPromovidos: invitadosPromovidos,
+      );
     }
 
     // 1) Recordatorio: invitado, plazo futuro y dentro de la última hora.
@@ -151,6 +158,7 @@ class ConvocatoriaListaEsperaService {
         return ConvocatoriaSyncResult(
           recordatorios: recordatorios,
           vencidos: vencidos,
+          invitadosPromovidos: invitadosPromovidos,
         );
       }
     }
@@ -163,10 +171,18 @@ class ConvocatoriaListaEsperaService {
       final promovido = await repos.promoverSiguienteSuplente(partidoId);
       if (promovido == null) break;
 
-      await _notificaciones.notificarPromocionTitular(
-        jugador: promovido,
-        partidoId: partidoId,
-      );
+      invitadosPromovidos.add(promovido);
+      conv = await repos.getConvocatoriaCompleta(partidoId);
+      if (conv != null) {
+        await _notificaciones.notificarConvocatoriaTitulares(
+          titulares: [promovido],
+          partidoId: partidoId,
+          fecha: conv.partido.fecha,
+          horasLimite: conv.partido.horasLimiteRespuesta,
+          recinto: conv.partido.recinto ?? '',
+          sportType: conv.partido.sportType,
+        );
+      }
       promovidos++;
       conv = await repos.getConvocatoriaCompleta(partidoId);
     }
@@ -194,6 +210,7 @@ class ConvocatoriaListaEsperaService {
       promovidos: promovidos,
       autoConfirmado: autoConfirmado,
       reabierta: reabierta,
+      invitadosPromovidos: invitadosPromovidos,
     );
   }
 

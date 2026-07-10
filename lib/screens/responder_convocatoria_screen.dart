@@ -8,6 +8,7 @@ import '../core/offline_status_controller.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/sport_theme.dart';
 import '../l10n/matchpay_strings.dart';
+import '../domain/estado_partido_publico.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/estado_partido.dart';
 import '../models/mi_convocatoria.dart';
@@ -17,6 +18,7 @@ import '../services/notification_service.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/single_action.dart';
+import '../widgets/partido_estado_publico.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/sport_icon.dart';
 
@@ -212,6 +214,28 @@ class _ResponderConvocatoriaScreenState
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
+                      if (_data != null) ...[
+                        MatchPaySurfaceCard(
+                          padding: const EdgeInsets.all(14),
+                          child: PartidoEstadoPublicoMessage(
+                            view: PartidoEstadoPublicoView.resolveJugador(
+                                  _data!,
+                                  null,
+                                ) ??
+                                PartidoEstadoPublicoView(
+                                  estado: EstadoPartidoPublico
+                                      .esperandoConfirmaciones,
+                                  confirmados: 0,
+                                  cuposMax: partido?.cuposMax ?? 0,
+                                  pendientes: 1,
+                                  faltan: partido?.cuposMax ?? 0,
+                                ),
+                            fechaPartido: partido?.fecha,
+                            jugadorConvocatoria: _data,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       if (_requiereRespuesta)
                         MatchPayStatusBanner(
                           icon: Icons.info_outline_rounded,
@@ -226,15 +250,7 @@ class _ResponderConvocatoriaScreenState
                             : null,
                         mapIsExact: partido.mapsLocation.hasExactLocation,
                       ),
-                      if (entry?.esSuplente ?? false) ...[
-                        const SizedBox(height: 16),
-                        MatchPaySurfaceCard(
-                          child: Text(
-                            context.l10n.tr('respondWaitlistBody'),
-                            style: MatchPayTokens.bodySmallStyle(),
-                          ),
-                        ),
-                      ] else if (_yaRespondio && entry != null) ...[
+                      if (_yaRespondio && entry != null) ...[
                         const SizedBox(height: 16),
                         MatchPaySurfaceCard(
                           child: Row(
@@ -266,7 +282,7 @@ class _ResponderConvocatoriaScreenState
                     ],
                   ),
                 ),
-                if (_requiereRespuesta && !(entry?.esSuplente ?? false))
+                if (_requiereRespuesta)
                   SafeArea(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),

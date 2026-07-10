@@ -382,16 +382,13 @@ class NotificationService {
 
   Future<void> showPromocionTitular({
     required int partidoId,
+    required DateTime fecha,
+    required int horasLimite,
   }) async {
-    if (!_initialized) return;
-    await requestPermissions();
-    final id = idConvocatoriaBase + 500 + (partidoId % 8500);
-    await _plugin.show(
-      id,
-      await _tr('notifPromocionTitle'),
-      await _tr('notifPromocionBody'),
-      await _convocatoriaDetails(),
-      payload: '$payloadConvocatoriaPrefix$partidoId',
+    await showConvocatoriaInvitacion(
+      partidoId: partidoId,
+      fecha: fecha,
+      horasLimite: horasLimite,
     );
   }
 

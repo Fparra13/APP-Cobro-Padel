@@ -1,4 +1,5 @@
 import '../database/database_helper.dart';
+import '../domain/convocatoria_plazo_respuesta.dart';
 import '../models/convocatoria_jugador.dart';
 import '../core/sport_type.dart';
 import '../models/estado_partido.dart';
@@ -313,9 +314,23 @@ class ConvocatoriaRepository {
     required int partidoId,
     required int horasLimite,
   }) async {
-    final limite =
-        DateTime.now().add(Duration(hours: horasLimite)).toIso8601String();
     final db = await _db.database;
+    final partidoRows = await db.query(
+      'partidos',
+      columns: ['fecha'],
+      where: 'id = ?',
+      whereArgs: [partidoId],
+      limit: 1,
+    );
+    final fechaPartido = partidoRows.isNotEmpty
+        ? DateTime.parse(partidoRows.first['fecha'] as String)
+        : DateTime.now().add(Duration(hours: horasLimite));
+    final limiteDt = ConvocatoriaPlazoRespuesta.calcularTiempoLimite(
+      enviadoEn: DateTime.now(),
+      horasLimite: horasLimite,
+      fechaPartido: fechaPartido,
+    );
+    final limite = limiteDt.toIso8601String();
     await db.update(
       'convocatoria_jugadores',
       {'tiempo_limite': limite},
