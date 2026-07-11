@@ -166,8 +166,16 @@ class AppRepositories {
 
   // --- Jugadores ---
 
-  Future<List<Jugador>> getJugadores({bool? soloActivos}) {
-    if (useRemote) return _jugadorRemote.getAll(soloActivos: soloActivos);
+  Future<List<Jugador>> getJugadores({
+    bool? soloActivos,
+    bool incluirUsuarioActual = false,
+  }) {
+    if (useRemote) {
+      return _jugadorRemote.getAll(
+        soloActivos: soloActivos,
+        incluirUsuarioActual: incluirUsuarioActual,
+      );
+    }
     return _jugadorLocal.getAll(soloActivos: soloActivos);
   }
 
@@ -779,6 +787,22 @@ class AppRepositories {
       return _convocatoriaRemote.getMisConvocatoriasComoJugador();
     }
     return [];
+  }
+
+  Future<List<MiConvocatoria>> getCancelacionesJugador() async {
+    await relinkConvocatoriasPorEmail();
+    if (useRemote) {
+      return _convocatoriaRemote.getCancelacionesJugador();
+    }
+    return [];
+  }
+
+  Future<MiConvocatoria?> getCancelacionJugador(int partidoId) async {
+    await relinkConvocatoriasPorEmail();
+    if (useRemote) {
+      return _convocatoriaRemote.getCancelacionJugador(partidoId);
+    }
+    return null;
   }
 
   Future<MiConvocatoria?> getMiConvocatoria(int partidoId) async {

@@ -6,6 +6,8 @@ import '../core/sport_theme.dart';
 import '../core/sport_type.dart';
 import '../domain/deuda_explicacion.dart';
 import '../models/detalle_partido.dart';
+import '../models/mi_convocatoria.dart';
+import '../models/player_historial_entry.dart';
 import '../models/saldo_historico.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/formatters.dart';
@@ -986,4 +988,355 @@ List<DetallePartido> filtrarPartidosPorDeporte(
 ) {
   if (deporte == null) return partidos;
   return partidos.where((p) => p.sportType == deporte).toList();
+}
+
+/// Fila de partido cancelado en el historial del jugador.
+class PlayerHistorialCanceladoTile extends StatelessWidget {
+  final MiConvocatoria convocatoria;
+  final PlayerMatchHistoryVisual visual;
+
+  const PlayerHistorialCanceladoTile({
+    super.key,
+    required this.convocatoria,
+    this.visual = PlayerMatchHistoryVisual.premium,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final lang = context.readSettings().locale.languageCode;
+    final partido = convocatoria.partido;
+    final fecha = partido.fecha;
+    final recinto = partido.recinto?.trim();
+    const muted = Color(0xFF525252);
+    const mutedBg = Color(0xFFF3F4F6);
+
+    final tituloFecha = capitalize(
+      DateFormat('EEEE d MMM', lang).format(fecha),
+    );
+    final hora = formatHora(fecha);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: mutedBg,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: MatchPayTokens.borderSubtle),
+            ),
+            alignment: Alignment.center,
+            child: const Text('😢', style: TextStyle(fontSize: 26)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tituloFecha,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: MatchPayTokens.titleSmallStyle().copyWith(
+                    fontSize: 15,
+                    color: MatchPayTokens.inkSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.schedule_rounded,
+                      size: 13,
+                      color: MatchPayTokens.inkMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      hora,
+                      style: MatchPayTokens.bodySmallStyle().copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (recinto != null && recinto.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.place_outlined,
+                              size: 13,
+                              color: MatchPayTokens.inkMuted,
+                            ),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                recinto,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: MatchPayTokens.bodySmallStyle(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.tr('matchStatusCancelledBody'),
+                  style: MatchPayTokens.bodySmallStyle().copyWith(
+                    fontSize: 11.5,
+                    color: MatchPayTokens.inkMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: mutedBg,
+              borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+              border: Border.all(color: MatchPayTokens.borderSubtle),
+            ),
+            child: Text(
+              l10n.tr('matchStatusCancelledShort'),
+              style: MatchPayTokens.bodySmallStyle().copyWith(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: muted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Historial del jugador mezclando partidos jugados y cancelados.
+class PlayerHistorialEntryList extends StatelessWidget {
+  final List<PlayerHistorialEntry> entradas;
+  final Map<int, double> saldosPorPartido;
+  final PlayerMatchHistorialModo modo;
+  final List<SaldoHistorico>? historialSaldo;
+  final bool groupByMonth;
+  final PlayerMatchHistoryVisual visual;
+  final void Function(DetallePartido)? onJugadoTap;
+  final void Function(MiConvocatoria)? onCanceladoTap;
+
+  const PlayerHistorialEntryList({
+    super.key,
+    required this.entradas,
+    required this.saldosPorPartido,
+    this.modo = PlayerMatchHistorialModo.porPartido,
+    this.historialSaldo,
+    this.groupByMonth = false,
+    this.visual = PlayerMatchHistoryVisual.premium,
+    this.onJugadoTap,
+    this.onCanceladoTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final abonosAlRegistrar = modo == PlayerMatchHistorialModo.cuentaConDeuda &&
+            historialSaldo != null
+        ? abonoAlRegistrarPorPartido(historialSaldo!)
+        : const <int, double>{};
+
+    if (groupByMonth) {
+      final lang = context.readSettings().locale.languageCode;
+      final groups = <String, List<PlayerHistorialEntry>>{};
+      final monthDates = <String, DateTime>{};
+      final sinFecha = <PlayerHistorialEntry>[];
+
+      for (final e in entradas) {
+        final f = e.fecha;
+        if (f == null) {
+          sinFecha.add(e);
+          continue;
+        }
+        final key = '${f.year}-${f.month.toString().padLeft(2, '0')}';
+        groups.putIfAbsent(key, () => []).add(e);
+        monthDates.putIfAbsent(key, () => DateTime(f.year, f.month));
+      }
+      final sortedKeys = groups.keys.toList()..sort((a, b) => b.compareTo(a));
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final key in sortedKeys) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 10),
+              child: Text(
+                capitalize(DateFormat.yMMMM(lang).format(monthDates[key]!)),
+                style: MatchPayTokens.sectionLabelStyle().copyWith(
+                  fontSize: 12,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ),
+            ...groups[key]!.map(
+              (e) => Padding(
+                padding: EdgeInsets.only(
+                  bottom: e == groups[key]!.last ? 16 : 10,
+                ),
+                child: _entryCard(context, e, abonosAlRegistrar),
+              ),
+            ),
+          ],
+          if (sinFecha.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 10),
+              child: Text(
+                context.l10n.tr('playerMatchHistorySection'),
+                style: MatchPayTokens.sectionLabelStyle().copyWith(
+                  fontSize: 12,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ),
+            ...sinFecha.map(
+              (e) => Padding(
+                padding: EdgeInsets.only(
+                  bottom: e == sinFecha.last ? 0 : 10,
+                ),
+                child: _entryCard(context, e, abonosAlRegistrar),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        for (var i = 0; i < entradas.length; i++)
+          Padding(
+            padding: EdgeInsets.only(bottom: i < entradas.length - 1 ? 10 : 0),
+            child: _entryCard(context, entradas[i], abonosAlRegistrar),
+          ),
+      ],
+    );
+  }
+
+  Widget _entryCard(
+    BuildContext context,
+    PlayerHistorialEntry entry,
+    Map<int, double> abonosAlRegistrar,
+  ) {
+    if (entry.esCancelado) {
+      final conv = entry.cancelado!;
+      final card = MatchPaySurfaceCard(
+        elevated: visual == PlayerMatchHistoryVisual.premium,
+        padding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            if (visual == PlayerMatchHistoryVisual.premium)
+              Positioned(
+                left: 0,
+                top: 12,
+                bottom: 12,
+                child: Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9CA3AF),
+                    borderRadius: const BorderRadius.horizontal(
+                      right: Radius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+            PlayerHistorialCanceladoTile(
+              convocatoria: conv,
+              visual: visual,
+            ),
+          ],
+        ),
+      );
+      if (onCanceladoTap == null) return card;
+      return MatchPayTapScale(
+        onTap: () => onCanceladoTap!(conv),
+        child: card,
+      );
+    }
+
+    final detalle = entry.jugado!;
+    final sportPalette = detalle.sportType != null
+        ? SportThemeConfig.paletteFor(detalle.sportType!)
+        : context.sportPalette;
+
+    final card = MatchPaySurfaceCard(
+      elevated: visual == PlayerMatchHistoryVisual.premium,
+      padding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          if (visual == PlayerMatchHistoryVisual.premium)
+            Positioned(
+              left: 0,
+              top: 12,
+              bottom: 12,
+              child: Container(
+                width: 4,
+                decoration: BoxDecoration(
+                  color: sportPalette.primary,
+                  borderRadius: const BorderRadius.horizontal(
+                    right: Radius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+          PlayerMatchHistoryTile(
+            detalle: detalle,
+            saldoAnteriorAlPartido: saldosPorPartido[detalle.partidoId],
+            modo: modo,
+            visual: visual,
+            abonoAlRegistrar: abonosAlRegistrar[detalle.partidoId],
+            showChevron: onJugadoTap != null,
+          ),
+        ],
+      ),
+    );
+
+    if (onJugadoTap == null) return card;
+    return MatchPayTapScale(
+      onTap: () => onJugadoTap!(detalle),
+      child: card,
+    );
+  }
+}
+
+Map<SportType, int> conteoDeportesHistorialEntradas(
+  List<PlayerHistorialEntry> entradas,
+) {
+  final counts = <SportType, int>{};
+  for (final e in entradas) {
+    final sport = e.sportType;
+    if (sport == null) continue;
+    counts[sport] = (counts[sport] ?? 0) + 1;
+  }
+  return counts;
+}
+
+List<PlayerHistorialEntry> filtrarEntradasPorDeporte(
+  List<PlayerHistorialEntry> entradas,
+  SportType? deporte,
+) {
+  if (deporte == null) return entradas;
+  return entradas.where((e) => e.sportType == deporte).toList();
+}
+
+List<DetallePartido> detallesJugadosEnEntradas(
+  List<PlayerHistorialEntry> entradas,
+) {
+  return entradas
+      .where((e) => !e.esCancelado)
+      .map((e) => e.jugado!)
+      .toList();
 }

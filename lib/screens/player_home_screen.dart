@@ -22,7 +22,9 @@ import '../repositories/partido_repository.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/cobro_jugador_ui.dart';
 import '../utils/formatters.dart';
+import '../utils/partido_cancelado_popup_flow.dart';
 import '../widgets/player_matches_to_close.dart';
+import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/mis_invitaciones_panel.dart';
 import '../widgets/offline_no_data_panel.dart';
@@ -243,7 +245,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       partidosJugados: data.partidosJugados.length,
       invitesRecibidas: todas.where((c) => !c.entry.esSuplente).length,
     );
-    final organizerPending = await organizerPendingFuture;
 
     if (!mounted) return;
 
@@ -257,11 +258,15 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       _perfil = data.perfil;
       _misStats = data.misStats;
       _showOrganizerNudge = showNudge;
-      _organizerPendingCount = organizerPending;
       _offlineEmpty = false;
       _error = null;
       _primeraCarga = false;
     });
+
+    // Badge organizador: no bloquea el primer paint del home jugador.
+    unawaited(organizerPendingFuture.then((count) {
+      if (mounted) setState(() => _organizerPendingCount = count);
+    }));
 
     if (!fromLive) return;
 
@@ -272,6 +277,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
         todas.map((c) => c.partido.id).whereType<int>(),
       ),
     );
+    unawaited(PartidoCanceladoPopupFlow.mostrarPendientesEnHome(context));
   }
 
   bool get _readOnly => context.watch<OfflineStatusController>().isReadOnly;
@@ -878,10 +884,10 @@ class _HeroMatchCard extends StatelessWidget {
     final palette = SportThemeConfig.paletteFor(p.sportType);
     final recinto = p.recinto?.trim();
     final conv = convocatoriaCompleta;
-    final statusView = PartidoEstadoPublicoView.resolveJugador(
-      convocatoria,
-      conv,
-    );
+    final confirmados = conv?.confirmados ?? 0;
+    final pendientes = conv?.pendientes ?? 0;
+    final tieneRoster = conv != null && confirmados > 0;
+    final esReprogramado = convocatoria.esReprogramadoPendiente;
 
     return Material(
       color: Colors.transparent,
@@ -891,6 +897,7 @@ class _HeroMatchCard extends StatelessWidget {
         onTap: onTap,
         child: Ink(
           width: double.infinity,
+          height: tieneRoster ? 252 : 228,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
             gradient: LinearGradient(
@@ -934,9 +941,11 @@ class _HeroMatchCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            (needsResponse
-                                    ? l10n.tr('playerHeroNeedsReply')
-                                    : l10n.tr('playerHeroNextMatch'))
+                            (esReprogramado
+                                    ? l10n.tr('matchStatusRescheduledShort')
+                                    : needsResponse
+                                        ? l10n.tr('playerHeroNeedsReply')
+                                        : l10n.tr('playerHeroNextMatch'))
                                 .toUpperCase(),
                             style: const TextStyle(
                               color: Colors.white,
@@ -947,8 +956,29 @@ class _HeroMatchCard extends StatelessWidget {
                           ),
                         ),
                         const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            p.esOrganizando
+                                ? l10n.tr('playerHeroMatchTypeOpen')
+                                : l10n.tr('playerHeroMatchTypeReady'),
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.95),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
+                    const Spacer(),
                     Text(
                       formatDiaCompleto(p.fecha),
                       style: const TextStyle(
@@ -959,6 +989,18 @@ class _HeroMatchCard extends StatelessWidget {
                         height: 1.15,
                       ),
                     ),
+                    if (esReprogramado) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        l10n.tr('matchStatusPlayerRescheduledConfirm'),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -989,15 +1031,30 @@ class _HeroMatchCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    if (statusView != null) ...[
-                      const SizedBox(height: 14),
-                      PartidoEstadoPublicoMessage(
-                        view: statusView,
-                        fechaPartido: p.fecha,
-                        jugadorConvocatoria: convocatoria,
-                        textColor: Colors.white,
-                        titleSize: 15,
-                        bodySize: 13,
+                    if (conv != null && (confirmados > 0 || pendientes > 0)) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.tr(
+                          'playerHeroRosterLine',
+                          params: {
+                            'confirmed': '$confirmados',
+                            'pending': '$pendientes',
+                          },
+                        ),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                    if (tieneRoster) ...[
+                      const SizedBox(height: 10),
+                      ConvocatoriaAvatarStrip(
+                        titulares: conv.titulares,
+                        cuposMax: conv.partido.cuposMax,
+                        onDarkBackground: true,
+                        mode: ConvocatoriaAvatarStripMode.player,
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -1016,25 +1073,33 @@ class _HeroMatchCard extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                needsResponse
-                                    ? Icons.schedule_rounded
-                                    : Icons.check_circle_rounded,
+                                esReprogramado
+                                    ? Icons.event_repeat_rounded
+                                    : needsResponse
+                                        ? Icons.schedule_rounded
+                                        : Icons.check_circle_rounded,
                                 size: 16,
-                                color: needsResponse
-                                    ? Colors.orange.shade800
-                                    : const Color(0xFF15803D),
+                                color: esReprogramado
+                                    ? const Color(0xFF2563EB)
+                                    : needsResponse
+                                        ? Colors.orange.shade800
+                                        : const Color(0xFF15803D),
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                needsResponse
-                                    ? l10n.tr('playerHeroTapToReply')
-                                    : l10n.tr('respondConfirmedStatus'),
+                                esReprogramado
+                                    ? l10n.tr('playerHeroConfirmRescheduled')
+                                    : needsResponse
+                                        ? l10n.tr('playerHeroTapToReply')
+                                        : l10n.tr('respondConfirmedStatus'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 12.5,
-                                  color: needsResponse
-                                      ? Colors.orange.shade900
-                                      : const Color(0xFF14532D),
+                                  color: esReprogramado
+                                      ? const Color(0xFF1D4ED8)
+                                      : needsResponse
+                                          ? Colors.orange.shade900
+                                          : const Color(0xFF14532D),
                                 ),
                               ),
                             ],

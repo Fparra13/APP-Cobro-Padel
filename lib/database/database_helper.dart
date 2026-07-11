@@ -33,7 +33,7 @@ class DatabaseHelper {
 
     return openDatabase(
       path,
-      version: 14,
+      version: 15,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -262,6 +262,11 @@ class DatabaseHelper {
       );
       await db.execute(
         'ALTER TABLE partidos ADD COLUMN partido_origen_id INTEGER',
+      );
+    }
+    if (oldVersion < 15) {
+      await db.execute(
+        'ALTER TABLE partidos ADD COLUMN reprogramado_en TEXT',
       );
     }
   }

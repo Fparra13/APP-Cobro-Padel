@@ -449,11 +449,14 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: l10n.tr('refreshTooltip'),
-            onPressed: _load,
+            onPressed: () => _load(silent: true),
           ),
         ],
       ),
-      body: _loading
+      body: _loading &&
+              _jugadores.isEmpty &&
+              !_offlineEmpty &&
+              _loadError == null
           ? const _JugadoresShimmer()
           : _offlineEmpty
               ? const OfflineNoDataPanel()
@@ -461,7 +464,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                   ? _buildLoadErrorState()
                   : RefreshIndicator(
                       color: palette.primary,
-                      onRefresh: _load,
+                      onRefresh: () => _load(silent: true),
                       child: _jugadores.isEmpty
                           ? ListView(
                               physics: const AlwaysScrollableScrollPhysics(),

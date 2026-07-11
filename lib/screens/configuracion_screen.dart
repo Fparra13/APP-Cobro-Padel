@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_repositories.dart';
-import '../core/app_settings_controller.dart';
 import '../core/auth_service.dart';
+import '../core/crashlytics_bootstrap.dart';
+import '../core/firebase_config.dart';
 import '../core/legal_urls.dart';
 import '../models/jugador.dart';
 import '../core/matchpay_design_tokens.dart';
@@ -357,6 +359,12 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                 ],
                 const SizedBox(height: 8),
                 _buildSeccionLegal(),
+                if (kDebugMode && FirebaseConfig.isConfigured) ...[
+                  const SizedBox(height: 28),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  _buildSeccionCrashlyticsTest(),
+                ],
                 if (AuthService.instance.isLoggedIn) ...[
                   const SizedBox(height: 24),
                   OutlinedButton.icon(
@@ -624,6 +632,41 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           title: Text(l10n.tr('privacyPolicy')),
           trailing: const Icon(Icons.open_in_new, size: 18),
           onTap: _abrirPoliticaPrivacidad,
+        ),
+      ],
+    );
+  }
+
+  /// Solo debug: Paso 3 de la guía oficial de Crashlytics.
+  Widget _buildSeccionCrashlyticsTest() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.bug_report_outlined, color: Colors.orange.shade800),
+            const SizedBox(width: 8),
+            const Text(
+              'Crashlytics (debug)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Fuerza una excepción de prueba para ver el informe en Firebase Console. '
+          'Después reinicia la app.',
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => CrashlyticsBootstrap.forceTestException(),
+          icon: const Icon(Icons.warning_amber_rounded, size: 18),
+          label: const Text('Throw Test Exception'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.orange.shade900,
+            minimumSize: const Size.fromHeight(44),
+          ),
         ),
       ],
     );

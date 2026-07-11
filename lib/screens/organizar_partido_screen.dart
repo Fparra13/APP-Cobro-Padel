@@ -11,6 +11,7 @@ import '../models/estado_partido.dart';
 import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../domain/convocatoria_plazo_respuesta.dart';
+import '../domain/convocatoria_cupo_logic.dart';
 import '../domain/estado_partido_publico.dart';
 import '../domain/partido_lifecycle.dart';
 import '../models/recinto.dart';
@@ -22,11 +23,12 @@ import '../services/supabase_realtime_service.dart';
 import '../utils/formatters.dart';
 import '../utils/convocatoria_organizador_actions.dart';
 import '../utils/matchpay_context.dart';
+import '../widgets/convocatoria_avatar_strip.dart';
+import '../widgets/convocatoria_decision_panel.dart';
 import '../widgets/partido_estado_publico.dart';
 import '../widgets/ayuda_tip.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../widgets/matchpay_ui.dart';
-import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/convocatoria_whatsapp_sin_app_sheet.dart';
 import '../widgets/jugador_app_badge.dart';
 import '../widgets/match_sport_picker.dart';
@@ -85,6 +87,19 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       _convocatoriaEnviada && !_fechaPartidoPasada;
 
   bool get _cuposLlenos => _confirmados >= _cuposMax;
+
+  bool get _cupoImposible {
+    final completa = _convocatoriaCompleta;
+    if (completa == null || !_modoSeguimiento) return false;
+    return ConvocatoriaCupoLogic.cupoImposible(completa);
+  }
+
+  bool get _shouldShowEstadoSeguimiento {
+    if (!_modoSeguimiento || _convocatoriaCompleta == null) return false;
+    if (_cupoImposible) return false;
+    final view = PartidoEstadoPublicoView.resolve(_convocatoriaCompleta!);
+    return view.estado == EstadoPartidoPublico.reprogramado;
+  }
 
   int get _cuposDisponibles => (_cuposMax - _confirmados).clamp(0, _cuposMax);
 
@@ -154,6 +169,22 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   Jugador? _jugadorPorId(String id) => _jugadoresPorId[id];
+
+  List<ConvocatoriaJugadorEntry> _titularesConvocatoriaEntries() {
+    final partidoId = _partidoId ?? 0;
+    return _titulares
+        .map((id) {
+          final jugador = _jugadorPorId(id);
+          if (jugador == null) return null;
+          return ConvocatoriaJugadorEntry(
+            partidoId: partidoId,
+            jugador: jugador,
+            estado: _estados[id] ?? EstadoConfirmacion.invitado,
+          );
+        })
+        .whereType<ConvocatoriaJugadorEntry>()
+        .toList();
+  }
 
   List<Jugador> _jugadoresTitularesEnPantalla() {
     if (_formularioBloqueado) {
@@ -241,7 +272,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       final repos = AppRepositories.isReady
           ? AppRepositories.I
           : context.repos;
-      final habituales = await repos.getJugadores(soloActivos: true);
+      final habituales = await repos.getJugadores(
+        soloActivos: true,
+        incluirUsuarioActual: true,
+      );
       _jugadoresPorId.clear();
       _indexarJugadores(habituales);
       final recintosGuardados = await repos.getMisRecintos();
@@ -938,6 +972,12 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     );
   }
 
+  void _salirTrasCancelar() {
+    if (!mounted) return;
+    setState(() => _dirty = false);
+    Navigator.of(context).pop();
+  }
+
   Future<void> _registrarCobros() async {
     final confirmados = _titulares
         .where((id) => _estados[id] == EstadoConfirmacion.confirmado)
@@ -1156,15 +1196,28 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                               : context.l10n.tr('organizeHelpDraft'),
                 ),
                 if (_convocatoriaEnviada && _convocatoriaCompleta != null) ...[
-                  const SizedBox(height: 12),
-                  MatchPaySurfaceCard(
-                    padding: const EdgeInsets.all(14),
-                    child: PartidoEstadoPublicoMessage(
-                      view: PartidoEstadoPublicoView.resolve(
-                        _convocatoriaCompleta!,
+                  if (_shouldShowEstadoSeguimiento) ...[
+                    const SizedBox(height: 12),
+                    MatchPaySurfaceCard(
+                      padding: const EdgeInsets.all(14),
+                      child: PartidoEstadoPublicoMessage(
+                        view: PartidoEstadoPublicoView.resolve(
+                          _convocatoriaCompleta!,
+                        ),
+                        fechaPartido: _convocatoriaCompleta!.partido.fecha,
+                        showBody: true,
                       ),
-                      fechaPartido: _convocatoriaCompleta!.partido.fecha,
                     ),
+                  ],
+                ],
+                if (_cupoImposible && _partidoId != null && !_modoSeguimiento) ...[
+                  const SizedBox(height: 12),
+                  ConvocatoriaDecisionPanel(
+                    partidoId: _partidoId,
+                    onCompleted: () {
+                      if (mounted) unawaited(_load());
+                    },
+                    onCancelSuccess: _salirTrasCancelar,
                   ),
                 ],
                 const SizedBox(height: 12),
@@ -1180,50 +1233,37 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 const SizedBox(height: 80),
               ],
             ),
-      bottomNavigationBar: SafeArea(
+      bottomNavigationBar: _errorCarga != null
+          ? null
+          : SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_convocatoriaEnviada || _partidoConfirmado)
+              if (_partidoConfirmado)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
                     Icon(
-                      _partidoConfirmado
-                          ? Icons.check_circle_rounded
-                          : Icons.sync_rounded,
+                      Icons.check_circle_rounded,
                       size: 18,
-                      color: _partidoConfirmado
-                          ? MatchPayTokens.accentSuccess
-                          : MatchPayTokens.accentCredit,
+                      color: MatchPayTokens.accentSuccess,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        _partidoConfirmado
-                            ? context.l10n.tr(
-                                'organizeConfirmedBar',
-                                params: {
-                                  'confirmed': '$_confirmados',
-                                  'max': '$_cuposMax',
-                                },
-                              )
-                            : context.l10n.tr(
-                                'organizeTrackingBar',
-                                params: {
-                                  'confirmed': '$_confirmados',
-                                  'max': '$_cuposMax',
-                                  'pending': '$_pendientes',
-                                },
-                              ),
+                        context.l10n.tr(
+                          'organizeConfirmedBar',
+                          params: {
+                            'confirmed': '$_confirmados',
+                            'max': '$_cuposMax',
+                          },
+                        ),
                         style: MatchPayTokens.titleSmallStyle(
-                          color: _partidoConfirmado
-                              ? MatchPayTokens.accentSuccess
-                              : MatchPayTokens.accentCredit,
+                          color: MatchPayTokens.accentSuccess,
                         ).copyWith(fontSize: 13),
                       ),
                     ),
@@ -1282,6 +1322,16 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 ),
               )
             else if (_modoSeguimiento) ...[
+              if (_cupoImposible && _partidoId != null)
+                ConvocatoriaDecisionPanel(
+                  showHeader: false,
+                  partidoId: _partidoId,
+                  onCompleted: () {
+                    if (mounted) unawaited(_load());
+                  },
+                  onCancelSuccess: _salirTrasCancelar,
+                )
+              else ...[
               if (_titularesSinApp.isNotEmpty)
                 OutlinedButton.icon(
                   onPressed: _mostrarWhatsAppSinAppSheet,
@@ -1311,24 +1361,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                     ).copyWith(fontSize: 13),
                     textAlign: TextAlign.center,
                   ),
-                )
-              else
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    context.l10n.tr(
-                      'organizeNeedMoreConfirmed',
-                      params: {
-                        'remaining': '${_cuposMax - _confirmados}',
-                      },
-                    ),
-                    style: MatchPayTokens.bodySmallStyle(
-                      color: MatchPayTokens.accentUrgent,
-                    ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
-                    textAlign: TextAlign.center,
-                  ),
                 ),
-            ]
+            ],
+            ],
             ],
           ),
         ),
@@ -1441,16 +1476,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       formatDiaCompleto(fecha),
                       style: MatchPayTokens.titleMediumStyle(
                         color: palette.primaryDark,
-                      ).copyWith(fontSize: 20, height: 1.2),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      formatHora(fecha),
-                      style: TextStyle(
-                        fontSize: 34,
+                      ).copyWith(
+                        fontSize: bloqueado ? 22 : 20,
                         fontWeight: FontWeight.w800,
-                        color: palette.primaryDark,
-                        height: 1.05,
+                        height: 1.2,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -1460,6 +1489,29 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                         color: MatchPayTokens.inkSecondary,
                       ).copyWith(fontWeight: FontWeight.w600),
                     ),
+                    if (bloqueado &&
+                        _recintoSeleccionado?.nombre.trim().isNotEmpty ==
+                            true) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.place_outlined,
+                            size: 16,
+                            color: palette.primaryDark.withValues(alpha: 0.85),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _recintoSeleccionado!.nombre.trim(),
+                              style: MatchPayTokens.bodySmallStyle(
+                                color: palette.primaryDark,
+                              ).copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     if (!bloqueado) ...[
                       const SizedBox(height: 10),
                       Text(
@@ -1482,46 +1534,49 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_modoSeguimiento || _partidoConfirmado)
+          if (_partidoConfirmado)
             Container(
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: _partidoConfirmado
-                    ? MatchPayTokens.accentSuccessBg
-                    : MatchPayTokens.accentCreditBg,
+                color: MatchPayTokens.accentSuccessBg,
                 borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
               ),
               child: Row(
                 children: [
-                  Icon(
-                    _partidoConfirmado
-                        ? Icons.check_circle_rounded
-                        : Icons.campaign_rounded,
+                  const Icon(
+                    Icons.check_circle_rounded,
                     size: 16,
-                    color: _partidoConfirmado
-                        ? MatchPayTokens.accentSuccess
-                        : MatchPayTokens.accentCredit,
+                    color: MatchPayTokens.accentSuccess,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      _partidoConfirmado
-                          ? context.l10n.tr('organizeBannerConfirmed')
-                          : context.l10n.tr('organizeBannerSent'),
+                      context.l10n.tr('organizeBannerConfirmed'),
                       style: MatchPayTokens.titleSmallStyle(
-                        color: _partidoConfirmado
-                            ? MatchPayTokens.accentSuccess
-                            : MatchPayTokens.accentCredit,
+                        color: MatchPayTokens.accentSuccess,
                       ).copyWith(fontSize: 12),
                     ),
                   ),
                 ],
               ),
             ),
+          if (_modoSeguimiento) ...[
+            Text(
+              context.l10n.tr('organizeTrackingSectionTitle'),
+              style: MatchPayTokens.sectionLabelStyle(
+                color: palette.primary,
+              ).copyWith(letterSpacing: 0.6),
+            ),
+            const SizedBox(height: 10),
+          ],
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.groups_rounded, color: palette.primary, size: 36),
+              ConvocatoriaAvatarStrip(
+                titulares: _titularesConvocatoriaEntries(),
+                cuposMax: _cuposMax,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1598,6 +1653,65 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   Widget _buildDatosPartido() {
+    if (_formularioBloqueado) {
+      final recinto = _recintoSeleccionado;
+      return MatchPaySurfaceCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.l10n.tr('matchDetailsTitle'),
+              style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
+            ),
+            const SizedBox(height: 12),
+            SportChargeChip(sport: _sportType),
+            if (recinto != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.place_outlined,
+                    size: 20,
+                    color: context.sportPalette.primaryDark,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          recinto.nombre,
+                          style: MatchPayTokens.titleSmallStyle().copyWith(
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (recinto.location.hasExactLocation) ...[
+                          const SizedBox(height: 6),
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              await recinto.location.open();
+                            },
+                            icon: const Icon(Icons.map_outlined, size: 18),
+                            label: Text(
+                              context.l10n.tr('openExactVenueMap'),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
     return MatchPaySurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1607,17 +1721,14 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
             style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
           ),
             const SizedBox(height: 12),
-            MatchSportPicker(
-              value: _sportType,
-              enabled: !_formularioBloqueado,
-              onChanged: _formularioBloqueado
-                  ? null
-                  : (sport) => setState(() {
-                        _sportType = sport;
-                        _dirty = true;
-                      }),
-            ),
-            const SizedBox(height: 12),
+          MatchSportPicker(
+            value: _sportType,
+            onChanged: (sport) => setState(() {
+              _sportType = sport;
+              _dirty = true;
+            }),
+          ),
+          const SizedBox(height: 12),
             InputDecorator(
               decoration: InputDecoration(
                 labelText: context.l10n.tr('venueLabelRequired'),

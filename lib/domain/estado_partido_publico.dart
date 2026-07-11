@@ -4,6 +4,7 @@ import '../models/convocatoria_jugador.dart';
 import '../models/estado_partido.dart';
 import '../models/mi_convocatoria.dart';
 import 'partido_lifecycle.dart';
+import 'convocatoria_cupo_logic.dart';
 
 /// Estados oficiales visibles para organizador y jugador (mismo idioma en toda la app).
 enum EstadoPartidoPublico {
@@ -16,7 +17,7 @@ enum EstadoPartidoPublico {
 }
 
 /// Ventana antes del partido para pasar a [EstadoPartidoPublico.enEvaluacion].
-const Duration kPartidoEvaluacionAntes = Duration(hours: 24);
+const Duration kPartidoEvaluacionAntes = Duration(hours: 6);
 
 class PartidoEstadoPublicoView {
   final EstadoPartidoPublico estado;
@@ -24,6 +25,7 @@ class PartidoEstadoPublicoView {
   final int cuposMax;
   final int pendientes;
   final int faltan;
+  final bool cupoImposible;
 
   const PartidoEstadoPublicoView({
     required this.estado,
@@ -31,6 +33,7 @@ class PartidoEstadoPublicoView {
     required this.cuposMax,
     required this.pendientes,
     required this.faltan,
+    this.cupoImposible = false,
   });
 
   bool get cupoCompleto => cuposMax > 0 && confirmados >= cuposMax;
@@ -87,6 +90,8 @@ class PartidoEstadoPublicoView {
     final futuro = partido.fecha.isAfter(ref);
     final expirada = PartidoLifecycle.convocatoriaExpirada(partido, ref);
 
+    final enviada = convocatoria.convocatoriaEnviada;
+
     if (partido.reprogramadoEn != null && futuro && faltan > 0) {
       return PartidoEstadoPublicoView(
         estado: EstadoPartidoPublico.reprogramado,
@@ -108,8 +113,19 @@ class PartidoEstadoPublicoView {
     }
 
     if (futuro && faltan > 0) {
+      if (ConvocatoriaCupoLogic.cupoImposible(convocatoria, ref)) {
+        return PartidoEstadoPublicoView(
+          estado: EstadoPartidoPublico.enEvaluacion,
+          confirmados: confirmados,
+          cuposMax: cupos,
+          pendientes: pendientes,
+          faltan: faltan,
+          cupoImposible: true,
+        );
+      }
       final restante = partido.fecha.difference(ref);
-      final evaluacion = restante <= kPartidoEvaluacionAntes;
+      final evaluacion =
+          enviada && restante <= kPartidoEvaluacionAntes;
       return PartidoEstadoPublicoView(
         estado: evaluacion
             ? EstadoPartidoPublico.enEvaluacion
@@ -133,7 +149,9 @@ class PartidoEstadoPublicoView {
 
     if (expirada && faltan > 0) {
       return PartidoEstadoPublicoView(
-        estado: EstadoPartidoPublico.enEvaluacion,
+        estado: enviada
+            ? EstadoPartidoPublico.enEvaluacion
+            : EstadoPartidoPublico.esperandoConfirmaciones,
         confirmados: confirmados,
         cuposMax: cupos,
         pendientes: pendientes,
@@ -187,6 +205,17 @@ class PartidoEstadoPublicoView {
         faltan: 0,
       );
     }
+
+    if (convocatoria.esReprogramadoPendiente) {
+      return PartidoEstadoPublicoView(
+        estado: EstadoPartidoPublico.reprogramado,
+        confirmados: 0,
+        cuposMax: p.cuposMax,
+        pendientes: 1,
+        faltan: p.cuposMax,
+      );
+    }
+
     if (convocatoria.estaConfirmado) {
       return PartidoEstadoPublicoView(
         estado: EstadoPartidoPublico.confirmado,

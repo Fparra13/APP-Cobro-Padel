@@ -7,12 +7,12 @@ import '../core/matchpay_design_tokens.dart';
 import '../core/sport_theme.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/convocatoria_jugador.dart';
-import '../models/estado_partido.dart';
 import '../repositories/partido_repository.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../widgets/partido_estado_publico.dart';
-import 'jugador_avatar.dart';
+import 'convocatoria_avatar_strip.dart';
+import 'at_risk_convocatoria_actions.dart';
 import 'matchpay_ui.dart';
 
 enum OrganizerCyclePhase {
@@ -69,19 +69,15 @@ class OrganizerCycleSnapshot {
       );
     }
 
-    final enEvaluacion = convocatorias
-        .where((c) {
-          final view = PartidoEstadoPublicoView.resolve(c);
-          return view.estado == EstadoPartidoPublico.enEvaluacion ||
-              view.estado == EstadoPartidoPublico.reprogramado;
-        })
+    final enCupoImposible = convocatorias
+        .where((c) => PartidoEstadoPublicoView.resolve(c).cupoImposible)
         .toList()
       ..sort((a, b) => a.partido.fecha.compareTo(b.partido.fecha));
 
-    if (enEvaluacion.isNotEmpty) {
+    if (enCupoImposible.isNotEmpty) {
       return OrganizerCycleSnapshot(
         phase: OrganizerCyclePhase.atRisk,
-        convocatoria: enEvaluacion.first,
+        convocatoria: enCupoImposible.first,
       );
     }
 
@@ -193,8 +189,6 @@ class OrganizerCycleHero extends StatelessWidget {
   final VoidCallback? onMarkPlayed;
   final VoidCallback? onReschedule;
   final VoidCallback? onCancel;
-  final VoidCallback? onRemindPending;
-  final VoidCallback? onDelete;
 
   const OrganizerCycleHero({
     super.key,
@@ -204,8 +198,6 @@ class OrganizerCycleHero extends StatelessWidget {
     this.onMarkPlayed,
     this.onReschedule,
     this.onCancel,
-    this.onRemindPending,
-    this.onDelete,
   });
 
   @override
@@ -217,24 +209,15 @@ class OrganizerCycleHero extends StatelessWidget {
         return _PreparingHero(
           convocatoria: snapshot.convocatoria!,
           onTap: onPrimaryAction,
-          onRemindPending: onRemindPending,
         );
       case OrganizerCyclePhase.atRisk:
-        return _AtRiskHero(
-          convocatoria: snapshot.convocatoria!,
-          onOpenConvocatoria: onPrimaryAction,
-          onReschedule: onReschedule ?? onPrimaryAction,
-          onCancel: onCancel,
-          onRemindPending: onRemindPending,
-          onDelete: onDelete,
-        );
+        return _AtRiskHero(convocatoria: snapshot.convocatoria!);
       case OrganizerCyclePhase.needsResolution:
         return _ResolutionHero(
           convocatoria: snapshot.convocatoria!,
           onMarkPlayed: onMarkPlayed ?? onPrimaryAction,
           onReschedule: onReschedule ?? onPrimaryAction,
           onCancel: onCancel,
-          onDelete: onDelete,
         );
       case OrganizerCyclePhase.registerExpenses:
         return _RegisterHero(
@@ -254,141 +237,204 @@ class _CycleHeroShell extends StatelessWidget {
   final String phaseLabel;
   final String title;
   final String? subtitle;
+  final String? contextLine;
   final Widget? body;
   final String? ctaLabel;
   final VoidCallback? onTap;
   final bool celebratory;
+  final bool interactiveBody;
+  final bool riskIndicator;
 
   const _CycleHeroShell({
     required this.palette,
     required this.phaseLabel,
     required this.title,
     this.subtitle,
+    this.contextLine,
     this.body,
     this.ctaLabel,
     this.onTap,
     this.celebratory = false,
+    this.interactiveBody = false,
+    this.riskIndicator = false,
   });
+
+  BoxDecoration _cardDecoration() {
+    return BoxDecoration(
+      borderRadius: BorderRadius.circular(24),
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: celebratory
+            ? [
+                MatchPayTokens.accentSuccess.withValues(alpha: 0.92),
+                MatchPayTokens.accentSuccess,
+                const Color(0xFF2E7D52),
+              ]
+            : [
+                palette.primaryDark,
+                palette.primary,
+                palette.primary.withValues(alpha: 0.88),
+              ],
+      ),
+      boxShadow: MatchPayTokens.shadowHero(
+        celebratory ? MatchPayTokens.accentSuccess : palette.primary,
+      ),
+    );
+  }
+
+  Widget _cardStack() {
+    return Stack(
+      clipBehavior: Clip.hardEdge,
+      children: [
+        Positioned(
+          right: -20,
+          bottom: -30,
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: 0.14,
+              child: Text(
+                celebratory ? '✅' : palette.emoji,
+                style: const TextStyle(fontSize: 140),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildPhaseHeader(),
+              if (contextLine != null && contextLine!.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  contextLine!,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.96),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.15,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+              SizedBox(height: contextLine != null ? 14 : 12),
+              Text(
+                title,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: riskIndicator ? 20 : 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.35,
+                  height: 1.2,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  subtitle!,
+                  style: TextStyle(
+                    color: Colors.white.withValues(
+                      alpha: riskIndicator ? 0.84 : 0.9,
+                    ),
+                    fontSize: riskIndicator ? 13.5 : 14,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+              if (body != null) ...[
+                const SizedBox(height: 14),
+                body!,
+              ],
+              if (ctaLabel != null && onTap != null) ...[
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: onTap,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: celebratory
+                        ? MatchPayTokens.accentSuccess
+                        : palette.primaryDark,
+                    minimumSize: const Size.fromHeight(46),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(
+                        MatchPayTokens.radiusButton,
+                      ),
+                    ),
+                  ),
+                  child: Text(
+                    ctaLabel!,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPhaseHeader() {
+    final label = Text(
+      phaseLabel.toUpperCase(),
+      style: TextStyle(
+        color: Colors.white.withValues(alpha: riskIndicator ? 0.9 : 0.82),
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.05,
+      ),
+    );
+
+    if (!riskIndicator) return label;
+
+    return Row(
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF4D4F),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF4D4F).withValues(alpha: 0.5),
+                blurRadius: 5,
+                spreadRadius: 0.5,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: label),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final content = ClipRRect(
+    final card = ClipRRect(
       borderRadius: BorderRadius.circular(24),
-      child: Material(
-      color: Colors.transparent,
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: celebratory
-                ? [
-                    MatchPayTokens.accentSuccess.withValues(alpha: 0.92),
-                    MatchPayTokens.accentSuccess,
-                    const Color(0xFF2E7D52),
-                  ]
-                : [
-                    palette.primaryDark,
-                    palette.primary,
-                    palette.primary.withValues(alpha: 0.88),
-                  ],
-          ),
-          boxShadow: MatchPayTokens.shadowHero(
-            celebratory ? MatchPayTokens.accentSuccess : palette.primary,
-          ),
-        ),
-        child: Stack(
-          clipBehavior: Clip.hardEdge,
-          children: [
-            Positioned(
-              right: -20,
-              bottom: -30,
-              child: Opacity(
-                opacity: 0.14,
-                child: Text(
-                  celebratory ? '✅' : palette.emoji,
-                  style: const TextStyle(fontSize: 140),
-                ),
+      child: interactiveBody
+          ? Container(
+              decoration: _cardDecoration(),
+              child: _cardStack(),
+            )
+          : Material(
+              color: Colors.transparent,
+              child: Ink(
+                decoration: _cardDecoration(),
+                child: _cardStack(),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    phaseLabel.toUpperCase(),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.35,
-                      height: 1.15,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle!,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                  if (body != null) ...[
-                    const SizedBox(height: 14),
-                    body!,
-                  ],
-                  if (ctaLabel != null && onTap != null) ...[
-                    const SizedBox(height: 16),
-                    FilledButton(
-                      onPressed: onTap,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: celebratory
-                            ? MatchPayTokens.accentSuccess
-                            : palette.primaryDark,
-                        minimumSize: const Size.fromHeight(46),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            MatchPayTokens.radiusButton,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        ctaLabel!,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
     );
 
-    // Solo envolver con tap global si no hay botón CTA (evita zona de toque
-    // invisible que bloquea la lista de convocatorias debajo del hero).
-    if (onTap == null || ctaLabel != null) return content;
+    // Solo envolver con tap global si no hay botón CTA ni acciones en el body.
+    if (interactiveBody || onTap == null || ctaLabel != null) return card;
 
-    return MatchPayTapScale(onTap: onTap!, child: content);
+    return MatchPayTapScale(onTap: onTap!, child: card);
   }
 }
 
@@ -413,15 +459,107 @@ class _EmptyHero extends StatelessWidget {
   }
 }
 
+class _ConvocatoriaRosterBody extends StatelessWidget {
+  final ConvocatoriaCompleta convocatoria;
+  final PartidoEstadoPublicoView view;
+
+  const _ConvocatoriaRosterBody({
+    required this.convocatoria,
+    required this.view,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final p = convocatoria.partido;
+    final confirmados = convocatoria.confirmados;
+    final pendientes = convocatoria.pendientes;
+    final cupos = p.cuposMax;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ConvocatoriaAvatarStrip(
+          titulares: convocatoria.titulares,
+          cuposMax: cupos,
+          onDarkBackground: true,
+        ),
+        if (convocatoria.titulares.isNotEmpty || cupos > 0)
+          const SizedBox(height: 12),
+        if (convocatoria.convocatoriaEnviada) ...[
+          PartidoEstadoPublicoMessage(
+            view: view,
+            fechaPartido: p.fecha,
+            textColor: Colors.white,
+            titleSize: 14,
+            bodySize: 12.5,
+            showBody: false,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (cupos > 0)
+          Text(
+            l10n.tr(
+              'organizerCycleRosterFull',
+              params: {
+                'confirmed': '$confirmados',
+                'max': '$cupos',
+              },
+            ),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.95),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          )
+        else
+          Text(
+            l10n.tr(
+              'organizerCycleConfirmedLine',
+              params: {
+                'confirmed': '$confirmados',
+                'pending': '$pendientes',
+              },
+            ),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.95),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            _StatusDot(
+              color: const Color(0xFF69F0AE),
+              label: l10n.tr(
+                'organizerCycleConfirmedBadge',
+                params: {'count': '$confirmados'},
+              ),
+            ),
+            const SizedBox(width: 12),
+            if (pendientes > 0)
+              _StatusDot(
+                color: const Color(0xFFFFD54F),
+                label: l10n.tr(
+                  'organizerCyclePendingBadge',
+                  params: {'count': '$pendientes'},
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _PreparingHero extends StatelessWidget {
   final ConvocatoriaCompleta convocatoria;
   final VoidCallback onTap;
-  final VoidCallback? onRemindPending;
 
   const _PreparingHero({
     required this.convocatoria,
     required this.onTap,
-    this.onRemindPending,
   });
 
   @override
@@ -466,117 +604,14 @@ class _PreparingHero extends StatelessWidget {
       );
     }
 
-    final roster = convocatoria.titulares
-        .where((j) => j.estado == EstadoConfirmacion.confirmado)
-        .take(5)
-        .toList();
-
     return _CycleHeroShell(
       palette: palette,
       phaseLabel: l10n.tr('organizerCyclePhasePreparing'),
       title: title,
       subtitle: insight,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          PartidoEstadoPublicoMessage(
-            view: PartidoEstadoPublicoView.resolve(convocatoria),
-            fechaPartido: p.fecha,
-            textColor: Colors.white,
-            titleSize: 14,
-            bodySize: 12.5,
-          ),
-          const SizedBox(height: 12),
-          if (cupos > 0)
-            Text(
-              l10n.tr(
-                'organizerCycleRosterFull',
-                params: {
-                  'confirmed': '$confirmados',
-                  'max': '$cupos',
-                },
-              ),
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.95),
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            )
-          else
-            Text(
-              l10n.tr(
-                'organizerCycleConfirmedLine',
-                params: {
-                  'confirmed': '$confirmados',
-                  'pending': '$pendientes',
-                },
-              ),
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.95),
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _StatusDot(
-                color: const Color(0xFF69F0AE),
-                label: l10n.tr(
-                  'organizerCycleConfirmedBadge',
-                  params: {'count': '$confirmados'},
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (pendientes > 0)
-                _StatusDot(
-                  color: const Color(0xFFFFD54F),
-                  label: l10n.tr(
-                    'organizerCyclePendingBadge',
-                    params: {'count': '$pendientes'},
-                  ),
-                ),
-            ],
-          ),
-          if (roster.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 34,
-              child: Stack(
-                children: [
-                  for (var i = 0; i < roster.length; i++)
-                    Positioned(
-                      left: i * 22.0,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: palette.primaryDark,
-                            width: 2,
-                          ),
-                        ),
-                        child: JugadorAvatar(
-                          nombre: roster[i].jugador.nombre,
-                          fotoUrl: roster[i].jugador.fotoUrl,
-                          fotoPath: roster[i].jugador.fotoPath,
-                          size: 30,
-                          borderRadius: 15,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-          if (pendientes > 0 && onRemindPending != null) ...[
-            const SizedBox(height: 14),
-            _ResolutionChip(
-              label: l10n.tr('organizerCycleRemindPending'),
-              icon: Icons.notifications_active_outlined,
-              onTap: onRemindPending!,
-            ),
-          ],
-        ],
+      body: _ConvocatoriaRosterBody(
+        convocatoria: convocatoria,
+        view: PartidoEstadoPublicoView.resolve(convocatoria),
       ),
       ctaLabel: l10n.tr('organizerCycleViewConvocatoria'),
       onTap: onTap,
@@ -586,19 +621,9 @@ class _PreparingHero extends StatelessWidget {
 
 class _AtRiskHero extends StatelessWidget {
   final ConvocatoriaCompleta convocatoria;
-  final VoidCallback onOpenConvocatoria;
-  final VoidCallback onReschedule;
-  final VoidCallback? onCancel;
-  final VoidCallback? onRemindPending;
-  final VoidCallback? onDelete;
 
   const _AtRiskHero({
     required this.convocatoria,
-    required this.onOpenConvocatoria,
-    required this.onReschedule,
-    this.onCancel,
-    this.onRemindPending,
-    this.onDelete,
   });
 
   @override
@@ -606,61 +631,40 @@ class _AtRiskHero extends StatelessWidget {
     final l10n = context.l10n;
     final p = convocatoria.partido;
     final palette = SportThemeConfig.paletteFor(p.sportType);
-    final view = PartidoEstadoPublicoView.resolve(convocatoria);
-    final pendientes = convocatoria.pendientes;
+    final partidoId = p.id;
+
+    final venue = p.recinto?.trim();
+    final matchLine = [
+      formatDiaCompleto(p.fecha),
+      if (venue != null && venue.isNotEmpty) venue,
+    ].join(' · ');
 
     return _CycleHeroShell(
       palette: palette,
       phaseLabel: l10n.tr('organizerCyclePhaseAtRisk'),
-      title: formatDiaCompleto(p.fecha),
-      subtitle: p.recinto?.trim(),
+      riskIndicator: true,
+      contextLine: matchLine,
+      title: l10n.tr('organizerCycleAtRiskTitle'),
+      subtitle: l10n.tr('organizerCycleAtRiskBody'),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          PartidoEstadoPublicoMessage(
-            view: view,
-            fechaPartido: p.fecha,
-            textColor: Colors.white,
-            titleSize: 15,
-            bodySize: 13,
+          Text(
+            l10n.tr('organizerCycleAtRiskAction'),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              height: 1.35,
+            ),
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _ResolutionChip(
-                label: l10n.tr('organizerCycleAtRiskOpen'),
-                icon: Icons.groups_rounded,
-                onTap: onOpenConvocatoria,
-              ),
-              if (pendientes > 0 && onRemindPending != null)
-                _ResolutionChip(
-                  label: l10n.tr('organizerCycleRemindPending'),
-                  icon: Icons.notifications_active_outlined,
-                  onTap: onRemindPending!,
-                ),
-              _ResolutionChip(
-                label: l10n.tr('organizerCycleUnresolvedReschedule'),
-                icon: Icons.event_repeat_rounded,
-                onTap: onReschedule,
-              ),
-              if (onCancel != null)
-                _ResolutionChip(
-                  label: l10n.tr('organizerCycleUnresolvedCancel'),
-                  icon: Icons.cancel_outlined,
-                  onTap: onCancel!,
-                ),
-              if (onDelete != null)
-                _ResolutionChip(
-                  label: l10n.tr('organizerCycleDeleteConvocatoria'),
-                  icon: Icons.delete_outline_rounded,
-                  onTap: onDelete!,
-                ),
-            ],
-          ),
+          if (partidoId != null) ...[
+            const SizedBox(height: 16),
+            AtRiskConvocatoriaActions(partidoId: partidoId),
+          ],
         ],
       ),
+      interactiveBody: partidoId != null,
     );
   }
 }
@@ -670,14 +674,12 @@ class _ResolutionHero extends StatelessWidget {
   final VoidCallback onMarkPlayed;
   final VoidCallback onReschedule;
   final VoidCallback? onCancel;
-  final VoidCallback? onDelete;
 
   const _ResolutionHero({
     required this.convocatoria,
     required this.onMarkPlayed,
     required this.onReschedule,
     this.onCancel,
-    this.onDelete,
   });
 
   @override
@@ -696,6 +698,12 @@ class _ResolutionHero extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          ConvocatoriaAvatarStrip(
+            titulares: convocatoria.titulares,
+            cuposMax: cupos,
+            onDarkBackground: true,
+          ),
+          const SizedBox(height: 12),
           Text(
             formatDiaCompleto(p.fecha),
             style: TextStyle(
@@ -739,16 +747,11 @@ class _ResolutionHero extends StatelessWidget {
                   icon: Icons.cancel_outlined,
                   onTap: onCancel!,
                 ),
-              if (onDelete != null)
-                _ResolutionChip(
-                  label: l10n.tr('organizerCycleDeleteConvocatoria'),
-                  icon: Icons.delete_outline_rounded,
-                  onTap: onDelete!,
-                ),
             ],
           ),
         ],
       ),
+      interactiveBody: true,
     );
   }
 }
@@ -757,33 +760,45 @@ class _ResolutionChip extends StatelessWidget {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+  final bool emphasized;
 
   const _ResolutionChip({
     required this.label,
     required this.icon,
     required this.onTap,
+    this.emphasized = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
-      child: InkWell(
-        onTap: onTap,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Material(
+        color: emphasized
+            ? Colors.white
+            : Colors.white.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: Colors.white),
-              const SizedBox(width: 6),
+              Icon(
+                icon,
+                size: 17,
+                color: emphasized
+                    ? context.sportPalette.primaryDark
+                    : Colors.white,
+              ),
+              const SizedBox(width: 7),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
+                style: TextStyle(
+                  color: emphasized
+                      ? context.sportPalette.primaryDark
+                      : Colors.white,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
               ),

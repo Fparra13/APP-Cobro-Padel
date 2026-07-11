@@ -104,12 +104,6 @@ int jugadoresPendientesUnicos(List<PartidoCompleto> partidosRecientes) {
   return ids.length;
 }
 
-/// @deprecated Para totales de grupo usar [deudaTotalGrupo]. Suma por partido
-/// puede contar la misma deuda varias veces (encadenamiento de snapshots).
-@Deprecated('No usar para total del grupo; usar deudaTotalGrupo(resumenes)')
-int jugadoresPendientesTotal(List<PartidoCompleto> partidosRecientes) =>
-    jugadoresPendientesUnicos(partidosRecientes);
-
 PartidoCompleto? partidoCerradoReciente(
   List<PartidoCompleto> partidosRecientes, {
   int maxDias = 14,

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../core/app_repositories.dart';
@@ -9,7 +8,6 @@ import '../core/app_settings_controller.dart';
 import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/offline_status_controller.dart';
-import '../core/supabase_helpers.dart';
 import '../offline/organizer_home_loader.dart';
 import '../offline/organizer_home_snapshot.dart';
 import '../offline/offline_snapshot_store.dart';
@@ -19,7 +17,6 @@ import '../models/convocatoria_jugador.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/cobros_resumen.dart';
 import '../repositories/partido_repository.dart';
-import '../domain/organizer_cycle_logic.dart';
 import '../widgets/partido_estado_publico.dart';
 import '../domain/estado_partido_publico.dart';
 import '../domain/partido_lifecycle.dart';
@@ -28,12 +25,12 @@ import '../utils/formatters.dart';
 import '../utils/app_navigation.dart';
 import '../utils/app_mode_pending.dart';
 import '../widgets/pagos_por_validar_panel.dart';
-import '../widgets/desglose_cobro_panel.dart' show ordenarDeudasPorFecha;
 import '../widgets/matchpay_ui.dart';
 import '../widgets/app_mode_switch_button.dart';
+import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/organizer_cycle_hero.dart';
+import '../utils/cancelar_convocatoria_flow.dart';
 import '../utils/reprogramar_convocatoria_flow.dart';
-import '../utils/convocatoria_organizador_actions.dart';
 import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/organizer_group_summary.dart';
 import '../widgets/quick_actions_panel.dart';
@@ -41,7 +38,6 @@ import '../l10n/matchpay_strings.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
 import '../widgets/friendly_error_panel.dart';
-import '../widgets/mis_invitaciones_panel.dart';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int tabIndex)? onNavigateTab;
@@ -90,9 +86,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (!silent || _primeraCarga) {
+    if (!silent && _primeraCarga && mounted) {
       setState(() {
         _loading = true;
+        _loadError = null;
+        _offlineEmpty = false;
+      });
+    } else if (!silent && mounted) {
+      setState(() {
         _loadError = null;
         _offlineEmpty = false;
       });
@@ -153,7 +154,9 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _loading) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -181,14 +184,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _runWriteAction(Future<void> Function() action) async {
-    if (_readOnly) {
-      _showOfflineWriteBlocked();
-      return;
-    }
-    await action();
-  }
-
   Future<void> _openOrganizerPartido(int? partidoId) async {
     if (partidoId == null) {
       if (mounted) {
@@ -199,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
     await abrirOrganizarPartido(context, partidoId: partidoId);
-    if (mounted) _load();
+    if (mounted) _load(silent: true);
   }
 
   int get _playerPendingCount => playerModePendingCount(
@@ -269,37 +264,48 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _eliminarConvocatoria(ConvocatoriaCompleta convocatoria) async {
+  Future<void> _cancelarConvocatoria(int partidoId) async {
     if (_readOnly) {
       _showOfflineWriteBlocked();
       return;
     }
-    final partidoId = convocatoria.partido.id;
-    if (partidoId == null) return;
-    final ok = await confirmarYEliminarConvocatoria(
-      context,
-      partidoId: partidoId,
-      convocatoria: convocatoria,
-    );
-    if (ok && mounted) _load();
-  }
+    final host = matchPayRootContext ?? context;
+    if (!host.mounted) return;
 
-  Future<void> _cancelarConvocatoria(int partidoId) async {
-    final l10n = context.l10n;
+    final l10n = host.l10n;
     final ok = await confirmarEliminarPartido(
-      context,
+      host,
       titulo: l10n.tr('organizerCycleCancelConfirmTitle'),
       mensaje: l10n.tr('organizerCycleCancelConfirmBody'),
+      confirmLabel: l10n.tr('organizerCycleCancelConfirmAction'),
       consecuencias: [
         l10n.tr('organizerCycleCancelConsequence1'),
         l10n.tr('organizerCycleCancelConsequence2'),
       ],
     );
     if (!ok || !mounted) return;
-    await _runWriteAction(() async {
-      await context.repos.cancelarConvocatoria(partidoId);
-      if (mounted) _load();
-    });
+    try {
+      final conv = await context.repos.getConvocatoriaCompleta(partidoId);
+      final cancelOk = await CancelarConvocatoriaFlow.ejecutar(
+        host,
+        partidoId: partidoId,
+        convocatoria: conv,
+      );
+      if (!cancelOk || !mounted) return;
+      await _load(silent: true);
+      if (!host.mounted) return;
+      ScaffoldMessenger.of(host).showSnackBar(
+        SnackBar(content: Text(l10n.tr('organizerCycleCancelSuccessSnack'))),
+      );
+    } catch (e) {
+      if (!host.mounted) return;
+      ScaffoldMessenger.of(host).showSnackBar(
+        SnackBar(
+          content: Text(host.userError(e)),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
   }
 
   Future<void> _reprogramarConvocatoria(ConvocatoriaCompleta convocatoria) async {
@@ -307,22 +313,17 @@ class _HomeScreenState extends State<HomeScreen> {
       _showOfflineWriteBlocked();
       return;
     }
-    final ok = await ReprogramarConvocatoriaFlow.ejecutar(
-      context,
-      convocatoria: convocatoria,
-    );
-    if (ok && mounted) _load();
-  }
+    final host = matchPayRootContext ?? context;
+    if (!host.mounted) return;
 
-  Future<void> _recordarPendientes(ConvocatoriaCompleta convocatoria) async {
-    if (_readOnly) {
-      _showOfflineWriteBlocked();
-      return;
-    }
-    await ReprogramarConvocatoriaFlow.recordarPendientes(
-      context,
+    final ok = await ReprogramarConvocatoriaFlow.ejecutar(
+      host,
       convocatoria: convocatoria,
     );
+    if (ok && mounted) {
+      AppRepositories.notifyDataChanged();
+      await _load(silent: true);
+    }
   }
 
   Future<void> _onCyclePrimaryAction() async {
@@ -355,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case OrganizerCyclePhase.allPaid:
         break;
     }
-    if (mounted) _load();
+    if (mounted) _load(silent: true);
   }
 
   @override
@@ -377,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ? _buildOfflineEmptyState()
                         : RefreshIndicator(
                     color: palette.primary,
-                    onRefresh: _load,
+                    onRefresh: () => _load(silent: true),
                     child: CustomScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       slivers: [
@@ -420,7 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             IconButton(
                               tooltip: l10n.refreshTooltip,
-                              onPressed: _load,
+                              onPressed: () => _load(silent: true),
                               icon: Icon(
                                 Icons.refresh_rounded,
                                 color: MatchPayTokens.inkMuted,
@@ -470,37 +471,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         if (_mostrarHeroOperativo(cycle)) ...[
                           const SizedBox(height: 20),
                           OrganizerCycleHero(
-                              snapshot: cycle,
-                              onPrimaryAction: _onCyclePrimaryAction,
-                              onCreateMatch: () =>
-                                  showOrganizerMatchMenu(context),
-                              onMarkPlayed: cycle.convocatoria?.partido.id ==
-                                      null
-                                  ? null
-                                  : () => _abrirRegistrarGastos(
-                                        cycle.convocatoria!.partido.id!,
-                                      ),
-                              onReschedule: cycle.convocatoria == null
-                                  ? null
-                                  : () => _reprogramarConvocatoria(
-                                        cycle.convocatoria!,
-                                      ),
-                              onCancel: cycle.convocatoria?.partido.id == null
-                                  ? null
-                                  : () => _cancelarConvocatoria(
-                                        cycle.convocatoria!.partido.id!,
-                                      ),
-                              onRemindPending: cycle.convocatoria == null
-                                  ? null
-                                  : () => _recordarPendientes(
-                                        cycle.convocatoria!,
-                                      ),
-                              onDelete: cycle.convocatoria?.partido.id == null
-                                  ? null
-                                  : () => _eliminarConvocatoria(
-                                        cycle.convocatoria!,
-                                      ),
-                            ),
+                            snapshot: cycle,
+                            onPrimaryAction: _onCyclePrimaryAction,
+                            onCreateMatch: () =>
+                                showOrganizerMatchMenu(context),
+                            onMarkPlayed: cycle.convocatoria?.partido.id ==
+                                    null
+                                ? null
+                                : () => _abrirRegistrarGastos(
+                                      cycle.convocatoria!.partido.id!,
+                                    ),
+                            onReschedule: cycle.convocatoria == null
+                                ? null
+                                : () => _reprogramarConvocatoria(
+                                      cycle.convocatoria!,
+                                    ),
+                            onCancel: cycle.convocatoria?.partido.id == null
+                                ? null
+                                : () => _cancelarConvocatoria(
+                                      cycle.convocatoria!.partido.id!,
+                                    ),
+                          ),
                         ],
                         if (_convocatoriasEnLista.isNotEmpty) ...[
                           const SizedBox(height: 20),
@@ -518,7 +509,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           resumenes: _resumenes,
                           ultimoPartido: _ultimoPartido,
                           ultimoPartidoDesglose: _ultimoPartidoDesglose,
-                          onRefresh: _load,
+                          onRefresh: () => _load(silent: true),
                           onNavigateTab: widget.onNavigateTab,
                           readOnly: _readOnly,
                           onReadOnlyTap: _showOfflineWriteBlocked,
@@ -554,7 +545,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildOfflineEmptyState() {
     final l10n = context.l10n;
     return RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: () => _load(silent: true),
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -644,9 +635,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 convocatoria: c,
                 situacion: situacion,
                 onTap: () => _openOrganizerPartido(c.partido.id),
-                onDelete: _readOnly
-                    ? null
-                    : () => _eliminarConvocatoria(c),
               ),
             ),
           ],
@@ -665,9 +653,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 confirmado: true,
                 situacion: situacion,
                 onTap: () => _openOrganizerPartido(c.partido.id),
-                onDelete: _readOnly
-                    ? null
-                    : () => _eliminarConvocatoria(c),
               ),
             ),
           ],
@@ -769,14 +754,12 @@ class _ConvocatoriaTile extends StatelessWidget {
   final bool confirmado;
   final ConvocatoriaOrganizadorSituacion situacion;
   final VoidCallback onTap;
-  final VoidCallback? onDelete;
 
   const _ConvocatoriaTile({
     required this.convocatoria,
     required this.onTap,
     required this.situacion,
     this.confirmado = false,
-    this.onDelete,
   });
 
   @override
@@ -864,7 +847,15 @@ class _ConvocatoriaTile extends StatelessWidget {
                       compact: true,
                     ),
                   ],
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 8),
+                  ConvocatoriaAvatarStrip(
+                    titulares: c.titulares,
+                    cuposMax: c.partido.cuposMax,
+                    size: 24,
+                    overlap: 18,
+                    maxVisible: 4,
+                  ),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       Expanded(
@@ -916,13 +907,6 @@ class _ConvocatoriaTile extends StatelessWidget {
                 ],
               ),
             ),
-            if (onDelete != null)
-              IconButton(
-                icon: const Icon(Icons.delete_outline_rounded),
-                tooltip: context.l10n.tr('deleteTooltip'),
-                color: MatchPayTokens.inkMuted,
-                onPressed: onDelete,
-              ),
             Icon(
               Icons.chevron_right_rounded,
               color: MatchPayTokens.inkMuted,

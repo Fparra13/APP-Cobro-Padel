@@ -112,7 +112,10 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       final repos = AppRepositories.isReady
           ? AppRepositories.I
           : context.repos;
-      final habituales = await repos.getJugadores(soloActivos: true);
+      final habituales = await repos.getJugadores(
+        soloActivos: true,
+        incluirUsuarioActual: true,
+      );
       final recintos = await repos.getRecintosRecientes();
       final ultimoRecinto = await _prefs.ultimoRecinto;
 

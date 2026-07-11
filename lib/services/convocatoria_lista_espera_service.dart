@@ -216,11 +216,19 @@ class ConvocatoriaListaEsperaService {
 
   /// Sincroniza varias convocatorias (p. ej. al abrir inicio).
   Future<void> sincronizarPartidos(Iterable<int> partidoIds) async {
-    final ids = partidoIds.toSet();
-    for (final id in ids) {
-      try {
-        await sincronizar(id);
-      } catch (_) {}
+    final ids = partidoIds.toSet().toList();
+    if (ids.isEmpty) return;
+    // Paralelo acotado: evita N round-trips en serie con demos grandes.
+    const chunkSize = 3;
+    for (var i = 0; i < ids.length; i += chunkSize) {
+      final chunk = ids.skip(i).take(chunkSize);
+      await Future.wait(
+        chunk.map((id) async {
+          try {
+            await sincronizar(id);
+          } catch (_) {}
+        }),
+      );
     }
   }
 }

@@ -83,11 +83,12 @@ class ConvocatoriaNotificacionService {
     }
   }
 
-  /// Aviso a titular confirmado cuando el partido se reprograma.
+  /// Aviso a titular cuando el partido se reprograma (debe volver a confirmar).
   Future<void> notificarReprogramacionTitular({
     required Jugador jugador,
     required int partidoId,
     required DateTime fecha,
+    required int horasLimite,
     required String recinto,
     required SportType sportType,
   }) async {
@@ -97,9 +98,31 @@ class ConvocatoriaNotificacionService {
       tituloKey: 'notifReprogramadoTitle',
       cuerpoKey: 'notifReprogramadoBody',
       fecha: fecha,
+      horasLimite: horasLimite,
       recinto: recinto,
       sportType: sportType,
       localIdOffset: 4000,
+    );
+  }
+
+  /// Aviso cuando el organizador cancela el partido.
+  Future<void> notificarCancelacionTitular({
+    required Jugador jugador,
+    required int partidoId,
+    required DateTime fecha,
+    required String recinto,
+    required SportType sportType,
+  }) async {
+    await _enviarAJugadorConvocatoria(
+      jugador: jugador,
+      partidoId: partidoId,
+      tituloKey: 'notifCanceladoTitle',
+      cuerpoKey: 'notifCanceladoBody',
+      fecha: fecha,
+      recinto: recinto,
+      sportType: sportType,
+      localIdOffset: 4200,
+      pushType: 'convocatoria_cancelada',
     );
   }
 
@@ -172,6 +195,8 @@ class ConvocatoriaNotificacionService {
     required String recinto,
     required SportType sportType,
     required int localIdOffset,
+    int? horasLimite,
+    String pushType = 'convocatoria',
   }) async {
     final uid = AuthService.instance.currentUser?.id;
     final id = await _resolverIdNotificacion(jugador);
@@ -193,6 +218,7 @@ class ConvocatoriaNotificacionService {
         titulo: titulo,
         cuerpo: cuerpo,
         idOffset: localIdOffset,
+        esCancelacion: pushType == 'convocatoria_cancelada',
       );
       return;
     }
@@ -204,8 +230,11 @@ class ConvocatoriaNotificacionService {
         title: titulo,
         body: cuerpo,
         data: {
-          'type': 'convocatoria',
+          'type': pushType,
           'partido_id': '$partidoId',
+          if (horasLimite != null) 'horas_limite': '$horasLimite',
+          'sport_type': sportType.dbValue,
+          'recinto': recinto.trim(),
         },
       );
     } catch (e) {

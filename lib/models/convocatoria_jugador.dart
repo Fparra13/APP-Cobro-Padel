@@ -162,4 +162,8 @@ class ConvocatoriaCompleta {
       .where((j) => j.esSuplente)
       .toList()
     ..sort((a, b) => (a.ordenEspera ?? 999).compareTo(b.ordenEspera ?? 999));
+
+  /// Convocatoria enviada a titulares (plazo de respuesta asignado).
+  bool get convocatoriaEnviada =>
+      titulares.any((e) => e.tiempoLimite != null);
 }

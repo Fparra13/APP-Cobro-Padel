@@ -10,6 +10,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/acquisition_controller.dart';
 import 'core/app_repositories.dart';
 import 'core/app_settings_controller.dart';
+import 'core/crashlytics_bootstrap.dart';
 import 'core/matchpay_design_tokens.dart';
 import 'core/offline_status_controller.dart';
 import 'core/subscription_service.dart';
@@ -49,49 +50,52 @@ final _navigatorKey = GlobalKey<NavigatorState>();
 final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 final offlineRefreshCoordinator = OfflineRefreshCoordinator();
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  if (FirebaseConfig.isConfigured) {
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  }
-  await initializeDateFormatting('es', null);
-  await initializeDateFormatting('es_CL', null);
-  await initializeDateFormatting('en', null);
-  await initializeDateFormatting('pt_BR', null);
-  await SupabaseConfig.initialize();
-  if (FirebaseConfig.isConfigured) {
-    unawaited(FirebaseConfig.ensureInitialized());
-  }
-  final settings = AppSettingsController();
-  await settings.load();
-  final acquisition = AcquisitionController.instance;
-  await acquisition.initialize();
-  AuthService.instance.initializeAuthListener(
-    onSignedIn: () {
-      FcmService.instance.initialize();
-      unawaited(settings.syncLocaleToProfile());
-      offlineRefreshCoordinator.init();
-      _navigatorKey.currentState?.popUntil((route) => route.isFirst);
-    },
-  );
-  await NotificationService.instance.initialize(
-    navKey: _navigatorKey,
-    messengerKey: _scaffoldMessengerKey,
-  );
-  await NotificationService.instance.syncSchedule();
-  _syncMoneyFormat(settings);
-  await SubscriptionService.instance.load();
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: settings),
-        ChangeNotifierProvider.value(value: acquisition),
-        ChangeNotifierProvider.value(value: SubscriptionService.instance),
-        ChangeNotifierProvider(create: (_) => OfflineStatusController()),
-      ],
-      child: MatchPayApp(navigatorKey: _navigatorKey),
-    ),
-  );
+void main() {
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    if (FirebaseConfig.isConfigured) {
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      final firebaseOk = await FirebaseConfig.ensureInitialized();
+      if (firebaseOk) {
+        await CrashlyticsBootstrap.install();
+      }
+    }
+    await initializeDateFormatting('es', null);
+    await initializeDateFormatting('es_CL', null);
+    await initializeDateFormatting('en', null);
+    await initializeDateFormatting('pt_BR', null);
+    await SupabaseConfig.initialize();
+    final settings = AppSettingsController();
+    await settings.load();
+    final acquisition = AcquisitionController.instance;
+    await acquisition.initialize();
+    AuthService.instance.initializeAuthListener(
+      onSignedIn: () {
+        FcmService.instance.initialize();
+        unawaited(settings.syncLocaleToProfile());
+        offlineRefreshCoordinator.init();
+        _navigatorKey.currentState?.popUntil((route) => route.isFirst);
+      },
+    );
+    await NotificationService.instance.initialize(
+      navKey: _navigatorKey,
+      messengerKey: _scaffoldMessengerKey,
+    );
+    await NotificationService.instance.syncSchedule();
+    _syncMoneyFormat(settings);
+    await SubscriptionService.instance.load();
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: settings),
+          ChangeNotifierProvider.value(value: acquisition),
+          ChangeNotifierProvider.value(value: SubscriptionService.instance),
+          ChangeNotifierProvider(create: (_) => OfflineStatusController()),
+        ],
+        child: MatchPayApp(navigatorKey: _navigatorKey),
+      ),
+    );
+  }, CrashlyticsBootstrap.recordZoneError);
 }
 
 void _syncMoneyFormat(AppSettingsController settings) {

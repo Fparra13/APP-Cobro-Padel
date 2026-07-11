@@ -9,6 +9,8 @@ import '../domain/deuda_explicacion.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
+import '../models/mi_convocatoria.dart';
+import '../models/player_historial_entry.dart';
 import '../models/saldo_historico.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
@@ -16,6 +18,7 @@ import '../widgets/cobro_ver_detalle_sheet.dart';
 import '../widgets/friendly_error_panel.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/player_match_history_tile.dart';
+import '../widgets/partido_cancelado_dialog.dart';
 import '../widgets/player_matches_to_close.dart';
 import '../widgets/shimmer_loading.dart';
 
@@ -30,7 +33,7 @@ class MiHistorialScreen extends StatefulWidget {
 }
 
 class _MiHistorialScreenState extends State<MiHistorialScreen> {
-  List<DetallePartido> _partidos = [];
+  List<PlayerHistorialEntry> _entradas = [];
   Map<int, double> _saldosPorPartido = {};
   List<SaldoHistorico> _historialSaldo = [];
   double _saldoAcumulado = 0;
@@ -66,7 +69,16 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
       final repos =
           AppRepositories.isReady ? AppRepositories.I : context.repos;
       final uid = AuthService.instance.currentUser?.id;
-      final partidos = await repos.getMisPartidosJugados(limit: 100);
+      final results = await Future.wait([
+        repos.getMisPartidosJugados(limit: 100),
+        repos.getCancelacionesJugador(),
+      ]);
+      final partidos = results[0] as List<DetallePartido>;
+      final cancelaciones = results[1] as List<MiConvocatoria>;
+      final entradas = PlayerHistorialEntry.merge(
+        jugados: partidos,
+        cancelados: cancelaciones,
+      );
       final ids = partidos.map((p) => p.partidoId).toSet();
       final saldos = await repos.getMisSaldosAnterioresPartidos(ids);
       final historialFuture = uid != null
@@ -79,7 +91,7 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
       final jugador = await jugadorFuture;
       if (!mounted) return;
       setState(() {
-        _partidos = partidos;
+        _entradas = entradas;
         _saldosPorPartido = saldos;
         _historialSaldo = historialSaldo;
         _saldoAcumulado = jugador?.saldoAcumulado ?? 0;
@@ -93,6 +105,14 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _verCancelacion(MiConvocatoria convocatoria) async {
+    if (!mounted) return;
+    await PartidoCanceladoDialog.show(
+      context,
+      convocatoria: convocatoria,
+    );
   }
 
   Future<void> _verDetalle(DetallePartido detalle) async {
@@ -127,26 +147,27 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
         : null;
     DetallePartido? ancla;
     if (explicacion?.partidoIdContexto != null) {
-      for (final p in _partidos) {
-        if (p.partidoId == explicacion!.partidoIdContexto) {
-          ancla = p;
+      for (final e in _entradas) {
+        if (!e.esCancelado && e.jugado!.partidoId == explicacion!.partidoIdContexto) {
+          ancla = e.jugado;
           break;
         }
       }
     }
 
-    final conteoDeportes = conteoDeportesHistorial(_partidos);
-    final partidosVisibles =
-        filtrarPartidosPorDeporte(_partidos, _filtroDeporte);
+    final conteoDeportes = conteoDeportesHistorialEntradas(_entradas);
+    final entradasVisibles =
+        filtrarEntradasPorDeporte(_entradas, _filtroDeporte);
+    final jugadosVisibles = detallesJugadosEnEntradas(entradasVisibles);
     final pagadosVisibles =
-        countPartidosPagadosHistorial(partidosVisibles, _saldosPorPartido);
+        countPartidosPagadosHistorial(jugadosVisibles, _saldosPorPartido);
     final pendientesVisibles =
-        countPartidosPendientesHistorial(partidosVisibles, _saldosPorPartido);
+        countPartidosPendientesHistorial(jugadosVisibles, _saldosPorPartido);
 
     return ShellTabScaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(title: Text(l10n.tr('playerMatchHistoryTitle'))),
-      body: _loading
+      body: _loading && _entradas.isEmpty && _error == null
           ? ListView(
               padding: NavShellScope.listPadding(context),
               children: const [
@@ -171,7 +192,7 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
               : RefreshIndicator(
                   color: palette.primary,
                   onRefresh: () => _load(silent: true),
-                  child: _partidos.isEmpty
+                  child: _entradas.isEmpty
                       ? ListView(
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: NavShellScope.listPadding(context),
@@ -184,7 +205,7 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
                           padding: NavShellScope.listPadding(context),
                           children: [
                             PlayerMatchHistoryHero(
-                              totalPartidos: partidosVisibles.length,
+                              totalPartidos: entradasVisibles.length,
                               pagados: pagadosVisibles,
                               pendientes: pendientesVisibles,
                               conteoPorDeporte: conteoDeportes,
@@ -249,7 +270,7 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
                               ),
                             ],
                             const SizedBox(height: 18),
-                            if (partidosVisibles.isEmpty)
+                            if (entradasVisibles.isEmpty)
                               MatchPaySurfaceCard(
                                 padding: const EdgeInsets.all(24),
                                 child: Text(
@@ -261,8 +282,8 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
                                 ),
                               )
                             else
-                              PlayerMatchHistoryList(
-                                partidos: partidosVisibles,
+                              PlayerHistorialEntryList(
+                                entradas: entradasVisibles,
                                 saldosPorPartido: _saldosPorPartido,
                                 modo: cuentaConDeuda
                                     ? PlayerMatchHistorialModo.cuentaConDeuda
@@ -272,7 +293,8 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
                                     : null,
                                 groupByMonth: true,
                                 visual: PlayerMatchHistoryVisual.premium,
-                                onPartidoTap: _verDetalle,
+                                onJugadoTap: _verDetalle,
+                                onCanceladoTap: _verCancelacion,
                               ),
                           ],
                         ),

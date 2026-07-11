@@ -48,7 +48,11 @@ class PartidoEstadoPublicoBadge extends StatelessWidget {
     );
   }
 
-  String _title(MatchPayStrings l10n) => switch (view.estado) {
+  String _title(MatchPayStrings l10n) {
+    if (view.cupoImposible) {
+      return l10n.tr('matchStatusCupImpossibleShort');
+    }
+    return switch (view.estado) {
         EstadoPartidoPublico.confirmado =>
           l10n.tr('matchStatusConfirmedShort'),
         EstadoPartidoPublico.esperandoConfirmaciones =>
@@ -61,6 +65,7 @@ class PartidoEstadoPublicoBadge extends StatelessWidget {
           l10n.tr('matchStatusCancelledShort'),
         EstadoPartidoPublico.jugado => l10n.tr('matchStatusPlayedShort'),
       };
+  }
 }
 
 class PartidoEstadoPublicoMessage extends StatelessWidget {
@@ -70,6 +75,7 @@ class PartidoEstadoPublicoMessage extends StatelessWidget {
   final Color? textColor;
   final double titleSize;
   final double bodySize;
+  final bool showBody;
 
   const PartidoEstadoPublicoMessage({
     super.key,
@@ -79,6 +85,7 @@ class PartidoEstadoPublicoMessage extends StatelessWidget {
     this.textColor,
     this.titleSize = 16,
     this.bodySize = 13.5,
+    this.showBody = true,
   });
 
   @override
@@ -92,9 +99,12 @@ class PartidoEstadoPublicoMessage extends StatelessWidget {
       'missing': '${view.faltan}',
       'pending': '${view.pendientes}',
       'date': fechaPartido != null ? formatDiaCompleto(fechaPartido!) : '',
+      'maxPossible': '${view.confirmados + view.pendientes}',
     };
 
-    final title = switch (view.estado) {
+    final title = view.cupoImposible
+        ? l10n.tr('matchStatusCupImpossibleTitle')
+        : switch (view.estado) {
       EstadoPartidoPublico.confirmado =>
         l10n.tr('matchStatusConfirmedTitle', params: params),
       EstadoPartidoPublico.esperandoConfirmaciones =>
@@ -108,7 +118,9 @@ class PartidoEstadoPublicoMessage extends StatelessWidget {
       EstadoPartidoPublico.jugado => l10n.tr('matchStatusPlayedTitle'),
     };
 
-    final body = switch (view.estado) {
+    final body = view.cupoImposible
+        ? l10n.tr('matchStatusCupImpossibleBody')
+        : switch (view.estado) {
       EstadoPartidoPublico.confirmado =>
         l10n.tr('matchStatusConfirmedBody', params: params),
       EstadoPartidoPublico.esperandoConfirmaciones =>
@@ -129,7 +141,9 @@ class PartidoEstadoPublicoMessage extends StatelessWidget {
         EstadoConfirmacion.confirmado =>
           l10n.tr('matchStatusPlayerYouConfirmed'),
         EstadoConfirmacion.invitado when jugadorConvocatoria!.requiereRespuesta =>
-          l10n.tr('matchStatusPlayerYouPending'),
+          jugadorConvocatoria!.esReprogramadoPendiente
+              ? l10n.tr('matchStatusPlayerRescheduledConfirm')
+              : l10n.tr('matchStatusPlayerYouPending'),
         EstadoConfirmacion.rechazado ||
         EstadoConfirmacion.noRespondio =>
           l10n.tr('matchStatusPlayerYouDeclined'),
@@ -149,18 +163,20 @@ class PartidoEstadoPublicoMessage extends StatelessWidget {
             height: 1.25,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          body,
-          style: TextStyle(
-            color: muted,
-            fontSize: bodySize,
-            fontWeight: FontWeight.w500,
-            height: 1.35,
+        if (showBody) ...[
+          const SizedBox(height: 4),
+          Text(
+            body,
+            style: TextStyle(
+              color: muted,
+              fontSize: bodySize,
+              fontWeight: FontWeight.w500,
+              height: 1.35,
+            ),
           ),
-        ),
+        ],
         if (personal != null) ...[
-          const SizedBox(height: 6),
+          SizedBox(height: showBody ? 6 : 4),
           Text(
             personal,
             style: TextStyle(

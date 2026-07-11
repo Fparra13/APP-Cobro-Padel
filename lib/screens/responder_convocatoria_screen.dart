@@ -214,7 +214,19 @@ class _ResponderConvocatoriaScreenState
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      if (_data != null) ...[
+                      if (_data != null &&
+                          _data!.esReprogramadoPendiente) ...[
+                        MatchPayStatusBanner(
+                          icon: Icons.event_repeat_rounded,
+                          message: context.l10n.tr(
+                            'matchStatusRescheduledBody',
+                            params: {
+                              'date': formatDiaCompleto(_data!.partido.fecha),
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ] else if (_data != null) ...[
                         MatchPaySurfaceCard(
                           padding: const EdgeInsets.all(14),
                           child: PartidoEstadoPublicoMessage(
@@ -236,12 +248,15 @@ class _ResponderConvocatoriaScreenState
                         ),
                         const SizedBox(height: 16),
                       ],
-                      if (_requiereRespuesta)
+                      if (_requiereRespuesta &&
+                          _data?.esReprogramadoPendiente != true)
                         MatchPayStatusBanner(
                           icon: Icons.info_outline_rounded,
                           message: context.l10n.tr('respondMustAnswerBanner'),
                         ),
-                      if (_requiereRespuesta) const SizedBox(height: 16),
+                      if (_requiereRespuesta &&
+                          _data?.esReprogramadoPendiente != true)
+                        const SizedBox(height: 16),
                       if (partido != null) _DetallePartidoCard(
                         partido: partido,
                         entry: entry,

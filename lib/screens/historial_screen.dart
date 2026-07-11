@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/offline_status_controller.dart';
-import '../core/supabase_helpers.dart';
 import '../domain/deuda_explicacion.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/deuda_partido_anterior.dart';
@@ -49,12 +48,14 @@ class _HistorialScreenState extends State<HistorialScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _offlineEmpty = false;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        _offlineEmpty = false;
+      });
+    }
 
     final offlineStatus = context.read<OfflineStatusController>();
     final userId = AuthService.instance.currentUser?.id;
@@ -451,14 +452,14 @@ class _HistorialScreenState extends State<HistorialScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: _loading
+        child: _loading && _jugador == null && !_offlineEmpty && _error == null
             ? const Center(child: CircularProgressIndicator())
             : _offlineEmpty
                 ? const OfflineNoDataPanel()
-                : _error != null
+                : _error != null && _jugador == null
                     ? _buildErrorState()
                     : RefreshIndicator(
-                    onRefresh: _load,
+                    onRefresh: () => _load(silent: true),
                     child: CustomScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       slivers: [

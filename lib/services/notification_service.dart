@@ -14,6 +14,7 @@ import '../screens/mis_cobros_screen.dart';
 import '../screens/organizar_partido_screen.dart';
 import '../screens/responder_convocatoria_screen.dart';
 import '../utils/formatters.dart';
+import '../utils/partido_cancelado_popup_flow.dart';
 import '../widgets/mis_invitaciones_panel.dart';
 import '../widgets/recordatorio_deudores_sheet.dart';
 import 'preferences_service.dart';
@@ -27,6 +28,7 @@ class NotificationService {
   static const channelConvocatoriaId = 'convocatorias';
   static const payloadRecordatorio = 'recordatorio_deudores';
   static const payloadConvocatoriaPrefix = 'convocatoria:';
+  static const payloadCancelacionPrefix = 'cancelacion:';
   static const payloadOrganizadorPartidoPrefix = 'organizador_partido:';
   static const payloadCobroPrefix = 'cobro:';
   static const payloadComprobantePrefix = 'comprobante:';
@@ -156,6 +158,14 @@ class NotificationService {
         payload.substring(payloadOrganizadorPartidoPrefix.length),
       );
       if (id != null) _abrirPartidoOrganizador(id);
+    } else if (payload != null &&
+        payload.startsWith(payloadCancelacionPrefix)) {
+      final id = int.tryParse(
+        payload.substring(payloadCancelacionPrefix.length),
+      );
+      if (id != null) {
+        _abrirCancelacion(id);
+      }
     } else if (payload != null &&
         payload.startsWith(payloadConvocatoriaPrefix)) {
       final id = int.tryParse(
@@ -380,6 +390,10 @@ class NotificationService {
     await _abrirConvocatoria(partidoId, soloSiPendiente: true);
   }
 
+  Future<void> openCancelacion(int partidoId) async {
+    await _abrirCancelacion(partidoId);
+  }
+
   Future<void> showPromocionTitular({
     required int partidoId,
     required DateTime fecha,
@@ -398,16 +412,19 @@ class NotificationService {
     required String titulo,
     required String cuerpo,
     int idOffset = 0,
+    bool esCancelacion = false,
   }) async {
     if (!_initialized) return;
     await requestPermissions();
     final id = idConvocatoriaBase + idOffset + (partidoId % 8000);
+    final prefix =
+        esCancelacion ? payloadCancelacionPrefix : payloadConvocatoriaPrefix;
     await _plugin.show(
       id,
       titulo,
       cuerpo,
       await _convocatoriaDetails(),
-      payload: '$payloadConvocatoriaPrefix$partidoId',
+      payload: '$prefix$partidoId',
     );
   }
 
@@ -547,6 +564,14 @@ class NotificationService {
         await Future<void>.delayed(const Duration(milliseconds: 400));
         await _abrirPartidoOrganizador(id);
       }
+    } else if (payload.startsWith(payloadCancelacionPrefix)) {
+      final id = int.tryParse(
+        payload.substring(payloadCancelacionPrefix.length),
+      );
+      if (id != null) {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        await _abrirCancelacion(id);
+      }
     } else if (payload.startsWith(payloadConvocatoriaPrefix)) {
       final id = int.tryParse(
         payload.substring(payloadConvocatoriaPrefix.length),
@@ -574,6 +599,17 @@ class NotificationService {
     await prefs.setInt(
       _prefsLaunchAt,
       DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  Future<void> _abrirCancelacion(int partidoId) async {
+    final ctx = navigatorKey?.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!ctx.mounted) return;
+    await PartidoCanceladoPopupFlow.mostrarPartido(
+      ctx,
+      partidoId: partidoId,
     );
   }
 

@@ -142,6 +142,12 @@ class AcquisitionController extends ChangeNotifier {
   bool consumePendingOpenOrganizer() {
     if (!_pendingOpenOrganizer) return false;
     _pendingOpenOrganizer = false;
+    // Solo la primera vez tras "Crear mi primer grupo".
+    // Si no, cada hot restart / reload de RoleAwareShell reabre Organizar.
+    if (_intent == MatchPayAcquisitionIntent.createFirstGroup) {
+      _intent = MatchPayAcquisitionIntent.unknown;
+      unawaited(_persist());
+    }
     return true;
   }
 

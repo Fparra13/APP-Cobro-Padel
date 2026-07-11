@@ -7,16 +7,82 @@ import '../models/jugador.dart';
 class JugadorRepositoryRemote {
   final _client = SupabaseHelpers.client;
 
-  Future<List<Jugador>> getAll({bool? soloActivos}) async {
+  Future<List<Jugador>> getAll({
+    bool? soloActivos,
+    bool incluirUsuarioActual = false,
+  }) async {
     return SupabaseHelpers.guard('Listar jugadores', () async {
-      var query = _client.from('profiles').select();
-      if (soloActivos == true) {
-        query = query.eq('activo', true);
+      final uid = SupabaseHelpers.currentUserId;
+      if (uid == null) return [];
+
+      final jugadores = <Jugador>[];
+      final seen = <String>{};
+
+      // Preferir RPC (SECURITY DEFINER): estable con RLS de aislamiento.
+      try {
+        final raw = await _client.rpc(
+          'get_mis_jugadores_organizador',
+          params: {'p_solo_activos': soloActivos},
+        );
+        if (raw is List) {
+          for (final item in raw) {
+            if (item is! Map) continue;
+            final jugador = Jugador.fromSupabaseMap(
+              Map<String, dynamic>.from(item),
+            );
+            final id = jugador.supabaseId;
+            if (id != null) seen.add(id);
+            jugadores.add(jugador);
+          }
+        }
+      } catch (_) {
+        // RPC aún no desplegada.
       }
-      final rows = await query.order('nombre', ascending: true);
-      return (rows as List)
-          .map((r) => Jugador.fromSupabaseMap(Map<String, dynamic>.from(r)))
-          .toList();
+
+      if (jugadores.isEmpty) {
+        try {
+          final linkRows = await _client
+              .from('organizador_jugadores')
+              .select('jugador_id')
+              .eq('organizador_id', uid);
+          final ids = <String>[];
+          for (final raw in linkRows as List) {
+            final id = (raw as Map)['jugador_id']?.toString();
+            if (id != null && id.isNotEmpty) ids.add(id);
+          }
+          if (ids.isNotEmpty) {
+            var profileQuery =
+                _client.from('profiles').select().inFilter('id', ids);
+            if (soloActivos == true) {
+              profileQuery = profileQuery.eq('activo', true);
+            }
+            final profiles = await profileQuery;
+            for (final raw in profiles as List) {
+              final jugador = Jugador.fromSupabaseMap(
+                Map<String, dynamic>.from(raw as Map),
+              );
+              final id = jugador.supabaseId;
+              if (id != null) seen.add(id);
+              jugadores.add(jugador);
+            }
+          }
+        } catch (_) {
+          // Sin roster todavía.
+        }
+      }
+
+      // Incluir al organizador (también juega / aparece en roster y convocatorias).
+      if (incluirUsuarioActual && !seen.contains(uid)) {
+        final yo = await getById(uid);
+        if (yo != null && (soloActivos != true || yo.activo)) {
+          jugadores.insert(0, yo);
+        }
+      }
+
+      jugadores.sort(
+        (a, b) => a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase()),
+      );
+      return jugadores;
     });
   }
 
@@ -74,6 +140,16 @@ class JugadorRepositoryRemote {
           telefono: tel ?? existente.telefono,
         );
         await actualizar(actualizado);
+        final uid = SupabaseHelpers.currentUserId;
+        final jid = actualizado.supabaseId;
+        if (uid != null && jid != null) {
+          try {
+            await _client.rpc(
+              'vincular_jugador_organizador',
+              params: {'p_jugador_id': jid, 'p_organizador_id': uid},
+            );
+          } catch (_) {}
+        }
         return actualizado;
       }
     }
@@ -109,7 +185,23 @@ class JugadorRepositoryRemote {
           .insert(payload)
           .select()
           .single();
-      return Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
+      final creado = Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
+      final uid = SupabaseHelpers.currentUserId;
+      final jid = creado.supabaseId;
+      if (uid != null && jid != null) {
+        try {
+          await _client.rpc(
+            'vincular_jugador_organizador',
+            params: {'p_jugador_id': jid, 'p_organizador_id': uid},
+          );
+        } catch (_) {
+          await _client.from('organizador_jugadores').upsert({
+            'organizador_id': uid,
+            'jugador_id': jid,
+          });
+        }
+      }
+      return creado;
     });
   }
 
@@ -174,7 +266,19 @@ class JugadorRepositoryRemote {
 
   Future<int> delete(String id) async {
     await SupabaseHelpers.guard('Eliminar jugador', () async {
-      await _client.from('profiles').delete().eq('id', id);
+      final uid = SupabaseHelpers.currentUserId;
+      if (uid != null) {
+        await _client
+            .from('organizador_jugadores')
+            .delete()
+            .eq('organizador_id', uid)
+            .eq('jugador_id', id);
+      }
+      // Si el perfil sigue vinculado a otros clubs o tiene auth, el DELETE
+      // puede no aplicar; el unlink ya lo saca del roster de este organizador.
+      try {
+        await _client.from('profiles').delete().eq('id', id);
+      } catch (_) {}
     });
     return 1;
   }

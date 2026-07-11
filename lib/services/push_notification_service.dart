@@ -48,6 +48,13 @@ class PushNotificationService {
         debugPrint(
           'PushNotificationService status ${response.status}: ${response.data}',
         );
+      } else if (response.data is Map) {
+        final sent = (response.data as Map)['sent'];
+        if (sent == 0) {
+          debugPrint(
+            'PushNotificationService: sin tokens FCM para $ids',
+          );
+        }
       }
     } catch (e) {
       debugPrint('PushNotificationService: $e');

@@ -19,7 +19,9 @@ Future<void> applyAcquisitionAfterLogin(BuildContext context) async {
       await settings.syncUiModeWithRole(
         isOrganizer: AuthService.instance.isOrganizer,
       );
-      if (AuthService.instance.isOrganizer) {
+      // Solo si aún no se consumió (intent sigue siendo createFirstGroup).
+      if (AuthService.instance.isOrganizer &&
+          acq.intent == MatchPayAcquisitionIntent.createFirstGroup) {
         acq.markPendingOpenOrganizer();
       }
     case MatchPayAcquisitionIntent.invited:

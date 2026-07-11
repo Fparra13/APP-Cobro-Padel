@@ -509,7 +509,11 @@ class PartidoRepositoryRemote {
 
   Future<List<Partido>> getAll({EstadoPartido? soloEstado}) async {
     return SupabaseHelpers.guard('Listar partidos', () async {
+      final uid = SupabaseHelpers.currentUserId;
       var query = _client.from('partidos').select();
+      if (uid != null) {
+        query = query.eq('organizador_id', uid);
+      }
       if (soloEstado != null) {
         query = query.eq('estado', soloEstado.dbValue);
       }
@@ -524,10 +528,15 @@ class PartidoRepositoryRemote {
 
   Future<List<String>> getRecintosRecientes({int limit = 8}) async {
     return SupabaseHelpers.guard('Recintos recientes', () async {
-      final rows = await _client
+      final uid = SupabaseHelpers.currentUserId;
+      var query = _client
           .from('partidos')
           .select('recinto, fecha')
-          .not('recinto', 'is', null)
+          .not('recinto', 'is', null);
+      if (uid != null) {
+        query = query.eq('organizador_id', uid);
+      }
+      final rows = await query
           .order('fecha', ascending: false)
           .limit(limit * 3);
 

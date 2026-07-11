@@ -62,7 +62,7 @@ Future<OfflineScreenLoadResult<OrganizerJugadoresData>> loadOrganizerJugadores({
     snapshotKey: organizerJugadoresSnapshotKey,
     snapshotStore: snapshotStore,
     fetch: () async {
-      final jugadores = await repos.getJugadores();
+      final jugadores = await repos.getJugadores(incluirUsuarioActual: true);
       return OrganizerJugadoresData(jugadores: jugadores);
     },
     encode: (data) => data.toJson(),
@@ -104,10 +104,8 @@ OfflineSnapshotStore? offlineSnapshotStoreForCurrentUser() {
 }
 
 Future<OrganizerHomeData> _fetchFromRepos(AppRepositories repos) async {
-  final resumenes = await repos.getResumenJugadores(reconciliar: false);
-  final cobrosResumen = cobrosResumenDesdeResumenes(resumenes);
   final results = await Future.wait([
-    Future<List<ResumenJugador>>.value(resumenes),
+    repos.getResumenJugadores(reconciliar: false),
     repos.getConvocatoriasActivas(),
     MisInvitacionesPanel.cargarPendientes(repos),
     repos.isCloud
@@ -129,12 +127,14 @@ Future<OrganizerHomeData> _fetchFromRepos(AppRepositories repos) async {
       },
     ),
   ]);
+  final resumenes = results[0] as List<ResumenJugador>;
+  final cobrosResumen = cobrosResumenDesdeResumenes(resumenes);
   final ultimoPack = results[5] as ({
     List<PartidoCompleto> partidos,
     List<DesgloseJugador> desglose,
   });
   return OrganizerHomeData(
-    resumenes: results[0] as List<ResumenJugador>,
+    resumenes: resumenes,
     convocatorias: results[1] as List<ConvocatoriaCompleta>,
     misInvitaciones: results[2] as List<MiConvocatoria>,
     pagosPorValidar: results[3] as List<DetallePartido>,

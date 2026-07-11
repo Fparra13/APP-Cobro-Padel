@@ -92,7 +92,18 @@ class TranslationMaps {
     'homeAdminTagline': 'Organiza, convoca y cobra sin planillas',
     'organizerCyclePhaseEmpty': 'Sin partidos activos',
     'organizerCyclePhasePreparing': 'Preparar el partido',
-    'organizerCyclePhaseAtRisk': 'Partido en evaluación',
+    'organizerCyclePhaseAtRisk': 'Partido en riesgo',
+    'organizerCyclePhaseCupImpossible': 'Partido en riesgo',
+    'organizerCycleAtRiskTitle': 'No hay jugadores suficientes',
+    'organizerCycleAtRiskBody':
+        'El partido no reúne las confirmaciones necesarias para jugar.',
+    'organizerCycleAtRiskAction':
+        'Reprograma la fecha o cancela el partido.',
+    'organizerCycleAtRiskReschedule': 'Reprogramar',
+    'organizerCycleAtRiskCancel': 'Cancelar partido',
+    'convocatoriaCupImpossibleTitle': 'No hay jugadores suficientes',
+    'convocatoriaCupImpossibleBody':
+        'El partido no reúne las confirmaciones necesarias para jugar.',
     'organizerCyclePhaseNeedsResolution': 'Resolver partido',
     'organizerCyclePhaseRegister': 'Registrar gastos',
     'organizerCyclePhaseCollecting': 'Cobros pendientes',
@@ -124,6 +135,8 @@ class TranslationMaps {
     'organizerCycleCancelConfirmTitle': '¿Cancelar este partido?',
     'organizerCycleCancelConfirmBody':
         'El partido no se jugó. Los jugadores dejarán de ver la convocatoria.',
+    'organizerCycleCancelConfirmAction': 'Sí, cancelar partido',
+    'organizerCycleCancelSuccessSnack': 'Partido cancelado',
     'organizerCycleCancelConsequence1':
         'Quedará registrado como cancelado en tu historial.',
     'organizerCycleCancelConsequence2':
@@ -174,6 +187,7 @@ class TranslationMaps {
     'matchStatusConfirmedShort': 'Partido confirmado',
     'matchStatusWaitingShort': 'Faltan jugadores',
     'matchStatusEvaluatingShort': 'Pendiente de decisión',
+    'matchStatusCupImpossibleShort': 'Partido en riesgo',
     'matchStatusRescheduledShort': 'Partido reprogramado',
     'matchStatusCancelledShort': 'Partido cancelado',
     'matchStatusPlayedShort': 'Partido jugado',
@@ -182,22 +196,29 @@ class TranslationMaps {
         '{confirmed} de {max} jugadores confirmados. ¡Todo listo!',
     'matchStatusWaitingTitle': 'Faltan jugadores',
     'matchStatusWaitingBody':
-        'Aún faltan {missing} jugador(es) por confirmar. '
-        'El organizador está esperando las respuestas.',
+        'Faltan {missing} jugador(es) por confirmar.',
     'matchStatusEvaluatingTitle': 'Pendiente de decisión',
     'matchStatusEvaluatingBody':
-        'Aún no hay jugadores suficientes. '
-        'El organizador está evaluando si reprogramar o cancelar el partido.',
+        'Faltan confirmaciones y el partido está cerca.',
+    'matchStatusCupImpossibleTitle': 'No hay jugadores suficientes',
+    'matchStatusCupImpossibleBody':
+        'El partido no reúne las confirmaciones necesarias para jugar.',
     'matchStatusRescheduledTitle': 'Partido reprogramado',
     'matchStatusRescheduledBody':
         'El partido fue reprogramado para el {date}.',
     'matchStatusCancelledTitle': 'Partido cancelado',
     'matchStatusCancelledBody':
         'El organizador canceló este partido.',
+    'playerCancelPopupTitle': 'Partido cancelado',
+    'playerCancelPopupBody':
+        'El organizador canceló el partido del {date} en {venue}.',
+    'playerCancelPopupClose': 'Entendido',
     'matchStatusPlayedTitle': 'Partido jugado',
     'matchStatusPlayedBody': 'Este partido ya se jugó.',
     'matchStatusPlayerYouConfirmed': 'Tú ya confirmaste ✅',
     'matchStatusPlayerYouPending': 'Te falta confirmar ⏳',
+    'matchStatusPlayerRescheduledConfirm':
+        'Debes confirmar la nueva fecha del partido.',
     'matchStatusPlayerYouDeclined': 'Indicaste que no puedes',
     'organizerCycleRemindPending': 'Recordar pendientes',
     'organizerCycleDeleteConvocatoria': 'Eliminar convocatoria',
@@ -525,6 +546,7 @@ class TranslationMaps {
     'playerHeroNeedsReply': 'Por responder',
     'playerHeroNextMatch': 'Próximo partido',
     'playerHeroTapToReply': 'Toca para responder',
+    'playerHeroConfirmRescheduled': 'Confirmar nueva fecha',
     'playerHeroCuposLine': 'Hasta {max} jugadores',
     'playerPerformanceTitle': 'Tu rendimiento',
     'playerSummaryTitle': 'Resumen',
@@ -821,6 +843,7 @@ class TranslationMaps {
     'organizeBannerConfirmed': 'Partido confirmado · visible en Inicio',
     'organizeBannerSent':
         'Convocatoria enviada · seguimiento en tiempo real',
+    'organizeTrackingSectionTitle': 'RESPUESTAS',
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmados · {pending} pendientes · {waiting} en espera',
     'organizeSummarySlotsFull':
@@ -1463,6 +1486,9 @@ class TranslationMaps {
     'notifReprogramadoTitle': 'Partido reprogramado',
     'notifReprogramadoBody':
         '{emoji} {sport} · {venue} · Nueva fecha: {date}',
+    'notifCanceladoTitle': 'Partido cancelado',
+    'notifCanceladoBody':
+        '{emoji} {sport} · {venue} · {date} · El organizador canceló este partido.',
     'notifRecordatorioManualTitle': 'Confirma tu asistencia',
     'notifRecordatorioManualBody':
         '{emoji} {sport} · {venue} · {date} · El organizador te recuerda confirmar.',
@@ -1613,7 +1639,18 @@ class TranslationMaps {
     'homeAdminTagline': 'Organize, invite and collect — no spreadsheets',
     'organizerCyclePhaseEmpty': 'No active matches',
     'organizerCyclePhasePreparing': 'Prepare the match',
-    'organizerCyclePhaseAtRisk': 'Match under review',
+    'organizerCyclePhaseAtRisk': 'Match at risk',
+    'organizerCyclePhaseCupImpossible': 'Match at risk',
+    'organizerCycleAtRiskTitle': 'Not enough players',
+    'organizerCycleAtRiskBody':
+        'The match does not have the confirmations needed to play.',
+    'organizerCycleAtRiskAction':
+        'Reschedule the date or cancel the match.',
+    'organizerCycleAtRiskReschedule': 'Reschedule',
+    'organizerCycleAtRiskCancel': 'Cancel match',
+    'convocatoriaCupImpossibleTitle': 'Not enough players',
+    'convocatoriaCupImpossibleBody':
+        'The match does not have the confirmations needed to play.',
     'organizerCyclePhaseNeedsResolution': 'Resolve match',
     'organizerCyclePhaseRegister': 'Log expenses',
     'organizerCyclePhaseCollecting': 'Pending collections',
@@ -1645,6 +1682,8 @@ class TranslationMaps {
     'organizerCycleCancelConfirmTitle': 'Cancel this match?',
     'organizerCycleCancelConfirmBody':
         'The match did not happen. Players will no longer see the invite.',
+    'organizerCycleCancelConfirmAction': 'Yes, cancel match',
+    'organizerCycleCancelSuccessSnack': 'Match cancelled',
     'organizerCycleCancelConsequence1':
         'It will be recorded as cancelled in your history.',
     'organizerCycleCancelConsequence2':
@@ -1695,6 +1734,7 @@ class TranslationMaps {
     'matchStatusConfirmedShort': 'Match confirmed',
     'matchStatusWaitingShort': 'Players missing',
     'matchStatusEvaluatingShort': 'Pending decision',
+    'matchStatusCupImpossibleShort': 'Match at risk',
     'matchStatusRescheduledShort': 'Match rescheduled',
     'matchStatusCancelledShort': 'Match cancelled',
     'matchStatusPlayedShort': 'Match played',
@@ -1703,20 +1743,27 @@ class TranslationMaps {
         '{confirmed} of {max} players confirmed. All set!',
     'matchStatusWaitingTitle': 'Players still needed',
     'matchStatusWaitingBody':
-        '{missing} player(s) still need to confirm. '
-        'The organizer is waiting for responses.',
+        '{missing} player(s) still need to confirm.',
     'matchStatusEvaluatingTitle': 'Pending decision',
     'matchStatusEvaluatingBody':
-        'There are not enough players yet. '
-        'The organizer is deciding whether to reschedule or cancel.',
+        'Missing confirmations and the match is soon.',
+    'matchStatusCupImpossibleTitle': 'Not enough players',
+    'matchStatusCupImpossibleBody':
+        'The match does not have the confirmations needed to play.',
     'matchStatusRescheduledTitle': 'Match rescheduled',
     'matchStatusRescheduledBody': 'The match was rescheduled to {date}.',
     'matchStatusCancelledTitle': 'Match cancelled',
     'matchStatusCancelledBody': 'The organizer cancelled this match.',
+    'playerCancelPopupTitle': 'Match cancelled',
+    'playerCancelPopupBody':
+        'The organizer cancelled the match on {date} at {venue}.',
+    'playerCancelPopupClose': 'Got it',
     'matchStatusPlayedTitle': 'Match played',
     'matchStatusPlayedBody': 'This match has already been played.',
     'matchStatusPlayerYouConfirmed': 'You confirmed ✅',
     'matchStatusPlayerYouPending': 'You still need to confirm ⏳',
+    'matchStatusPlayerRescheduledConfirm':
+        'You need to confirm the new match date.',
     'matchStatusPlayerYouDeclined': 'You indicated you cannot attend',
     'organizerCycleRemindPending': 'Remind pending',
     'organizerCycleDeleteConvocatoria': 'Delete invite',
@@ -2039,6 +2086,7 @@ class TranslationMaps {
     'playerHeroNeedsReply': 'Needs reply',
     'playerHeroNextMatch': 'Next match',
     'playerHeroTapToReply': 'Tap to reply',
+    'playerHeroConfirmRescheduled': 'Confirm new date',
     'playerHeroCuposLine': 'Up to {max} players',
     'playerPerformanceTitle': 'Your performance',
     'playerSummaryTitle': 'Summary',
@@ -2332,6 +2380,7 @@ class TranslationMaps {
     'organizeBannerConfirmed': 'Match confirmed · visible on Home',
     'organizeBannerSent':
         'Invite sent · real-time tracking',
+    'organizeTrackingSectionTitle': 'RESPONSES',
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmed · {pending} pending · {waiting} waiting',
     'organizeSummarySlotsFull':
@@ -2969,6 +3018,9 @@ class TranslationMaps {
     'notifReprogramadoTitle': 'Match rescheduled',
     'notifReprogramadoBody':
         '{emoji} {sport} · {venue} · New date: {date}',
+    'notifCanceladoTitle': 'Match cancelled',
+    'notifCanceladoBody':
+        '{emoji} {sport} · {venue} · {date} · The organizer cancelled this match.',
     'notifRecordatorioManualTitle': 'Confirm your attendance',
     'notifRecordatorioManualBody':
         '{emoji} {sport} · {venue} · {date} · The organizer is reminding you to confirm.',
@@ -3119,7 +3171,18 @@ class TranslationMaps {
     'homeAdminTagline': 'Organize, convide e cobre sem planilhas',
     'organizerCyclePhaseEmpty': 'Sem partidas ativas',
     'organizerCyclePhasePreparing': 'Preparar a partida',
-    'organizerCyclePhaseAtRisk': 'Partida em avaliação',
+    'organizerCyclePhaseAtRisk': 'Partida em risco',
+    'organizerCyclePhaseCupImpossible': 'Partida em risco',
+    'organizerCycleAtRiskTitle': 'Não há jogadores suficientes',
+    'organizerCycleAtRiskBody':
+        'A partida não reúne as confirmações necessárias para jogar.',
+    'organizerCycleAtRiskAction':
+        'Remarca a data ou cancela a partida.',
+    'organizerCycleAtRiskReschedule': 'Remarcar',
+    'organizerCycleAtRiskCancel': 'Cancelar partida',
+    'convocatoriaCupImpossibleTitle': 'Não há jogadores suficientes',
+    'convocatoriaCupImpossibleBody':
+        'A partida não reúne as confirmações necessárias para jogar.',
     'organizerCyclePhaseNeedsResolution': 'Resolver partida',
     'organizerCyclePhaseRegister': 'Registrar gastos',
     'organizerCyclePhaseCollecting': 'Cobranças pendentes',
@@ -3150,6 +3213,8 @@ class TranslationMaps {
     'organizerCycleCancelConfirmTitle': 'Cancelar esta partida?',
     'organizerCycleCancelConfirmBody':
         'A partida não aconteceu. Os jogadores deixarão de ver o convite.',
+    'organizerCycleCancelConfirmAction': 'Sim, cancelar partida',
+    'organizerCycleCancelSuccessSnack': 'Partida cancelada',
     'organizerCycleCancelConsequence1':
         'Ficará registrada como cancelada no seu histórico.',
     'organizerCycleCancelConsequence2':
@@ -3200,6 +3265,7 @@ class TranslationMaps {
     'matchStatusConfirmedShort': 'Partida confirmada',
     'matchStatusWaitingShort': 'Faltam jogadores',
     'matchStatusEvaluatingShort': 'Decisão pendente',
+    'matchStatusCupImpossibleShort': 'Partida em risco',
     'matchStatusRescheduledShort': 'Partida remarcada',
     'matchStatusCancelledShort': 'Partida cancelada',
     'matchStatusPlayedShort': 'Partida jogada',
@@ -3208,20 +3274,27 @@ class TranslationMaps {
         '{confirmed} de {max} jogadores confirmados. Tudo pronto!',
     'matchStatusWaitingTitle': 'Faltam jogadores',
     'matchStatusWaitingBody':
-        'Ainda faltam {missing} jogador(es) para confirmar. '
-        'O organizador está aguardando as respostas.',
+        'Faltam {missing} jogador(es) para confirmar.',
     'matchStatusEvaluatingTitle': 'Decisão pendente',
     'matchStatusEvaluatingBody':
-        'Ainda não há jogadores suficientes. '
-        'O organizador está avaliando remarcar ou cancelar a partida.',
+        'Faltam confirmações e a partida está próxima.',
+    'matchStatusCupImpossibleTitle': 'Não há jogadores suficientes',
+    'matchStatusCupImpossibleBody':
+        'A partida não reúne as confirmações necessárias para jogar.',
     'matchStatusRescheduledTitle': 'Partida remarcada',
     'matchStatusRescheduledBody': 'A partida foi remarcada para {date}.',
     'matchStatusCancelledTitle': 'Partida cancelada',
     'matchStatusCancelledBody': 'O organizador cancelou esta partida.',
+    'playerCancelPopupTitle': 'Partida cancelada',
+    'playerCancelPopupBody':
+        'O organizador cancelou a partida de {date} em {venue}.',
+    'playerCancelPopupClose': 'Entendi',
     'matchStatusPlayedTitle': 'Partida jogada',
     'matchStatusPlayedBody': 'Esta partida já foi jogada.',
     'matchStatusPlayerYouConfirmed': 'Você já confirmou ✅',
     'matchStatusPlayerYouPending': 'Falta você confirmar ⏳',
+    'matchStatusPlayerRescheduledConfirm':
+        'Você precisa confirmar a nova data da partida.',
     'matchStatusPlayerYouDeclined': 'Você indicou que não pode ir',
     'organizerCycleRemindPending': 'Lembrar pendentes',
     'organizerCycleDeleteConvocatoria': 'Excluir convite',
@@ -3548,6 +3621,7 @@ class TranslationMaps {
     'playerHeroNeedsReply': 'A responder',
     'playerHeroNextMatch': 'Próxima partida',
     'playerHeroTapToReply': 'Toque para responder',
+    'playerHeroConfirmRescheduled': 'Confirmar nova data',
     'playerHeroCuposLine': 'Até {max} jogadores',
     'playerPerformanceTitle': 'Seu desempenho',
     'playerSummaryTitle': 'Resumo',
@@ -3845,6 +3919,7 @@ class TranslationMaps {
     'organizeBannerConfirmed': 'Partida confirmada · visível no Início',
     'organizeBannerSent':
         'Convite enviado · acompanhamento em tempo real',
+    'organizeTrackingSectionTitle': 'RESPOSTAS',
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmados · {pending} pendentes · {waiting} em espera',
     'organizeSummarySlotsFull':
@@ -4487,6 +4562,9 @@ class TranslationMaps {
     'notifReprogramadoTitle': 'Partida remarcada',
     'notifReprogramadoBody':
         '{emoji} {sport} · {venue} · Nova data: {date}',
+    'notifCanceladoTitle': 'Partida cancelada',
+    'notifCanceladoBody':
+        '{emoji} {sport} · {venue} · {date} · O organizador cancelou esta partida.',
     'notifRecordatorioManualTitle': 'Confirme sua presença',
     'notifRecordatorioManualBody':
         '{emoji} {sport} · {venue} · {date} · O organizador lembra você de confirmar.',

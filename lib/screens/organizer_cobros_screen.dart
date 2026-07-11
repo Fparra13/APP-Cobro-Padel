@@ -7,7 +7,6 @@ import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/offline_status_controller.dart';
-import '../core/supabase_helpers.dart';
 import '../domain/organizer_cycle_logic.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/cobros_resumen.dart';
@@ -156,14 +155,14 @@ class _OrganizerCobrosScreenState extends State<OrganizerCobrosScreen> {
         backgroundColor: context.sportPrimary,
         foregroundColor: Colors.white,
       ),
-      body: _loading
+      body: _loading && _resumenes.isEmpty && !_offlineEmpty && _loadError == null
           ? const PlayerHomeShimmer()
           : _offlineEmpty
               ? const OfflineNoDataPanel()
               : _loadError != null && _resumenes.isEmpty
                   ? _buildErrorState()
                   : RefreshIndicator(
-                      onRefresh: _load,
+                      onRefresh: () => _load(silent: true),
                       child: ListView(
                         padding: NavShellScope.listPadding(
                           context,

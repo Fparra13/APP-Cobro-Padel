@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../core/app_repositories.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/convocatoria_jugador.dart';
+import '../models/estado_partido.dart';
 import '../services/convocatoria_comunicacion_service.dart';
 import '../utils/formatters.dart';
+import '../utils/app_navigation.dart';
 import '../widgets/convocatoria_whatsapp_sin_app_sheet.dart';
 
 /// Reprograma un partido y avisa automáticamente a titulares (push + WhatsApp sin app).
@@ -16,49 +18,63 @@ class ReprogramarConvocatoriaFlow {
     required ConvocatoriaCompleta convocatoria,
     DateTime? fechaInicial,
   }) async {
+    final host = matchPayRootContext ?? context;
+    if (!host.mounted) return false;
+
     final partidoId = convocatoria.partido.id;
     if (partidoId == null) return false;
 
     final nuevaFecha = await _elegirFechaHora(
-      context,
+      host,
       convocatoria: convocatoria,
       fechaInicial: fechaInicial,
     );
-    if (nuevaFecha == null || !context.mounted) return false;
+    if (nuevaFecha == null || !host.mounted) return false;
 
     try {
       final repos = AppRepositories.isReady
           ? AppRepositories.I
-          : context.repos;
+          : host.repos;
       await repos.reprogramarConvocatoria(
         partidoId: partidoId,
         nuevaFecha: nuevaFecha,
       );
       final fresh = await repos.getConvocatoriaCompleta(partidoId);
-      if (fresh == null || !context.mounted) return false;
+      if (!host.mounted) return false;
 
-      final result =
-          await ConvocatoriaComunicacionService().avisarReprogramacion(fresh);
+      final convParaAviso = fresh ??
+          ConvocatoriaCompleta(
+            partido: convocatoria.partido.copyWith(
+              fecha: nuevaFecha,
+              estado: EstadoPartido.organizando,
+              reprogramadoEn: DateTime.now(),
+              clearResueltoEn: true,
+            ),
+            jugadores: convocatoria.jugadores,
+          );
+
+      final result = await ConvocatoriaComunicacionService()
+          .avisarReprogramacion(convParaAviso);
       AppRepositories.notifyDataChanged();
 
-      if (result.sinApp.isNotEmpty && context.mounted) {
+      if (result.sinApp.isNotEmpty && host.mounted) {
         final estados = {
-          for (final e in fresh.titulares)
+          for (final e in convParaAviso.titulares)
             e.jugador.keyId: e.estado,
         };
         await ConvocatoriaWhatsAppSinAppSheet.show(
-          context,
+          host,
           partidoId: partidoId,
           jugadores: result.sinApp,
           estados: estados,
         );
       }
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (host.mounted) {
+        ScaffoldMessenger.of(host).showSnackBar(
           SnackBar(
             content: Text(
-              context.l10n.tr(
+              host.l10n.tr(
                 'reprogramSuccessSnack',
                 params: {
                   'push': '${result.pushEnviados}',
@@ -71,10 +87,10 @@ class ReprogramarConvocatoriaFlow {
       }
       return true;
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (host.mounted) {
+        ScaffoldMessenger.of(host).showSnackBar(
           SnackBar(
-            content: Text(context.userError(e)),
+            content: Text(host.userError(e)),
             backgroundColor: Colors.red.shade700,
           ),
         );
@@ -162,6 +178,7 @@ class ReprogramarConvocatoriaFlow {
 
     final fecha = await showDatePicker(
       context: context,
+      useRootNavigator: true,
       initialDate: sugerida,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
@@ -172,6 +189,7 @@ class ReprogramarConvocatoriaFlow {
 
     final hora = await showTimePicker(
       context: context,
+      useRootNavigator: true,
       initialTime: TimeOfDay.fromDateTime(sugerida),
       helpText: l10n.tr('reprogramPickTimeTitle'),
     );
@@ -197,6 +215,7 @@ class ReprogramarConvocatoriaFlow {
 
     final ok = await showDialog<bool>(
       context: context,
+      useRootNavigator: true,
       builder: (ctx) => AlertDialog(
         icon: const Icon(Icons.event_repeat_rounded),
         title: Text(l10n.tr('reprogramConfirmTitle')),

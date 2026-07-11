@@ -43,9 +43,7 @@ class AuthService {
     if (client == null || uid == null) {
       throw Exception('Sesión requerida');
     }
-    await client.from('profiles').update({
-      'role': 'organizer',
-    }).eq('id', uid);
+    await client.rpc('promover_a_organizador');
     _profileRole = 'organizer';
   }
 

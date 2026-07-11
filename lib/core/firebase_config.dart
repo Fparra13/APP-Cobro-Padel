@@ -1,7 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
-/// Configuración Firebase / FCM.
+/// Configuración Firebase (Core / FCM / Crashlytics).
 ///
 /// 1. Crea proyecto en Firebase Console y app Android `com.matchpay.app`
 /// 2. Descarga `google-services.json` → `android/app/google-services.json`
@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 ///    FIREBASE_API_KEY, FIREBASE_APP_ID, FIREBASE_MESSAGING_SENDER_ID, FIREBASE_PROJECT_ID
 /// 4. En Supabase: secret FIREBASE_SERVICE_ACCOUNT (JSON cuenta de servicio)
 /// 5. Despliega Edge Function: supabase functions deploy send-push
+/// 6. Crashlytics: habilitar en Firebase Console; Analytics recomendado (breadcrumbs)
 class FirebaseConfig {
   FirebaseConfig._();
 

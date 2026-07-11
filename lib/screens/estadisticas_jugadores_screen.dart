@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../core/app_repositories.dart';
-import '../core/supabase_helpers.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/estadisticas_jugador.dart';
 import '../utils/formatters.dart';
@@ -101,17 +100,20 @@ class _EstadisticasJugadoresScreenState
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final stats = await context.repos.getEstadisticas();
       if (mounted) {
         setState(() {
           _stats = stats;
           _loading = false;
+          _error = null;
         });
       }
     } catch (e) {
@@ -168,13 +170,13 @@ class _EstadisticasJugadoresScreenState
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: context.tr('refreshTooltip'),
-            onPressed: _load,
+            onPressed: () => _load(silent: true),
           ),
         ],
       ),
-      body: _loading
+      body: _loading && _stats.isEmpty && _error == null
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
+          : _error != null && _stats.isEmpty
               ? FriendlyErrorPanel(message: _error!, onRetry: _load)
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -250,7 +252,7 @@ class _EstadisticasJugadoresScreenState
                           final m = _metricas[index];
                           final ranking = _rankingPara(m).take(10).toList();
                           return RefreshIndicator(
-                            onRefresh: _load,
+                            onRefresh: () => _load(silent: true),
                             child: ListView(
                               padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
                               physics: const AlwaysScrollableScrollPhysics(),

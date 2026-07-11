@@ -9,7 +9,6 @@ import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/offline_status_controller.dart';
-import '../core/supabase_helpers.dart';
 import '../models/convocatoria_jugador.dart';
 import '../offline/organizer_home_loader.dart';
 import '../offline/offline_snapshot_store.dart';
@@ -57,12 +56,6 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
   Timer? _reloadDebounce;
 
   bool get _readOnly => context.watch<OfflineStatusController>().isReadOnly;
-
-  void _showOfflineWriteBlocked() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.tr('offlineWriteBlocked'))),
-    );
-  }
 
   @override
   void initState() {
@@ -207,7 +200,7 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
           IconButton(
             icon: const Icon(Icons.refresh_rounded, size: 26),
             tooltip: l10n.tr('refreshTooltip'),
-            onPressed: _load,
+            onPressed: () => _load(silent: true),
           ),
         ],
         bottom: TabBar(
@@ -232,7 +225,11 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
           ],
         ),
       ),
-      body: _loading
+      body: _loading &&
+              _partidos.isEmpty &&
+              _convocatorias.isEmpty &&
+              !_offlineEmpty &&
+              _error == null
           ? const _HistorialShimmer()
           : IndexedStack(
               index: _tabs.index,
@@ -273,7 +270,7 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
 
     return RefreshIndicator(
       color: palette.primary,
-      onRefresh: _load,
+      onRefresh: () => _load(silent: true),
       child: ListView(
         padding: NavShellScope.listPadding(context, left: 16, top: 16, right: 16),
         children: [

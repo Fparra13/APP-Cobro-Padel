@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/matchpay_strings.dart';
+import '../utils/matchpay_context.dart';
+import '../utils/app_navigation.dart';
 
 /// Diálogo explícito antes de eliminar un partido o convocatoria.
 Future<bool> confirmarEliminarPartido(
@@ -8,8 +10,12 @@ Future<bool> confirmarEliminarPartido(
   required String titulo,
   required String mensaje,
   List<String>? consecuencias,
+  String? confirmLabel,
 }) async {
-  final l10n = context.l10n;
+  final host = matchPayRootContext ?? context;
+  if (!host.mounted) return false;
+
+  final l10n = host.l10n;
   final items = consecuencias ??
       [
         l10n.tr('deleteMatchConsequence1'),
@@ -18,7 +24,8 @@ Future<bool> confirmarEliminarPartido(
       ];
 
   final ok = await showDialog<bool>(
-    context: context,
+    context: host,
+    useRootNavigator: true,
     barrierDismissible: false,
     builder: (ctx) => AlertDialog(
       icon: Icon(Icons.warning_amber_rounded, color: Colors.red.shade700, size: 44),
@@ -85,7 +92,7 @@ Future<bool> confirmarEliminarPartido(
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
           style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
-          child: Text(ctx.tr('yesDeletePermanently')),
+          child: Text(confirmLabel ?? ctx.tr('yesDeletePermanently')),
         ),
       ],
     ),

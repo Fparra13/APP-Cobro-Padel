@@ -21,22 +21,54 @@ class ConvocatoriaRepositoryRemote {
 
   Future<List<ConvocatoriaCompleta>> getActivas() async {
     return SupabaseHelpers.guard('Listar convocatorias activas', () async {
-      final rows = await _client
+      final uid = SupabaseHelpers.currentUserId;
+      var query = _client
           .from('partidos')
           .select()
           .inFilter('estado', [
             EstadoPartido.organizando.dbValue,
             EstadoPartido.confirmado.dbValue,
-          ])
-          .order('fecha', ascending: true);
-
-      final result = <ConvocatoriaCompleta>[];
-      for (final row in rows as List) {
-        final partidoId = (row['id'] as num).toInt();
-        final conv = await getCompleta(partidoId);
-        if (conv != null) result.add(conv);
+          ]);
+      if (uid != null) {
+        query = query.eq('organizador_id', uid);
       }
-      return result;
+      final rows = await query.order('fecha', ascending: true);
+
+      final partidos = <Partido>[];
+      final ids = <int>[];
+      for (final row in rows as List) {
+        final partido = Partido.fromSupabaseMap(
+          Map<String, dynamic>.from(row as Map),
+        );
+        if (!partido.esConvocatoriaPendiente || partido.id == null) continue;
+        partidos.add(partido);
+        ids.add(partido.id!);
+      }
+      if (ids.isEmpty) return [];
+
+      // Una sola query de roster (antes: 2 round-trips por partido).
+      final convRows = await _client
+          .from('convocatoria_jugadores')
+          .select('*, profiles:jugador_id(*)')
+          .inFilter('partido_id', ids);
+
+      final byPartido = <int, List<ConvocatoriaJugadorEntry>>{};
+      for (final raw in convRows as List) {
+        final map = Map<String, dynamic>.from(raw as Map);
+        final partidoId = SupabaseParse.toInt(map['partido_id']);
+        if (partidoId <= 0) continue;
+        byPartido
+            .putIfAbsent(partidoId, () => [])
+            .add(_entryFromConvRow(map, partidoId));
+      }
+
+      return [
+        for (final partido in partidos)
+          ConvocatoriaCompleta(
+            partido: partido,
+            jugadores: _sortedRoster(byPartido[partido.id!] ?? const []),
+          ),
+      ];
     });
   }
 
@@ -61,36 +93,51 @@ class ConvocatoriaRepositoryRemote {
           .order('es_suplente', ascending: true)
           .order('orden_espera', ascending: true);
 
-      final jugadores = (convRows as List).map((row) {
-        final map = Map<String, dynamic>.from(row);
-        final profileMap = SupabaseParse.mapEmbed(map['profiles']);
-        final jugador = profileMap != null
-            ? Jugador.fromSupabaseMap(profileMap)
-            : Jugador(
-                supabaseId: map['jugador_id']?.toString(),
-                nombre: 'Jugador',
-                createdAt: DateTime.now(),
-              );
-        return ConvocatoriaJugadorEntry.fromSupabaseRow(
-          map,
-          jugador,
-          partidoId,
-        );
-      }).toList()
-        ..sort((a, b) {
-          if (a.esSuplente != b.esSuplente) {
-            return a.esSuplente ? 1 : -1;
-          }
-          if (a.esSuplente) {
-            return (a.ordenEspera ?? 999).compareTo(b.ordenEspera ?? 999);
-          }
-          return a.jugador.nombre
-              .toLowerCase()
-              .compareTo(b.jugador.nombre.toLowerCase());
-        });
+      final jugadores = (convRows as List)
+          .map((row) => _entryFromConvRow(
+                Map<String, dynamic>.from(row as Map),
+                partidoId,
+              ))
+          .toList();
 
-      return ConvocatoriaCompleta(partido: partido, jugadores: jugadores);
+      return ConvocatoriaCompleta(
+        partido: partido,
+        jugadores: _sortedRoster(jugadores),
+      );
     });
+  }
+
+  ConvocatoriaJugadorEntry _entryFromConvRow(
+    Map<String, dynamic> map,
+    int partidoId,
+  ) {
+    final profileMap = SupabaseParse.mapEmbed(map['profiles']);
+    final jugador = profileMap != null
+        ? Jugador.fromSupabaseMap(profileMap)
+        : Jugador(
+            supabaseId: map['jugador_id']?.toString(),
+            nombre: 'Jugador',
+            createdAt: DateTime.now(),
+          );
+    return ConvocatoriaJugadorEntry.fromSupabaseRow(map, jugador, partidoId);
+  }
+
+  List<ConvocatoriaJugadorEntry> _sortedRoster(
+    List<ConvocatoriaJugadorEntry> jugadores,
+  ) {
+    final sorted = List<ConvocatoriaJugadorEntry>.from(jugadores);
+    sorted.sort((a, b) {
+      if (a.esSuplente != b.esSuplente) {
+        return a.esSuplente ? 1 : -1;
+      }
+      if (a.esSuplente) {
+        return (a.ordenEspera ?? 999).compareTo(b.ordenEspera ?? 999);
+      }
+      return a.jugador.nombre
+          .toLowerCase()
+          .compareTo(b.jugador.nombre.toLowerCase());
+    });
+    return sorted;
   }
 
   /// Roster completo para jugadores invitados (RLS solo devuelve la fila propia).
@@ -423,11 +470,6 @@ class ConvocatoriaRepositoryRemote {
         'estado': EstadoPartido.cancelado.dbValue,
         'resuelto_en': SupabaseParse.toTimestamptz(DateTime.now()),
       }).eq('id', partidoId);
-
-      await _client
-          .from('convocatoria_jugadores')
-          .delete()
-          .eq('partido_id', partidoId);
     });
   }
 
@@ -462,18 +504,15 @@ class ConvocatoriaRepositoryRemote {
         'fecha': SupabaseParse.toTimestamptz(nuevaFecha),
         'estado': EstadoPartido.organizando.dbValue,
         'resuelto_en': null,
+        'reprogramado_en': SupabaseParse.toTimestamptz(DateTime.now()),
       }).eq('id', partidoId);
 
-      await _client
-          .from('convocatoria_jugadores')
-          .update({
-            'tiempo_limite': SupabaseParse.toTimestamptz(limite),
-            'notificado_vencimiento': false,
-            'recordatorio_plazo_enviado': false,
-          })
-          .eq('partido_id', partidoId)
-          .eq('es_suplente', false)
-          .eq('estado_confirmacion', EstadoConfirmacion.invitado.dbValue);
+      await _client.from('convocatoria_jugadores').update({
+        'estado_confirmacion': EstadoConfirmacion.invitado.dbValue,
+        'tiempo_limite': SupabaseParse.toTimestamptz(limite),
+        'notificado_vencimiento': false,
+        'recordatorio_plazo_enviado': false,
+      }).eq('partido_id', partidoId).eq('es_suplente', false);
     });
   }
 
@@ -650,6 +689,64 @@ class ConvocatoriaRepositoryRemote {
       result.sort((a, b) => a.partido.fecha.compareTo(b.partido.fecha));
       return result;
     });
+  }
+
+  Future<List<MiConvocatoria>> getCancelacionesJugador() async {
+    return SupabaseHelpers.guard('Cancelaciones jugador', () async {
+      final uid = SupabaseHelpers.currentUserId;
+      if (uid == null) return [];
+
+      try {
+        final raw = await _client.rpc('get_cancelaciones_jugador');
+        if (raw is List) {
+          return _parseCancelacionesRpc(raw, uid);
+        }
+      } catch (_) {
+        // Fallback si el RPC no está desplegado.
+      }
+
+      final rows = await _client
+          .from('convocatoria_jugadores')
+          .select('*, partidos!inner(*)')
+          .eq('jugador_id', uid)
+          .eq('es_suplente', false)
+          .eq('estado_confirmacion', EstadoConfirmacion.confirmado.dbValue)
+          .eq('partidos.estado', EstadoPartido.cancelado.dbValue);
+
+      return _parseCancelacionesRpc(rows, uid);
+    });
+  }
+
+  Future<MiConvocatoria?> getCancelacionJugador(int partidoId) async {
+    final todas = await getCancelacionesJugador();
+    for (final c in todas) {
+      if (c.partido.id == partidoId) return c;
+    }
+    return null;
+  }
+
+  List<MiConvocatoria> _parseCancelacionesRpc(List raw, String uid) {
+    final result = <MiConvocatoria>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final conv = _miConvocatoriaFromRpcMap(
+        Map<String, dynamic>.from(item),
+        uid,
+        soloPendientes: false,
+      );
+      if (conv == null ||
+          !conv.partido.esCancelado ||
+          !conv.estaConfirmado) {
+        continue;
+      }
+      result.add(conv);
+    }
+    result.sort((a, b) {
+      final ra = a.partido.resueltoEn ?? a.partido.fecha;
+      final rb = b.partido.resueltoEn ?? b.partido.fecha;
+      return rb.compareTo(ra);
+    });
+    return result;
   }
 
   Future<MiConvocatoria?> getMiConvocatoria(int partidoId) async {

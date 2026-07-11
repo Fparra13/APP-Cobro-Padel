@@ -26,4 +26,10 @@ class MiConvocatoria {
 
   bool get esProximo =>
       partido.esConvocatoriaPendiente && !convocatoriaExpirada;
+
+  /// Tras reprogramar: el jugador debe volver a confirmar la nueva fecha.
+  bool get esReprogramadoPendiente =>
+      partido.reprogramadoEn != null &&
+      partido.fecha.isAfter(DateTime.now()) &&
+      requiereRespuesta;
 }

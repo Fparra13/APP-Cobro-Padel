@@ -393,11 +393,6 @@ class ConvocatoriaRepository {
       where: 'id = ?',
       whereArgs: [partidoId],
     );
-    await db.delete(
-      'convocatoria_jugadores',
-      where: 'partido_id = ?',
-      whereArgs: [partidoId],
-    );
   }
 
   Future<void> reprogramar({
@@ -420,6 +415,7 @@ class ConvocatoriaRepository {
         'fecha': nuevaFecha.toIso8601String(),
         'estado': EstadoPartido.organizando.dbValue,
         'resuelto_en': null,
+        'reprogramado_en': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',
       whereArgs: [partidoId],
@@ -428,13 +424,13 @@ class ConvocatoriaRepository {
     await db.update(
       'convocatoria_jugadores',
       {
+        'estado_confirmacion': EstadoConfirmacion.invitado.dbValue,
         'tiempo_limite': limite,
         'notificado_vencimiento': 0,
         'recordatorio_plazo_enviado': 0,
       },
-      where:
-          'partido_id = ? AND es_suplente = 0 AND estado_confirmacion = ?',
-      whereArgs: [partidoId, EstadoConfirmacion.invitado.dbValue],
+      where: 'partido_id = ? AND es_suplente = 0',
+      whereArgs: [partidoId],
     );
   }
 }

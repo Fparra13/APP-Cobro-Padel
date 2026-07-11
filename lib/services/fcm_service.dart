@@ -172,6 +172,17 @@ class FcmService {
       return;
     }
 
+    if (type == 'convocatoria_cancelada') {
+      await NotificationService.instance.showConvocatoriaMensaje(
+        partidoId: partidoId,
+        titulo: title,
+        cuerpo: body,
+        idOffset: 4200,
+        esCancelacion: true,
+      );
+      return;
+    }
+
     await NotificationService.instance.showConvocatoriaInvitacion(
       partidoId: partidoId,
       fecha: DateTime.now(),
@@ -196,6 +207,8 @@ class FcmService {
       await NotificationService.instance.openMisCobros();
     } else if (type == 'comprobante_pago') {
       await NotificationService.instance.openOrganizerHomePagos();
+    } else if (type == 'convocatoria_cancelada') {
+      await NotificationService.instance.openCancelacion(partidoId);
     } else if (type == 'convocatoria') {
       await NotificationService.instance.openConvocatoria(partidoId);
     }
