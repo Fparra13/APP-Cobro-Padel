@@ -17,13 +17,14 @@
     />
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
-  <body>
+  <body data-page="home">
     <header class="site-header">
       <a class="brand" href="/">Kloovi<span>.</span></a>
       <nav class="nav" aria-label="Principal">
-        <a href="#como">Cómo funciona</a>
-        <a href="/privacy">Privacidad</a>
-        <a href="/terms">Términos</a>
+        <a href="#como" data-i18n="navHow">Cómo funciona</a>
+        <a href="/privacy" data-i18n="navPrivacy">Privacidad</a>
+        <a href="/terms" data-i18n="navTerms">Términos</a>
+        <div data-lang-switch></div>
       </nav>
     </header>
 
@@ -31,12 +32,14 @@
       <section class="hero" aria-label="Portada">
         <div class="hero-inner">
           <h1>Kloovi<em>.</em></h1>
-          <p class="hero-lead">Conecta. Juega. Comparte. Organiza el partido y lleva los cobros del grupo sin drama.</p>
+          <p class="hero-lead" data-i18n="heroLead">
+            Conecta. Juega. Comparte. Organiza el partido y lleva los cobros del grupo sin drama.
+          </p>
           <div class="cta-row">
-            <a class="btn btn-primary" href="#como">Ver cómo funciona</a>
-            <a class="btn btn-ghost" href="/privacy">Política de privacidad</a>
+            <a class="btn btn-primary" href="#como" data-i18n="ctaHow">Ver cómo funciona</a>
+            <a class="btn btn-ghost" href="/privacy" data-i18n="ctaPrivacy">Política de privacidad</a>
           </div>
-          <p class="hero-note">
+          <p class="hero-note" data-i18n="heroNote">
             Disponible pronto en Google Play. Kloovi no recibe dinero ni procesa pagos: solo te ayuda a administrar comprobantes y saldos del grupo.
           </p>
         </div>
@@ -44,37 +47,43 @@
 
       <section class="section" id="como">
         <div class="wrap">
-          <h2>Una app para el grupo, no un banco</h2>
-          <p class="sub">
+          <h2 data-i18n="howTitle">Una app para el grupo, no un banco</h2>
+          <p class="sub" data-i18n="howSub">
             Pensada para organizadores y jugadores de pádel u otros deportes: convocatorias, confirmaciones y seguimiento de quién ya aportó.
           </p>
           <div class="split">
             <article class="point">
-              <strong>Organiza</strong>
-              <p>Arma el encuentro, invita al roster y mira quién confirma, quién falta o quién queda como suplente.</p>
+              <strong data-i18n="point1Title">Organiza</strong>
+              <p data-i18n="point1Body">
+                Arma el encuentro, invita al roster y mira quién confirma, quién falta o quién queda como suplente.
+              </p>
             </article>
             <article class="point">
-              <strong>Administra cobros</strong>
-              <p>Registra quién pagó, guarda comprobantes (fotos) y lleva saldos del grupo dentro de la app.</p>
+              <strong data-i18n="point2Title">Administra cobros</strong>
+              <p data-i18n="point2Body">
+                Registra quién pagó, guarda comprobantes (fotos) y lleva saldos del grupo dentro de la app.
+              </p>
             </article>
             <article class="point">
-              <strong>Sin pasarela de pago</strong>
-              <p>Kloovi no cobra a jugadores ni recibe transferencias. El dinero se mueve fuera de la app, entre ustedes.</p>
+              <strong data-i18n="point3Title">Sin pasarela de pago</strong>
+              <p data-i18n="point3Body">
+                Kloovi no cobra a jugadores ni recibe transferencias. El dinero se mueve fuera de la app, entre ustedes.
+              </p>
             </article>
           </div>
           <div class="callout">
-            <strong>Importante para Play Store y usuarios</strong>
-            Kloovi <strong>no es una aplicación financiera</strong>. No es billetera, banco, procesador de pagos ni intermediario de dinero. Solo almacena información administrativa y comprobantes que el organizador o el jugador cargan para llevar el control del grupo.
+            <strong data-i18n="calloutTitle">Importante para Play Store y usuarios</strong>
+            <span data-i18n-html="calloutBody"></span>
           </div>
         </div>
       </section>
 
       <section class="section section-alt" id="contacto">
         <div class="wrap">
-          <h2>Contacto</h2>
+          <h2 data-i18n="contactTitle">Contacto</h2>
           <p class="sub">
-            ¿Dudas de privacidad, cuenta o publicación?
-            <a href="mailto:fparram13@gmail.com">fparram13@gmail.com</a>
+            <span data-i18n="contactSub">¿Dudas de privacidad, cuenta o publicación?</span>
+            <a data-i18n-mailto href="mailto:hello@kloovi.app">hello@kloovi.app</a>
           </p>
         </div>
       </section>
@@ -82,16 +91,15 @@
 
     <footer class="site-footer">
       <div class="wrap">
-        <span>© <span id="y"></span> Kloovi · kloovi.app</span>
+        <span data-i18n="footerCopy">© 2026 Kloovi · kloovi.app</span>
         <nav aria-label="Legal">
-          <a href="/privacy">Privacidad</a>
-          <a href="/terms">Términos</a>
-          <a href="mailto:fparram13@gmail.com">Contacto</a>
+          <a href="/privacy" data-i18n="navPrivacy">Privacidad</a>
+          <a href="/terms" data-i18n="navTerms">Términos</a>
+          <a data-i18n-mailto href="mailto:hello@kloovi.app">hello@kloovi.app</a>
         </nav>
       </div>
     </footer>
-    <script>
-      document.getElementById("y").textContent = new Date().getFullYear();
-    </script>
+    <script src="/assets/locales.js"></script>
+    <script src="/assets/i18n.js"></script>
   </body>
 </html>
