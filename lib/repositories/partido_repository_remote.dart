@@ -20,6 +20,8 @@ import '../repositories/jugador_repository_remote.dart';
 import '../repositories/partido_repository.dart';
 import '../services/calculation_service.dart';
 import '../services/cobro_notificacion_service.dart';
+import '../services/supabase_realtime_service.dart';
+import '../services/supabase_storage_service.dart';
 import '../utils/formatters.dart';
 
 /// Partidos y cobros contra Supabase.
@@ -380,8 +382,8 @@ class PartidoRepositoryRemote {
     await _client.from('detalles_partido').delete().eq('partido_id', partidoId);
     await _client.from('costos_variables').delete().eq('partido_id', partidoId);
 
-    for (final jid in jugadorIds) {
-      await _recalcularSaldoJugador(jid);
+    if (jugadorIds.isNotEmpty) {
+      await _jugadorRepo.recalcularSaldosBatch(jugadorIds.toList());
     }
   }
 
@@ -443,6 +445,10 @@ class PartidoRepositoryRemote {
 
     final jugadoresPorId = await _fetchJugadoresPorIds(asistentes);
     final ahora = DateTime.now();
+    final detallesRows = <Map<String, dynamic>>[];
+    final historialRows = <Map<String, dynamic>>[];
+    final jugadorIdsConCargo = <String>[];
+
     for (final jugadorId in asistentes) {
       final jugador = jugadoresPorId[jugadorId];
       if (jugador == null) continue;
@@ -477,7 +483,7 @@ class PartidoRepositoryRemote {
       final pagado = pago.pagado;
       final concepto = pago.concepto;
 
-      await _client.from('detalles_partido').insert({
+      detallesRows.add({
         'partido_id': partidoId,
         'jugador_id': jugadorId,
         'asistio': true,
@@ -490,7 +496,7 @@ class PartidoRepositoryRemote {
           'fecha_pago': ahora.toIso8601String(),
       });
 
-      await _client.from('saldos_historicos').insert({
+      historialRows.add({
         'jugador_id': jugadorId,
         'partido_id': partidoId,
         'saldo_anterior': saldoAnterior,
@@ -502,13 +508,24 @@ class PartidoRepositoryRemote {
             : partido.fecha.toIso8601String(),
         'concepto': concepto,
       });
+      jugadorIdsConCargo.add(jugadorId);
+    }
 
-      await _jugadorRepo.updateSaldo(jugadorId, saldoNuevo);
+    // 3 round-trips en total (antes: 3 × N). Evita el “parpadeo” del Home
+    // a medias mientras Realtime ve inserts parciales.
+    if (detallesRows.isNotEmpty) {
+      await _client.from('detalles_partido').insert(detallesRows);
+    }
+    if (historialRows.isNotEmpty) {
+      await _client.from('saldos_historicos').insert(historialRows);
+    }
+    if (jugadorIdsConCargo.isNotEmpty) {
+      await _jugadorRepo.recalcularSaldosBatch(jugadorIdsConCargo);
     }
   }
 
-  Future<List<Partido>> getAll({EstadoPartido? soloEstado}) async {
-    return SupabaseHelpers.guard('Listar partidos', () async {
+  Future<List<Partido>> getAll({EstadoPartido? soloEstado, int? limit}) async {
+    return SupabaseHelpers.guard('Listar encuentros', () async {
       final uid = SupabaseHelpers.currentUserId;
       var query = _client.from('partidos').select();
       if (uid != null) {
@@ -517,14 +534,18 @@ class PartidoRepositoryRemote {
       if (soloEstado != null) {
         query = query.eq('estado', soloEstado.dbValue);
       }
-      final rows = await query.order('fecha', ascending: false);
+      final ordered = query.order('fecha', ascending: false);
+      final rows = limit != null
+          ? await ordered.limit(limit)
+          : await ordered;
       return (rows as List)
           .map((r) => Partido.fromSupabaseMap(Map<String, dynamic>.from(r)))
           .toList();
     });
   }
 
-  Future<List<Partido>> getJugados() => getAll(soloEstado: EstadoPartido.jugado);
+  Future<List<Partido>> getJugados({int? limit}) =>
+      getAll(soloEstado: EstadoPartido.jugado, limit: limit);
 
   Future<List<String>> getRecintosRecientes({int limit = 8}) async {
     return SupabaseHelpers.guard('Recintos recientes', () async {
@@ -554,7 +575,7 @@ class PartidoRepositoryRemote {
   }
 
   Future<PartidoCompleto?> getCompleto(int partidoId) async {
-    return SupabaseHelpers.guard('Obtener partido completo', () async {
+    return SupabaseHelpers.guard('Obtener encuentro completo', () async {
       final partidoRow = await _client
           .from('partidos')
           .select()
@@ -625,7 +646,7 @@ class PartidoRepositoryRemote {
     List<int> partidoIds,
   ) async {
     if (partidoIds.isEmpty) return [];
-    return SupabaseHelpers.guard('Listar partidos (resumen)', () async {
+    return SupabaseHelpers.guard('Listar encuentros (resumen)', () async {
       final partidoRows = await _client
           .from('partidos')
           .select()
@@ -691,21 +712,25 @@ class PartidoRepositoryRemote {
   }
 
   /// Lectura de desglose.
+  ///
+  /// [repararCuenta] es costoso (N round-trips); solo úsalo en flujos de
+  /// reparación explícita, nunca al abrir historial/detalle.
   Future<List<DesgloseJugador>> getDesglose(
     int partidoId, {
     bool reconciliar = false,
-    bool repararCuenta = true,
+    bool repararCuenta = false,
+    PartidoCompleto? completo,
   }) async {
     if (reconciliar) {
       throw UnsupportedError(
         'reconciliar en getDesglose ya no está soportado; use reparar manual',
       );
     }
-    var completo = await getCompleto(partidoId);
-    if (completo == null) return [];
+    var loaded = completo ?? await getCompleto(partidoId);
+    if (loaded == null) return [];
 
     final asistentes =
-        completo.detalles.where((d) => d.asistio && d.jugadorSupabaseId != null);
+        loaded.detalles.where((d) => d.asistio && d.jugadorSupabaseId != null);
     final asistenteIds = asistentes.map((d) => d.jugadorSupabaseId!).toSet();
 
     if (repararCuenta) {
@@ -716,7 +741,7 @@ class PartidoRepositoryRemote {
         }
       }
       if (sincronizado) {
-        completo = await getCompleto(partidoId) ?? completo;
+        loaded = await getCompleto(partidoId) ?? loaded;
       }
     }
 
@@ -725,7 +750,7 @@ class PartidoRepositoryRemote {
     );
 
     final asistentesFinal =
-        completo.detalles.where((d) => d.asistio && d.jugadorSupabaseId != null);
+        loaded.detalles.where((d) => d.asistio && d.jugadorSupabaseId != null);
     final asistenteIdsFinal =
         asistentesFinal.map((d) => d.jugadorSupabaseId!).toSet();
 
@@ -734,8 +759,8 @@ class PartidoRepositoryRemote {
       varsPorJugador[d.jugadorSupabaseId!] = {};
     }
 
-    for (final cv in completo.costosVariables) {
-      final asignaciones = completo.asignacionesPorCosto[cv.id] ?? [];
+    for (final cv in loaded.costosVariables) {
+      final asignaciones = loaded.asignacionesPorCosto[cv.id] ?? [];
       for (final a in asignaciones) {
         final jid = a.jugadorSupabaseId;
         if (jid != null && varsPorJugador.containsKey(jid)) {
@@ -744,8 +769,8 @@ class PartidoRepositoryRemote {
       }
     }
 
-    final costoCancha = completo.partido.costoCancha;
-    final costoPelotas = completo.partido.costoPelotas;
+    final costoCancha = loaded.partido.costoCancha;
+    final costoPelotas = loaded.partido.costoPelotas;
     final totalFijo = costoCancha + costoPelotas;
 
     final saldosCuenta = await _fetchSaldosCuentaBatch(asistenteIdsFinal);
@@ -916,7 +941,7 @@ class PartidoRepositoryRemote {
   }
 
   Future<PartidoCompleto?> getUltimoPartido() async {
-    final partidos = await getJugados();
+    final partidos = await getJugados(limit: 1);
     if (partidos.isEmpty) return null;
     return getCompleto(partidos.first.id!);
   }
@@ -924,13 +949,10 @@ class PartidoRepositoryRemote {
   Future<List<PartidoCompleto>> getPartidosJugadosRecientesResumen({
     int limit = 8,
   }) async {
-    final partidos = await getJugados();
+    // Solo los N más recientes: no cargar todo el historial jugado.
+    final partidos = await getJugados(limit: limit);
     if (partidos.isEmpty) return const [];
-    final ids = partidos
-        .take(limit)
-        .map((p) => p.id)
-        .whereType<int>()
-        .toList();
+    final ids = partidos.map((p) => p.id).whereType<int>().toList();
     if (ids.isEmpty) return const [];
     return getCompletosListaResumen(ids);
   }
@@ -943,40 +965,46 @@ class PartidoRepositoryRemote {
     Map<String, double>? saldosAnterioresSnapshot,
     String? organizadorId,
   }) async {
-    return SupabaseHelpers.guard('Guardar partido', () async {
-      final idMap = await _resolverIdsCobro(jugadoresAsistentes);
-      final asistentes = idMap.values.toSet().toList();
-      final prorrateo = CalculationService.prorrateoFijo(
-        costoCancha: partido.costoCancha,
-        costoPelotas: partido.costoPelotas,
-        cantidadAsistentes: asistentes.length,
-      );
+    return SupabaseHelpers.write('Guardar encuentro', () async {
+      final realtime = SupabaseRealtimeService.instance;
+      realtime.beginBulkWrite();
+      try {
+        final idMap = await _resolverIdsCobro(jugadoresAsistentes);
+        final asistentes = idMap.values.toSet().toList();
+        final prorrateo = CalculationService.prorrateoFijo(
+          costoCancha: partido.costoCancha,
+          costoPelotas: partido.costoPelotas,
+          cantidadAsistentes: asistentes.length,
+        );
 
-      final orgId = organizadorId ?? SupabaseHelpers.currentUserId;
-      final partidoMap = partido.toSupabaseMap(organizadorId: orgId);
-      partidoMap.remove('id');
+        final orgId = organizadorId ?? SupabaseHelpers.currentUserId;
+        final partidoMap = partido.toSupabaseMap(organizadorId: orgId);
+        partidoMap.remove('id');
 
-      final partidoRow = await _client
-          .from('partidos')
-          .insert(partidoMap)
-          .select('id')
-          .single();
-      final partidoId = (partidoRow['id'] as num).toInt();
+        final partidoRow = await _client
+            .from('partidos')
+            .insert(partidoMap)
+            .select('id')
+            .single();
+        final partidoId = (partidoRow['id'] as num).toInt();
 
-      await _insertarCostosYDetalles(
-        partidoId: partidoId,
-        partido: partido,
-        idMap: idMap,
-        jugadoresAsistentes: jugadoresAsistentes,
-        asistentes: asistentes,
-        montoPagadoPorJugador: montoPagadoPorJugador,
-        costosVariables: costosVariables,
-        saldosAnterioresSnapshot: saldosAnterioresSnapshot,
-        prorrateo: prorrateo,
-      );
+        await _insertarCostosYDetalles(
+          partidoId: partidoId,
+          partido: partido,
+          idMap: idMap,
+          jugadoresAsistentes: jugadoresAsistentes,
+          asistentes: asistentes,
+          montoPagadoPorJugador: montoPagadoPorJugador,
+          costosVariables: costosVariables,
+          saldosAnterioresSnapshot: saldosAnterioresSnapshot,
+          prorrateo: prorrateo,
+        );
 
-      unawaited(_cobroNotificaciones.notificarCobrosPartido(partidoId));
-      return partidoId;
+        unawaited(_cobroNotificaciones.notificarCobrosPartido(partidoId));
+        return partidoId;
+      } finally {
+        realtime.endBulkWrite();
+      }
     });
   }
 
@@ -985,7 +1013,27 @@ class PartidoRepositoryRemote {
     required double monto,
     String concepto = 'Abono manual',
   }) async {
-    await SupabaseHelpers.guard('Registrar abono', () async {
+    await SupabaseHelpers.write('Registrar abono', () async {
+      try {
+        await _client.rpc(
+          'registrar_abono_jugador',
+          params: {
+            'p_jugador_id': jugadorId,
+            'p_monto': roundMoney(monto).toDouble(),
+            'p_concepto': concepto,
+          },
+        );
+        return;
+      } catch (e) {
+        final msg = e.toString().toLowerCase();
+        if (msg.contains('monto_invalido') ||
+            msg.contains('permission_denied') ||
+            msg.contains('jugador_no_encontrado')) {
+          rethrow;
+        }
+        // Fallback si la migración 050 aún no está.
+      }
+
       final jugador = await _jugadorRepo.getById(jugadorId);
       if (jugador == null) return;
 
@@ -1017,18 +1065,7 @@ class PartidoRepositoryRemote {
   }
 
   Future<void> _recalcularSaldoJugador(String jugadorId) async {
-    final rows = await _client
-        .from('saldos_historicos')
-        .select('saldo_nuevo')
-        .eq('jugador_id', jugadorId)
-        .order('fecha', ascending: true)
-        .order('id', ascending: true);
-
-    var saldo = 0.0;
-    for (final row in rows as List) {
-      saldo = (row['saldo_nuevo'] as num).toDouble();
-    }
-    await _jugadorRepo.updateSaldo(jugadorId, saldo);
+    await _jugadorRepo.recalcularSaldosBatch([jugadorId]);
   }
 
   Future<List<DeudaPartidoAnterior>> _fetchPendientesPorPartido(
@@ -1129,7 +1166,7 @@ class PartidoRepositoryRemote {
   /// Reparación manual fuera del flujo normal. No invocar en cargas de pantalla.
   @Deprecated('Solo reparación manual; no usar en flujo normal')
   Future<void> reconciliarDetallesJugador(String jugadorId) async {
-    await SupabaseHelpers.guard('Reconciliar detalles jugador', () async {
+    await SupabaseHelpers.write('Reconciliar detalles jugador', () async {
       final jugador = await _jugadorRepo.getById(jugadorId);
       if (jugador == null) return;
 
@@ -1355,7 +1392,7 @@ class PartidoRepositoryRemote {
         'reconciliar en getDeudasPartidosAnteriores ya no está soportado',
       );
     }
-    return SupabaseHelpers.guard('Deudas partidos anteriores', () async {
+    return SupabaseHelpers.guard('Deudas encuentros anteriores', () async {
       final pendientes = await _fetchPendientesPorPartido(jugadorId);
       return pendientes.where((d) => d.partidoId != partidoActualId).toList();
     });
@@ -1370,14 +1407,14 @@ class PartidoRepositoryRemote {
         'reconciliar en getPartidosPendientesJugador ya no está soportado',
       );
     }
-    return SupabaseHelpers.guard('Partidos pendientes jugador', () async {
+    return SupabaseHelpers.guard('Encuentros pendientes jugador', () async {
       return _fetchPendientesPorPartido(jugadorId);
     });
   }
 
   Future<({int partidosJugados, int partidosPagados, int partidosImpagos})>
       getResumenPartidosJugador(String jugadorId) async {
-    return SupabaseHelpers.guard('Resumen partidos jugador', () async {
+    return SupabaseHelpers.guard('Resumen encuentros jugador', () async {
       final rows = await _client
           .from('detalles_partido')
           .select('pagado')
@@ -1434,38 +1471,44 @@ class PartidoRepositoryRemote {
     required List<CostoVariableInput> costosVariables,
     Map<String, double>? saldosAnterioresSnapshot,
   }) async {
-    await SupabaseHelpers.guard('Actualizar partido', () async {
-      await _prepararReemplazoPartido(partidoId);
+    await SupabaseHelpers.write('Actualizar encuentro', () async {
+      final realtime = SupabaseRealtimeService.instance;
+      realtime.beginBulkWrite();
+      try {
+        await _prepararReemplazoPartido(partidoId);
 
-      final idMap = await _resolverIdsCobro(jugadoresAsistentes);
-      final asistentes = idMap.values.toSet().toList();
-      final prorrateo = CalculationService.prorrateoFijo(
-        costoCancha: partido.costoCancha,
-        costoPelotas: partido.costoPelotas,
-        cantidadAsistentes: asistentes.length,
-      );
+        final idMap = await _resolverIdsCobro(jugadoresAsistentes);
+        final asistentes = idMap.values.toSet().toList();
+        final prorrateo = CalculationService.prorrateoFijo(
+          costoCancha: partido.costoCancha,
+          costoPelotas: partido.costoPelotas,
+          cantidadAsistentes: asistentes.length,
+        );
 
-      final partidoMap = partido.toSupabaseMap();
-      partidoMap.remove('id');
-      final orgId = SupabaseHelpers.currentUserId;
-      if (orgId != null) {
-        partidoMap['organizador_id'] = orgId;
+        final partidoMap = partido.toSupabaseMap();
+        partidoMap.remove('id');
+        final orgId = SupabaseHelpers.currentUserId;
+        if (orgId != null) {
+          partidoMap['organizador_id'] = orgId;
+        }
+        await _client.from('partidos').update(partidoMap).eq('id', partidoId);
+
+        await _insertarCostosYDetalles(
+          partidoId: partidoId,
+          partido: partido,
+          idMap: idMap,
+          jugadoresAsistentes: jugadoresAsistentes,
+          asistentes: asistentes,
+          montoPagadoPorJugador: montoPagadoPorJugador,
+          costosVariables: costosVariables,
+          saldosAnterioresSnapshot: saldosAnterioresSnapshot,
+          prorrateo: prorrateo,
+        );
+
+        unawaited(_cobroNotificaciones.notificarCobrosPartido(partidoId));
+      } finally {
+        realtime.endBulkWrite();
       }
-      await _client.from('partidos').update(partidoMap).eq('id', partidoId);
-
-      await _insertarCostosYDetalles(
-        partidoId: partidoId,
-        partido: partido,
-        idMap: idMap,
-        jugadoresAsistentes: jugadoresAsistentes,
-        asistentes: asistentes,
-        montoPagadoPorJugador: montoPagadoPorJugador,
-        costosVariables: costosVariables,
-        saldosAnterioresSnapshot: saldosAnterioresSnapshot,
-        prorrateo: prorrateo,
-      );
-
-      unawaited(_cobroNotificaciones.notificarCobrosPartido(partidoId));
     });
   }
 
@@ -1477,41 +1520,48 @@ class PartidoRepositoryRemote {
     required List<CostoVariableInput> costosVariables,
     Map<String, double>? saldosAnterioresSnapshot,
   }) async {
-    await SupabaseHelpers.guard('Completar partido organizado', () async {
-      final idMap = await _resolverIdsCobro(jugadoresAsistentes);
-      final asistentes = idMap.values.toSet().toList();
-      final prorrateo = CalculationService.prorrateoFijo(
-        costoCancha: partido.costoCancha,
-        costoPelotas: partido.costoPelotas,
-        cantidadAsistentes: asistentes.length,
-      );
+    await SupabaseHelpers.write('Completar encuentro organizado', () async {
+      final realtime = SupabaseRealtimeService.instance;
+      realtime.beginBulkWrite();
+      try {
+        final idMap = await _resolverIdsCobro(jugadoresAsistentes);
+        final asistentes = idMap.values.toSet().toList();
+        final prorrateo = CalculationService.prorrateoFijo(
+          costoCancha: partido.costoCancha,
+          costoPelotas: partido.costoPelotas,
+          cantidadAsistentes: asistentes.length,
+        );
 
-      final partidoMap = partido.copyWith(estado: EstadoPartido.jugado).toSupabaseMap();
-      partidoMap.remove('id');
-      final orgId = SupabaseHelpers.currentUserId;
-      if (orgId != null) {
-        partidoMap['organizador_id'] = orgId;
+        final partidoMap =
+            partido.copyWith(estado: EstadoPartido.jugado).toSupabaseMap();
+        partidoMap.remove('id');
+        final orgId = SupabaseHelpers.currentUserId;
+        if (orgId != null) {
+          partidoMap['organizador_id'] = orgId;
+        }
+        await _client.from('partidos').update(partidoMap).eq('id', partidoId);
+
+        await _client
+            .from('convocatoria_jugadores')
+            .delete()
+            .eq('partido_id', partidoId);
+
+        await _insertarCostosYDetalles(
+          partidoId: partidoId,
+          partido: partido,
+          idMap: idMap,
+          jugadoresAsistentes: jugadoresAsistentes,
+          asistentes: asistentes,
+          montoPagadoPorJugador: montoPagadoPorJugador,
+          costosVariables: costosVariables,
+          saldosAnterioresSnapshot: saldosAnterioresSnapshot,
+          prorrateo: prorrateo,
+        );
+
+        unawaited(_cobroNotificaciones.notificarCobrosPartido(partidoId));
+      } finally {
+        realtime.endBulkWrite();
       }
-      await _client.from('partidos').update(partidoMap).eq('id', partidoId);
-
-      await _client
-          .from('convocatoria_jugadores')
-          .delete()
-          .eq('partido_id', partidoId);
-
-      await _insertarCostosYDetalles(
-        partidoId: partidoId,
-        partido: partido,
-        idMap: idMap,
-        jugadoresAsistentes: jugadoresAsistentes,
-        asistentes: asistentes,
-        montoPagadoPorJugador: montoPagadoPorJugador,
-        costosVariables: costosVariables,
-        saldosAnterioresSnapshot: saldosAnterioresSnapshot,
-        prorrateo: prorrateo,
-      );
-
-      unawaited(_cobroNotificaciones.notificarCobrosPartido(partidoId));
     });
   }
 
@@ -1548,7 +1598,7 @@ class PartidoRepositoryRemote {
   /// Desglose del jugador autenticado para un partido (vista jugador).
   Future<DesgloseJugador?> getMiDesglosePartido(int partidoId) async {
     return SupabaseHelpers.withTimeout(
-      SupabaseHelpers.guard('Mi desglose partido', () async {
+      SupabaseHelpers.guard('Mi desglose encuentro', () async {
         final uid = SupabaseHelpers.currentUserId;
         if (uid == null) return null;
 
@@ -1643,7 +1693,7 @@ class PartidoRepositoryRemote {
           detalleMap: detalleMap,
         );
       }),
-      operacion: 'Mi desglose partido',
+      operacion: 'Mi desglose encuentro',
     );
   }
 
@@ -1780,7 +1830,7 @@ class PartidoRepositoryRemote {
 
   /// Partidos en los que el jugador autenticado asistió (más recientes primero).
   Future<List<DetallePartido>> getMisPartidosJugados({int limit = 30}) async {
-    return SupabaseHelpers.guard('Mis partidos jugados', () async {
+    return SupabaseHelpers.guard('Mis encuentros jugados', () async {
       final uid = SupabaseHelpers.currentUserId;
       if (uid == null) return [];
 
@@ -2016,32 +2066,46 @@ class PartidoRepositoryRemote {
   }
 
   Future<void> eliminarPartido(int id) async {
-    await SupabaseHelpers.guard('Eliminar partido', () async {
+    await SupabaseHelpers.write('Eliminar encuentro', () async {
+      final comprobanteRows = await _client
+          .from('detalles_partido')
+          .select('comprobante_url')
+          .eq('partido_id', id);
+      final paths = (comprobanteRows as List)
+          .map((row) => SupabaseParse.toStringOrNull(
+                Map<String, dynamic>.from(row)['comprobante_url'],
+              ))
+          .whereType<String>()
+          .where((p) => p.isNotEmpty)
+          .toSet();
+
       try {
         await _client.rpc(
           'eliminar_partido_completo',
           params: {'p_partido_id': id},
         );
-        return;
       } catch (_) {
         // RPC no desplegado: fallback manual.
+        final detalleRows = await _client
+            .from('detalles_partido')
+            .select('jugador_id')
+            .eq('partido_id', id);
+
+        final jugadorIds = (detalleRows as List)
+            .map((row) => row['jugador_id']?.toString())
+            .whereType<String>()
+            .toSet();
+
+        await _client.from('saldos_historicos').delete().eq('partido_id', id);
+        await _client.from('partidos').delete().eq('id', id);
+
+        for (final jid in jugadorIds) {
+          await _recalcularSaldoJugador(jid);
+        }
       }
 
-      final detalleRows = await _client
-          .from('detalles_partido')
-          .select('jugador_id')
-          .eq('partido_id', id);
-
-      final jugadorIds = (detalleRows as List)
-          .map((row) => row['jugador_id']?.toString())
-          .whereType<String>()
-          .toSet();
-
-      await _client.from('saldos_historicos').delete().eq('partido_id', id);
-      await _client.from('partidos').delete().eq('id', id);
-
-      for (final jid in jugadorIds) {
-        await _recalcularSaldoJugador(jid);
+      for (final path in paths) {
+        await SupabaseStorageService.instance.deleteIfExists(path);
       }
     });
   }
@@ -2052,7 +2116,7 @@ class PartidoRepositoryRemote {
     required double montoDeclarado,
     required bool esAbono,
   }) async {
-    await SupabaseHelpers.guard('Subir comprobante', () async {
+    await SupabaseHelpers.write('Subir comprobante', () async {
       final uid = SupabaseHelpers.currentUserId;
       if (uid == null) {
         throw Exception('Sesión requerida');
@@ -2133,7 +2197,64 @@ class PartidoRepositoryRemote {
     required int detalleId,
     required bool aprobado,
   }) async {
-    await SupabaseHelpers.guard('Validar comprobante', () async {
+    await SupabaseHelpers.write('Validar comprobante', () async {
+      try {
+        final raw = await _client.rpc(
+          'validar_comprobante_pago',
+          params: {
+            'p_detalle_id': detalleId,
+            'p_aprobado': aprobado,
+          },
+        );
+        final result = Map<String, dynamic>.from(raw as Map);
+        final accion = result['accion'] as String? ?? '';
+        final comprobantePath =
+            SupabaseParse.toStringOrNull(result['comprobante_url']);
+
+        Future<void> borrarStorage() async {
+          await SupabaseStorageService.instance.deleteIfExists(comprobantePath);
+        }
+
+        switch (accion) {
+          case 'rechazar':
+            await borrarStorage();
+            final jugadorId =
+                SupabaseParse.toStringOrNull(result['jugador_id']) ?? '';
+            final partidoId = (result['partido_id'] as num?)?.toInt() ?? 0;
+            await _cobroNotificaciones.notificarComprobanteRechazado(
+              detalleId: detalleId,
+              partidoId: partidoId,
+              jugadorId: jugadorId,
+              jugadorNombre:
+                  SupabaseParse.toStringOrNull(result['jugador_nombre']) ??
+                      'Jugador',
+              pendienteNeto:
+                  (result['pendiente_neto'] as num?)?.toDouble() ?? 0,
+              fechaPartido: result['fecha_partido'] != null
+                  ? SupabaseParse.toDateTime(result['fecha_partido'])
+                  : DateTime.now(),
+            );
+            return;
+          case 'ignorar_ya_validado':
+            return;
+          case 'solo_marcar':
+          case 'abonar_pendiente':
+            await borrarStorage();
+            return;
+          default:
+            await borrarStorage();
+            return;
+        }
+      } catch (e) {
+        final msg = e.toString().toLowerCase();
+        if (msg.contains('datos_inconsistentes') ||
+            msg.contains('detalle_no_encontrado') ||
+            msg.contains('permission_denied')) {
+          rethrow;
+        }
+        // Fallback si la migración 050 aún no está.
+      }
+
       final row = await _client
           .from('detalles_partido')
           .select('*, partidos(fecha)')
@@ -2150,6 +2271,8 @@ class PartidoRepositoryRemote {
       final montoPagado = (map['monto_pagado'] as num?)?.toDouble() ?? 0;
       final pagado = map['pagado'] as bool? ?? false;
       final comprobanteValidado = map['comprobante_validado'] as bool? ?? false;
+      final comprobantePath =
+          SupabaseParse.toStringOrNull(map['comprobante_url']);
       final montoPagoDeclarado =
           (map['monto_pago_declarado'] as num?)?.toDouble();
       final pagoEsAbono = map['pago_es_abono'] as bool? ?? false;
@@ -2177,8 +2300,13 @@ class PartidoRepositoryRemote {
         montoPagoDeclarado: montoPagoDeclarado,
       );
 
+      Future<void> borrarComprobanteStorage() async {
+        await SupabaseStorageService.instance.deleteIfExists(comprobantePath);
+      }
+
       switch (decision.accion) {
         case ComprobanteValidacionAccion.rechazar:
+          await borrarComprobanteStorage();
           await _client.from('detalles_partido').update({
             'comprobante_validado': false,
             'comprobante_url': null,
@@ -2186,21 +2314,22 @@ class PartidoRepositoryRemote {
             'pago_es_abono': null,
           }).eq('id', detalleId);
           final jugadorRechazo = await _jugadorRepo.getById(jugadorId);
-          final pendienteNeto = pendientePartido;
           await _cobroNotificaciones.notificarComprobanteRechazado(
             detalleId: detalleId,
             partidoId: partidoId,
             jugadorId: jugadorId,
             jugadorNombre: jugadorRechazo?.nombre ?? 'Jugador',
-            pendienteNeto: pendienteNeto,
+            pendienteNeto: pendientePartido,
             fechaPartido: fechaPartido,
           );
           return;
         case ComprobanteValidacionAccion.ignorarYaValidado:
           return;
         case ComprobanteValidacionAccion.soloMarcarComprobante:
+          await borrarComprobanteStorage();
           await _client.from('detalles_partido').update({
             'comprobante_validado': true,
+            'comprobante_url': null,
             'monto_pago_declarado': null,
             'pago_es_abono': null,
             if (map['fecha_pago'] == null)
@@ -2230,6 +2359,7 @@ class PartidoRepositoryRemote {
         montoPagadoEnPartido: nuevoMontoPagado,
       );
 
+      await borrarComprobanteStorage();
       final updated = await _client
           .from('detalles_partido')
           .update({

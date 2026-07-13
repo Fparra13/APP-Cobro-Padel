@@ -91,8 +91,8 @@ class CobroLogic {
     );
     final concepto = pagado
         ? (montoPagado == 0 && favorAplicado > 0
-            ? 'Partido cubierto con saldo a favor'
-            : 'Partido pagado')
+            ? 'Encuentro cubierto con saldo a favor'
+            : 'Encuentro pagado')
         : montoPagado > 0
             ? 'Pago parcial'
             : 'Deuda acumulada';

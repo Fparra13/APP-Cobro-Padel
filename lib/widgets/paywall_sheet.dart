@@ -5,7 +5,7 @@ import '../core/app_settings_controller.dart';
 import '../core/subscription_service.dart';
 import '../l10n/matchpay_strings.dart';
 
-/// Muro de pago MatchPay Pro (preparado para Play Store billing).
+/// Muro de pago Kloovi Pro (preparado para Play Store billing).
 Future<bool?> showPaywallSheet(
   BuildContext context, {
   required ProFeature feature,

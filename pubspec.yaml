@@ -1,5 +1,5 @@
 name: matchpay
-description: "MatchPay — gestión multideporte de cobros y convocatorias."
+description: "Kloovi — gestión multideporte de cobros y convocatorias."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -58,6 +58,7 @@ dependencies:
   lottie: ^3.4.0
   firebase_crashlytics: ^4.3.10
   firebase_analytics: ^11.6.0
+  google_sign_in: ^7.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

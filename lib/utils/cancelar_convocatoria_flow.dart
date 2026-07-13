@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/app_repositories.dart';
@@ -5,7 +7,8 @@ import '../l10n/matchpay_strings.dart';
 import '../models/convocatoria_jugador.dart';
 import '../services/convocatoria_comunicacion_service.dart';
 
-/// Cancela un partido en convocatoria y avisa solo a titulares confirmados.
+/// Cancela un partido en convocatoria y avisa a titulares en juego
+/// (confirmados + invitados con plazo vigente). No reservas ni rechazados.
 class CancelarConvocatoriaFlow {
   CancelarConvocatoriaFlow._();
 
@@ -23,15 +26,20 @@ class CancelarConvocatoriaFlow {
           : host.repos;
       final conv =
           convocatoria ?? await repos.getConvocatoriaCompleta(partidoId);
-      if (conv == null) {
-        await repos.cancelarConvocatoria(partidoId);
-        AppRepositories.notifyDataChanged();
-        return true;
-      }
 
+      // La cancelación en DB es 1 RPC; los avisos no deben bloquear la UI.
       await repos.cancelarConvocatoria(partidoId);
-      await ConvocatoriaComunicacionService().avisarCancelacion(conv);
       AppRepositories.notifyDataChanged();
+
+      if (conv != null) {
+        unawaited(() async {
+          try {
+            await ConvocatoriaComunicacionService().avisarCancelacion(conv);
+          } catch (e) {
+            debugPrint('Avisos cancelación en background: $e');
+          }
+        }());
+      }
       return true;
     } catch (e) {
       if (host.mounted) {

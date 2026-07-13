@@ -1,10 +1,14 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/datos_pago_organizador.dart';
+
 class PreferencesService {
   static const _keyTitular = 'titular_nombre';
   static const _keyBanco = 'banco_nombre';
   static const _keyCuenta = 'cuenta_numero';
   static const _keyRut = 'titular_rut';
+  static const _keyPagoDetalle = 'pago_detalle';
+  static const _keyPagoNota = 'pago_nota';
   static const _keyUltimoRecinto = 'ultimo_recinto';
   static const _keyRecordatorioActivo = 'recordatorio_activo';
   static const _keyRecordatorioDias = 'recordatorio_dias';
@@ -17,14 +21,37 @@ class PreferencesService {
   Future<String> get titularNombre async =>
       (await _prefs).getString(_keyTitular) ?? '';
 
+  /// @deprecated Preferir [datosPago].
   Future<String> get bancoNombre async =>
       (await _prefs).getString(_keyBanco) ?? '';
 
+  /// @deprecated Preferir [datosPago].
   Future<String> get cuentaNumero async =>
       (await _prefs).getString(_keyCuenta) ?? '';
 
+  /// @deprecated Preferir [datosPago].
   Future<String> get titularRut async =>
       (await _prefs).getString(_keyRut) ?? '';
+
+  /// Instrucciones de pago (con migración automática desde banco/cuenta/RUT).
+  Future<DatosPagoOrganizador> get datosPago async {
+    final prefs = await _prefs;
+    final titular = prefs.getString(_keyTitular) ?? '';
+    var detalle = (prefs.getString(_keyPagoDetalle) ?? '').trim();
+    if (detalle.isEmpty) {
+      detalle = DatosPagoOrganizador.detalleDesdeLegacy(
+        banco: prefs.getString(_keyBanco) ?? '',
+        cuenta: prefs.getString(_keyCuenta) ?? '',
+        rut: prefs.getString(_keyRut) ?? '',
+      );
+    }
+    final nota = prefs.getString(_keyPagoNota) ?? '';
+    return DatosPagoOrganizador(
+      titular: titular,
+      detalle: detalle,
+      nota: nota,
+    );
+  }
 
   Future<String> get ultimoRecinto async =>
       (await _prefs).getString(_keyUltimoRecinto) ?? '';
@@ -67,16 +94,32 @@ class PreferencesService {
     await prefs.setString(_keyRecordatorioUltimaFecha, fechaIso);
   }
 
+  Future<void> saveDatosPago({
+    required String titular,
+    required String detalle,
+    required String nota,
+  }) async {
+    final prefs = await _prefs;
+    await prefs.setString(_keyTitular, titular.trim());
+    await prefs.setString(_keyPagoDetalle, detalle.trim());
+    await prefs.setString(_keyPagoNota, nota.trim());
+  }
+
+  /// @deprecated Usar [saveDatosPago].
   Future<void> saveDatosBancarios({
     required String titular,
     required String banco,
     required String cuenta,
     required String rut,
   }) async {
-    final prefs = await _prefs;
-    await prefs.setString(_keyTitular, titular);
-    await prefs.setString(_keyBanco, banco);
-    await prefs.setString(_keyCuenta, cuenta);
-    await prefs.setString(_keyRut, rut);
+    await saveDatosPago(
+      titular: titular,
+      detalle: DatosPagoOrganizador.detalleDesdeLegacy(
+        banco: banco,
+        cuenta: cuenta,
+        rut: rut,
+      ),
+      nota: '',
+    );
   }
 }

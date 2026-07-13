@@ -16,12 +16,14 @@ ConvocatoriaJugadorEntry _entry({
   required int partidoId,
   EstadoConfirmacion estado = EstadoConfirmacion.invitado,
   DateTime? tiempoLimite,
+  bool esSuplente = false,
 }) =>
     ConvocatoriaJugadorEntry(
       partidoId: partidoId,
       jugador: Jugador(nombre: 'Ana', createdAt: DateTime(2026)),
       estado: estado,
       tiempoLimite: tiempoLimite,
+      esSuplente: esSuplente,
     );
 
 MiConvocatoria _miConvocatoria({
@@ -153,5 +155,75 @@ void main() {
 
     expect(PartidoLifecycle.convocatoriaActiva(cancelado), isFalse);
     expect(PartidoLifecycle.convocatoriaExpirada(cancelado, ref), isFalse);
+  });
+
+  test('aviso cancelación: confirmado e invitado con plazo vigente', () {
+    final limiteVigente = DateTime(2026, 7, 9, 18);
+    final limiteVencido = DateTime(2026, 7, 7, 18);
+
+    expect(
+      PartidoLifecycle.debeRecibirAvisoCancelacion(
+        _entry(
+          partidoId: 1,
+          estado: EstadoConfirmacion.confirmado,
+        ),
+        ref,
+      ),
+      isTrue,
+    );
+    expect(
+      PartidoLifecycle.debeRecibirAvisoCancelacion(
+        _entry(
+          partidoId: 1,
+          estado: EstadoConfirmacion.invitado,
+          tiempoLimite: limiteVigente,
+        ),
+        ref,
+      ),
+      isTrue,
+    );
+    expect(
+      PartidoLifecycle.debeRecibirAvisoCancelacion(
+        _entry(
+          partidoId: 1,
+          estado: EstadoConfirmacion.invitado,
+          tiempoLimite: limiteVencido,
+        ),
+        ref,
+      ),
+      isFalse,
+    );
+    expect(
+      PartidoLifecycle.debeRecibirAvisoCancelacion(
+        _entry(
+          partidoId: 1,
+          estado: EstadoConfirmacion.rechazado,
+        ),
+        ref,
+      ),
+      isFalse,
+    );
+    expect(
+      PartidoLifecycle.debeRecibirAvisoCancelacion(
+        _entry(
+          partidoId: 1,
+          estado: EstadoConfirmacion.noRespondio,
+        ),
+        ref,
+      ),
+      isFalse,
+    );
+    expect(
+      PartidoLifecycle.debeRecibirAvisoCancelacion(
+        _entry(
+          partidoId: 1,
+          estado: EstadoConfirmacion.invitado,
+          tiempoLimite: limiteVigente,
+          esSuplente: true,
+        ),
+        ref,
+      ),
+      isFalse,
+    );
   });
 }

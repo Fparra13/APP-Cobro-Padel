@@ -236,16 +236,20 @@ class AppRepositories {
   }
 
   /// Lectura de desglose. [reconciliar] ya no está soportado.
+  /// [repararCuenta] es costoso; por defecto off (solo reparación explícita).
+  /// Si ya tienes [completo], pásalo para evitar un fetch duplicado.
   Future<List<DesgloseJugador>> getDesglose(
     int partidoId, {
     bool reconciliar = false,
-    bool repararCuenta = true,
+    bool repararCuenta = false,
+    PartidoCompleto? completo,
   }) {
     if (useRemote) {
       return _partidoRemote.getDesglose(
         partidoId,
         reconciliar: reconciliar,
         repararCuenta: repararCuenta,
+        completo: completo,
       );
     }
     return _partidoLocal.getDesglose(partidoId);

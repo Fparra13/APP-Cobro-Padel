@@ -1,3 +1,4 @@
+import '../domain/partido_lifecycle.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/estado_partido.dart';
 import '../models/jugador.dart';
@@ -24,30 +25,28 @@ class ConvocatoriaComunicacionService {
     final partidoId = partido.id;
     if (partidoId == null) return const ConvocatoriaComunicacionResult();
 
-    var pushEnviados = 0;
+    final destinatarios = <Jugador>[];
     final sinApp = <Jugador>[];
 
     for (final entry in conv.titulares) {
       final jugador = entry.jugador;
       final puedePush =
           jugador.keyId.isNotEmpty || jugador.contactEmail != null;
-
-      if (puedePush) {
-        await _notificaciones.notificarReprogramacionTitular(
-          jugador: jugador,
-          partidoId: partidoId,
-          fecha: partido.fecha,
-          horasLimite: partido.horasLimiteRespuesta,
-          recinto: partido.recinto ?? '',
-          sportType: partido.sportType,
-        );
-        pushEnviados++;
-      }
-
+      if (puedePush) destinatarios.add(jugador);
       if (!jugador.tienePerfilRemoto && jugador.puedeEnviarWhatsApp) {
         sinApp.add(jugador);
       }
     }
+
+    final pushEnviados =
+        await _notificaciones.notificarReprogramacionTitulares(
+      jugadores: destinatarios,
+      partidoId: partidoId,
+      fecha: partido.fecha,
+      horasLimite: partido.horasLimiteRespuesta,
+      recinto: partido.recinto ?? '',
+      sportType: partido.sportType,
+    );
 
     return ConvocatoriaComunicacionResult(
       pushEnviados: pushEnviados,
@@ -56,37 +55,37 @@ class ConvocatoriaComunicacionService {
   }
 
   Future<ConvocatoriaComunicacionResult> avisarCancelacion(
-    ConvocatoriaCompleta conv,
-  ) async {
+    ConvocatoriaCompleta conv, {
+    DateTime? reference,
+  }) async {
     final partido = conv.partido;
     final partidoId = partido.id;
     if (partidoId == null) return const ConvocatoriaComunicacionResult();
 
-    var pushEnviados = 0;
+    final destinatarios = <Jugador>[];
     final sinApp = <Jugador>[];
+    final ahora = reference ?? PartidoLifecycle.now();
 
     for (final entry in conv.titulares) {
-      if (entry.estado != EstadoConfirmacion.confirmado) continue;
-
+      if (!PartidoLifecycle.debeRecibirAvisoCancelacion(entry, ahora)) {
+        continue;
+      }
       final jugador = entry.jugador;
       final puedePush =
           jugador.keyId.isNotEmpty || jugador.contactEmail != null;
-
-      if (puedePush) {
-        await _notificaciones.notificarCancelacionTitular(
-          jugador: jugador,
-          partidoId: partidoId,
-          fecha: partido.fecha,
-          recinto: partido.recinto ?? '',
-          sportType: partido.sportType,
-        );
-        pushEnviados++;
-      }
-
+      if (puedePush) destinatarios.add(jugador);
       if (!jugador.tienePerfilRemoto && jugador.puedeEnviarWhatsApp) {
         sinApp.add(jugador);
       }
     }
+
+    final pushEnviados = await _notificaciones.notificarCancelacionTitulares(
+      jugadores: destinatarios,
+      partidoId: partidoId,
+      fecha: partido.fecha,
+      recinto: partido.recinto ?? '',
+      sportType: partido.sportType,
+    );
 
     return ConvocatoriaComunicacionResult(
       pushEnviados: pushEnviados,
@@ -101,7 +100,7 @@ class ConvocatoriaComunicacionService {
     final partidoId = partido.id;
     if (partidoId == null) return const ConvocatoriaComunicacionResult();
 
-    var pushEnviados = 0;
+    final conApp = <Jugador>[];
     final sinApp = <Jugador>[];
 
     for (final entry in conv.titulares) {
@@ -111,16 +110,17 @@ class ConvocatoriaComunicacionService {
         if (jugador.puedeEnviarWhatsApp) sinApp.add(jugador);
         continue;
       }
-
-      await _notificaciones.notificarRecordatorioManual(
-        jugador: jugador,
-        partidoId: partidoId,
-        fecha: partido.fecha,
-        recinto: partido.recinto ?? '',
-        sportType: partido.sportType,
-      );
-      pushEnviados++;
+      conApp.add(jugador);
     }
+
+    final pushEnviados =
+        await _notificaciones.notificarRecordatorioManualTitulares(
+      jugadores: conApp,
+      partidoId: partidoId,
+      fecha: partido.fecha,
+      recinto: partido.recinto ?? '',
+      sportType: partido.sportType,
+    );
 
     return ConvocatoriaComunicacionResult(
       pushEnviados: pushEnviados,

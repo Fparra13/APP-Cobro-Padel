@@ -42,14 +42,7 @@ class CobroNotificacionService {
           if (d.jugadorSupabaseId != null) d.jugadorSupabaseId!: d,
       };
 
-      final prefsData = await Future.wait<String>([
-        _prefs.titularNombre,
-        _prefs.bancoNombre,
-        _prefs.cuentaNumero,
-      ]);
-      final titular = prefsData[0];
-      final banco = prefsData[1];
-      final cuenta = prefsData[2];
+      final pago = await _prefs.datosPago;
       final fechaTxt = formatDiaCompleto(completo.partido.fecha);
       final uid = AuthService.instance.currentUser?.id;
 
@@ -96,9 +89,7 @@ class CobroNotificacionService {
                   partido: completo.partido,
                   desglose: d,
                   deudasAnteriores: const [],
-                  titular: titular,
-                  banco: banco,
-                  cuenta: cuenta,
+                  pago: pago,
                 )
               : _detalleSimple(completo.partido, det, monto, lang);
 

@@ -1,6 +1,6 @@
 # Documentos legales (GitHub Pages)
 
-Esta carpeta publica la **política de privacidad** de MatchPay para Google Play y para enlaces dentro de la app.
+Esta carpeta publica la **política de privacidad** de Kloovi para Google Play y para enlaces dentro de la app.
 
 ## URL pública
 

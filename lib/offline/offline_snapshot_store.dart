@@ -15,7 +15,7 @@ class OfflineSnapshot {
   });
 }
 
-/// Store genérico clave→JSON. No conoce modelos de MatchPay.
+/// Store genérico clave→JSON. No conoce modelos de Kloovi.
 class OfflineSnapshotStore {
   OfflineSnapshotStore({
     required this.userId,

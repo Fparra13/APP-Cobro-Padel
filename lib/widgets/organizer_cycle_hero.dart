@@ -190,6 +190,10 @@ class OrganizerCycleHero extends StatelessWidget {
   final VoidCallback? onReschedule;
   final VoidCallback? onCancel;
 
+  /// Inyección / tests: si hay partidoId, tienen prioridad sobre CupoActions.
+  final Future<void> Function(int partidoId)? rescheduleOverride;
+  final Future<void> Function(int partidoId)? cancelOverride;
+
   const OrganizerCycleHero({
     super.key,
     required this.snapshot,
@@ -198,6 +202,8 @@ class OrganizerCycleHero extends StatelessWidget {
     this.onMarkPlayed,
     this.onReschedule,
     this.onCancel,
+    this.rescheduleOverride,
+    this.cancelOverride,
   });
 
   @override
@@ -211,13 +217,17 @@ class OrganizerCycleHero extends StatelessWidget {
           onTap: onPrimaryAction,
         );
       case OrganizerCyclePhase.atRisk:
-        return _AtRiskHero(convocatoria: snapshot.convocatoria!);
+        return _AtRiskHero(
+          convocatoria: snapshot.convocatoria!,
+          rescheduleOverride: rescheduleOverride,
+          cancelOverride: cancelOverride,
+        );
       case OrganizerCyclePhase.needsResolution:
         return _ResolutionHero(
           convocatoria: snapshot.convocatoria!,
           onMarkPlayed: onMarkPlayed ?? onPrimaryAction,
-          onReschedule: onReschedule ?? onPrimaryAction,
-          onCancel: onCancel,
+          rescheduleOverride: rescheduleOverride,
+          cancelOverride: cancelOverride,
         );
       case OrganizerCyclePhase.registerExpenses:
         return _RegisterHero(
@@ -621,9 +631,13 @@ class _PreparingHero extends StatelessWidget {
 
 class _AtRiskHero extends StatelessWidget {
   final ConvocatoriaCompleta convocatoria;
+  final Future<void> Function(int partidoId)? rescheduleOverride;
+  final Future<void> Function(int partidoId)? cancelOverride;
 
   const _AtRiskHero({
     required this.convocatoria,
+    this.rescheduleOverride,
+    this.cancelOverride,
   });
 
   @override
@@ -660,7 +674,11 @@ class _AtRiskHero extends StatelessWidget {
           ),
           if (partidoId != null) ...[
             const SizedBox(height: 16),
-            AtRiskConvocatoriaActions(partidoId: partidoId),
+            AtRiskConvocatoriaActions(
+              partidoId: partidoId,
+              reprogramarOverride: rescheduleOverride,
+              cancelarOverride: cancelOverride,
+            ),
           ],
         ],
       ),
@@ -672,14 +690,14 @@ class _AtRiskHero extends StatelessWidget {
 class _ResolutionHero extends StatelessWidget {
   final ConvocatoriaCompleta convocatoria;
   final VoidCallback onMarkPlayed;
-  final VoidCallback onReschedule;
-  final VoidCallback? onCancel;
+  final Future<void> Function(int partidoId)? rescheduleOverride;
+  final Future<void> Function(int partidoId)? cancelOverride;
 
   const _ResolutionHero({
     required this.convocatoria,
     required this.onMarkPlayed,
-    required this.onReschedule,
-    this.onCancel,
+    this.rescheduleOverride,
+    this.cancelOverride,
   });
 
   @override
@@ -689,6 +707,10 @@ class _ResolutionHero extends StatelessWidget {
     final palette = SportThemeConfig.paletteFor(p.sportType);
     final confirmados = convocatoria.confirmados;
     final cupos = p.cuposMax;
+    final partidoId = p.id;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(MatchPayTokens.radiusButton),
+    );
 
     return _CycleHeroShell(
       palette: palette,
@@ -696,7 +718,7 @@ class _ResolutionHero extends StatelessWidget {
       title: l10n.tr('organizerCycleUnresolvedTitle'),
       subtitle: l10n.tr('organizerCycleUnresolvedBody'),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ConvocatoriaAvatarStrip(
             titulares: convocatoria.titulares,
@@ -727,85 +749,37 @@ class _ResolutionHero extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _ResolutionChip(
-                label: l10n.tr('organizerCycleUnresolvedMarkPlayed'),
-                icon: Icons.sports_tennis_rounded,
-                onTap: onMarkPlayed,
-              ),
-              _ResolutionChip(
-                label: l10n.tr('organizerCycleUnresolvedReschedule'),
-                icon: Icons.event_repeat_rounded,
-                onTap: onReschedule,
-              ),
-              if (onCancel != null)
-                _ResolutionChip(
-                  label: l10n.tr('organizerCycleUnresolvedCancel'),
-                  icon: Icons.cancel_outlined,
-                  onTap: onCancel!,
-                ),
-            ],
+          FilledButton.icon(
+            onPressed: onMarkPlayed,
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: palette.primaryDark,
+              minimumSize: const Size.fromHeight(44),
+              elevation: 0,
+              shape: shape,
+            ),
+            icon: const Icon(Icons.sports, size: 18),
+            label: Text(
+              l10n.tr('organizerCycleUnresolvedMarkPlayed'),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
+          if (partidoId != null) ...[
+            const SizedBox(height: 8),
+            // Mismo flujo que la ficha «en riesgo»: CupoActions + navigator raíz.
+            AtRiskConvocatoriaActions(
+              partidoId: partidoId,
+              rescheduleFilled: false,
+              rescheduleLabel:
+                  l10n.tr('organizerCycleUnresolvedReschedule'),
+              cancelLabel: l10n.tr('organizerCycleUnresolvedCancel'),
+              reprogramarOverride: rescheduleOverride,
+              cancelarOverride: cancelOverride,
+            ),
+          ],
         ],
       ),
-      interactiveBody: true,
-    );
-  }
-}
-
-class _ResolutionChip extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool emphasized;
-
-  const _ResolutionChip({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    this.emphasized = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Material(
-        color: emphasized
-            ? Colors.white
-            : Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 17,
-                color: emphasized
-                    ? context.sportPalette.primaryDark
-                    : Colors.white,
-              ),
-              const SizedBox(width: 7),
-              Text(
-                label,
-                style: TextStyle(
-                  color: emphasized
-                      ? context.sportPalette.primaryDark
-                      : Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      interactiveBody: partidoId != null,
     );
   }
 }

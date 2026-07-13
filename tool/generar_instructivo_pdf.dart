@@ -17,7 +17,7 @@ Future<void> main() async {
       margin: const pw.EdgeInsets.all(48),
       build: (context) => [
         pw.Text(
-          'MatchPay - Guia de uso',
+          'Kloovi - Guia de uso',
           style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
         ),
         pw.SizedBox(height: 4),
@@ -40,7 +40,7 @@ Future<void> main() async {
   final out = File('${root.path}/INSTRUCTIVO.pdf');
   await out.writeAsBytes(bytes);
 
-  final desktop = File('${Platform.environment['HOME']}/Desktop/INSTRUCTIVO_MatchPay.pdf');
+  final desktop = File('${Platform.environment['HOME']}/Desktop/INSTRUCTIVO_Kloovi.pdf');
   await desktop.writeAsBytes(bytes);
 
   stdout.writeln('PDF generado: ${out.path}');

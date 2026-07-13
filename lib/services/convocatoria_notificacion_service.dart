@@ -22,36 +22,18 @@ class ConvocatoriaNotificacionService {
     required String recinto,
     required SportType sportType,
   }) async {
-    final uid = AuthService.instance.currentUser?.id;
-    final venue = recinto.trim();
-    final fechaHora = formatFechaHora(fecha);
-    final emoji = SportThemeConfig.paletteFor(sportType).emoji;
-
-    for (final jugador in titulares) {
-      final id = await _resolverIdNotificacion(jugador);
-      if (id.isEmpty) continue;
-
-      final lang = await NotificationLocale.forUser(id);
-      final sportLabel = sportType.labelForLang(lang);
-      final params = {
-        'emoji': emoji,
-        'sport': sportLabel,
-        'venue': venue,
-        'date': fechaHora,
-        'hours': '$horasLimite',
-      };
-      final titulo = NotificationLocale.tr(
-        lang,
-        'notifConvocadoTitle',
-        params: params,
-      );
-      final cuerpo = NotificationLocale.tr(
-        lang,
-        'notifConvocadoBodyInApp',
-        params: params,
-      );
-
-      if (uid != null && id == uid) {
+    await _notificarJugadoresBatch(
+      jugadores: titulares,
+      partidoId: partidoId,
+      fecha: fecha,
+      recinto: recinto,
+      sportType: sportType,
+      tituloKey: 'notifConvocadoTitle',
+      cuerpoKey: 'notifConvocadoBodyInApp',
+      pushType: 'convocatoria',
+      horasLimite: horasLimite,
+      localIdOffset: 1000,
+      onSelf: (titulo, cuerpo) async {
         await NotificationService.instance.showConvocatoriaInvitacion(
           partidoId: partidoId,
           fecha: fecha,
@@ -59,28 +41,8 @@ class ConvocatoriaNotificacionService {
           titulo: titulo,
           cuerpo: cuerpo,
         );
-        continue;
-      }
-
-      if (!SupabaseConfig.isConfigured) continue;
-
-      try {
-        await PushNotificationService.instance.enviar(
-          userIds: [id],
-          title: titulo,
-          body: cuerpo,
-          data: {
-            'type': 'convocatoria',
-            'partido_id': '$partidoId',
-            'horas_limite': '$horasLimite',
-            'sport_type': sportType.dbValue,
-            'recinto': venue,
-          },
-        );
-      } catch (e) {
-        debugPrint('Push convocatoria (no bloquea envío): $e');
-      }
-    }
+      },
+    );
   }
 
   /// Aviso a titular cuando el partido se reprograma (debe volver a confirmar).
@@ -92,20 +54,39 @@ class ConvocatoriaNotificacionService {
     required String recinto,
     required SportType sportType,
   }) async {
-    await _enviarAJugadorConvocatoria(
-      jugador: jugador,
+    await notificarReprogramacionTitulares(
+      jugadores: [jugador],
       partidoId: partidoId,
-      tituloKey: 'notifReprogramadoTitle',
-      cuerpoKey: 'notifReprogramadoBody',
       fecha: fecha,
       horasLimite: horasLimite,
       recinto: recinto,
       sportType: sportType,
+    );
+  }
+
+  Future<int> notificarReprogramacionTitulares({
+    required List<Jugador> jugadores,
+    required int partidoId,
+    required DateTime fecha,
+    required int horasLimite,
+    required String recinto,
+    required SportType sportType,
+  }) {
+    return _notificarJugadoresBatch(
+      jugadores: jugadores,
+      partidoId: partidoId,
+      fecha: fecha,
+      recinto: recinto,
+      sportType: sportType,
+      tituloKey: 'notifReprogramadoTitle',
+      cuerpoKey: 'notifReprogramadoBody',
+      pushType: 'convocatoria_reprogramada',
+      horasLimite: horasLimite,
       localIdOffset: 4000,
     );
   }
 
-  /// Aviso cuando el organizador cancela el partido.
+  /// Aviso cuando el organizador cancela el partido (un destinatario).
   Future<void> notificarCancelacionTitular({
     required Jugador jugador,
     required int partidoId,
@@ -113,16 +94,34 @@ class ConvocatoriaNotificacionService {
     required String recinto,
     required SportType sportType,
   }) async {
-    await _enviarAJugadorConvocatoria(
-      jugador: jugador,
+    await notificarCancelacionTitulares(
+      jugadores: [jugador],
       partidoId: partidoId,
-      tituloKey: 'notifCanceladoTitle',
-      cuerpoKey: 'notifCanceladoBody',
       fecha: fecha,
       recinto: recinto,
       sportType: sportType,
-      localIdOffset: 4200,
+    );
+  }
+
+  /// Cancela: 1 query de locales + 1 push por idioma (no N× edge function).
+  Future<int> notificarCancelacionTitulares({
+    required List<Jugador> jugadores,
+    required int partidoId,
+    required DateTime fecha,
+    required String recinto,
+    required SportType sportType,
+  }) {
+    return _notificarJugadoresBatch(
+      jugadores: jugadores,
+      partidoId: partidoId,
+      fecha: fecha,
+      recinto: recinto,
+      sportType: sportType,
+      tituloKey: 'notifCanceladoTitle',
+      cuerpoKey: 'notifCanceladoBody',
       pushType: 'convocatoria_cancelada',
+      localIdOffset: 4200,
+      esCancelacion: true,
     );
   }
 
@@ -134,16 +133,147 @@ class ConvocatoriaNotificacionService {
     required String recinto,
     required SportType sportType,
   }) async {
-    await _enviarAJugadorConvocatoria(
-      jugador: jugador,
+    await notificarRecordatorioManualTitulares(
+      jugadores: [jugador],
       partidoId: partidoId,
-      tituloKey: 'notifRecordatorioManualTitle',
-      cuerpoKey: 'notifRecordatorioManualBody',
       fecha: fecha,
       recinto: recinto,
       sportType: sportType,
+    );
+  }
+
+  Future<int> notificarRecordatorioManualTitulares({
+    required List<Jugador> jugadores,
+    required int partidoId,
+    required DateTime fecha,
+    required String recinto,
+    required SportType sportType,
+  }) {
+    return _notificarJugadoresBatch(
+      jugadores: jugadores,
+      partidoId: partidoId,
+      fecha: fecha,
+      recinto: recinto,
+      sportType: sportType,
+      tituloKey: 'notifRecordatorioManualTitle',
+      cuerpoKey: 'notifRecordatorioManualBody',
+      pushType: 'convocatoria_recordatorio',
       localIdOffset: 4100,
     );
+  }
+
+  /// Batch genérico: resolve ids + locales + 1 push por idioma.
+  Future<int> _notificarJugadoresBatch({
+    required List<Jugador> jugadores,
+    required int partidoId,
+    required DateTime fecha,
+    required String recinto,
+    required SportType sportType,
+    required String tituloKey,
+    required String cuerpoKey,
+    required String pushType,
+    int? horasLimite,
+    int localIdOffset = 0,
+    bool esCancelacion = false,
+    Future<void> Function(String titulo, String cuerpo)? onSelf,
+  }) async {
+    if (jugadores.isEmpty) return 0;
+
+    final uid = AuthService.instance.currentUser?.id;
+    final resolved = await Future.wait(
+      jugadores.map(_resolverIdNotificacion),
+    );
+    final ids = resolved.where((id) => id.isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return 0;
+
+    final locales = await _preferredLocalesBatch(ids);
+    final fallbackLang = await NotificationLocale.currentLanguageCode();
+    final byLang = <String, List<String>>{};
+    for (final id in ids) {
+      final lang = locales[id] ?? fallbackLang;
+      byLang.putIfAbsent(lang, () => []).add(id);
+    }
+
+    final venue = recinto.trim().isEmpty ? '—' : recinto.trim();
+    final fechaHora = formatFechaHora(fecha);
+    final emoji = SportThemeConfig.paletteFor(sportType).emoji;
+    var enviados = 0;
+
+    for (final entry in byLang.entries) {
+      final lang = entry.key;
+      final userIds = entry.value;
+      final params = {
+        'emoji': emoji,
+        'sport': sportType.labelForLang(lang),
+        'venue': venue,
+        'date': fechaHora,
+        if (horasLimite != null) 'hours': '$horasLimite',
+      };
+      final titulo = NotificationLocale.tr(lang, tituloKey, params: params);
+      final cuerpo = NotificationLocale.tr(lang, cuerpoKey, params: params);
+
+      final self = uid != null && userIds.contains(uid);
+      final remoteIds = userIds.where((id) => id != uid).toList();
+
+      if (self) {
+        if (onSelf != null) {
+          await onSelf(titulo, cuerpo);
+        } else {
+          await NotificationService.instance.showConvocatoriaMensaje(
+            partidoId: partidoId,
+            titulo: titulo,
+            cuerpo: cuerpo,
+            idOffset: localIdOffset,
+            esCancelacion: esCancelacion,
+          );
+        }
+        enviados++;
+      }
+
+      if (remoteIds.isNotEmpty && SupabaseConfig.isConfigured) {
+        try {
+          await PushNotificationService.instance.enviar(
+            userIds: remoteIds,
+            title: titulo,
+            body: cuerpo,
+            data: {
+              'type': pushType,
+              'partido_id': '$partidoId',
+              if (horasLimite != null) 'horas_limite': '$horasLimite',
+              'sport_type': sportType.dbValue,
+              'recinto': venue,
+            },
+          );
+          enviados += remoteIds.length;
+        } catch (e) {
+          debugPrint('Push batch ($pushType): $e');
+        }
+      }
+    }
+    return enviados;
+  }
+
+  Future<Map<String, String>> _preferredLocalesBatch(List<String> userIds) async {
+    if (userIds.isEmpty || !SupabaseConfig.isConfigured) return {};
+    try {
+      final rows = await SupabaseHelpers.client
+          .from('profiles')
+          .select('id, preferred_locale')
+          .inFilter('id', userIds);
+      final map = <String, String>{};
+      for (final raw in rows as List) {
+        final row = Map<String, dynamic>.from(raw as Map);
+        final id = row['id']?.toString();
+        final rawLocale = row['preferred_locale']?.toString().trim();
+        if (id == null || id.isEmpty) continue;
+        if (rawLocale != null && rawLocale.isNotEmpty) {
+          map[id] = rawLocale.split('_').first;
+        }
+      }
+      return map;
+    } catch (_) {
+      return {};
+    }
   }
 
   /// Recordatorio cuando queda menos de 1 h de plazo.

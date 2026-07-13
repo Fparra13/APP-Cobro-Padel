@@ -1,5 +1,6 @@
 import '../core/sport_theme.dart';
 import '../core/sport_type.dart';
+import '../models/datos_pago_organizador.dart';
 import '../models/deuda_partido_anterior.dart';
 import '../models/desglose_jugador.dart';
 import '../models/partido.dart';
@@ -11,9 +12,7 @@ class MensajeCobroService {
     required Partido partido,
     required DesgloseJugador desglose,
     required List<DeudaPartidoAnterior> deudasAnteriores,
-    required String titular,
-    required String banco,
-    required String cuenta,
+    required DatosPagoOrganizador pago,
   }) {
     final sportPalette = SportThemeConfig.paletteFor(partido.sportType);
     final lineas = <String>[
@@ -28,7 +27,7 @@ class MensajeCobroService {
       ..add('')
       ..add('Hola ${formatNombreSaludo(desglose.nombre)}!')
       ..add('')
-      ..add('*Detalle de este partido:*');
+      ..add('*Detalle de este encuentro:*');
 
     for (final l in desglose.lineas) {
       lineas.add('• ${l.concepto}: ${formatMoney(l.monto)}');
@@ -40,7 +39,7 @@ class MensajeCobroService {
       );
     }
 
-    lineas.add('Subtotal partido: ${formatMoney(desglose.totalPartido)}');
+    lineas.add('Subtotal encuentro: ${formatMoney(desglose.totalPartido)}');
 
     if (desglose.saldoAnterior > 0.005) {
       lineas.add(
@@ -49,7 +48,7 @@ class MensajeCobroService {
     }
 
     if (desglose.saldoFavorAplicado > 0 && desglose.netoAPagarPartido <= 0) {
-      lineas.add('✅ Partido cubierto con saldo a favor');
+      lineas.add('✅ Encuentro cubierto con saldo a favor');
     } else if (desglose.pagadoEnPartido) {
       if (desglose.generaSaldoAFavorPartido) {
         lineas.add(
@@ -58,7 +57,7 @@ class MensajeCobroService {
       } else if (desglose.montoPagado > 0) {
         lineas.add('💵 Pagaste: ${formatMoney(desglose.montoPagado)}');
       } else {
-        lineas.add('✅ Partido al día');
+        lineas.add('✅ Encuentro al día');
       }
     } else {
       if (desglose.montoPagado > 0) {
@@ -69,9 +68,7 @@ class MensajeCobroService {
       );
     }
 
-    lineas.addAll(
-      _lineasTransferencia(titular, banco, cuenta, titulo: 'Transferencia'),
-    );
+    lineas.addAll(pago.toMessageLines(title: 'Cómo pagarme'));
 
     lineas.add('');
     lineas.addAll(
@@ -88,12 +85,10 @@ class MensajeCobroService {
     required String nombreJugador,
     required double saldo,
     required List<DeudaPartidoAnterior> partidos,
-    required String titular,
-    required String banco,
-    required String cuenta,
+    required DatosPagoOrganizador pago,
   }) {
     final lineas = <String>[
-      '🏆 *Recordatorio MatchPay*',
+      '🏆 *Recordatorio Kloovi*',
       '',
       'Hola ${formatNombreSaludo(nombreJugador)}!',
       '',
@@ -103,25 +98,20 @@ class MensajeCobroService {
     if (partidos.isNotEmpty) {
       lineas
         ..add('')
-        ..add('*Partidos pendientes:*');
+        ..add('*Encuentros pendientes:*');
       for (final p in partidos) {
         final f = formatFecha(p.fecha);
         final r = p.recinto?.trim();
         final sportEmoji = SportThemeConfig.paletteFor(p.sportType).emoji;
         final sportLabel = p.sportType.labelEs;
         final lugar = r != null && r.isNotEmpty ? '$f - $r' : f;
-        lineas.add('• $sportEmoji $sportLabel · $lugar: ${formatMoney(p.pendienteNeto)}');
+        lineas.add(
+          '• $sportEmoji $sportLabel · $lugar: ${formatMoney(p.pendienteNeto)}',
+        );
       }
     }
 
-    lineas.addAll(
-      _lineasTransferencia(
-        titular,
-        banco,
-        cuenta,
-        titulo: 'Datos para transferir',
-      ),
-    );
+    lineas.addAll(pago.toMessageLines(title: 'Cómo pagarme'));
 
     lineas
       ..add('')
@@ -130,24 +120,6 @@ class MensajeCobroService {
       ));
 
     return lineas.join('\n');
-  }
-
-  static List<String> _lineasTransferencia(
-    String titular,
-    String banco,
-    String cuenta, {
-    required String titulo,
-  }) {
-    if (titular.trim().isEmpty) return [];
-
-    final lineas = <String>[
-      '',
-      '*$titulo:*',
-      'Titular: $titular',
-    ];
-    if (banco.trim().isNotEmpty) lineas.add('Banco: $banco');
-    if (cuenta.trim().isNotEmpty) lineas.add('Cuenta: $cuenta');
-    return lineas;
   }
 
   static List<String> _lineasCierrePendiente(SportType sport) {

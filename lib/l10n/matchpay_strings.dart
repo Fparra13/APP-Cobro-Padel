@@ -6,7 +6,7 @@ import 'translation_maps.dart';
 import 'payment_concept_l10n.dart';
 import '../utils/user_facing_error.dart';
 
-/// Localización MatchPay — delega en [TranslationMaps].
+/// Localización Kloovi — delega en [TranslationMaps].
 class MatchPayStrings {
   final String _languageCode;
 

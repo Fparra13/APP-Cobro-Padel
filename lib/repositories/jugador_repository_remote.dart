@@ -154,7 +154,7 @@ class JugadorRepositoryRemote {
       }
     }
 
-    return SupabaseHelpers.guard('Crear jugador', () async {
+    return SupabaseHelpers.write('Crear jugador', () async {
       try {
         final row = await _client.rpc(
           'crear_jugador_organizador',
@@ -210,7 +210,7 @@ class JugadorRepositoryRemote {
     if (id == null) {
       throw Exception('actualizar: jugador sin supabaseId');
     }
-    await SupabaseHelpers.guard('Actualizar jugador', () async {
+    await SupabaseHelpers.write('Actualizar jugador', () async {
       final payload = Map<String, dynamic>.from(jugador.toSupabaseMap())
         ..remove('id')
         ..remove('saldo_acumulado');
@@ -231,17 +231,48 @@ class JugadorRepositoryRemote {
   }
 
   Future<void> toggleActivo(String id, {required bool activo}) async {
-    await SupabaseHelpers.guard('Cambiar estado jugador', () async {
+    await SupabaseHelpers.write('Cambiar estado jugador', () async {
       await _client.from('profiles').update({'activo': activo}).eq('id', id);
     });
   }
 
   Future<void> updateSaldo(String jugadorId, double nuevoSaldo) async {
-    await SupabaseHelpers.guard('Actualizar saldo', () async {
+    await SupabaseHelpers.write('Actualizar saldo', () async {
+      // profiles.saldo_acumulado está protegido por trigger; el SSOT es
+      // saldos_historicos vía RPC SECURITY DEFINER.
+      try {
+        await _client.rpc(
+          'recalcular_saldo_jugador',
+          params: {'p_jugador_id': jugadorId},
+        );
+        return;
+      } catch (_) {
+        // Fallback legacy si el RPC no está desplegado.
+      }
       await _client
           .from('profiles')
           .update({'saldo_acumulado': nuevoSaldo})
           .eq('id', jugadorId);
+    });
+  }
+
+  /// Recalcula saldos de varios jugadores en una sola llamada RPC.
+  Future<void> recalcularSaldosBatch(List<String> jugadorIds) async {
+    final ids = jugadorIds.where((id) => id.isNotEmpty).toSet().toList();
+    if (ids.isEmpty) return;
+    await SupabaseHelpers.write('Recalcular saldos batch', () async {
+      try {
+        await _client.rpc(
+          'recalcular_saldos_jugadores',
+          params: {'p_jugador_ids': ids},
+        );
+        return;
+      } catch (_) {
+        // Fallback: uno a uno (más lento).
+      }
+      for (final id in ids) {
+        await updateSaldo(id, 0);
+      }
     });
   }
 
@@ -265,7 +296,7 @@ class JugadorRepositoryRemote {
   }
 
   Future<int> delete(String id) async {
-    await SupabaseHelpers.guard('Eliminar jugador', () async {
+    await SupabaseHelpers.write('Eliminar jugador', () async {
       final uid = SupabaseHelpers.currentUserId;
       if (uid != null) {
         await _client

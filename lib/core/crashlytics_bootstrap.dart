@@ -51,7 +51,7 @@ class CrashlyticsBootstrap {
       throw StateError('Firebase no inicializado (faltan dart-define o init)');
     }
     await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
-    await FirebaseCrashlytics.instance.log('MatchPay Crashlytics test');
+    await FirebaseCrashlytics.instance.log('Kloovi Crashlytics test');
     throw Exception('Crashlytics test exception');
   }
 }

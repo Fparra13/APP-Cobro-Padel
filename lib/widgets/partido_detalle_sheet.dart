@@ -5,6 +5,7 @@ import '../core/matchpay_design_tokens.dart';
 import '../core/app_repositories.dart';
 import '../domain/cobro_logic.dart';
 import '../l10n/matchpay_strings.dart';
+import '../models/datos_pago_organizador.dart';
 import '../models/desglose_jugador.dart';
 import '../models/jugador.dart';
 import '../repositories/partido_repository.dart';
@@ -56,12 +57,14 @@ class PartidoDetalleSheet extends StatefulWidget {
     );
 
     try {
-      final results = await Future.wait([
-        repos.getPartidoCompleto(partidoId),
-        repos.getDesglose(partidoId, reconciliar: false),
-      ]);
-      final full = results[0] as PartidoCompleto? ?? completo;
-      final desglose = results[1] as List<DesgloseJugador>;
+      // Una sola carga completa + desglose en lectura (sin reparación N×jugador).
+      final full = await repos.getPartidoCompleto(partidoId) ?? completo;
+      final desglose = await repos.getDesglose(
+        partidoId,
+        reconciliar: false,
+        repararCuenta: false,
+        completo: full,
+      );
 
       if (!context.mounted) return;
       Navigator.of(context).pop();
@@ -141,14 +144,18 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
     if (partidoId == null || _recargando) return;
     setState(() => _recargando = true);
     try {
-      final results = await Future.wait([
-        AppRepositories.I.getPartidoCompleto(partidoId),
-        AppRepositories.I.getDesglose(partidoId, reconciliar: false),
-      ]);
+      final full =
+          await AppRepositories.I.getPartidoCompleto(partidoId) ?? _completo;
+      final desglose = await AppRepositories.I.getDesglose(
+        partidoId,
+        reconciliar: false,
+        repararCuenta: false,
+        completo: full,
+      );
       if (!mounted) return;
       setState(() {
-        _completo = results[0] as PartidoCompleto? ?? _completo;
-        _desglose = results[1] as List<DesgloseJugador>;
+        _completo = full;
+        _desglose = desglose;
       });
       await _cargarJugadores();
     } finally {
@@ -163,11 +170,19 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
         .toSet();
     if (ids.isEmpty) return;
     final repos = AppRepositories.I;
-    final map = <String, Jugador>{};
-    for (final id in ids) {
-      final j = await repos.getJugador(id);
-      if (j != null) map[id] = j;
-    }
+    // Un listado del roster + filtro local (evita N getJugador).
+    final todos = await repos.getJugadores(incluirUsuarioActual: true);
+    final map = <String, Jugador>{
+      for (final j in todos)
+        if (ids.contains(j.keyId)) j.keyId: j,
+    };
+    final faltantes = ids.where((id) => !map.containsKey(id));
+    await Future.wait([
+      for (final id in faltantes)
+        repos.getJugador(id).then((j) {
+          if (j != null) map[id] = j;
+        }),
+    ]);
     if (mounted) setState(() => _jugadoresPorId = map);
   }
 
@@ -239,26 +254,17 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
     if (mounted) setState(() => _generandoPdfKey = null);
   }
 
-  Future<({String titular, String banco, String cuenta})> _datosTransferencia() async {
-    final data = await Future.wait<String>([
-      _prefs.titularNombre,
-      _prefs.bancoNombre,
-      _prefs.cuentaNumero,
-    ]);
-    return (titular: data[0], banco: data[1], cuenta: data[2]);
-  }
+  Future<DatosPagoOrganizador> _datosTransferencia() => _prefs.datosPago;
 
   Future<void> _copiarMensaje(DesgloseJugador d) async {
     await runOnce('copy-${d.jugadorKeyId}', () async {
       try {
-        final datos = await _datosTransferencia();
+        final pago = await _datosTransferencia();
         final msg = MensajeCobroService.construirDetallePartido(
           partido: completo.partido,
           desglose: d,
           deudasAnteriores: const [],
-          titular: datos.titular,
-          banco: datos.banco,
-          cuenta: datos.cuenta,
+          pago: pago,
         );
         await Clipboard.setData(ClipboardData(text: msg));
         if (mounted) {
@@ -318,14 +324,12 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
     await runOnce('wa-$key', () async {
       setState(() => _enviandoWhatsAppKey = key);
       try {
-        final datos = await _datosTransferencia();
+        final pago = await _datosTransferencia();
         final msg = MensajeCobroService.construirDetallePartido(
           partido: completo.partido,
           desglose: d,
           deudasAnteriores: const [],
-          titular: datos.titular,
-          banco: datos.banco,
-          cuenta: datos.cuenta,
+          pago: pago,
         );
         final ok = await WhatsAppShareService.enviar(
           mensaje: msg,

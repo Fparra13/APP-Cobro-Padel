@@ -29,9 +29,6 @@ import '../widgets/matchpay_ui.dart';
 import '../widgets/app_mode_switch_button.dart';
 import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/organizer_cycle_hero.dart';
-import '../utils/cancelar_convocatoria_flow.dart';
-import '../utils/reprogramar_convocatoria_flow.dart';
-import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/organizer_group_summary.dart';
 import '../widgets/quick_actions_panel.dart';
 import '../l10n/matchpay_strings.dart';
@@ -62,6 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _offlineEmpty = false;
   String? _loadError;
   Timer? _reloadDebounce;
+  bool _loadingData = false;
+  bool _pendingSilentReload = false;
 
   @override
   void initState() {
@@ -80,12 +79,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onDataChanged() {
     if (!mounted) return;
     _reloadDebounce?.cancel();
-    _reloadDebounce = Timer(const Duration(milliseconds: 350), () {
+    _reloadDebounce = Timer(const Duration(milliseconds: 900), () {
       if (mounted) _load(silent: true);
     });
   }
 
   Future<void> _load({bool silent = false}) async {
+    if (silent && _loadingData) {
+      _pendingSilentReload = true;
+      return;
+    }
+    _loadingData = true;
+
     if (!silent && _primeraCarga && mounted) {
       setState(() {
         _loading = true;
@@ -154,8 +159,13 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } finally {
+      _loadingData = false;
       if (mounted && _loading) {
         setState(() => _loading = false);
+      }
+      if (_pendingSilentReload && mounted) {
+        _pendingSilentReload = false;
+        unawaited(_load(silent: true));
       }
     }
   }
@@ -262,68 +272,6 @@ class _HomeScreenState extends State<HomeScreen> {
       '/registrar-partido',
       arguments: partidoId,
     );
-  }
-
-  Future<void> _cancelarConvocatoria(int partidoId) async {
-    if (_readOnly) {
-      _showOfflineWriteBlocked();
-      return;
-    }
-    final host = matchPayRootContext ?? context;
-    if (!host.mounted) return;
-
-    final l10n = host.l10n;
-    final ok = await confirmarEliminarPartido(
-      host,
-      titulo: l10n.tr('organizerCycleCancelConfirmTitle'),
-      mensaje: l10n.tr('organizerCycleCancelConfirmBody'),
-      confirmLabel: l10n.tr('organizerCycleCancelConfirmAction'),
-      consecuencias: [
-        l10n.tr('organizerCycleCancelConsequence1'),
-        l10n.tr('organizerCycleCancelConsequence2'),
-      ],
-    );
-    if (!ok || !mounted) return;
-    try {
-      final conv = await context.repos.getConvocatoriaCompleta(partidoId);
-      final cancelOk = await CancelarConvocatoriaFlow.ejecutar(
-        host,
-        partidoId: partidoId,
-        convocatoria: conv,
-      );
-      if (!cancelOk || !mounted) return;
-      await _load(silent: true);
-      if (!host.mounted) return;
-      ScaffoldMessenger.of(host).showSnackBar(
-        SnackBar(content: Text(l10n.tr('organizerCycleCancelSuccessSnack'))),
-      );
-    } catch (e) {
-      if (!host.mounted) return;
-      ScaffoldMessenger.of(host).showSnackBar(
-        SnackBar(
-          content: Text(host.userError(e)),
-          backgroundColor: Colors.red.shade700,
-        ),
-      );
-    }
-  }
-
-  Future<void> _reprogramarConvocatoria(ConvocatoriaCompleta convocatoria) async {
-    if (_readOnly) {
-      _showOfflineWriteBlocked();
-      return;
-    }
-    final host = matchPayRootContext ?? context;
-    if (!host.mounted) return;
-
-    final ok = await ReprogramarConvocatoriaFlow.ejecutar(
-      host,
-      convocatoria: convocatoria,
-    );
-    if (ok && mounted) {
-      AppRepositories.notifyDataChanged();
-      await _load(silent: true);
-    }
   }
 
   Future<void> _onCyclePrimaryAction() async {
@@ -479,16 +427,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                     null
                                 ? null
                                 : () => _abrirRegistrarGastos(
-                                      cycle.convocatoria!.partido.id!,
-                                    ),
-                            onReschedule: cycle.convocatoria == null
-                                ? null
-                                : () => _reprogramarConvocatoria(
-                                      cycle.convocatoria!,
-                                    ),
-                            onCancel: cycle.convocatoria?.partido.id == null
-                                ? null
-                                : () => _cancelarConvocatoria(
                                       cycle.convocatoria!.partido.id!,
                                     ),
                           ),

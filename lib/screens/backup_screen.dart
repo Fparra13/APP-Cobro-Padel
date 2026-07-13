@@ -60,35 +60,66 @@ class _BackupScreenState extends State<BackupScreen> {
                     message: l10n.tr('backupSupabaseBody'),
                     urgent: false,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   MatchPaySurfaceCard(
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: MatchPayTokens.accentCreditBg,
-                            borderRadius: BorderRadius.circular(
-                              MatchPayTokens.radiusChip,
+                        Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: MatchPayTokens.accentCreditBg,
+                                borderRadius: BorderRadius.circular(
+                                  MatchPayTokens.radiusChip,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.cloud_sync_rounded,
+                                color: MatchPayTokens.accentCredit,
+                              ),
                             ),
-                          ),
-                          child: const Icon(
-                            Icons.cloud_sync_rounded,
-                            color: MatchPayTokens.accentCredit,
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                l10n.tr('backupSupabaseTitle'),
+                                style: MatchPayTokens.titleSmallStyle(
+                                  color: MatchPayTokens.accentCredit,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            l10n.tr('backupSupabaseTitle'),
-                            style: MatchPayTokens.titleSmallStyle(
-                              color: MatchPayTokens.accentCredit,
-                            ),
-                          ),
+                        const SizedBox(height: 10),
+                        Text(
+                          l10n.tr('backupSupabaseWhatStores'),
+                          style: MatchPayTokens.bodySmallStyle(),
                         ),
                       ],
                     ),
+                  ),
+                  const SizedBox(height: 24),
+                  MatchPaySectionHeader(
+                    title: l10n.tr('backupPdfReportsTitle'),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.tr('backupPdfReportsHint'),
+                    style: MatchPayTokens.bodySmallStyle(),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.picture_as_pdf_rounded,
+                    iconColor: MatchPayTokens.accentError,
+                    title: l10n.tr('backupBalanceReportTitle'),
+                    subtitle: l10n.tr('backupBalanceReportSubtitle'),
+                    onTap: () => _run(() async {
+                      final resumenes =
+                          await context.repos.getResumenJugadores();
+                      await _pdfService.generarReporteSaldos(resumenes);
+                    }),
                   ),
                 ] else ...[
                   MatchPaySectionHeader(
@@ -163,20 +194,27 @@ class _BackupScreenState extends State<BackupScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
+                  MatchPaySectionHeader(
+                    title: l10n.tr('backupPdfReportsTitle'),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.tr('backupPdfReportsHint'),
+                    style: MatchPayTokens.bodySmallStyle(),
+                  ),
+                  const SizedBox(height: 10),
+                  _ActionTile(
+                    icon: Icons.picture_as_pdf_rounded,
+                    iconColor: MatchPayTokens.accentError,
+                    title: l10n.tr('backupBalanceReportTitle'),
+                    subtitle: l10n.tr('backupBalanceReportSubtitle'),
+                    onTap: () => _run(() async {
+                      final resumenes =
+                          await context.repos.getResumenJugadores();
+                      await _pdfService.generarReporteSaldos(resumenes);
+                    }),
+                  ),
                 ],
-                if (cloud) const SizedBox(height: 16),
-                MatchPaySectionHeader(title: l10n.tr('backupPdfReportsTitle')),
-                const SizedBox(height: 10),
-                _ActionTile(
-                  icon: Icons.picture_as_pdf_rounded,
-                  iconColor: MatchPayTokens.accentError,
-                  title: l10n.tr('backupBalanceReportTitle'),
-                  subtitle: l10n.tr('backupBalanceReportSubtitle'),
-                  onTap: () => _run(() async {
-                    final resumenes = await context.repos.getResumenJugadores();
-                    await _pdfService.generarReporteSaldos(resumenes);
-                  }),
-                ),
               ],
             ),
     );

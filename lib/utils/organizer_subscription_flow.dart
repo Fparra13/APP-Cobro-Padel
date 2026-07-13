@@ -7,16 +7,30 @@ import '../core/subscription_service.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/matchpay_context.dart';
 
-/// Abre el paywall para organizar. No cambia el rol en BD (eso va con la suscripción).
+/// Flujo para organizar: paywall/trial → promover rol → shell organizador.
 Future<void> openOrganizerSubscriptionFlow(BuildContext context) async {
   if (AuthService.instance.isOrganizer) {
     await context.switchAppUiMode(AppUiMode.organizer);
     return;
   }
 
-  await FeatureGate.requirePro(
+  final ok = await FeatureGate.requirePro(
     context,
     feature: ProFeature.createMatch,
     message: context.l10n.tr('becomeOrganizerPaywallMessage'),
   );
+  if (!ok || !context.mounted) return;
+
+  try {
+    await AuthService.instance.becomeOrganizer();
+    await AuthService.instance.refreshProfile();
+  } catch (e) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.userError(e))),
+    );
+    return;
+  }
+  if (!context.mounted) return;
+  await context.switchAppUiMode(AppUiMode.organizer);
 }

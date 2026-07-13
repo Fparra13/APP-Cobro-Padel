@@ -1,4 +1,4 @@
-# MatchPay — Guía de uso
+# Kloovi — Guía de uso
 
 App para organizar partidos, repartir gastos y llevar el cobro del grupo.
 

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../core/sport_theme.dart';
 import '../core/sport_type.dart';
 import '../l10n/matchpay_strings.dart';
-import '../utils/matchpay_context.dart';
+import 'sport_chip_picker.dart';
 
 /// Selector del deporte de un partido/convocatoria (no la preferencia global).
 class MatchSportPicker extends StatelessWidget {
@@ -21,7 +20,6 @@ class MatchSportPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final lang = context.readSettings().locale.languageCode;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -35,23 +33,10 @@ class MatchSportPicker extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: SportType.values.map((sport) {
-            final palette = SportThemeConfig.paletteFor(sport);
-            final selected = value == sport;
-            return ChoiceChip(
-              avatar: Text(palette.emoji, style: const TextStyle(fontSize: 14)),
-              label: Text(sport.labelForLocale(lang)),
-              selected: selected,
-              onSelected: !enabled || onChanged == null
-                  ? null
-                  : (_) => onChanged!(sport),
-              selectedColor: palette.surfaceTint,
-              showCheckmark: false,
-            );
-          }).toList(),
+        SportChipPicker(
+          value: value,
+          onChanged: onChanged,
+          enabled: enabled,
         ),
       ],
     );

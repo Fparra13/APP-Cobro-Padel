@@ -13,6 +13,7 @@ import '../models/partido.dart';
 import '../domain/convocatoria_plazo_respuesta.dart';
 import '../domain/convocatoria_cupo_logic.dart';
 import '../domain/estado_partido_publico.dart';
+import '../domain/jugador_list_priority.dart';
 import '../domain/partido_lifecycle.dart';
 import '../models/recinto.dart';
 import '../services/convocatoria_comunicacion_service.dart';
@@ -21,8 +22,11 @@ import '../services/convocatoria_notificacion_service.dart';
 import '../services/preferences_service.dart';
 import '../services/supabase_realtime_service.dart';
 import '../utils/formatters.dart';
+import '../utils/jugador_name_filter.dart';
 import '../utils/convocatoria_organizador_actions.dart';
 import '../utils/matchpay_context.dart';
+import '../utils/reprogramar_convocatoria_flow.dart';
+import '../widgets/convocatoria_asistencias_view.dart';
 import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/convocatoria_decision_panel.dart';
 import '../widgets/partido_estado_publico.dart';
@@ -55,8 +59,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
   final _notasCtrl = TextEditingController();
   final _cuposCtrl = TextEditingController(text: '4');
+  final _jugadoresBusquedaCtrl = TextEditingController();
 
   List<Jugador> _habituales = [];
+  final Set<String> _prioridadJugadorIds = {};
   final Map<String, Jugador> _jugadoresPorId = {};
   List<Recinto> _recintosGuardados = [];
   Recinto? _recintoSeleccionado;
@@ -76,6 +82,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   bool _convocatoriaExpiradaAlCargar = false;
   DateTime? _ultimoSnackPromocionAt;
   ConvocatoriaCompleta? _convocatoriaCompleta;
+  bool _editarSeguimiento = false;
 
   bool get _modoSeguimiento => _convocatoriaEnviada && !_partidoConfirmado;
 
@@ -187,11 +194,27 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   List<Jugador> _jugadoresTitularesEnPantalla() {
-    if (_formularioBloqueado) {
-      return _titulares.map(_jugadorPorId).whereType<Jugador>().toList();
-    }
-    return _habituales.where((j) => j.keyId.isNotEmpty).toList();
+    final base = _formularioBloqueado
+        ? _titulares.map(_jugadorPorId).whereType<Jugador>()
+        : _habituales.where((j) => j.keyId.isNotEmpty);
+    final ordered = sortJugadoresByPriority(
+      jugadores: base,
+      priorityIds: _prioridadJugadorIds,
+      selectedIds: _titulares.toSet(),
+    );
+    return filterJugadoresByName(ordered, _jugadoresBusquedaCtrl.text);
   }
+
+  List<Jugador> get _habitualesParaListaEspera => filterJugadoresByName(
+        sortJugadoresByPriority(
+          jugadores: _habituales.where((j) {
+            final id = j.keyId;
+            return id.isNotEmpty && !_esTitular(id) && !_esSuplente(id);
+          }),
+          priorityIds: _prioridadJugadorIds,
+        ),
+        _jugadoresBusquedaCtrl.text,
+      );
 
   bool _esTitular(String id) => _titulares.contains(id);
 
@@ -242,6 +265,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     SupabaseRealtimeService.instance.unsubscribeConvocatoria();
     _notasCtrl.dispose();
     _cuposCtrl.dispose();
+    _jugadoresBusquedaCtrl.dispose();
     super.dispose();
   }
 
@@ -315,9 +339,38 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 _recintoDesdePartido(actualizada.partido, recintosGuardados);
           }
         }
+        try {
+          final ultimo = await repos.getUltimoPartido();
+          if (ultimo != null) {
+            _prioridadJugadorIds
+              ..clear()
+              ..addAll({
+                for (final d in ultimo.detalles)
+                  if (d.asistio) d.jugadorKeyId,
+              });
+          }
+        } catch (_) {}
       } else {
+        Set<String> prioridad = {};
+        try {
+          final ultimo = await repos.getUltimoPartido();
+          if (ultimo != null) {
+            prioridad = {
+              for (final d in ultimo.detalles)
+                if (d.asistio) d.jugadorKeyId,
+            };
+          }
+        } catch (_) {}
+        _prioridadJugadorIds
+          ..clear()
+          ..addAll(prioridad);
+
+        final ordenados = sortJugadoresByPriority(
+          jugadores: habituales,
+          priorityIds: prioridad,
+        );
         var titularesCount = 0;
-        for (final j in habituales) {
+        for (final j in ordenados) {
           if (j.keyId.isEmpty) continue;
           if (titularesCount < _cuposMax) {
             _titulares.add(j.keyId);
@@ -582,13 +635,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     }
   }
 
-  List<Jugador> get _habitualesParaListaEspera => _habituales
-      .where((j) {
-        final id = j.keyId;
-        return id.isNotEmpty && !_esTitular(id) && !_esSuplente(id);
-      })
-      .toList();
-
   Future<void> _agregarAListaEspera(Jugador jugador) async {
     final id = jugador.keyId;
     if (id.isEmpty || _esTitular(id) || _esSuplente(id)) return;
@@ -634,7 +680,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       _titulares.clear();
       _estados.removeWhere((id, _) => !_listaEspera.contains(id));
       var count = 0;
-      for (final j in _habituales) {
+      // Con filtro activo: prioriza los visibles; si no, toda la lista.
+      final fuente = _jugadoresTitularesEnPantalla();
+      for (final j in fuente) {
         if (j.keyId.isEmpty) continue;
         if (count < _cuposMax) {
           _titulares.add(j.keyId);
@@ -1121,7 +1169,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    final themed = context.readSettings().themeForSport(_sportType);
+    return Theme(
+      data: themed,
+      child: PopScope(
       canPop: !_dirty,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
@@ -1132,6 +1183,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       child: Scaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(
+        backgroundColor: themed.colorScheme.primary,
+        foregroundColor: Colors.white,
         title: Text(
           _partidoConfirmado
               ? context.l10n.tr('organizeMatchConfirmedTitle')
@@ -1142,6 +1195,20 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       : context.l10n.tr('organizeTitle'),
         ),
         actions: [
+          if (_modoSeguimiento)
+            IconButton(
+              icon: Icon(
+                _editarSeguimiento
+                    ? Icons.fact_check_outlined
+                    : Icons.edit_outlined,
+              ),
+              tooltip: _editarSeguimiento
+                  ? context.l10n.tr('organizeTrackingTitle')
+                  : context.l10n.tr('asistenciasEditDetails'),
+              onPressed: () => setState(
+                () => _editarSeguimiento = !_editarSeguimiento,
+              ),
+            ),
           if (_partidoId != null)
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -1183,7 +1250,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       ),
                   ],
                 )
-              : ListView(
+              : _modoSeguimiento && !_editarSeguimiento
+                  ? _buildAsistenciasBody()
+                  : ListView(
               padding: const EdgeInsets.all(12),
               children: [
                 AyudaTip(
@@ -1195,6 +1264,18 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                               ? context.l10n.tr('organizeHelpTracking')
                               : context.l10n.tr('organizeHelpDraft'),
                 ),
+                if (_modoSeguimiento && _editarSeguimiento) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          setState(() => _editarSeguimiento = false),
+                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                      label: Text(context.l10n.tr('organizeTrackingTitle')),
+                    ),
+                  ),
+                ],
                 if (_convocatoriaEnviada && _convocatoriaCompleta != null) ...[
                   if (_shouldShowEstadoSeguimiento) ...[
                     const SizedBox(height: 12),
@@ -1332,43 +1413,132 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   onCancelSuccess: _salirTrasCancelar,
                 )
               else ...[
-              if (_titularesSinApp.isNotEmpty)
-                OutlinedButton.icon(
-                  onPressed: _mostrarWhatsAppSinAppSheet,
-                  icon: const Icon(
-                    Icons.chat_outlined,
-                    color: Color(0xFF25D366),
-                  ),
-                  label: Text(context.l10n.tr('organizeWhatsAppNoAppButton')),
-                  style: OutlinedButton.styleFrom(
+                FilledButton.icon(
+                  onPressed: _pendientes > 0 ? _recordarPendientesAsistencias : null,
+                  icon: const Icon(Icons.campaign_rounded),
+                  label: Text(context.l10n.tr('asistenciasRemindPending')),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: context.sportPalette.primary,
                     minimumSize: const Size.fromHeight(48),
-                    foregroundColor: const Color(0xFF1B8F4E),
-                    side: const BorderSide(color: Color(0xFF25D366)),
                     shape: RoundedRectangleBorder(
                       borderRadius:
                           BorderRadius.circular(MatchPayTokens.radiusButton),
                     ),
                   ),
                 ),
-              if (_titularesSinApp.isNotEmpty) const SizedBox(height: 8),
-              if (_cuposLlenos)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    context.l10n.tr('organizeAutoConfirmInProgress'),
-                    style: MatchPayTokens.titleSmallStyle(
-                      color: MatchPayTokens.accentUrgent,
-                    ).copyWith(fontSize: 13),
-                    textAlign: TextAlign.center,
+                if (_titularesSinApp.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _mostrarWhatsAppSinAppSheet,
+                    icon: const Icon(
+                      Icons.chat_outlined,
+                      color: Color(0xFF25D366),
+                    ),
+                    label: Text(context.l10n.tr('organizeWhatsAppNoAppButton')),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      foregroundColor: const Color(0xFF1B8F4E),
+                      side: const BorderSide(color: Color(0xFF25D366)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(MatchPayTokens.radiusButton),
+                      ),
+                    ),
                   ),
-                ),
-            ],
+                ],
+                if (_cuposLlenos)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      context.l10n.tr('organizeAutoConfirmInProgress'),
+                      style: MatchPayTokens.titleSmallStyle(
+                        color: MatchPayTokens.accentUrgent,
+                      ).copyWith(fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+              ],
             ],
             ],
           ),
         ),
       ),
     ),
+    ),
+    );
+  }
+
+  Widget _buildAsistenciasBody() {
+    final fecha = _fechaPartido ?? DateTime.now();
+    final recinto = _recintoSeleccionado?.nombre.trim() ??
+        (_convocatoriaCompleta?.partido.recinto ?? '').trim();
+    final titulares = _titulares
+        .map((id) {
+          final j = _jugadorPorId(id);
+          if (j == null) return null;
+          return ConvocatoriaAsistenciaItem(
+            jugador: j,
+            estado: _estados[id] ?? EstadoConfirmacion.invitado,
+          );
+        })
+        .whereType<ConvocatoriaAsistenciaItem>()
+        .toList();
+    final suplentes = _listaEspera
+        .map((id) {
+          final j = _jugadorPorId(id);
+          if (j == null) return null;
+          return ConvocatoriaAsistenciaItem(
+            jugador: j,
+            estado: _estados[id] ?? EstadoConfirmacion.invitado,
+            esSuplente: true,
+          );
+        })
+        .whereType<ConvocatoriaAsistenciaItem>()
+        .toList();
+
+    Widget? banner;
+    if (_cupoImposible && _partidoId != null) {
+      banner = ConvocatoriaDecisionPanel(
+        partidoId: _partidoId,
+        onCompleted: () {
+          if (mounted) unawaited(_load());
+        },
+        onCancelSuccess: _salirTrasCancelar,
+      );
+    } else if (_shouldShowEstadoSeguimiento && _convocatoriaCompleta != null) {
+      banner = MatchPaySurfaceCard(
+        padding: const EdgeInsets.all(14),
+        child: PartidoEstadoPublicoMessage(
+          view: PartidoEstadoPublicoView.resolve(_convocatoriaCompleta!),
+          fechaPartido: _convocatoriaCompleta!.partido.fecha,
+          showBody: true,
+        ),
+      );
+    }
+
+    return ConvocatoriaAsistenciasView(
+      fecha: fecha,
+      recinto: recinto,
+      sportType: _sportType,
+      cuposMax: _cuposMax,
+      statusLabel: context.l10n.tr('asistenciasStatusInProgress'),
+      titulares: titulares,
+      suplentes: suplentes,
+      topBanner: banner,
+      onCycleEstado: _puedeEditarEstados
+          ? (id) {
+              unawaited(_ciclarEstado(id));
+            }
+          : null,
+    );
+  }
+
+  Future<void> _recordarPendientesAsistencias() async {
+    final conv = _convocatoriaCompleta;
+    if (conv == null) return;
+    await ReprogramarConvocatoriaFlow.recordarPendientes(
+      context,
+      convocatoria: conv,
     );
   }
 
@@ -1932,6 +2102,29 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       ? context.l10n.tr('organizeStartersHintTracking')
                       : context.l10n.tr('organizeStartersHintDraft'),
                   style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _jugadoresBusquedaCtrl,
+                  enabled: !_formularioBloqueado || _modoSeguimiento,
+                  decoration: InputDecoration(
+                    hintText: context.l10n.tr('playersSearchHint'),
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: _jugadoresBusquedaCtrl.text.trim().isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _jugadoresBusquedaCtrl.clear();
+                              setState(() {});
+                            },
+                          ),
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 8),
                 ..._jugadoresTitularesEnPantalla().map((j) {

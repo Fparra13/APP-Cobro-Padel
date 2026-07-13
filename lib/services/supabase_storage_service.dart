@@ -1,17 +1,32 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_helpers.dart';
 
-/// Subida de archivos a Supabase Storage (comprobantes de pago).
+/// Subida de archivos a Supabase Storage (comprobantes de pago / avatares).
 class SupabaseStorageService {
   SupabaseStorageService._();
   static final SupabaseStorageService instance = SupabaseStorageService._();
 
   static const bucket = 'comprobantes';
   static const avatarsBucket = 'avatars';
+
+  static const _imageMimeByExt = <String, String>{
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+    '.webp': 'image/webp',
+    '.heic': 'image/heic',
+    '.heif': 'image/heif',
+  };
+
+  String _contentTypeForPath(String path) {
+    final ext = p.extension(path).toLowerCase();
+    return _imageMimeByExt[ext] ?? 'image/jpeg';
+  }
 
   Future<String> uploadComprobante({
     required String userId,
@@ -23,8 +38,13 @@ class SupabaseStorageService {
     final name = nombreArchivo ??
         '${DateTime.now().millisecondsSinceEpoch}$ext';
     final path = '$userId/$name';
+    final contentType = _contentTypeForPath(name);
 
-    await client.storage.from(bucket).upload(path, file);
+    await client.storage.from(bucket).upload(
+          path,
+          file,
+          fileOptions: FileOptions(contentType: contentType),
+        );
 
     return path;
   }
@@ -41,7 +61,9 @@ class SupabaseStorageService {
     if (storagePath == null || storagePath.isEmpty) return;
     try {
       await SupabaseHelpers.client.storage.from(bucket).remove([storagePath]);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Storage delete comprobante falló ($storagePath): $e');
+    }
   }
 
   /// Sube foto de perfil y devuelve URL pública.
@@ -52,11 +74,12 @@ class SupabaseStorageService {
     final client = SupabaseHelpers.client;
     final ext = p.extension(file.path).isEmpty ? '.jpg' : p.extension(file.path);
     final storagePath = '$jugadorId/${DateTime.now().millisecondsSinceEpoch}$ext';
+    final contentType = _contentTypeForPath(storagePath);
 
     await client.storage.from(avatarsBucket).upload(
           storagePath,
           file,
-          fileOptions: const FileOptions(upsert: true),
+          fileOptions: FileOptions(upsert: true, contentType: contentType),
         );
 
     return client.storage.from(avatarsBucket).getPublicUrl(storagePath);
@@ -68,7 +91,9 @@ class SupabaseStorageService {
     if (path == null) return;
     try {
       await SupabaseHelpers.client.storage.from(avatarsBucket).remove([path]);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Storage delete avatar falló ($path): $e');
+    }
   }
 
   String? _storagePathFromPublicUrl(String publicUrl) {

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class LazyIndexedStack extends StatefulWidget {
   final int index;
   final List<Widget Function()> itemBuilders;
-  /// Si cambia (p. ej. deporte o idioma), se invalida la caché de pestañas.
+  /// Si cambia (p. ej. idioma), se invalida la caché de pestañas.
   final Object? cacheKey;
 
   const LazyIndexedStack({
@@ -37,6 +37,11 @@ class _LazyIndexedStackState extends State<LazyIndexedStack> {
     if (oldWidget.cacheKey != widget.cacheKey) {
       _invalidateCacheIfNeeded();
     }
+    // Si bajó la cantidad de pestañas, limpia índices huérfanos.
+    if (oldWidget.itemBuilders.length != widget.itemBuilders.length) {
+      _cache.removeWhere((i, _) => i >= widget.itemBuilders.length);
+      _visited.removeWhere((i) => i >= widget.itemBuilders.length);
+    }
   }
 
   Widget _childForIndex(int i) {
@@ -46,10 +51,13 @@ class _LazyIndexedStackState extends State<LazyIndexedStack> {
   @override
   Widget build(BuildContext context) {
     _invalidateCacheIfNeeded();
-    _visited.add(widget.index);
+    final maxIndex = widget.itemBuilders.length - 1;
+    if (maxIndex < 0) return const SizedBox.shrink();
+    final safeIndex = widget.index.clamp(0, maxIndex);
+    _visited.add(safeIndex);
 
     return IndexedStack(
-      index: widget.index,
+      index: safeIndex,
       sizing: StackFit.expand,
       children: List.generate(widget.itemBuilders.length, (i) {
         if (!_visited.contains(i)) {
@@ -57,7 +65,7 @@ class _LazyIndexedStackState extends State<LazyIndexedStack> {
         }
         final child = RepaintBoundary(child: _childForIndex(i));
         return TickerMode(
-          enabled: i == widget.index,
+          enabled: i == safeIndex,
           child: child,
         );
       }),

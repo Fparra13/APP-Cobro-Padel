@@ -1,4 +1,4 @@
-# Reglas oficiales de cobros — MatchPay
+# Reglas oficiales de cobros — Kloovi
 
 Documento de contrato de negocio. Si el código contradice esto, el código está mal.
 

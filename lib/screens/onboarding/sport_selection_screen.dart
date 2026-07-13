@@ -46,6 +46,9 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
     final lang = context.select<AppSettingsController, String>(
       (s) => s.locale.languageCode,
     );
+    final featured = context.select<AppSettingsController, List<SportType>>(
+      (s) => s.featuredSports,
+    );
 
     return PopScope(
       canPop: false,
@@ -108,9 +111,14 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
                     childAspectRatio: 0.88,
-                    children: SportType.values
-                        .map((sport) => _buildSportTile(sport, lang))
-                        .toList(),
+                    children: [
+                      ...featured.map(
+                        (sport) => _buildSportTile(sport, lang),
+                      ),
+                      if (_selected != null && !featured.contains(_selected))
+                        _buildSportTile(_selected!, lang),
+                      _buildSeeMoreTile(lang),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -207,12 +215,120 @@ class _SportSelectionScreenState extends State<SportSelectionScreen> {
     );
   }
 
+  Widget _buildSeeMoreTile(String lang) {
+    final l10n = context.l10n;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+      child: InkWell(
+        onTap: () => _openAllSportsSheet(lang),
+        borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+            border: Border.all(color: MatchPayTokens.borderSubtle),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.grid_view_rounded,
+                size: 36,
+                color: MatchPayTokens.inkMuted,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                l10n.tr('sportSeeMore'),
+                style: MatchPayTokens.titleSmallStyle(),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                l10n.tr('sportSeeMoreHint'),
+                style: MatchPayTokens.bodySmallStyle(),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAllSportsSheet(String lang) async {
+    final selected = await showModalBottomSheet<SportType>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.72,
+          minChildSize: 0.45,
+          maxChildSize: 0.92,
+          builder: (ctx, scrollController) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                  child: Text(
+                    ctx.l10n.tr('sportPickAllTitle'),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: SportType.values.length,
+                    itemBuilder: (ctx, i) {
+                      final sport = SportType.values[i];
+                      final palette = SportThemeConfig.paletteFor(sport);
+                      final isSelected = sport == _selected;
+                      return ListTile(
+                        leading: Text(
+                          palette.emoji,
+                          style: const TextStyle(fontSize: 22),
+                        ),
+                        title: Text(sport.labelForLocale(lang)),
+                        trailing: isSelected
+                            ? Icon(
+                                Icons.check_circle_rounded,
+                                color: palette.primary,
+                              )
+                            : null,
+                        selected: isSelected,
+                        onTap: () => Navigator.pop(ctx, sport),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (selected != null && mounted) {
+      setState(() => _selected = selected);
+    }
+  }
+
   String _sportDescription(SportType sport) {
+    final l10n = context.l10n;
     return switch (sport) {
-      SportType.padel => context.l10n.sportDescPadel,
-      SportType.football => context.l10n.sportDescFootball,
-      SportType.tennis => context.l10n.sportDescTennis,
-      SportType.general => context.l10n.sportDescGeneral,
+      SportType.padel => l10n.sportDescPadel,
+      SportType.football => l10n.sportDescFootball,
+      SportType.tennis => l10n.sportDescTennis,
+      SportType.other => l10n.sportDescGeneral,
+      _ => l10n.tr('sportDescGeneric'),
     };
   }
 }

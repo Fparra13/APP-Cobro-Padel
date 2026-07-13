@@ -1,10 +1,13 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_config.dart';
+import '../offline/offline_write_guard.dart';
 
 /// Utilidades compartidas para repositorios remotos Supabase.
 class SupabaseHelpers {
   SupabaseHelpers._();
+
+  static final OfflineWriteGuard _writeGuard = OfflineWriteGuard();
 
   static SupabaseClient get client {
     if (!SupabaseConfig.isConfigured) {
@@ -39,6 +42,11 @@ class SupabaseHelpers {
     } catch (e) {
       throw Exception(describeError(e, operacion: operacion));
     }
+  }
+
+  /// Escrituras remotas: exige internet antes de tocar Supabase.
+  static Future<T> write<T>(String operacion, Future<T> Function() fn) {
+    return _writeGuard.run(() => guard(operacion, fn));
   }
 
   static Future<T> withTimeout<T>(

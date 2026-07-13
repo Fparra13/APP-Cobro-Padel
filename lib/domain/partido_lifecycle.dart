@@ -79,6 +79,26 @@ class PartidoLifecycle {
     return convocatoriaActiva(convocatoria.partido);
   }
 
+  /// Destinatario de push/WhatsApp al cancelar el encuentro.
+  ///
+  /// Solo nómina titular “en juego”: confirmados e invitados con plazo vigente.
+  /// Nunca reservas, rechazados ni quienes ya liberaron cupo (`no_respondio`).
+  static bool debeRecibirAvisoCancelacion(
+    ConvocatoriaJugadorEntry entry, [
+    DateTime? reference,
+  ]) {
+    if (entry.esSuplente) return false;
+    switch (entry.estado) {
+      case EstadoConfirmacion.confirmado:
+        return true;
+      case EstadoConfirmacion.invitado:
+        return !plazoRespuestaVencido(entry, reference);
+      case EstadoConfirmacion.rechazado:
+      case EstadoConfirmacion.noRespondio:
+        return false;
+    }
+  }
+
   /// Evidencia para asumir que el partido sí ocurrió (sin acción explícita del
   /// organizador de marcarlo jugado).
   ///

@@ -14,7 +14,7 @@ void main() {
       expect(r.pagado, isTrue);
       expect(r.montoPagado, 11000);
       expect(r.saldoNuevo, 0);
-      expect(r.concepto, 'Partido pagado');
+      expect(r.concepto, 'Encuentro pagado');
     });
 
     test('pago solo del partido no liquida deuda anterior', () {
@@ -26,7 +26,7 @@ void main() {
       expect(r.pagado, isTrue);
       expect(r.montoPagado, 6000);
       expect(r.saldoNuevo, 5000);
-      expect(r.concepto, 'Partido pagado');
+      expect(r.concepto, 'Encuentro pagado');
     });
 
     test('sin efectivo acumula deuda', () {
@@ -59,7 +59,7 @@ void main() {
       );
       expect(r.pagado, isTrue);
       expect(r.saldoNuevo, lessThanOrEqualTo(0));
-      expect(r.concepto, 'Partido cubierto con saldo a favor');
+      expect(r.concepto, 'Encuentro cubierto con saldo a favor');
     });
 
     test('saldo a favor parcial + efectivo completa pago', () {
@@ -75,7 +75,7 @@ void main() {
         montoPagadoOrganizador: 3000,
       );
       expect(r.pagado, isTrue);
-      expect(r.concepto, 'Partido pagado');
+      expect(r.concepto, 'Encuentro pagado');
     });
 
     test('saldo a favor cubre partido sin efectivo y consume crédito', () {
@@ -87,7 +87,7 @@ void main() {
       expect(r.pagado, isTrue);
       expect(r.montoPagado, 0);
       expect(r.saldoNuevo, -2000);
-      expect(r.concepto, 'Partido cubierto con saldo a favor');
+      expect(r.concepto, 'Encuentro cubierto con saldo a favor');
     });
   });
 

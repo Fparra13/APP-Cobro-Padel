@@ -17,7 +17,7 @@ class ConvocatoriaMessageService {
         : nombreOrganizador.trim();
 
     final buffer = StringBuffer()
-      ..writeln('$organizador te invitó a un partido de $sportLabel.')
+      ..writeln('$organizador te invitó a un encuentro de $sportLabel.')
       ..writeln()
       ..writeln('📅 $fecha · $hora');
 

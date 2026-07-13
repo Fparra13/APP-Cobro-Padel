@@ -15,12 +15,9 @@ import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../repositories/partido_repository.dart';
 import '../services/calculation_service.dart';
-import '../services/preferences_service.dart';
 import '../utils/formatters.dart';
 
 class PdfService {
-  final _prefs = PreferencesService();
-
   AppRepositories get _repos {
     final repos = AppRepositories.tryActive;
     if (repos == null) {
@@ -51,9 +48,6 @@ class PdfService {
   }
 
   Future<void> generarReporteSaldos(List<ResumenJugador> resumenes) async {
-    final titular = await _prefs.titularNombre;
-    final banco = await _prefs.bancoNombre;
-    final cuenta = await _prefs.cuentaNumero;
     final pdf = pw.Document();
     final fecha = formatFechaHora(DateTime.now());
     final totalDeuda = resumenes.fold(
@@ -83,10 +77,6 @@ class PdfService {
               color: conDeuda > 0 ? PdfColors.red800 : PdfColors.green800,
             ),
           ),
-          if (titular.isNotEmpty) ...[
-            pw.SizedBox(height: 12),
-            _bloqueTransferencia(titular, banco, cuenta),
-          ],
           pw.SizedBox(height: 16),
           pw.Text(
             _pdf('Saldo acumulado por jugador'),
@@ -113,7 +103,7 @@ class PdfService {
           pw.Text(
             _pdf(
               'Nota: el detalle por item (cancha, pelotas, asado, etc.) '
-              'esta en el PDF de cada partido o en la cuenta individual.',
+              'esta en el PDF de cada encuentro o en la cuenta individual.',
             ),
             style: pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
           ),
@@ -136,9 +126,6 @@ class PdfService {
       );
     }
 
-    final titular = await _prefs.titularNombre;
-    final banco = await _prefs.bancoNombre;
-    final cuenta = await _prefs.cuentaNumero;
     final hayDeudores = desglose.any((d) => d.saldoRestante > 0);
 
     final pdf = pw.Document();
@@ -159,7 +146,7 @@ class PdfService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 44),
         build: (context) => [
-          ..._encabezadoPartido(completo.partido, titulo: 'Informe del partido'),
+          ..._encabezadoPartido(completo.partido, titulo: 'Informe del encuentro'),
           pw.SizedBox(height: 6),
           pw.Text(
             _pdf('Generado: ${formatFechaHora(DateTime.now())}'),
@@ -177,7 +164,7 @@ class PdfService {
             pw.SizedBox(height: 4),
             pw.Text(
               _pdf(
-                'Cada bloque muestra: items del partido, deuda anterior, '
+                'Cada bloque muestra: items del encuentro, deuda anterior, '
                 'total a pagar, abono y saldo pendiente.',
               ),
               style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
@@ -190,10 +177,16 @@ class PdfService {
               ),
             ),
           ] else
-            pw.Text(_pdf('Sin jugadores asistentes en este partido')),
-          if (hayDeudores && titular.isNotEmpty) ...[
-            pw.SizedBox(height: 8),
-            _bloqueTransferencia(titular, banco, cuenta),
+            pw.Text(_pdf('Sin jugadores asistentes en este encuentro')),
+          if (hayDeudores) ...[
+            pw.SizedBox(height: 16),
+            pw.Text(
+              _pdf(
+                'Datos de pago: se envian por aviso en la app o WhatsApp '
+                '(no se incluyen en este informe).',
+              ),
+              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+            ),
           ],
         ],
       ),
@@ -201,7 +194,7 @@ class PdfService {
 
     await _guardarYCompartir(
       pdf,
-      'partido_${_fechaArchivo(completo.partido.fecha)}',
+      'encuentro_${_fechaArchivo(completo.partido.fecha)}',
     );
   }
 
@@ -210,9 +203,6 @@ class PdfService {
     required DesgloseJugador desglose,
     Jugador? jugador,
   }) async {
-    final titular = await _prefs.titularNombre;
-    final banco = await _prefs.bancoNombre;
-    final cuenta = await _prefs.cuentaNumero;
     final deudasAnteriores = await _repos.getDeudasPartidosAnteriores(
       jugadorId: desglose.jugadorKeyId,
       partidoActualId: completo.partido.id!,
@@ -238,9 +228,15 @@ class PdfService {
               deudasAnteriores: deudasAnteriores,
               compacto: false,
             ),
-            if (titular.isNotEmpty) ...[
-              pw.SizedBox(height: 20),
-              _bloqueTransferencia(titular, banco, cuenta),
+            if (desglose.saldoRestante > 0.005) ...[
+              pw.SizedBox(height: 16),
+              pw.Text(
+                _pdf(
+                  'Datos de pago: revisa el aviso en la app o el mensaje '
+                  'del organizador.',
+                ),
+                style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
+              ),
             ],
           ],
         ),
@@ -328,7 +324,7 @@ class PdfService {
     if (!compacto) {
       widgets.add(
         pw.Text(
-          _pdf('Detalle de este partido'),
+          _pdf('Detalle de este encuentro'),
           style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
         ),
       );
@@ -337,7 +333,7 @@ class PdfService {
 
     widgets.add(_tablaItems(d.lineas));
     widgets.add(pw.SizedBox(height: 8));
-    widgets.add(_filaTotal('Subtotal partido', d.totalPartido, bold: true));
+    widgets.add(_filaTotal('Subtotal encuentro', d.totalPartido, bold: true));
 
     if (d.saldoAnterior != 0) {
       widgets.add(pw.SizedBox(height: 6));
@@ -397,7 +393,7 @@ class PdfService {
         pw.Padding(
           padding: const pw.EdgeInsets.only(top: 2),
           child: pw.Text(
-            _pdf('El saldo a favor anterior cubre este partido.'),
+            _pdf('El saldo a favor anterior cubre este encuentro.'),
             style: const pw.TextStyle(fontSize: 9, color: PdfColors.blue800),
           ),
         ),
@@ -553,17 +549,17 @@ class PdfService {
 
     if (filas.isEmpty) {
       return [
-        _tituloSeccion('Gastos del partido'),
+        _tituloSeccion('Gastos del encuentro'),
         pw.SizedBox(height: 8),
         pw.Text(
-          _pdf('No hay gastos registrados en este partido.'),
+          _pdf('No hay gastos registrados en este encuentro.'),
           style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
         ),
       ];
     }
 
     return [
-      _tituloSeccion('Gastos del partido'),
+      _tituloSeccion('Gastos del encuentro'),
       pw.SizedBox(height: 4),
       pw.Text(
         _pdf(
@@ -593,7 +589,7 @@ class PdfService {
         },
       ),
       pw.SizedBox(height: 6),
-      _filaTotal('Total gastos del partido', totalGastos, bold: true),
+      _filaTotal('Total gastos del encuentro', totalGastos, bold: true),
     ];
   }
 
@@ -601,7 +597,7 @@ class PdfService {
     return pw.TableHelper.fromTextArray(
       headers: [
         'Jugador',
-        'Partido',
+        'Encuentro',
         'Deuda ant.',
         'Abono',
         'Pendiente',
@@ -763,22 +759,6 @@ class PdfService {
     );
   }
 
-  pw.Widget _bloqueTransferencia(String titular, String banco, String cuenta) {
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Text(
-          _pdf('Datos para transferir'),
-          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-        ),
-        pw.SizedBox(height: 4),
-        pw.Text(_pdf('Titular: $titular')),
-        if (banco.isNotEmpty) pw.Text(_pdf('Banco: $banco')),
-        if (cuenta.isNotEmpty) pw.Text(_pdf('Cuenta: $cuenta')),
-      ],
-    );
-  }
-
   Future<String> _guardarYCompartir(pw.Document pdf, String nombre) async {
     final bytes = await pdf.save();
     return _guardarYCompartirBytes(bytes, nombre);
@@ -802,7 +782,7 @@ class PdfService {
 
   Future<Directory> _getPdfDirectory() async {
     final dir = await getApplicationDocumentsDirectory();
-    final pdfDir = Directory(p.join(dir.path, 'MatchPay', 'reportes'));
+    final pdfDir = Directory(p.join(dir.path, 'Kloovi', 'reportes'));
     if (!await pdfDir.exists()) await pdfDir.create(recursive: true);
     return pdfDir;
   }

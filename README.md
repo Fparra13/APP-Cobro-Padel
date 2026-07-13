@@ -1,4 +1,4 @@
-# MatchPay
+# Kloovi
 
 App Flutter para organizar partidos multideporte, convocatorias y cobros entre jugadores.
 

@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:matchpay/core/connectivity_service.dart';
 import 'package:matchpay/offline/offline_exceptions.dart';
 import 'package:matchpay/offline/offline_write_guard.dart';
+import 'package:matchpay/utils/user_facing_error.dart';
 
 class _FakeConnectivity implements ConnectivityService {
   _FakeConnectivity(this._online);
@@ -39,6 +40,14 @@ void main() {
         }
       }),
       throwsA(isA<StateError>()),
+    );
+  });
+
+  test('userFacingError mapea OfflineWriteBlockedException', () {
+    String tr(String key, {Map<String, String> params = const {}}) => key;
+    expect(
+      userFacingError(const OfflineWriteBlockedException(), tr: tr),
+      'offlineWriteBlocked',
     );
   });
 }

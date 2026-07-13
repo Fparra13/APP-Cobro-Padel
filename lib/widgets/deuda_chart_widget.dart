@@ -279,6 +279,7 @@ class _DeudaTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final j = resumen.jugador;
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -309,7 +310,10 @@ class _DeudaTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  '${resumen.partidosJugados} partidos',
+                  l10n.tr(
+                    'matchesPlayedCount',
+                    params: {'count': '${resumen.partidosJugados}'},
+                  ),
                   style: TextStyle(
                     fontSize: 11,
                     color: Colors.grey.shade600,

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../core/app_repositories.dart';
 import '../core/supabase_config.dart';
 import '../models/deuda_partido_anterior.dart';
+import '../models/datos_pago_organizador.dart';
 import '../models/jugador.dart';
 import '../repositories/jugador_repository_remote.dart';
 import '../repositories/partido_repository.dart';
@@ -24,14 +25,6 @@ class RecordatorioResultado {
   });
 }
 
-class _DatosCobroPrefs {
-  final String titular;
-  final String banco;
-  final String cuenta;
-
-  const _DatosCobroPrefs(this.titular, this.banco, this.cuenta);
-}
-
 enum _EnvioRecordatorio { ok, sinApp, error }
 
 /// Recordatorios de deuda vía push FCM (jugadores con la app).
@@ -39,21 +32,12 @@ class RecordatorioService {
   final _prefs = PreferencesService();
   final _jugadorRepo = JugadorRepositoryRemote();
 
-  Future<_DatosCobroPrefs> _loadPrefs() async {
-    final data = await Future.wait<String>([
-      _prefs.titularNombre,
-      _prefs.bancoNombre,
-      _prefs.cuentaNumero,
-    ]);
-    return _DatosCobroPrefs(data[0], data[1], data[2]);
-  }
-
   Future<String> construirMensaje({
     required Jugador jugador,
     required double saldo,
     bool detallado = true,
   }) async {
-    final prefs = await _loadPrefs();
+    final pago = await _prefs.datosPago;
     final repos = AppRepositories.tryActive;
     final partidos = repos == null
         ? <DeudaPartidoAnterior>[]
@@ -78,9 +62,7 @@ class RecordatorioService {
             partido: completo.partido,
             desglose: d,
             deudasAnteriores: const [],
-            titular: prefs.titular,
-            banco: prefs.banco,
-            cuenta: prefs.cuenta,
+            pago: pago,
           );
         }
       }
@@ -90,9 +72,7 @@ class RecordatorioService {
       nombreJugador: jugador.nombre,
       saldo: saldo,
       partidos: partidos,
-      titular: prefs.titular,
-      banco: prefs.banco,
-      cuenta: prefs.cuenta,
+      pago: pago,
     );
   }
 
@@ -134,9 +114,9 @@ class RecordatorioService {
     required Jugador jugador,
     required double saldo,
     required String targetId,
-    _DatosCobroPrefs? prefsCache,
+    DatosPagoOrganizador? pagoCache,
   }) async {
-    final prefs = prefsCache ?? await _loadPrefs();
+    final pago = pagoCache ?? await _prefs.datosPago;
     final repos = AppRepositories.tryActive;
     final partidos = repos == null
         ? <DeudaPartidoAnterior>[]
@@ -144,17 +124,18 @@ class RecordatorioService {
             jugador.keyId,
             reconciliar: false,
           );
-    final cuerpo = MensajeCobroService.construirRecordatorio(
+    final detalle = MensajeCobroService.construirRecordatorio(
       nombreJugador: jugador.nombre,
       saldo: saldo,
       partidos: partidos,
-      titular: prefs.titular,
-      banco: prefs.banco,
-      cuenta: prefs.cuenta,
+      pago: pago,
     );
-    final resumen =
-        cuerpo.length > 180 ? '${cuerpo.substring(0, 177)}…' : cuerpo;
     final lang = await NotificationLocale.forUser(targetId);
+    final cuerpo = NotificationLocale.tr(
+      lang,
+      'notifPaymentReminderBodyShort',
+      params: {'amount': formatMoney(saldo)},
+    );
 
     await PushNotificationService.instance.enviar(
       userIds: [targetId],
@@ -163,8 +144,14 @@ class RecordatorioService {
         'notifPaymentReminderTitle',
         params: {'amount': formatMoney(saldo)},
       ),
-      body: resumen,
-      data: const {'type': 'cobro_partido', 'partido_id': '0'},
+      body: cuerpo,
+      data: {
+        'type': 'cobro_partido',
+        'partido_id': '0',
+        'detalle': detalle.length > 900
+            ? '${detalle.substring(0, 897)}…'
+            : detalle,
+      },
     );
   }
 
@@ -180,7 +167,7 @@ class RecordatorioService {
       );
     }
 
-    final prefs = await _loadPrefs();
+    final pago = await _prefs.datosPago;
     var enviados = 0;
     var sinApp = 0;
     var errores = 0;
@@ -196,7 +183,7 @@ class RecordatorioService {
             jugador: r.jugador,
             saldo: r.deudaVisible,
             targetId: targetId,
-            prefsCache: prefs,
+            pagoCache: pago,
           );
           return _EnvioRecordatorio.ok;
         } catch (e) {

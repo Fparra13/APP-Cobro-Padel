@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'subscription_service.dart';
 import '../widgets/paywall_sheet.dart';
 
-/// Puerta de acceso a funciones Pro de MatchPay.
+/// Puerta de acceso a funciones Pro de Kloovi.
 class FeatureGate {
   FeatureGate._();
 

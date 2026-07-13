@@ -10,7 +10,6 @@ import '../../core/matchpay_design_tokens.dart';
 import '../../core/sport_theme.dart';
 import '../../core/supabase_config.dart';
 import '../../l10n/matchpay_strings.dart';
-import '../../utils/matchpay_context.dart';
 import '../../widgets/matchpay_ui.dart';
 import '../../widgets/sport_icon.dart';
 
@@ -27,7 +26,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
 
   bool _loading = false;
+  bool _loadingGoogle = false;
   bool _linkEnviado = false;
+  bool _mostrarEmail = false;
   String? _emailIngresado;
   String? _mensajeInline;
   int _cooldownSegundos = 0;
@@ -97,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _enviarMagicLink() async {
     try {
-      if (_loading) return;
+      if (_loading || _loadingGoogle) return;
       if (_cooldownSegundos > 0) {
         _mostrarError(
           _l10n.tr(
@@ -147,10 +148,45 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e, st) {
       debugPrint('LoginScreen._enviarMagicLink: $e\n$st');
       if (!mounted) return;
-      _mostrarError(context.userError(e));
+      _mostrarError(_mensajeLogin(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _entrarConGoogle() async {
+    if (_loading || _loadingGoogle) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _loadingGoogle = true;
+      _mensajeInline = null;
+    });
+    try {
+      await _auth.signInWithGoogle();
+      // AuthGate / auth listener navega al shell.
+    } on GoogleSignInCancelledException {
+      // Usuario cerró el selector: sin snackbar.
+    } catch (e, st) {
+      debugPrint('LoginScreen._entrarConGoogle: $e\n$st');
+      if (!mounted) return;
+      _mostrarError(_mensajeLogin(e));
+    } finally {
+      if (mounted) setState(() => _loadingGoogle = false);
+    }
+  }
+
+  String _mensajeLogin(Object e) {
+    if (e is Exception) {
+      final s = e.toString();
+      const prefix = 'Exception: ';
+      final body = s.startsWith(prefix) ? s.substring(prefix.length) : s;
+      if (body.isNotEmpty &&
+          !body.startsWith('Instance of') &&
+          body.length < 280) {
+        return body;
+      }
+    }
+    return context.userError(e);
   }
 
   @override
@@ -158,7 +194,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final l10n = context.l10n;
     final settings = context.watch<AppSettingsController>();
     final palette = SportThemeConfig.paletteFor(settings.sport);
-    final puedeEnviar = !_loading && _cooldownSegundos <= 0;
+    final ocupado = _loading || _loadingGoogle;
+    final puedeEnviar = !ocupado && _cooldownSegundos <= 0;
+    final googleListo = SupabaseConfig.isGoogleSignInConfigured;
 
     return Scaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
@@ -172,7 +210,11 @@ class _LoginScreenState extends State<LoginScreen> {
               title: l10n.appName,
               subtitle: _linkEnviado
                   ? l10n.tr('loginSubtitleLinkSent')
-                  : l10n.tr('loginSubtitleEnterDetails'),
+                  : l10n.tr(
+                      googleListo
+                          ? 'loginSubtitleGoogle'
+                          : 'loginSubtitleEnterDetails',
+                    ),
             ),
             Expanded(
               child: SingleChildScrollView(
@@ -197,7 +239,30 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(height: 16),
                             ],
                             if (!_linkEnviado) ...[
-                              _buildFormFields(l10n, palette, puedeEnviar),
+                              if (googleListo) ...[
+                                _buildGoogleButton(l10n, ocupado),
+                                const SizedBox(height: 16),
+                                _OrDivider(label: l10n.tr('loginOrEmail')),
+                                const SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: ocupado
+                                      ? null
+                                      : () => setState(
+                                            () => _mostrarEmail = !_mostrarEmail,
+                                          ),
+                                  child: Text(
+                                    _mostrarEmail
+                                        ? l10n.tr('loginHideEmail')
+                                        : l10n.tr('loginShowEmail'),
+                                  ),
+                                ),
+                                if (_mostrarEmail) ...[
+                                  const SizedBox(height: 8),
+                                  _buildFormFields(l10n, palette, puedeEnviar),
+                                ],
+                              ] else ...[
+                                _buildFormFields(l10n, palette, puedeEnviar),
+                              ],
                             ] else ...[
                               _buildLinkSentPanel(l10n, palette),
                             ],
@@ -215,6 +280,38 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Widget _buildGoogleButton(MatchPayStrings l10n, bool ocupado) {
+    return OutlinedButton(
+      onPressed: ocupado || !SupabaseConfig.isConfigured ? null : _entrarConGoogle,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(52),
+        backgroundColor: Colors.white,
+        foregroundColor: MatchPayTokens.ink,
+        side: BorderSide(color: MatchPayTokens.ink.withValues(alpha: 0.18)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(MatchPayTokens.radiusButton),
+        ),
+      ),
+      child: _loadingGoogle
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const _GoogleGMark(),
+                const SizedBox(width: 12),
+                Text(
+                  l10n.tr('loginContinueGoogle'),
+                  style: MatchPayTokens.titleSmallStyle(),
+                ),
+              ],
+            ),
+    );
+  }
+
   Widget _buildFormFields(
     MatchPayStrings l10n,
     SportThemePalette palette,
@@ -225,7 +322,7 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         TextField(
           controller: _nombreCtrl,
-          enabled: !_loading,
+          enabled: !_loading && !_loadingGoogle,
           textCapitalization: TextCapitalization.words,
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(
@@ -240,7 +337,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 12),
         TextField(
           controller: _emailCtrl,
-          enabled: !_loading,
+          enabled: !_loading && !_loadingGoogle,
           keyboardType: TextInputType.emailAddress,
           autocorrect: false,
           textInputAction: TextInputAction.done,
@@ -330,7 +427,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 16),
         OutlinedButton.icon(
-          onPressed: (!_loading && _cooldownSegundos <= 0)
+          onPressed: (!_loading && !_loadingGoogle && _cooldownSegundos <= 0)
               ? _enviarMagicLink
               : null,
           icon: _loading
@@ -359,7 +456,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 4),
         TextButton(
-          onPressed: _loading
+          onPressed: (_loading || _loadingGoogle)
               ? null
               : () {
                   setState(() {
@@ -372,6 +469,78 @@ class _LoginScreenState extends State<LoginScreen> {
       ],
     );
   }
+}
+
+class _OrDivider extends StatelessWidget {
+  final String label;
+
+  const _OrDivider({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final line = Expanded(
+      child: Divider(color: MatchPayTokens.ink.withValues(alpha: 0.12)),
+    );
+    return Row(
+      children: [
+        line,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(
+            label,
+            style: MatchPayTokens.bodySmallStyle(
+              color: MatchPayTokens.inkSecondary,
+            ),
+          ),
+        ),
+        line,
+      ],
+    );
+  }
+}
+
+/// Marca "G" de Google sin dependencias de assets.
+class _GoogleGMark extends StatelessWidget {
+  const _GoogleGMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 22,
+      height: 22,
+      child: CustomPaint(painter: _GoogleGPainter()),
+    );
+  }
+}
+
+class _GoogleGPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = size.width / 2;
+
+    // Simplificado: círculo azul con G blanca (identificable, no logo oficial exacto).
+    paint.color = const Color(0xFF4285F4);
+    canvas.drawCircle(Offset(cx, cy), r, paint);
+    final tp = TextPainter(
+      text: const TextSpan(
+        text: 'G',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _LoginHero extends StatelessWidget {

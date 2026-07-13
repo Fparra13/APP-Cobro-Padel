@@ -1,4 +1,4 @@
-# Auditoría de escrituras — cobros MatchPay
+# Auditoría de escrituras — cobros Kloovi
 
 **Alcance:** dónde se **modifica** (INSERT/UPDATE) cada campo crítico.  
 **Conclusión:** hoy **no existe un único flujo de escritura**. Hay 3–6 rutas por campo según el caso.

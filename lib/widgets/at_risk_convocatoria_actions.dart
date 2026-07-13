@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../core/matchpay_design_tokens.dart';
-import '../core/sport_theme.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/convocatoria_cupo_actions.dart';
 import '../utils/matchpay_context.dart';
 
-/// Botones reprogramar / cancelar (cupo imposible) dentro del hero oscuro.
+/// Botones reprogramar / cancelar (cupo imposible / sin resolver) en hero oscuro.
 class AtRiskConvocatoriaActions extends StatelessWidget {
   final int partidoId;
   final VoidCallback? onCompleted;
   final Future<void> Function(int partidoId)? reprogramarOverride;
   final Future<void> Function(int partidoId)? cancelarOverride;
+
+  /// Si es false, Reprogramar va como outlined (p. ej. bajo «Marcar como jugado»).
+  final bool rescheduleFilled;
+
+  /// Textos opcionales (por defecto: claves at-risk).
+  final String? rescheduleLabel;
+  final String? cancelLabel;
 
   const AtRiskConvocatoriaActions({
     super.key,
@@ -19,6 +25,9 @@ class AtRiskConvocatoriaActions extends StatelessWidget {
     this.onCompleted,
     this.reprogramarOverride,
     this.cancelarOverride,
+    this.rescheduleFilled = true,
+    this.rescheduleLabel,
+    this.cancelLabel,
   });
 
   void _reprogramar() {
@@ -51,24 +60,25 @@ class AtRiskConvocatoriaActions extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final palette = context.sportPalette;
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(MatchPayTokens.radiusButton),
-    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _HeroActionButton(
-          label: l10n.tr('organizerCycleAtRiskReschedule'),
+          label: rescheduleLabel ?? l10n.tr('organizerCycleAtRiskReschedule'),
           icon: Icons.event_repeat_rounded,
-          filled: true,
-          foreground: palette.primaryDark,
-          background: Colors.white,
+          filled: rescheduleFilled,
+          foreground:
+              rescheduleFilled ? palette.primaryDark : Colors.white,
+          background: rescheduleFilled ? Colors.white : null,
+          border: rescheduleFilled
+              ? null
+              : Colors.white.withValues(alpha: 0.55),
           onActivate: _reprogramar,
         ),
         const SizedBox(height: 8),
         _HeroActionButton(
-          label: l10n.tr('organizerCycleAtRiskCancel'),
+          label: cancelLabel ?? l10n.tr('organizerCycleAtRiskCancel'),
           icon: Icons.close_rounded,
           filled: false,
           foreground: Colors.white,

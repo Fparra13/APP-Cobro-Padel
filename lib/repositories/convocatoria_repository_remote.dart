@@ -220,29 +220,118 @@ class ConvocatoriaRepositoryRemote {
 
   /// Prioriza el perfil con login (auth) si el organizador invita un pre-registro.
   Future<String> _resolveJugadorIdForConvocatoria(String jugadorId) async {
+    final map = await _resolveJugadorIdsBatch([jugadorId]);
+    return map[jugadorId] ?? jugadorId;
+  }
+
+  /// Resuelve N ids en 1 select de profiles + RPCs de email en paralelo.
+  Future<Map<String, String>> _resolveJugadorIdsBatch(
+    List<String> jugadorIds,
+  ) async {
+    final unique = jugadorIds.where((id) => id.isNotEmpty).toSet().toList();
+    final result = <String, String>{for (final id in unique) id: id};
+    if (unique.isEmpty) return result;
+
     try {
-      final profile = await _client
+      final profiles = await _client
           .from('profiles')
-          .select('email, telefono')
-          .eq('id', jugadorId)
-          .maybeSingle();
-      if (profile == null) return jugadorId;
+          .select('id, email, telefono')
+          .inFilter('id', unique);
 
-      final map = Map<String, dynamic>.from(profile);
-      final email = SupabaseParse.toStringOrNull(map['email']) ??
-          SupabaseParse.toStringOrNull(map['telefono']);
-      if (email == null || !email.contains('@')) return jugadorId;
+      final emailByOriginalId = <String, String>{};
+      for (final raw in profiles as List) {
+        final map = Map<String, dynamic>.from(raw as Map);
+        final id = map['id']?.toString();
+        if (id == null || id.isEmpty) continue;
+        final email = SupabaseParse.toStringOrNull(map['email']) ??
+            SupabaseParse.toStringOrNull(map['telefono']);
+        if (email != null && email.contains('@')) {
+          emailByOriginalId[id] = email;
+        }
+      }
 
-      final resolved = await _client.rpc(
-        'resolve_profile_id_for_email',
-        params: {'p_email': email},
+      if (emailByOriginalId.isEmpty) return result;
+
+      await Future.wait(
+        emailByOriginalId.entries.map((e) async {
+          try {
+            final resolved = await _client.rpc(
+              'resolve_profile_id_for_email',
+              params: {'p_email': e.value},
+            );
+            final id = resolved?.toString().trim();
+            if (id != null && id.isNotEmpty) {
+              result[e.key] = id;
+            }
+          } catch (_) {}
+        }),
       );
-      final id = resolved?.toString().trim();
-      if (id != null && id.isNotEmpty) return id;
     } catch (_) {
-      // RPC no desplegado: usar id original.
+      // Sin batch: cada id queda como venía.
     }
-    return jugadorId;
+    return result;
+  }
+
+  /// Inserta el roster en una sola llamada (tras resolver ids).
+  Future<void> _insertarRosterBatch({
+    required int partidoId,
+    required List<ConvocatoriaJugadorInput> jugadores,
+    required int horasLimite,
+    Map<String, Map<String, dynamic>>? snapshotPrevio,
+  }) async {
+    if (jugadores.isEmpty) return;
+
+    final idMap = await _resolveJugadorIdsBatch(
+      jugadores.map((j) => j.jugadorId).toList(),
+    );
+
+    final rows = <Map<String, dynamic>>[];
+    final seen = <String>{};
+
+    for (final input in jugadores) {
+      final resolvedId = idMap[input.jugadorId] ?? input.jugadorId;
+      if (resolvedId.isEmpty || !seen.add(resolvedId)) continue;
+
+      final prev = snapshotPrevio == null
+          ? null
+          : (snapshotPrevio[resolvedId] ?? snapshotPrevio[input.jugadorId]);
+      final prevEstado = prev == null
+          ? null
+          : EstadoConfirmacion.fromDb(
+              prev['estado_confirmacion'] as String?,
+            );
+      final estado = snapshotPrevio == null
+          ? input.estado
+          : _estadoTrasEdicion(
+              prevEstado: prevEstado,
+              inputEstado: input.estado,
+            );
+      final conservarPlazo = snapshotPrevio != null &&
+          estado == EstadoConfirmacion.invitado;
+
+      rows.add({
+        'partido_id': partidoId,
+        ..._rowForInput(
+          ConvocatoriaJugadorInput(
+            jugadorId: resolvedId,
+            esSuplente: input.esSuplente,
+            ordenEspera: input.ordenEspera,
+            estado: estado,
+          ),
+          horasLimite,
+          tiempoLimitePreservado: conservarPlazo && prev != null
+              ? prev['tiempo_limite']?.toString()
+              : null,
+          notificadoVencimientoPreservado: conservarPlazo && prev != null
+              ? prev['notificado_vencimiento'] as bool?
+              : false,
+        ),
+      });
+    }
+
+    if (rows.isNotEmpty) {
+      await _client.from('convocatoria_jugadores').insert(rows);
+    }
   }
 
   Future<int> invitar({
@@ -250,7 +339,7 @@ class ConvocatoriaRepositoryRemote {
     required ConvocatoriaJugadorInput input,
     required int horasLimite,
   }) async {
-    return SupabaseHelpers.guard('Invitar jugador', () async {
+    return SupabaseHelpers.write('Invitar jugador', () async {
       final jugadorId = await _resolveJugadorIdForConvocatoria(input.jugadorId);
       final resolvedInput = ConvocatoriaJugadorInput(
         jugadorId: jugadorId,
@@ -275,7 +364,7 @@ class ConvocatoriaRepositoryRemote {
     required String jugadorId,
     required EstadoConfirmacion estado,
   }) async {
-    await SupabaseHelpers.guard('Actualizar confirmación', () async {
+    await SupabaseHelpers.write('Actualizar confirmación', () async {
       await _client.from('convocatoria_jugadores').update({
         'estado_confirmacion': estado.dbValue,
       }).eq('partido_id', partidoId).eq('jugador_id', jugadorId);
@@ -287,7 +376,7 @@ class ConvocatoriaRepositoryRemote {
     required String jugadorId,
     bool notificadoVencimiento = false,
   }) async {
-    await SupabaseHelpers.guard('Marcar no respondió', () async {
+    await SupabaseHelpers.write('Marcar no respondió', () async {
       await _client.from('convocatoria_jugadores').update({
         'estado_confirmacion': EstadoConfirmacion.noRespondio.dbValue,
         'notificado_vencimiento': notificadoVencimiento,
@@ -299,7 +388,7 @@ class ConvocatoriaRepositoryRemote {
     required int partidoId,
     required String jugadorId,
   }) async {
-    await SupabaseHelpers.guard('Marcar recordatorio plazo', () async {
+    await SupabaseHelpers.write('Marcar recordatorio plazo', () async {
       try {
         await _client.from('convocatoria_jugadores').update({
           'recordatorio_plazo_enviado': true,
@@ -311,7 +400,23 @@ class ConvocatoriaRepositoryRemote {
   }
 
   Future<Jugador?> promoverSiguienteSuplente(int partidoId) async {
-    return SupabaseHelpers.guard('Promover suplente', () async {
+    return SupabaseHelpers.write('Promover suplente', () async {
+      try {
+        final promotedId = await _client.rpc(
+          'promover_siguiente_suplente',
+          params: {'p_partido_id': partidoId},
+        );
+        if (promotedId is String && promotedId.isNotEmpty) {
+          final conv = await getCompleta(partidoId);
+          for (final e in conv?.jugadores ?? const <ConvocatoriaJugadorEntry>[]) {
+            if (e.jugador.keyId == promotedId) return e.jugador;
+          }
+        }
+        if (promotedId == null) return null;
+      } catch (_) {
+        // Fallback si la migración 048 aún no está aplicada.
+      }
+
       final conv = await getCompleta(partidoId);
       if (conv == null) return null;
       final ocupados = conv.titulares
@@ -354,7 +459,7 @@ class ConvocatoriaRepositoryRemote {
     String? organizadorId,
     SportType? sportType,
   }) async {
-    return SupabaseHelpers.guard('Crear convocatoria', () async {
+    return SupabaseHelpers.write('Crear convocatoria', () async {
       final orgId = organizadorId ?? SupabaseHelpers.currentUserId;
       final sport = sportType ?? SportType.padel;
       final partidoRow = await _client
@@ -377,13 +482,11 @@ class ConvocatoriaRepositoryRemote {
           .single();
 
       final partidoId = (partidoRow['id'] as num).toInt();
-      for (final input in jugadores) {
-        await invitar(
-          partidoId: partidoId,
-          input: input,
-          horasLimite: horasLimiteRespuesta,
-        );
-      }
+      await _insertarRosterBatch(
+        partidoId: partidoId,
+        jugadores: jugadores,
+        horasLimite: horasLimiteRespuesta,
+      );
       return partidoId;
     });
   }
@@ -392,7 +495,7 @@ class ConvocatoriaRepositoryRemote {
     required int partidoId,
     required int horasLimite,
   }) async {
-    await SupabaseHelpers.guard('Activar tiempos límite', () async {
+    await SupabaseHelpers.write('Activar tiempos límite', () async {
       final partidoRow = await _client
           .from('partidos')
           .select('fecha')
@@ -418,7 +521,7 @@ class ConvocatoriaRepositoryRemote {
   }
 
   Future<void> marcarConfirmado(int partidoId) async {
-    await SupabaseHelpers.guard('Confirmar partido', () async {
+    await SupabaseHelpers.write('Confirmar encuentro', () async {
       await _client.from('partidos').update({
         'estado': EstadoPartido.confirmado.dbValue,
         'reprogramado_en': null,
@@ -428,7 +531,7 @@ class ConvocatoriaRepositoryRemote {
 
   /// Vuelve a `organizando` si faltan confirmados (p. ej. titular se bajó).
   Future<void> reabrirConvocatoriaOrganizador(int partidoId) async {
-    await SupabaseHelpers.guard('Reabrir convocatoria', () async {
+    await SupabaseHelpers.write('Reabrir convocatoria', () async {
       await _client.from('partidos').update({
         'estado': EstadoPartido.organizando.dbValue,
       }).eq('id', partidoId);
@@ -439,7 +542,7 @@ class ConvocatoriaRepositoryRemote {
     required int partidoId,
     required List<String> jugadorIdsEnOrden,
   }) async {
-    await SupabaseHelpers.guard('Orden lista de espera', () async {
+    await SupabaseHelpers.write('Orden lista de espera', () async {
       for (var i = 0; i < jugadorIdsEnOrden.length; i++) {
         final id = jugadorIdsEnOrden[i];
         if (id.isEmpty) continue;
@@ -455,7 +558,7 @@ class ConvocatoriaRepositoryRemote {
   }
 
   Future<void> cancelar(int partidoId) async {
-    await SupabaseHelpers.guard('Cancelar convocatoria', () async {
+    await SupabaseHelpers.write('Cancelar convocatoria', () async {
       try {
         await _client.rpc(
           'cancelar_convocatoria_organizador',
@@ -477,7 +580,7 @@ class ConvocatoriaRepositoryRemote {
     required int partidoId,
     required DateTime nuevaFecha,
   }) async {
-    await SupabaseHelpers.guard('Reprogramar convocatoria', () async {
+    await SupabaseHelpers.write('Reprogramar convocatoria', () async {
       try {
         await _client.rpc(
           'reprogramar_convocatoria_organizador',
@@ -530,7 +633,7 @@ class ConvocatoriaRepositoryRemote {
     required List<ConvocatoriaJugadorInput> jugadores,
     SportType? sportType,
   }) async {
-    await SupabaseHelpers.guard('Actualizar convocatoria', () async {
+    await SupabaseHelpers.write('Actualizar convocatoria', () async {
       final prevRows = await _client
           .from('convocatoria_jugadores')
           .select()
@@ -562,40 +665,12 @@ class ConvocatoriaRepositoryRemote {
           .delete()
           .eq('partido_id', partidoId);
 
-      for (final input in jugadores) {
-        final resolvedId =
-            await _resolveJugadorIdForConvocatoria(input.jugadorId);
-        final prev = snapshot[resolvedId] ?? snapshot[input.jugadorId];
-        final prevEstado = prev == null
-            ? null
-            : EstadoConfirmacion.fromDb(
-                prev['estado_confirmacion'] as String?,
-              );
-        final estado = _estadoTrasEdicion(
-          prevEstado: prevEstado,
-          inputEstado: input.estado,
-        );
-        final conservarPlazo = estado == EstadoConfirmacion.invitado;
-
-        await _client.from('convocatoria_jugadores').insert({
-          'partido_id': partidoId,
-          ..._rowForInput(
-            ConvocatoriaJugadorInput(
-              jugadorId: resolvedId,
-              esSuplente: input.esSuplente,
-              ordenEspera: input.ordenEspera,
-              estado: estado,
-            ),
-            horasLimiteRespuesta,
-            tiempoLimitePreservado: conservarPlazo && prev != null
-                ? prev['tiempo_limite']?.toString()
-                : null,
-            notificadoVencimientoPreservado: conservarPlazo && prev != null
-                ? prev['notificado_vencimiento'] as bool?
-                : false,
-          ),
-        });
-      }
+      await _insertarRosterBatch(
+        partidoId: partidoId,
+        jugadores: jugadores,
+        horasLimite: horasLimiteRespuesta,
+        snapshotPrevio: snapshot,
+      );
     });
   }
 
@@ -791,7 +866,7 @@ class ConvocatoriaRepositoryRemote {
     required int partidoId,
     required bool confirmo,
   }) async {
-    await SupabaseHelpers.guard('Responder convocatoria', () async {
+    await SupabaseHelpers.write('Responder convocatoria', () async {
       final uid = SupabaseHelpers.currentUserId;
       if (uid == null) {
         throw Exception('Sesión requerida');
@@ -815,28 +890,46 @@ class ConvocatoriaRepositoryRemote {
           },
         );
         actualizado = ok == true;
-      } catch (_) {}
+      } catch (e) {
+        final msg = e.toString().toLowerCase();
+        if (msg.contains('cupo_lleno') ||
+            msg.contains('plazo_vencido') ||
+            msg.contains('convocatoria_cerrada') ||
+            msg.contains('convocatoria_expirada') ||
+            msg.contains('suplente_no_responde') ||
+            msg.contains('respuesta_no_permitida') ||
+            msg.contains('permission_denied')) {
+          rethrow;
+        }
+        // RPC ausente / error de red: intentar fallback legacy.
+      }
 
+      // Fallback solo si la RPC no actualizó (versión antigua o sin fila).
+      // Tras migración 048 el UPDATE directo del jugador falla por RLS.
       if (!actualizado) {
-        actualizado = await _actualizarConfirmacionVerificado(
-          partidoId: partidoId,
-          jugadorId: uid,
-          estado: estadoEsperado,
-        );
+        try {
+          actualizado = await _actualizarConfirmacionVerificado(
+            partidoId: partidoId,
+            jugadorId: uid,
+            estado: estadoEsperado,
+          );
+        } catch (_) {}
       }
 
       if (!actualizado) {
-        final conv = await getMiConvocatoria(partidoId);
-        final jugadorId = conv?.entry.jugador.keyId;
-        if (jugadorId != null &&
-            jugadorId.isNotEmpty &&
-            jugadorId != uid) {
-          actualizado = await _actualizarConfirmacionVerificado(
-            partidoId: partidoId,
-            jugadorId: jugadorId,
-            estado: estadoEsperado,
-          );
-        }
+        try {
+          final conv = await getMiConvocatoria(partidoId);
+          final jugadorId = conv?.entry.jugador.keyId;
+          if (jugadorId != null &&
+              jugadorId.isNotEmpty &&
+              jugadorId != uid) {
+            actualizado = await _actualizarConfirmacionVerificado(
+              partidoId: partidoId,
+              jugadorId: jugadorId,
+              estado: estadoEsperado,
+            );
+          }
+        } catch (_) {}
       }
 
       if (!actualizado ||

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Tokens visuales compartidos de MatchPay (independientes del deporte).
+/// Tokens visuales compartidos de Kloovi (independientes del deporte).
 class MatchPayTokens {
   MatchPayTokens._();
 
@@ -36,7 +36,8 @@ class MatchPayTokens {
   static const radiusButton = 14.0;
 
   // ── Tipografía ─────────────────────────────────────────────────
-  static String get fontFamily => GoogleFonts.plusJakartaSans().fontFamily!;
+  static String get fontFamily =>
+      GoogleFonts.plusJakartaSans().fontFamily ?? 'PlusJakartaSans';
 
   static TextTheme applyTextTheme(TextTheme base) {
     return GoogleFonts.plusJakartaSansTextTheme(base).copyWith(

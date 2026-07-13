@@ -34,4 +34,20 @@ class SupabaseConfig {
 
   /// URL de redirect para magic link (registrar también en Supabase Dashboard).
   static const authRedirectUrl = 'matchpay://login-callback';
+
+  /// Client ID tipo **Web** de Google Cloud (obligatorio para ID token / Supabase).
+  /// `--dart-define=GOOGLE_WEB_CLIENT_ID=....apps.googleusercontent.com`
+  static const googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+    defaultValue: '',
+  );
+
+  /// Client ID tipo **iOS** (solo iOS). Misma consola Google Cloud.
+  /// `--dart-define=GOOGLE_IOS_CLIENT_ID=....apps.googleusercontent.com`
+  static const googleIosClientId = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+    defaultValue: '',
+  );
+
+  static bool get isGoogleSignInConfigured => googleWebClientId.isNotEmpty;
 }

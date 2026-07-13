@@ -16,12 +16,36 @@ class SupabaseRealtimeService {
   RealtimeChannel? _detallesChannel;
   RealtimeChannel? _globalChannel;
   Timer? _debounce;
+  int _bulkWriteDepth = 0;
+  bool _notifyAfterBulk = false;
 
   SupabaseClient get _client => SupabaseHelpers.client;
 
-  void _debouncedNotify() {
+  /// Pausa refreshes de Home mientras hay escrituras masivas (p. ej. cobro N jugadores).
+  void beginBulkWrite() {
+    _bulkWriteDepth++;
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), () {
+  }
+
+  void endBulkWrite({bool notify = true}) {
+    if (_bulkWriteDepth > 0) _bulkWriteDepth--;
+    if (_bulkWriteDepth > 0) return;
+    if (notify || _notifyAfterBulk) {
+      _notifyAfterBulk = false;
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 1200), () {
+        AppRepositories.notifyDataChanged();
+      });
+    }
+  }
+
+  void _debouncedNotify() {
+    if (_bulkWriteDepth > 0) {
+      _notifyAfterBulk = true;
+      return;
+    }
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 1200), () {
       AppRepositories.notifyDataChanged();
     });
   }

@@ -42,6 +42,6 @@ class ConceptosCobro {
         asado => 'Solo quienes se quedaron al asado pagan este ítem.',
         barraSchop => 'Consumición o consumo en barra. Marca quién participó.',
         otros => 'Otro gasto compartido. Elige quién lo paga.',
-        _ => 'Gasto del partido.',
+        _ => 'Gasto del encuentro.',
       };
 }

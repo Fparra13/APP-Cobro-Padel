@@ -30,7 +30,7 @@ class RecintoRepositoryRemote {
     required String mapsInput,
     String? direccion,
   }) async {
-    return SupabaseHelpers.guard('Crear recinto', () async {
+    return SupabaseHelpers.write('Crear recinto', () async {
       final uid = SupabaseHelpers.currentUserId;
       if (uid == null) throw Exception('Sesión requerida');
 
@@ -61,7 +61,7 @@ class RecintoRepositoryRemote {
   }
 
   Future<void> eliminar(int id) async {
-    await SupabaseHelpers.guard('Eliminar recinto', () async {
+    await SupabaseHelpers.write('Eliminar recinto', () async {
       await _client.from('recintos').delete().eq('id', id);
     });
   }

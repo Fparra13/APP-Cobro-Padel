@@ -32,6 +32,9 @@ class PaymentConceptL10n {
     'Deuda acumulada': 'historicalAccumulatedDebt',
     'Accumulated debt': 'historicalAccumulatedDebt',
     'Dívida acumulada': 'historicalAccumulatedDebt',
+    // Conceptos de encuentro (antes “Partido …”) guardados en historial.
+    'Partido pagado': 'historicalMatchPaid',
+    'Partido cubierto con saldo a favor': 'historicalMatchCoveredByCredit',
     'Pago validado por organizador': 'historicalPaymentValidatedOrganizer',
     'Payment validated by organizer': 'historicalPaymentValidatedOrganizer',
     'Pagamento validado pelo organizador':

@@ -122,6 +122,7 @@ Future<OrganizerHomeData> _fetchFromRepos(AppRepositories repos) async {
         final desglose = await repos.getDesglose(
           partidos.first.partido.id!,
           reconciliar: false,
+          repararCuenta: false,
         );
         return (partidos: partidos, desglose: desglose);
       },

@@ -62,10 +62,34 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Cancelar partido'));
+    await tester.tap(find.text('Cancelar encuentro'));
     await tester.pump();
     await tester.pump();
 
     expect(cancelCalled, isTrue);
+  });
+
+  testWidgets('rescheduleFilled false usa outlined y sigue disparando',
+      (tester) async {
+    var called = false;
+
+    await tester.pumpWidget(
+      _wrap(
+        AtRiskConvocatoriaActions(
+          partidoId: 3,
+          rescheduleFilled: false,
+          rescheduleLabel: 'Reprogramar',
+          cancelLabel: 'Cancelar',
+          reprogramarOverride: (_) async => called = true,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Reprogramar'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(called, isTrue);
   });
 }

@@ -11,7 +11,6 @@ import '../core/offline_status_controller.dart';
 import '../core/organizer_nudge_service.dart';
 import '../utils/organizer_subscription_flow.dart';
 import '../core/sport_theme.dart';
-import '../core/sport_type.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
@@ -82,6 +81,8 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   ConvocatoriaCompleta? _heroConvocatoriaCompleta;
   Timer? _reloadDebounce;
   String? _error;
+  bool _loadingData = false;
+  bool _pendingSilentReload = false;
 
   List<MiConvocatoria> get _invitacionesTitular =>
       _todas.where((c) => !c.entry.esSuplente).toList();
@@ -142,12 +143,18 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   void _onDataChanged() {
     if (!mounted) return;
     _reloadDebounce?.cancel();
-    _reloadDebounce = Timer(const Duration(milliseconds: 350), () {
+    _reloadDebounce = Timer(const Duration(milliseconds: 900), () {
       if (mounted) _load(silent: true);
     });
   }
 
   Future<void> _load({bool silent = false}) async {
+    if (silent && _loadingData) {
+      _pendingSilentReload = true;
+      return;
+    }
+    _loadingData = true;
+
     if (!silent && _primeraCarga && mounted) {
       setState(() {
         _loading = true;
@@ -230,7 +237,12 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
           });
       }
     } finally {
+      _loadingData = false;
       if (mounted) setState(() => _loading = false);
+      if (_pendingSilentReload && mounted) {
+        _pendingSilentReload = false;
+        unawaited(_load(silent: true));
+      }
     }
   }
 
@@ -494,22 +506,11 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     if (mounted) _load();
   }
 
-  bool get _showActivityStrip {
+  bool get _hasActivityData {
     if (_partidosJugados.isNotEmpty) return true;
     if (_misStats != null && _misStats!.partidosJugados > 0) return true;
     if (_semanasJugando >= 2) return true;
-    return _invitesRecibidas > 0;
-  }
-
-  Map<SportType, int> _deportesJugadosCounts() {
-    final counts = <SportType, int>{};
-    for (final p in _partidosJugados) {
-      final sport = p.sportType;
-      if (sport != null) {
-        counts[sport] = (counts[sport] ?? 0) + 1;
-      }
-    }
-    return counts;
+    return _invitesRecibidas > 0 || _invitesConfirmadas > 0;
   }
 
   ({String titleKey, String bodyKey}) _organizerEmpathyCopy() {
@@ -566,8 +567,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     final explicacion = _explicacionDeuda;
     final empathy = _organizerEmpathyCopy();
     final headline = _dynamicHeadline(l10n, deudaTotal, hero);
-    final lang = context.readSettings().locale.languageCode;
-    final deportesCounts = _deportesJugadosCounts();
     final comprobanteEnRevision =
         _deudas.any((d) => d.comprobantePendienteValidacion);
 
@@ -805,28 +804,29 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 24),
                         ],
 
-                        // 4. Actividad (chips de deportes escalables)
-                        if (_showActivityStrip) ...[
-                          MatchPaySectionHeader(
-                            title: l10n.tr('playerActivityTitle'),
-                          ),
-                          const SizedBox(height: 8),
-                          _StatsStrip(
-                            stats: _misStats,
-                            participacionPct: _participacionPct,
-                            invitesConfirmadas: _invitesConfirmadas,
-                            invitesRecibidas: _invitesRecibidas,
-                            semanasJugando: _semanasJugando,
-                          ),
-                          if (deportesCounts.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            _SportBreakdownChips(
-                              counts: deportesCounts,
-                              lang: lang,
+                        // 4. Actividad: siempre visible (vacío motivador para jugadores nuevos)
+                        MatchPaySectionHeader(
+                          title: l10n.tr('playerActivityTitle'),
+                        ),
+                        const SizedBox(height: 8),
+                        if (!_hasActivityData) ...[
+                          Text(
+                            l10n.tr('playerActivityEmptyHint'),
+                            style: MatchPayTokens.bodySmallStyle(
+                              color: MatchPayTokens.inkSecondary,
                             ),
-                          ],
-                          const SizedBox(height: 24),
+                          ),
+                          const SizedBox(height: 10),
                         ],
+                        _StatsStrip(
+                          stats: _misStats,
+                          participacionPct: _participacionPct,
+                          invitesConfirmadas: _invitesConfirmadas,
+                          invitesRecibidas: _invitesRecibidas,
+                          semanasJugando: _semanasJugando,
+                          showPlaceholders: !_hasActivityData,
+                        ),
+                        const SizedBox(height: 24),
 
                         // 5. Historial reciente solo al día (evita duplicar deuda)
                         if (alDia && _partidosJugados.isNotEmpty) ...[
@@ -1358,6 +1358,7 @@ class _StatsStrip extends StatelessWidget {
   final int invitesConfirmadas;
   final int invitesRecibidas;
   final int semanasJugando;
+  final bool showPlaceholders;
 
   const _StatsStrip({
     required this.stats,
@@ -1365,48 +1366,50 @@ class _StatsStrip extends StatelessWidget {
     required this.invitesConfirmadas,
     required this.invitesRecibidas,
     required this.semanasJugando,
+    this.showPlaceholders = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final items = <(String, String, String)>[];
 
     final partidos = stats?.partidosJugados ?? 0;
-    final confirmaciones = (stats?.convocatoriasConfirmadas ?? 0) > 0
-        ? stats!.convocatoriasConfirmadas
-        : invitesConfirmadas;
+    final fromStats = stats?.convocatoriasConfirmadas ?? 0;
+    final confirmaciones =
+        fromStats >= invitesConfirmadas ? fromStats : invitesConfirmadas;
 
-    if (partidos > 0) {
-      items.add((
+    // Siempre las 3 fichas principales (también en 0) para que el jugador
+    // vea qué mide la app; no ocultar métricas solo porque valen cero.
+    final items = <(String, String, String)>[
+      (
         '🏆',
         '$partidos',
         l10n.tr('playerStatMatchesPride'),
-      ));
-    }
-
-    if (confirmaciones > 0) {
-      items.add((
+      ),
+      (
         '✅',
         '$confirmaciones',
         l10n.tr('playerStatConfirmedPride'),
-      ));
-    }
-
-    if (partidos > 0) {
-      final pctPago = stats!.porcentajePagoAlDia;
-      items.add((
-        '💚',
-        '${pctPago.toStringAsFixed(0)}%',
-        l10n.tr('playerStatOnTimePride'),
-      ));
-    } else if (invitesRecibidas > 0) {
-      items.add((
-        '🤝',
-        '${participacionPct.toStringAsFixed(0)}%',
-        l10n.tr('playerStatParticipation'),
-      ));
-    }
+      ),
+      if (partidos > 0 && stats != null)
+        (
+          '💚',
+          '${stats!.porcentajePagoAlDia.toStringAsFixed(0)}%',
+          l10n.tr('playerStatOnTimePride'),
+        )
+      else if (invitesRecibidas > 0)
+        (
+          '🤝',
+          '${participacionPct.toStringAsFixed(0)}%',
+          l10n.tr('playerStatParticipation'),
+        )
+      else
+        (
+          '💚',
+          '—',
+          l10n.tr('playerStatOnTimePride'),
+        ),
+    ];
 
     if (items.length < 3 && semanasJugando >= 2) {
       items.add((
@@ -1416,9 +1419,11 @@ class _StatsStrip extends StatelessWidget {
       ));
     }
 
-    if (items.isEmpty) return const SizedBox.shrink();
-
     final visible = items.take(3).toList();
+    final muted = showPlaceholders &&
+        partidos == 0 &&
+        confirmaciones == 0 &&
+        invitesRecibidas == 0;
 
     return SizedBox(
       height: 116,
@@ -1428,105 +1433,55 @@ class _StatsStrip extends StatelessWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final e = visible[index];
-          return Container(
-            width: 148,
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-            decoration: BoxDecoration(
-              color: MatchPayTokens.surfaceCard,
-              borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
-              border: Border.all(color: MatchPayTokens.borderSubtle),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(e.$1, style: const TextStyle(fontSize: 20, height: 1)),
-                const Spacer(),
-                SizedBox(
-                  width: double.infinity,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      e.$2,
-                      maxLines: 1,
-                      style: MatchPayTokens.statValueStyle(),
+          return Opacity(
+            opacity: muted ? 0.72 : 1,
+            child: Container(
+              width: 148,
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+              decoration: BoxDecoration(
+                color: MatchPayTokens.surfaceCard,
+                borderRadius:
+                    BorderRadius.circular(MatchPayTokens.radiusCardSm),
+                border: Border.all(color: MatchPayTokens.borderSubtle),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(e.$1, style: const TextStyle(fontSize: 20, height: 1)),
+                  const Spacer(),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        e.$2,
+                        maxLines: 1,
+                        style: MatchPayTokens.statValueStyle(),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  e.$3,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: MatchPayTokens.bodySmallStyle().copyWith(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
+                  const SizedBox(height: 4),
+                  Text(
+                    e.$3,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: MatchPayTokens.bodySmallStyle().copyWith(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _SportBreakdownChips extends StatelessWidget {
-  final Map<SportType, int> counts;
-  final String lang;
-
-  const _SportBreakdownChips({
-    required this.counts,
-    required this.lang,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (counts.isEmpty) return const SizedBox.shrink();
-
-    final sorted = counts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return SizedBox(
-      height: 34,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: sorted.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final entry = sorted[index];
-          final palette = SportThemeConfig.paletteFor(entry.key);
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: palette.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: palette.primary.withValues(alpha: 0.22),
+                ],
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(palette.emoji, style: const TextStyle(fontSize: 13)),
-                const SizedBox(width: 6),
-                Text(
-                  '${entry.value} ${entry.key.labelForLang(lang)}',
-                  style: MatchPayTokens.bodySmallStyle().copyWith(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
           );
         },
       ),
     );
   }
 }
+
 
 class _MatchHistoryList extends StatelessWidget {
   final List<DetallePartido> partidos;

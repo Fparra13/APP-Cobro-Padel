@@ -52,7 +52,7 @@ class BackupRepository {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(filePath)],
-        text: 'Respaldo MatchPay',
+        text: 'Respaldo Kloovi',
       ),
     );
   }

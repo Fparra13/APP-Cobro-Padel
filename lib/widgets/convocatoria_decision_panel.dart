@@ -145,14 +145,15 @@ class ConvocatoriaDecisionPanel extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: _handleCancel,
             style: OutlinedButton.styleFrom(
-              foregroundColor: MatchPayTokens.inkSecondary,
+              foregroundColor: MatchPayTokens.accentError,
+              backgroundColor: MatchPayTokens.accentErrorBg,
               side: BorderSide(
-                color: MatchPayTokens.inkMuted.withValues(alpha: 0.35),
+                color: MatchPayTokens.accentError.withValues(alpha: 0.55),
               ),
               minimumSize: const Size.fromHeight(48),
               shape: buttonShape,
             ),
-            icon: const Icon(Icons.close_rounded, size: 18),
+            icon: const Icon(Icons.cancel_outlined, size: 20),
             label: Text(l10n.tr('organizerCycleAtRiskCancel')),
           ),
         ],

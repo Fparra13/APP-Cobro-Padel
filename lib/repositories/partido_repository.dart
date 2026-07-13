@@ -370,7 +370,7 @@ class PartidoRepository {
     return result;
   }
 
-  Future<List<Partido>> getAll({EstadoPartido? soloEstado}) async {
+  Future<List<Partido>> getAll({EstadoPartido? soloEstado, int? limit}) async {
     final db = await _db.database;
     if (soloEstado != null) {
       final rows = await db.query(
@@ -378,15 +378,20 @@ class PartidoRepository {
         where: 'estado = ?',
         whereArgs: [soloEstado.dbValue],
         orderBy: 'fecha DESC',
+        limit: limit,
       );
       return rows.map(Partido.fromMap).toList();
     }
-    final rows = await db.query('partidos', orderBy: 'fecha DESC');
+    final rows = await db.query(
+      'partidos',
+      orderBy: 'fecha DESC',
+      limit: limit,
+    );
     return rows.map(Partido.fromMap).toList();
   }
 
-  Future<List<Partido>> getJugados() =>
-      getAll(soloEstado: EstadoPartido.jugado);
+  Future<List<Partido>> getJugados({int? limit}) =>
+      getAll(soloEstado: EstadoPartido.jugado, limit: limit);
 
   Future<List<String>> getRecintosRecientes({int limit = 8}) async {
     final db = await _db.database;
@@ -754,7 +759,7 @@ class PartidoRepository {
   }
 
   Future<PartidoCompleto?> getUltimoPartido() async {
-    final partidos = await getJugados();
+    final partidos = await getJugados(limit: 1);
     if (partidos.isEmpty) return null;
     return getCompleto(partidos.first.id!);
   }
@@ -762,13 +767,9 @@ class PartidoRepository {
   Future<List<PartidoCompleto>> getPartidosJugadosRecientesResumen({
     int limit = 8,
   }) async {
-    final partidos = await getJugados();
+    final partidos = await getJugados(limit: limit);
     if (partidos.isEmpty) return const [];
-    final ids = partidos
-        .take(limit)
-        .map((p) => p.id)
-        .whereType<int>()
-        .toList();
+    final ids = partidos.map((p) => p.id).whereType<int>().toList();
     if (ids.isEmpty) return const [];
     return getCompletosListaResumen(ids);
   }

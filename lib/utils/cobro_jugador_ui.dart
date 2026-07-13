@@ -188,7 +188,7 @@ String titularProtagonistaCobro(
   return l10n.tr('cobrosHeroDefault');
 }
 
-/// Líneas tipo "🎾 1 partido de Pádel" para el resumen superior.
+/// Líneas tipo "🎾 1 encuentro de Pádel" para el resumen superior.
 List<String> resumenDeportesPorCerrar(
   List<DetallePartido> deudas,
   MatchPayStrings l10n,

@@ -4,7 +4,7 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Intención del usuario al entrar a MatchPay (no confundir con [profiles.role]).
+/// Intención del usuario al entrar a Kloovi (no confundir con [profiles.role]).
 enum MatchPayAcquisitionIntent {
   /// Cold start: aún no eligió camino (mostrar pantalla de adquisición).
   unknown,

@@ -33,9 +33,8 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   final _prefs = PreferencesService();
   final _nombrePerfilCtrl = TextEditingController();
   final _titularCtrl = TextEditingController();
-  final _bancoCtrl = TextEditingController();
-  final _cuentaCtrl = TextEditingController();
-  final _rutCtrl = TextEditingController();
+  final _pagoDetalleCtrl = TextEditingController();
+  final _pagoNotaCtrl = TextEditingController();
 
   bool _loading = true;
   bool _isOrganizer = false;
@@ -54,34 +53,38 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   }
 
   Future<void> _load() async {
-    await AuthService.instance.refreshProfile();
-    _isOrganizer = AuthService.instance.isOrganizer;
+    try {
+      await AuthService.instance.refreshProfile();
+      _isOrganizer = AuthService.instance.isOrganizer;
 
-    final uid = AuthService.instance.currentUser?.id;
-    if (uid != null && context.mounted) {
-      try {
-        final perfil = await context.repos.getJugador(uid);
-        _perfil = perfil;
-        _nombrePerfilCtrl.text = perfil?.nombre ?? '';
-      } catch (_) {}
+      final uid = AuthService.instance.currentUser?.id;
+      if (uid != null && mounted) {
+        try {
+          final perfil = await context.repos.getJugador(uid);
+          _perfil = perfil;
+          _nombrePerfilCtrl.text = perfil?.nombre ?? '';
+        } catch (_) {}
+      }
+
+      if (_isOrganizer) {
+        final pago = await _prefs.datosPago;
+        _titularCtrl.text = pago.titular;
+        _pagoDetalleCtrl.text = pago.detalle;
+        _pagoNotaCtrl.text = pago.nota;
+
+        _recordatorioActivo = await _prefs.recordatorioActivo;
+        _recordatorioDias = await _prefs.recordatorioDias;
+        final hora = await _prefs.recordatorioHora;
+        final minuto = await _prefs.recordatorioMinuto;
+        _recordatorioHora = TimeOfDay(hour: hora, minute: minuto);
+      }
+
+      _permisosOk = await NotificationService.instance.arePermissionsGranted();
+    } catch (_) {
+      // Preferencias locales / permisos: no bloquear la pantalla en blanco.
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
-
-    if (_isOrganizer) {
-      _titularCtrl.text = await _prefs.titularNombre;
-      _bancoCtrl.text = await _prefs.bancoNombre;
-      _cuentaCtrl.text = await _prefs.cuentaNumero;
-      _rutCtrl.text = await _prefs.titularRut;
-
-      _recordatorioActivo = await _prefs.recordatorioActivo;
-      _recordatorioDias = await _prefs.recordatorioDias;
-      final hora = await _prefs.recordatorioHora;
-      final minuto = await _prefs.recordatorioMinuto;
-      _recordatorioHora = TimeOfDay(hour: hora, minute: minuto);
-    }
-
-    _permisosOk = await NotificationService.instance.arePermissionsGranted();
-
-    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _savePerfil() async {
@@ -121,15 +124,14 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   }
 
   Future<void> _saveBancarios() async {
-    await _prefs.saveDatosBancarios(
+    await _prefs.saveDatosPago(
       titular: _titularCtrl.text.trim(),
-      banco: _bancoCtrl.text.trim(),
-      cuenta: _cuentaCtrl.text.trim(),
-      rut: _rutCtrl.text.trim(),
+      detalle: _pagoDetalleCtrl.text.trim(),
+      nota: _pagoNotaCtrl.text.trim(),
     );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.tr('configBankDataSaved'))),
+        SnackBar(content: Text(context.l10n.tr('configPaymentInfoSaved'))),
       );
     }
   }
@@ -216,9 +218,8 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   void dispose() {
     _nombrePerfilCtrl.dispose();
     _titularCtrl.dispose();
-    _bancoCtrl.dispose();
-    _cuentaCtrl.dispose();
-    _rutCtrl.dispose();
+    _pagoDetalleCtrl.dispose();
+    _pagoNotaCtrl.dispose();
     super.dispose();
   }
 
@@ -237,132 +238,86 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           : ListView(
               padding: NavShellScope.listPadding(context),
               children: [
-                MatchPayPreferencesPanel(showSport: enModoOrganizador),
-                if (_isOrganizer) ...[
-                  const SizedBox(height: 28),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  const AppModeSwitchPanel(),
-                ],
-                const SizedBox(height: 28),
-                const Divider(),
-                const SizedBox(height: 16),
+                // 1. Identidad
                 if (AuthService.instance.isLoggedIn) ...[
                   _buildSeccionPerfil(),
-                  const SizedBox(height: 28),
-                  const Divider(),
-                  const SizedBox(height: 16),
+                  _configDivider(),
                 ],
-                if (!_isOrganizer && AuthService.instance.isLoggedIn) ...[
-                  MatchPaySurfaceCard(
-                    onTap: _confirmBecomeOrganizer,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: context.sportPalette.primary
-                                .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.groups_rounded,
-                            color: context.sportPalette.primaryDark,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                context.l10n.tr('becomeOrganizerCardTitle'),
-                                style: MatchPayTokens.titleSmallStyle(),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                context.l10n.tr('becomeOrganizerSoftSub'),
-                                style: MatchPayTokens.bodySmallStyle(),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: context.sportPalette.primary,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  const Divider(),
-                  const SizedBox(height: 16),
+
+                // 2. Vista diaria (organizador ↔ jugador)
+                if (_isOrganizer) ...[
+                  const AppModeSwitchPanel(),
+                  _configDivider(),
                 ],
+
+                // 3. Preferencias regionales + deporte
+                MatchPayPreferencesPanel(showSport: enModoOrganizador),
+                _configDivider(),
+
+                // 4. Cobros: cómo pagarme + recordatorios
                 if (enModoOrganizador) ...[
-                  const MisRecintosPanel(),
-                  const SizedBox(height: 28),
-                  const Divider(),
-                  const SizedBox(height: 16),
+                  _buildSeccionPago(l10n),
+                  _configDivider(),
                   _buildSeccionRecordatorios(),
-                  const SizedBox(height: 28),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  MatchPaySectionHeader(title: l10n.tr('configBankDataTitle')),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _titularCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.tr('configAccountHolderLabel'),
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _rutCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.tr('configRutLabel'),
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _bancoCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.tr('configBankLabel'),
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _cuentaCtrl,
-                    decoration: InputDecoration(
-                      labelText: l10n.tr('configAccountNumberLabel'),
-                      border: const OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: _saveBancarios,
-                    icon: const Icon(Icons.save),
-                    label: Text(l10n.tr('configSaveBankData')),
-                  ),
-                  const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 16),
+                  _configDivider(),
+                  // 5. Lugares y respaldo (menos frecuente)
+                  const MisRecintosPanel(),
+                  _configDivider(),
+                  _buildEntradaBackup(l10n),
+                  _configDivider(),
                 ] else ...[
+                  if (AuthService.instance.isLoggedIn) ...[
+                    MatchPaySurfaceCard(
+                      onTap: _confirmBecomeOrganizer,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: context.sportPalette.primary
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.groups_rounded,
+                              color: context.sportPalette.primaryDark,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  context.l10n.tr('becomeOrganizerCardTitle'),
+                                  style: MatchPayTokens.titleSmallStyle(),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  context.l10n.tr('becomeOrganizerSoftSub'),
+                                  style: MatchPayTokens.bodySmallStyle(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: context.sportPalette.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                    _configDivider(),
+                  ],
                   _buildSeccionJugador(),
-                  const SizedBox(height: 28),
-                  const Divider(),
-                  const SizedBox(height: 16),
+                  _configDivider(),
                 ],
-                const SizedBox(height: 8),
+
+                // 6. Legal y cuenta
                 _buildSeccionLegal(),
                 if (kDebugMode && FirebaseConfig.isConfigured) ...[
-                  const SizedBox(height: 28),
-                  const Divider(),
-                  const SizedBox(height: 16),
+                  _configDivider(),
                   _buildSeccionCrashlyticsTest(),
                 ],
                 if (AuthService.instance.isLoggedIn) ...[
@@ -382,6 +337,107 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                 ],
               ],
             ),
+    );
+  }
+
+  Widget _configDivider() => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Divider(height: 1),
+      );
+
+  Widget _buildEntradaBackup(MatchPayStrings l10n) {
+    return MatchPaySurfaceCard(
+      onTap: () => Navigator.pushNamed(context, '/backup'),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: context.sportPalette.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.cloud_outlined,
+              color: context.sportPalette.primaryDark,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.navCloud,
+                  style: MatchPayTokens.titleSmallStyle(),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.tr('configOpenBackupSubtitle'),
+                  style: MatchPayTokens.bodySmallStyle(),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: context.sportPalette.primary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSeccionPago(MatchPayStrings l10n) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MatchPaySectionHeader(title: l10n.tr('configPaymentInfoTitle')),
+        const SizedBox(height: 8),
+        Text(
+          l10n.tr('configPaymentInfoHint'),
+          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _titularCtrl,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            labelText: l10n.tr('configPaymentNameLabel'),
+            hintText: l10n.tr('configPaymentNameHint'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _pagoDetalleCtrl,
+          minLines: 2,
+          maxLines: 4,
+          decoration: InputDecoration(
+            labelText: l10n.tr('configPaymentDetailLabel'),
+            hintText: l10n.tr('configPaymentDetailHint'),
+            alignLabelWithHint: true,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _pagoNotaCtrl,
+          maxLines: 2,
+          decoration: InputDecoration(
+            labelText: l10n.tr('configPaymentNoteLabel'),
+            hintText: l10n.tr('configPaymentNoteHint'),
+            alignLabelWithHint: true,
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 24),
+        FilledButton.icon(
+          onPressed: _saveBancarios,
+          icon: const Icon(Icons.save),
+          label: Text(l10n.tr('configSavePaymentInfo')),
+        ),
+      ],
     );
   }
 

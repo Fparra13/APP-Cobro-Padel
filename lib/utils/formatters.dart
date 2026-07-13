@@ -8,8 +8,21 @@ class MoneyFormatConfig {
   static String symbol = '\$';
   static bool showSymbol = true;
   static String dateLocale = 'es';
+  static int decimalDigits = 0;
 
-  static NumberFormat get numberFormat => NumberFormat('#,##0', locale);
+  static NumberFormat get numberFormat {
+    if (decimalDigits <= 0) {
+      return NumberFormat('#,##0', locale);
+    }
+    final frac = List.filled(decimalDigits, '0').join();
+    return NumberFormat('#,##0.$frac', locale);
+  }
+
+  static String get decimalSeparator =>
+      NumberFormat.decimalPattern(locale).symbols.DECIMAL_SEP;
+
+  static String get groupSeparator =>
+      NumberFormat.decimalPattern(locale).symbols.GROUP_SEP;
 }
 
 const _localeEs = 'es';
@@ -21,7 +34,8 @@ String get _activeDateLocale =>
 
 /// Monto redondeado con separador de miles; incluye símbolo si está configurado.
 String formatMoney(double amount) {
-  final formatted = MoneyFormatConfig.numberFormat.format(amount.round());
+  final value = roundMoney(amount);
+  final formatted = MoneyFormatConfig.numberFormat.format(value);
   if (MoneyFormatConfig.showSymbol) {
     return '${MoneyFormatConfig.symbol}$formatted';
   }
@@ -31,17 +45,43 @@ String formatMoney(double amount) {
 /// Texto para campos editables (vacío si el monto es 0).
 String formatMoneyField(double amount) {
   if (amount == 0) return '';
-  return MoneyFormatConfig.numberFormat.format(amount.round());
+  return MoneyFormatConfig.numberFormat.format(roundMoney(amount));
 }
 
-/// Parsea montos escritos con o sin separador de miles.
+/// Parsea montos escritos con o sin separador de miles / decimales.
 double parseMoney(String text) {
-  if (text.trim().isEmpty) return 0;
-  final cleaned = text.replaceAll('.', '').replaceAll(',', '').trim();
-  return double.tryParse(cleaned) ?? 0;
+  final trimmed = text.trim();
+  if (trimmed.isEmpty) return 0;
+
+  if (MoneyFormatConfig.decimalDigits <= 0) {
+    final cleaned = trimmed.replaceAll('.', '').replaceAll(',', '').trim();
+    return double.tryParse(cleaned) ?? 0;
+  }
+
+  try {
+    return MoneyFormatConfig.numberFormat.parse(trimmed).toDouble();
+  } catch (_) {
+    final dec = MoneyFormatConfig.decimalSeparator;
+    final grp = MoneyFormatConfig.groupSeparator;
+    var normalized = trimmed.replaceAll(grp, '');
+    if (dec != '.') {
+      normalized = normalized.replaceAll(dec, '.');
+    }
+    normalized = normalized.replaceAll(RegExp(r'[^0-9.\-]'), '');
+    return double.tryParse(normalized) ?? 0;
+  }
 }
 
-int roundMoney(double amount) => amount.round();
+/// Redondea según los decimales de la moneda activa.
+double roundMoney(double amount) {
+  final digits = MoneyFormatConfig.decimalDigits;
+  if (digits <= 0) return amount.roundToDouble();
+  var factor = 1.0;
+  for (var i = 0; i < digits; i++) {
+    factor *= 10;
+  }
+  return (amount * factor).round() / factor;
+}
 
 /// Formatea montos mientras el usuario escribe (ej. 50000 → 50.000).
 class MoneyInputFormatter extends TextInputFormatter {
@@ -52,15 +92,59 @@ class MoneyInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-    if (digits.isEmpty) {
+    final maxDecimals = MoneyFormatConfig.decimalDigits;
+    if (maxDecimals <= 0) {
+      final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+      if (digits.isEmpty) {
+        return const TextEditingValue(
+          text: '',
+          selection: TextSelection.collapsed(offset: 0),
+        );
+      }
+      final formatted =
+          MoneyFormatConfig.numberFormat.format(int.parse(digits));
+      return TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+
+    final dec = MoneyFormatConfig.decimalSeparator;
+    final cleaned = newValue.text.replaceAll(RegExp('[^0-9.,]'), '');
+    if (cleaned.isEmpty) {
       return const TextEditingValue(
         text: '',
         selection: TextSelection.collapsed(offset: 0),
       );
     }
 
-    final formatted = MoneyFormatConfig.numberFormat.format(int.parse(digits));
+    // Un solo separador decimal (el último . o ,).
+    String intPart;
+    String? fracPart;
+    final lastDot = cleaned.lastIndexOf('.');
+    final lastComma = cleaned.lastIndexOf(',');
+    final sepAt = lastDot > lastComma ? lastDot : lastComma;
+    if (sepAt >= 0) {
+      intPart = cleaned.substring(0, sepAt).replaceAll(RegExp(r'[^\d]'), '');
+      fracPart = cleaned.substring(sepAt + 1).replaceAll(RegExp(r'[^\d]'), '');
+      if (fracPart.length > maxDecimals) {
+        fracPart = fracPart.substring(0, maxDecimals);
+      }
+    } else {
+      intPart = cleaned.replaceAll(RegExp(r'[^\d]'), '');
+      fracPart = null;
+    }
+
+    if (intPart.isEmpty) intPart = '0';
+    final intValue = int.tryParse(intPart) ?? 0;
+    final grouped = NumberFormat('#,##0', MoneyFormatConfig.locale).format(intValue);
+
+    final endsWithSep = sepAt >= 0 &&
+        (cleaned.endsWith('.') || cleaned.endsWith(','));
+    final formatted = fracPart == null && !endsWithSep
+        ? grouped
+        : '$grouped$dec${fracPart ?? ''}';
+
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),

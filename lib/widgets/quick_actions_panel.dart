@@ -638,7 +638,7 @@ _EstadoPagoVisual _estadoPago(BuildContext context, DesgloseJugador d) {
                 'paidDetailLine',
                 params: {
                   'paid': formatMoney(d.montoPagado),
-                  'match': formatMoney(d.totalPartido),
+                  'amount': formatMoney(d.totalPartido),
                 },
               )
             : context.tr(

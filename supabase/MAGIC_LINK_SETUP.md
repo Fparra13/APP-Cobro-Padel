@@ -1,6 +1,7 @@
 # Configuración magic link (Supabase)
 
-El login usa **enlace mágico** enviado por email. No requiere editar plantillas (plan gratuito).
+El login usa **enlace mágico** enviado por email como alternativa a Google.
+Para Google Sign-In ver [`GOOGLE_SIGNIN_SETUP.md`](./GOOGLE_SIGNIN_SETUP.md).
 
 ## 1. Redirect URL en Supabase
 

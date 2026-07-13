@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matchpay/domain/cobro_logic.dart';
 
-/// Casos canónicos de MatchPay.
+/// Casos canónicos de Kloovi.
 ///
 /// Convención en código/BD: saldo_acumulado > 0 = debe, < 0 = crédito a favor.
 void main() {
@@ -114,7 +114,7 @@ void main() {
     });
   });
 
-  group('Escenario 4 — crédito + nuevo partido (caso canónico MatchPay)', () {
+  group('Escenario 4 — crédito + nuevo partido (caso canónico Kloovi)', () {
     test('crédito 5000 + partido 10000 → debe 5000', () {
       const saldoAnt = -5000.0; // crédito
       const cargo = 10000.0;

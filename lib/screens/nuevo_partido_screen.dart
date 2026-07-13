@@ -10,14 +10,17 @@ import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../models/shared_expense_entry.dart';
 import '../domain/gasto_compartido_logic.dart';
+import '../domain/gasto_preset_logic.dart';
+import '../domain/gasto_sport_suggestions.dart';
+import '../domain/jugador_list_priority.dart';
 import '../core/app_repositories.dart';
 import '../core/matchpay_design_tokens.dart';
-import '../core/supabase_helpers.dart';
 import '../models/estado_partido.dart';
 import '../services/calculation_service.dart';
 import '../services/comprobante_service.dart';
 import '../services/preferences_service.dart';
 import '../utils/formatters.dart';
+import '../utils/jugador_name_filter.dart';
 import '../utils/matchpay_context.dart';
 import '../widgets/comprobante_pago_tile.dart';
 import '../widgets/confirmar_eliminar_partido_dialog.dart';
@@ -39,11 +42,9 @@ class NuevoPartidoScreen extends StatefulWidget {
 class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   final _prefs = PreferencesService();
 
-  final _montos = {
-    for (final c in ConceptosCobro.fijos) c: TextEditingController(),
-  };
   final _notasCtrl = TextEditingController();
   final _recintoCtrl = TextEditingController();
+  final _jugadoresBusquedaCtrl = TextEditingController();
 
   final List<SharedExpenseEntry> _gastosCompartidos = [];
   int _expenseIdSeq = 0;
@@ -52,11 +53,12 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   List<Jugador> _habituales = [];
   List<String> _recintosSugeridos = [];
   final Map<String, List<CobroIndividualEntry>> _cobrosIndividuales = {};
-  /// Comprobante de pago del gasto fijo (Cancha, Pelotas).
-  final Map<String, String?> _comprobantesGasto = {};
   final Set<String> _asistentes = {};
   final Map<String, EstadoPagoJugador> _pagos = {};
   final Map<String, double> _saldosSnapshot = {};
+  /// Jugadores a fijar arriba (último encuentro o confirmados).
+  final Set<String> _prioridadJugadorIds = {};
+  JugadorPrioritySource _prioridadFuente = JugadorPrioritySource.none;
   DateTime _fechaPartido = DateTime.now();
   bool _loading = true;
   bool _guardando = false;
@@ -75,12 +77,63 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
 
   String _nuevoExpenseId() => 'exp_${_expenseIdSeq++}';
 
-  void _agregarGastoCompartido({String label = '', ExpenseIconKey icon = ExpenseIconKey.general}) {
+  void _agregarGastoCompartido({
+    String label = '',
+    ExpenseIconKey icon = ExpenseIconKey.general,
+  }) {
     setState(() {
+      final blankIndex =
+          _gastosCompartidos.indexWhere((g) => !g.tieneDatos);
+      if (label.isNotEmpty && blankIndex >= 0) {
+        // Rellenar la fila vacía en vez de apilar otra debajo.
+        final blank = _gastosCompartidos[blankIndex];
+        blank.labelCtrl.text = label;
+        blank.iconKey = icon;
+        return;
+      }
+      if (label.isEmpty && blankIndex >= 0) {
+        // Ya hay un gasto en blanco; no crear otro vacío.
+        return;
+      }
       _gastosCompartidos.add(
         SharedExpenseEntry(id: _nuevoExpenseId(), label: label, iconKey: icon),
       );
     });
+  }
+
+  /// Preset opcional (Cancha / Pelotas) → gasto compartido canónico.
+  void _agregarPresetGasto(String concepto) {
+    final existing = GastoPresetLogic.findPreset(_gastosCompartidos, concepto);
+    if (existing != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.tr('expensePresetAlreadyAdded'))),
+      );
+      return;
+    }
+    _agregarGastoCompartido(
+      label: concepto,
+      icon: GastoPresetLogic.iconForPreset(concepto),
+    );
+  }
+
+  /// Chip sugerido según deporte (fijo o texto libre).
+  void _agregarSugerenciaGasto(GastoSportSuggestion suggestion) {
+    final fixed = suggestion.fixedConcepto;
+    if (fixed != null) {
+      _agregarPresetGasto(fixed);
+      return;
+    }
+    final label = context.l10n.tr(suggestion.labelKey);
+    final exists = _gastosCompartidos.any(
+      (g) => g.label.toLowerCase() == label.toLowerCase(),
+    );
+    if (exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.tr('expensePresetAlreadyAdded'))),
+      );
+      return;
+    }
+    _agregarGastoCompartido(label: label, icon: suggestion.icon);
   }
 
   void _eliminarGastoCompartido(SharedExpenseEntry entry) {
@@ -128,16 +181,30 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         return;
       }
 
+      Set<String> prioridad = {};
+      try {
+        final ultimo = await repos.getUltimoPartido();
+        if (ultimo != null) {
+          prioridad = {
+            for (final d in ultimo.detalles)
+              if (d.asistio) d.jugadorKeyId,
+          };
+        }
+      } catch (_) {
+        // Sin último encuentro: lista normal.
+      }
+
       if (mounted) {
         setState(() {
           _habituales = habituales;
           _recintosSugeridos = recintos;
           _sportType = context.readSettings().sport;
-          if (_gastosCompartidos.isEmpty) {
-            _gastosCompartidos.add(
-              SharedExpenseEntry(id: _nuevoExpenseId()),
-            );
-          }
+          _prioridadJugadorIds
+            ..clear()
+            ..addAll(prioridad);
+          _prioridadFuente = prioridad.isEmpty
+              ? JugadorPrioritySource.none
+              : JugadorPrioritySource.lastMatch;
           if (_recintoCtrl.text.isEmpty && ultimoRecinto.isNotEmpty) {
             _recintoCtrl.text = ultimoRecinto;
           }
@@ -207,11 +274,21 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             todos[e.jugador.keyId] = e.jugador;
           }
 
+          final prioridad = confirmados.isNotEmpty
+              ? confirmados
+              : _asistentes.toSet();
+
           if (mounted) {
             setState(() {
               _habituales = todos.values.toList()
                 ..sort((a, b) => a.nombre.compareTo(b.nombre));
               _recintosSugeridos = recintos;
+              _prioridadJugadorIds
+                ..clear()
+                ..addAll(prioridad);
+              _prioridadFuente = prioridad.isEmpty
+                  ? JugadorPrioritySource.none
+                  : JugadorPrioritySource.convocatoriaConfirmed;
               // Ya hay confirmados: colapsar para no alargar la pantalla.
               _jugadoresExpandido = _asistentes.length <= 6;
               _loading = false;
@@ -224,24 +301,35 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       final historicos = await repos.getSaldosByPartido(widget.partidoId!);
 
       if (completo != null) {
-        _montos[ConceptosCobro.cancha]!.text =
-            formatMoneyField(completo.partido.costoCancha);
-        _montos[ConceptosCobro.pelotas]!.text =
-            formatMoneyField(completo.partido.costoPelotas);
         _notasCtrl.text = completo.partido.notas ?? '';
         _recintoCtrl.text = completo.partido.recinto ?? '';
         _fechaPartido = completo.partido.fecha;
-
-        if (completo.partido.comprobanteCancha != null) {
-          _comprobantesGasto[ConceptosCobro.cancha] =
-              completo.partido.comprobanteCancha;
-        }
-        if (completo.partido.comprobantePelotas != null) {
-          _comprobantesGasto[ConceptosCobro.pelotas] =
-              completo.partido.comprobantePelotas;
-        }
-
         _sportType = completo.partido.sportType;
+
+        if (completo.partido.costoCancha > 0) {
+          _gastosCompartidos.add(
+            SharedExpenseEntry(
+              id: _nuevoExpenseId(),
+              label: ConceptosCobro.cancha,
+              monto: formatMoneyField(completo.partido.costoCancha),
+              iconKey: ExpenseIconKey.court,
+              comprobantePath: completo.partido.comprobanteCancha,
+              repartoEntreTodos: true,
+            ),
+          );
+        }
+        if (completo.partido.costoPelotas > 0) {
+          _gastosCompartidos.add(
+            SharedExpenseEntry(
+              id: _nuevoExpenseId(),
+              label: ConceptosCobro.pelotas,
+              monto: formatMoneyField(completo.partido.costoPelotas),
+              iconKey: ExpenseIconKey.ball,
+              comprobantePath: completo.partido.comprobantePelotas,
+              repartoEntreTodos: true,
+            ),
+          );
+        }
 
         for (final cv in completo.costosVariables) {
           final asigs = completo.asignacionesPorCosto[cv.id] ?? [];
@@ -308,11 +396,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             _habituales = todos.values.toList()
               ..sort((a, b) => a.nombre.compareTo(b.nombre));
             _recintosSugeridos = recintos;
-            if (_gastosCompartidos.isEmpty) {
-              _gastosCompartidos.add(
-                SharedExpenseEntry(id: _nuevoExpenseId()),
-              );
-            }
             _jugadoresExpandido = _asistentes.length <= 6;
             _loading = false;
           });
@@ -326,17 +409,13 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         _habituales = habituales;
         _recintosSugeridos = recintos;
         _sportType = context.readSettings().sport;
-        if (_gastosCompartidos.isEmpty) {
-          _gastosCompartidos.add(
-            SharedExpenseEntry(id: _nuevoExpenseId()),
-          );
-        }
         _loading = false;
       });
     }
   }
 
-  double _monto(String concepto) => parseMoney(_montos[concepto]!.text);
+  double _monto(String concepto) =>
+      GastoPresetLogic.montoPreset(_gastosCompartidos, concepto);
 
   double _saldoAnterior(Jugador j) {
     if (widget.isEditing && _saldosSnapshot.containsKey(j.keyId)) {
@@ -361,9 +440,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     for (final gasto in _gastosCompartidos) {
       final monto = gasto.monto;
       if (monto <= 0) continue;
-      if (ConceptosCobro.esFijo(gasto.label) && _monto(gasto.label) > 0) {
-        continue;
-      }
+      if (GastoPresetLogic.isFixedPreset(gasto.label)) continue;
       final participantes = _participantesRepartoGasto(gasto);
       total += GastoCompartidoLogic.cuotaJugador(
         montoTotal: monto,
@@ -458,9 +535,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
 
   @override
   void dispose() {
-    for (final c in _montos.values) {
-      c.dispose();
-    }
     for (final p in _pagos.values) {
       p.dispose();
     }
@@ -474,6 +548,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     }
     _notasCtrl.dispose();
     _recintoCtrl.dispose();
+    _jugadoresBusquedaCtrl.dispose();
     super.dispose();
   }
 
@@ -581,16 +656,12 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           String? iconKey,
         })>[];
 
-    for (final gasto in _gastosCompartidos) {
-      final monto = gasto.monto;
-      final label = gasto.label;
-      if (monto <= 0 || label.isEmpty) continue;
-      if (ConceptosCobro.esFijo(label) && _monto(label) > 0) continue;
+    for (final gasto in GastoPresetLogic.sharedForVariables(_gastosCompartidos)) {
       final participantes = _participantesRepartoGasto(gasto).toList();
       if (participantes.isEmpty) continue;
       list.add((
-        concepto: label,
-        montoTotal: monto,
+        concepto: gasto.label,
+        montoTotal: gasto.monto,
         jugadores: participantes,
         comprobantePath: gasto.comprobantePath,
         iconKey: gasto.iconKey.dbValue,
@@ -613,31 +684,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     }
 
     return list;
-  }
-
-  void _setComprobanteGasto(String concepto, String? path) {
-    setState(() {
-      if (path == null) {
-        _comprobantesGasto.remove(concepto);
-      } else {
-        _comprobantesGasto[concepto] = path;
-      }
-    });
-  }
-
-  void _limpiarComprobanteGasto(String concepto) {
-    final path = _comprobantesGasto[concepto];
-    if (path != null) {
-      ComprobanteService.instance.delete(path);
-      _comprobantesGasto.remove(concepto);
-    }
-  }
-
-  void _onMontoGastoChanged(String concepto) {
-    if (_monto(concepto) <= 0) {
-      _limpiarComprobanteGasto(concepto);
-    }
-    setState(() {});
   }
 
   void _setTipoPago(String jugadorId, TipoPago tipo) {
@@ -779,6 +825,8 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         _showError(l10n.tr('errorSharedExpenseName'));
         return;
       }
+      // Cancha/Pelotas siempre se reparte entre asistentes (columnas fijas).
+      if (GastoPresetLogic.isFixedPreset(gasto.label)) continue;
       final n = _participantesRepartoGasto(gasto).length;
       if (n == 0) {
         _showError(
@@ -800,12 +848,14 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         costoPelotas: _monto(ConceptosCobro.pelotas),
         recinto: recinto.isEmpty ? null : recinto,
         notas: _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim(),
-        comprobanteCancha: _monto(ConceptosCobro.cancha) > 0
-            ? _comprobantesGasto[ConceptosCobro.cancha]
-            : null,
-        comprobantePelotas: _monto(ConceptosCobro.pelotas) > 0
-            ? _comprobantesGasto[ConceptosCobro.pelotas]
-            : null,
+        comprobanteCancha: GastoPresetLogic.comprobantePreset(
+          _gastosCompartidos,
+          ConceptosCobro.cancha,
+        ),
+        comprobantePelotas: GastoPresetLogic.comprobantePreset(
+          _gastosCompartidos,
+          ConceptosCobro.pelotas,
+        ),
         sportType: sportType,
         createdAt: _createdAtOriginal ?? DateTime.now(),
       );
@@ -903,9 +953,14 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return Scaffold(
+    final themed = context.readSettings().themeForSport(_sportType);
+    return Theme(
+      data: themed,
+      child: Scaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(
+        backgroundColor: themed.colorScheme.primary,
+        foregroundColor: Colors.white,
         title: Text(
           _esOrganizando
               ? l10n.tr('chargeMatchTitle')
@@ -976,6 +1031,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                     _buildSaveBar(),
                   ],
                 ),
+    ),
     );
   }
 
@@ -1178,6 +1234,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     final l10n = context.l10n;
     final nAsistentes = _asistentes.length;
     final totalFijo = _monto(ConceptosCobro.cancha) + _monto(ConceptosCobro.pelotas);
+    final suggestions = GastoSportSuggestions.chipsFor(_sportType);
 
     return Card(
       elevation: 0,
@@ -1192,17 +1249,26 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           children: [
             _buildEncabezadoSeccion(
               titulo: l10n.tr('matchExpensesTitle'),
+              subtitulo: l10n.tr('enterExpensesHint'),
               icono: Icons.receipt_long,
               color: Colors.teal.shade700,
             ),
-            const SizedBox(height: 16),
-            _buildGrupoCobro(
-              titulo: l10n.tr('forWholeGroup'),
-              subtitulo: l10n.tr('allAttendeesPaySame'),
-              icono: Icons.groups,
-              color: const Color(0xFF2E7D32),
-              hijos: ConceptosCobro.fijos.map(_buildTarjetaItemFijo).toList(),
-            ),
+            if (suggestions.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                l10n.tr('expensePresetsHint'),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final s in suggestions)
+                    _buildSuggestionChip(s, l10n),
+                ],
+              ),
+            ],
             if (nAsistentes > 0 && totalFijo > 0) ...[
               const SizedBox(height: 8),
               _buildChipProrrateo(
@@ -1217,7 +1283,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             _buildGrupoCobro(
               titulo: l10n.groupExpensesTitle,
               subtitulo: l10n.groupExpensesSubtitle,
-              icono: Icons.restaurant,
+              icono: Icons.playlist_add_check_rounded,
               color: Colors.deepOrange.shade700,
               hijos: [
                 ..._gastosCompartidos.map(_buildTarjetaGastoCompartido),
@@ -1231,6 +1297,49 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSuggestionChip(
+    GastoSportSuggestion suggestion,
+    MatchPayStrings l10n,
+  ) {
+    final alreadyAdded = switch (suggestion.kind) {
+      GastoSuggestionKind.venue =>
+        GastoPresetLogic.findPreset(_gastosCompartidos, ConceptosCobro.cancha) !=
+            null,
+      GastoSuggestionKind.equipment =>
+        GastoPresetLogic.findPreset(
+              _gastosCompartidos,
+              ConceptosCobro.pelotas,
+            ) !=
+            null,
+      GastoSuggestionKind.freeText => _gastosCompartidos.any(
+          (g) =>
+              g.label.toLowerCase() ==
+              l10n.tr(suggestion.labelKey).toLowerCase(),
+        ),
+    };
+    final color = switch (suggestion.kind) {
+      GastoSuggestionKind.venue => const Color(0xFF2E7D32),
+      GastoSuggestionKind.equipment => Colors.lightGreen.shade800,
+      GastoSuggestionKind.freeText => Colors.deepOrange.shade700,
+    };
+    final avatarIcon = switch (suggestion.kind) {
+      GastoSuggestionKind.venue => sportVenueIcon(_sportType),
+      GastoSuggestionKind.equipment => sportBallsIcon(_sportType),
+      GastoSuggestionKind.freeText => suggestion.icon.icon,
+    };
+
+    return ActionChip(
+      avatar: Icon(
+        avatarIcon,
+        size: 18,
+        color: alreadyAdded ? Colors.grey : color,
+      ),
+      label: Text(l10n.tr(suggestion.labelKey)),
+      onPressed:
+          alreadyAdded ? null : () => _agregarSugerenciaGasto(suggestion),
     );
   }
 
@@ -1366,73 +1475,20 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     );
   }
 
-  ({IconData icon, Color color}) _estiloConcepto(String concepto) {
-    return switch (concepto) {
-      ConceptosCobro.cancha => (
-          icon: sportVenueIcon(_sportType),
-          color: context.sportPrimaryDark,
-        ),
-      ConceptosCobro.pelotas => (
-          icon: sportBallsIcon(_sportType),
-          color: context.sportPrimaryDark,
-        ),
-      ConceptosCobro.asado => (
-          icon: Icons.outdoor_grill,
-          color: Colors.deepOrange.shade700,
-        ),
-      ConceptosCobro.barraSchop => (
-          icon: Icons.local_bar,
-          color: Colors.amber.shade800,
-        ),
-      ConceptosCobro.otros => (
-          icon: Icons.more_horiz,
-          color: Colors.blueGrey.shade700,
-        ),
-      _ => (icon: Icons.payments, color: Colors.grey.shade700),
-    };
-  }
-
-  Widget _buildTarjetaItemFijo(String concepto) {
-    final l10n = context.l10n;
-    final monto = _monto(concepto);
-    final estilo = _estiloConcepto(concepto);
-    final prorrateo = concepto == ConceptosCobro.cancha
-        ? _prorrateoCancha()
-        : _prorrateoPelotas();
-
-    return _buildTarjetaItemBase(
-      concepto: concepto,
-      estilo: estilo,
-      monto: monto,
-      badge: monto > 0 && _asistentes.isNotEmpty
-          ? l10n.tr('perPersonWithCount', params: {
-              'amount': formatMoney(prorrateo),
-              'count': '${_asistentes.length}',
-            })
-          : monto > 0
-              ? l10n.tr('enterAttendeesToCalcPerPerson')
-              : null,
-      badgeColor: estilo.color,
-      extra: monto > 0
-          ? ComprobantePagoTile(
-              comprobantePath: _comprobantesGasto[concepto],
-              onChanged: (path) => _setComprobanteGasto(concepto, path),
-              compact: true,
-            )
-          : null,
-      onMontoChanged: () => _onMontoGastoChanged(concepto),
-    );
-  }
-
   Widget _buildTarjetaGastoCompartido(SharedExpenseEntry entry) {
     final monto = entry.monto;
     final theme = Theme.of(context);
     final color = entry.iconKey.colorFor(theme);
-    final participantes = _participantesRepartoGasto(entry);
+    final esPreset = GastoPresetLogic.isFixedPreset(entry.label);
+    final participantes = esPreset
+        ? _asistentes
+        : _participantesRepartoGasto(entry);
     final asistentesList =
         _habituales.where((j) => _asistentes.contains(j.keyId)).toList();
     final n = participantes.length;
-    final prorrateo = _prorrateoGasto(entry);
+    final prorrateo = esPreset
+        ? (n > 0 ? monto / n : 0.0)
+        : _prorrateoGasto(entry);
     final l10n = context.l10n;
 
     return Container(
@@ -1456,28 +1512,43 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
               children: [
                 ExpenseIconPicker(
                   selected: entry.iconKey,
-                  onSelected: (k) => setState(() => entry.iconKey = k),
+                  onSelected: esPreset
+                      ? null
+                      : (k) => setState(() => entry.iconKey = k),
                 ),
-                if (_gastosCompartidos.length > 1)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, size: 20),
-                    color: Colors.red.shade400,
-                    onPressed: () => _eliminarGastoCompartido(entry),
-                    tooltip: l10n.tr('deleteTooltip'),
-                  ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  color: Colors.red.shade400,
+                  onPressed: () => _eliminarGastoCompartido(entry),
+                  tooltip: l10n.tr('deleteTooltip'),
+                ),
               ],
             ),
             const SizedBox(height: 8),
-            TextField(
-              controller: entry.labelCtrl,
-              decoration: InputDecoration(
-                labelText: l10n.expenseLabelHint,
-                prefixIcon: Icon(entry.iconKey.icon, color: color),
-                border: const OutlineInputBorder(),
-                isDense: true,
+            if (esPreset)
+              InputDecorator(
+                decoration: InputDecoration(
+                  labelText: l10n.tr('expensePresetLabel'),
+                  prefixIcon: Icon(entry.iconKey.icon, color: color),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+                child: Text(
+                  l10n.translateConcept(entry.label),
+                  style: const TextStyle(fontSize: 16),
+                ),
+              )
+            else
+              TextField(
+                controller: entry.labelCtrl,
+                decoration: InputDecoration(
+                  labelText: l10n.expenseLabelHint,
+                  prefixIcon: Icon(entry.iconKey.icon, color: color),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: (_) => setState(() {}),
               ),
-              onChanged: (_) => setState(() {}),
-            ),
             const SizedBox(height: 8),
             TextField(
               controller: entry.montoCtrl,
@@ -1506,15 +1577,28 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  l10n.tr('perPersonParticipants', params: {
-                    'amount': formatMoney(prorrateo),
-                    'count': '$n',
-                  }),
+                  esPreset
+                      ? l10n.tr('perPersonWithCount', params: {
+                          'amount': formatMoney(prorrateo),
+                          'count': '$n',
+                        })
+                      : l10n.tr('perPersonParticipants', params: {
+                          'amount': formatMoney(prorrateo),
+                          'count': '$n',
+                        }),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: color,
                   ),
+                ),
+              ),
+            if (monto > 0 && esPreset && _asistentes.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  l10n.tr('enterAttendeesToCalcPerPerson'),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
               ),
             if (monto > 0) ...[
@@ -1525,7 +1609,9 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                 compact: true,
               ),
             ],
-            if (monto > 0 && _asistentes.isNotEmpty) ...[
+            if (monto > 0 &&
+                _asistentes.isNotEmpty &&
+                !esPreset) ...[
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.all(10),
@@ -1598,130 +1684,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     );
   }
 
-  Widget _buildTarjetaItemBase({
-    required String concepto,
-    required ({IconData icon, Color color}) estilo,
-    required double monto,
-    required VoidCallback onMontoChanged,
-    String? badge,
-    Color? badgeColor,
-    Widget? extra,
-  }) {
-    final l10n = context.l10n;
-    final activo = monto > 0;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: activo
-              ? estilo.color.withValues(alpha: 0.45)
-              : Colors.grey.shade200,
-          width: activo ? 1.5 : 1,
-        ),
-        boxShadow: activo
-            ? [
-                BoxShadow(
-                  color: estilo.color.withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-            decoration: BoxDecoration(
-              color: estilo.color.withValues(alpha: activo ? 0.1 : 0.05),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
-            ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: estilo.color.withValues(alpha: 0.15),
-                  child: Icon(estilo.icon, color: estilo.color, size: 22),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _conceptoLabel(concepto),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: estilo.color,
-                        ),
-                      ),
-                      Text(
-                        _conceptoAyuda(concepto),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade700,
-                          height: 1.25,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: _montos[concepto],
-                  decoration: InputDecoration(
-                    labelText: l10n.tr('totalAmountLabel'),
-                    hintText: '0',
-                    prefixText: '\$ ',
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: estilo.color, width: 2),
-                    ),
-                    isDense: true,
-                  ),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: moneyInputFormatters,
-                  onChanged: (_) => onMontoChanged(),
-                ),
-                if (badge != null) ...[
-                  const SizedBox(height: 8),
-                  _buildChipProrrateo(badge, color: badgeColor ?? estilo.color),
-                ],
-                ?extra,
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
   void _toggleJugadoresExpandido() {
     setState(() => _jugadoresExpandido = !_jugadoresExpandido);
   }
@@ -1741,21 +1703,62 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     });
   }
 
+  void _limpiarAsistentes() {
+    setState(() {
+      for (final id in _asistentes.toList()) {
+        _pagos.remove(id)?.dispose();
+        _eliminarCobrosJugador(id);
+        for (final g in _gastosCompartidos) {
+          g.participantes.remove(id);
+        }
+      }
+      _asistentes.clear();
+    });
+  }
+
+  void _seleccionarJugadoresVisibles(Iterable<Jugador> visibles) {
+    setState(() {
+      for (final j in visibles) {
+        if (_asistentes.add(j.keyId)) {
+          _pagos.putIfAbsent(j.keyId, EstadoPagoJugador.new);
+        }
+      }
+      if (_asistentes.length > 6) _jugadoresExpandido = false;
+    });
+  }
+
   Widget _buildJugadoresPartido() {
     final l10n = context.l10n;
     final color = Colors.indigo.shade700;
-    final jugadoresOrdenados = [..._habituales]
-      ..sort((a, b) {
-        final aAsistio = _asistentes.contains(a.keyId);
-        final bAsistio = _asistentes.contains(b.keyId);
-        if (aAsistio != bAsistio) return aAsistio ? -1 : 1;
-        return a.nombre.compareTo(b.nombre);
-      });
+    final query = _jugadoresBusquedaCtrl.text;
+    final jugadoresOrdenados = sortJugadoresByPriority(
+      jugadores: _habituales,
+      priorityIds: _prioridadJugadorIds,
+      selectedIds: _asistentes,
+    );
+    final jugadoresVisibles = filterJugadoresByName(jugadoresOrdenados, query);
     final seleccionados = jugadoresOrdenados
         .where((j) => _asistentes.contains(j.keyId))
         .toList();
     final nSel = seleccionados.length;
     final nTotal = _habituales.length;
+    final filtroActivo = query.trim().isNotEmpty;
+    final prioridadEnRoster = [
+      for (final j in _habituales)
+        if (_prioridadJugadorIds.contains(j.keyId)) j,
+    ];
+    final prioridadPendiente = [
+      for (final j in prioridadEnRoster)
+        if (!_asistentes.contains(j.keyId)) j,
+    ];
+    final mostrarSecciones =
+        !filtroActivo && _prioridadFuente != JugadorPrioritySource.none;
+    final partes = mostrarSecciones
+        ? splitJugadoresByPriority(
+            ordered: jugadoresVisibles,
+            priorityIds: _prioridadJugadorIds,
+          )
+        : (priority: const <Jugador>[], rest: jugadoresVisibles);
     final conteo = nSel == 0
         ? l10n.tr('playersNoneSelected', params: {'total': '$nTotal'})
         : l10n.tr('playersSelectedCount', params: {
@@ -1797,16 +1800,71 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             if (!_jugadoresExpandido)
               _buildJugadoresColapsado(seleccionados)
             else ...[
-              if (!context.repos.isCloud)
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
+              TextField(
+                controller: _jugadoresBusquedaCtrl,
+                decoration: InputDecoration(
+                  hintText: l10n.tr('playersSearchHint'),
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: query.trim().isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _jugadoresBusquedaCtrl.clear();
+                            setState(() {});
+                          },
+                        ),
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  if (prioridadPendiente.isNotEmpty)
+                    ActionChip(
+                      avatar: const Icon(Icons.history, size: 18),
+                      label: Text(
+                        l10n.tr(
+                          _prioridadFuente ==
+                                  JugadorPrioritySource.convocatoriaConfirmed
+                              ? 'playersSelectPriorityConfirmed'
+                              : 'playersSelectPriority',
+                          params: {'count': '${prioridadPendiente.length}'},
+                        ),
+                      ),
+                      onPressed: () =>
+                          _seleccionarJugadoresVisibles(prioridadPendiente),
+                    ),
+                  if (filtroActivo && jugadoresVisibles.isNotEmpty)
+                    ActionChip(
+                      avatar: const Icon(Icons.playlist_add_check, size: 18),
+                      label: Text(
+                        l10n.tr(
+                          'playersSelectFiltered',
+                          params: {'count': '${jugadoresVisibles.length}'},
+                        ),
+                      ),
+                      onPressed: () =>
+                          _seleccionarJugadoresVisibles(jugadoresVisibles),
+                    )
+                  else if (nTotal <= 20)
                     ActionChip(
                       avatar: const Icon(Icons.group, size: 18),
                       label: Text(l10n.tr('allPlayed')),
                       onPressed: _seleccionarTodosJugaron,
                     ),
+                  ActionChip(
+                    avatar: const Icon(Icons.clear_all, size: 18),
+                    label: Text(l10n.tr('playersClearSelection')),
+                    onPressed: nSel == 0 ? null : _limpiarAsistentes,
+                  ),
+                  if (!context.repos.isCloud) ...[
                     ActionChip(
                       avatar: const Icon(Icons.payments, size: 18),
                       label: Text(l10n.tr('payAllFull')),
@@ -1821,16 +1879,45 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                           : () => _marcarTodosPagados(false),
                     ),
                   ],
+                ],
+              ),
+              if (filtroActivo) ...[
+                const SizedBox(height: 6),
+                Text(
+                  l10n.tr('playersSelectFilteredHint'),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
-              if (!context.repos.isCloud) const SizedBox(height: 8),
-              if (context.repos.isCloud)
-                ActionChip(
-                  avatar: const Icon(Icons.group, size: 18),
-                  label: Text(l10n.tr('allPlayed')),
-                  onPressed: _seleccionarTodosJugaron,
-                ),
-              if (context.repos.isCloud) const SizedBox(height: 8),
-              ...jugadoresOrdenados.map((j) => _buildFilaJugador(j)),
+              ],
+              const SizedBox(height: 8),
+              if (jugadoresVisibles.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    l10n.tr('playersNoneSelected', params: {'total': '0'}),
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                )
+              else if (mostrarSecciones) ...[
+                if (partes.priority.isNotEmpty) ...[
+                  _buildJugadoresSeccionTitulo(
+                    _prioridadFuente ==
+                            JugadorPrioritySource.convocatoriaConfirmed
+                        ? l10n.tr('playersPriorityConfirmed')
+                        : l10n.tr('playersPriorityLastMatch'),
+                    color,
+                  ),
+                  ...partes.priority.map((j) => _buildFilaJugador(j)),
+                ],
+                if (partes.rest.isNotEmpty) ...[
+                  if (partes.priority.isNotEmpty)
+                    _buildJugadoresSeccionTitulo(
+                      l10n.tr('playersPriorityRest'),
+                      Colors.grey.shade700,
+                    ),
+                  ...partes.rest.map((j) => _buildFilaJugador(j)),
+                ],
+              ] else
+                ...jugadoresVisibles.map((j) => _buildFilaJugador(j)),
               if (nTotal > 6) ...[
                 const SizedBox(height: 4),
                 Center(
@@ -1844,6 +1931,21 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
               ],
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJugadoresSeccionTitulo(String titulo, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 6),
+      child: Text(
+        titulo,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: color,
+          letterSpacing: 0.2,
         ),
       ),
     );
@@ -2470,27 +2572,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         ),
       ),
     );
-  }
-
-  String _conceptoLabel(String concepto) {
-    final l10n = context.l10n;
-    return switch (concepto) {
-      ConceptosCobro.cancha => l10n.tr('courtLabel'),
-      ConceptosCobro.pelotas => l10n.ballsLabel,
-      _ => concepto,
-    };
-  }
-
-  String _conceptoAyuda(String concepto) {
-    final l10n = context.l10n;
-    return switch (concepto) {
-      ConceptosCobro.cancha => l10n.tr('conceptHelpCancha'),
-      ConceptosCobro.pelotas => l10n.tr('conceptHelpPelotas'),
-      ConceptosCobro.asado => l10n.tr('conceptHelpAsado'),
-      ConceptosCobro.barraSchop => l10n.tr('conceptHelpBarra'),
-      ConceptosCobro.otros => l10n.tr('conceptHelpOtros'),
-      _ => l10n.tr('conceptHelpDefault'),
-    };
   }
 
   List<String> _extraSuggestions() {

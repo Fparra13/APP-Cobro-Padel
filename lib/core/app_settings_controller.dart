@@ -5,6 +5,7 @@ import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/supabase_config.dart';
 import '../core/supabase_helpers.dart';
+import 'country_sport_catalog.dart';
 import 'currency_config.dart';
 import 'sport_theme.dart';
 import 'sport_type.dart';
@@ -22,7 +23,7 @@ enum AppUiMode {
   String get storageValue => name;
 }
 
-/// Preferencias globales de MatchPay: deporte, idioma, moneda y modo de UI.
+/// Preferencias globales de Kloovi: deporte, idioma, moneda y modo de UI.
 class AppSettingsController extends ChangeNotifier {
   static const _keySport = 'matchpay_sport';
   static const _keySportOnboarded = 'matchpay_sport_onboarded';
@@ -30,11 +31,13 @@ class AppSettingsController extends ChangeNotifier {
   static const _keyLocale = 'matchpay_locale';
   static const localePrefsKey = _keyLocale;
   static const _keyCurrency = 'matchpay_currency';
+  static const _keyCountry = 'matchpay_country';
   static const _keyUiMode = 'matchpay_ui_mode';
 
   SportType _sport = SportType.padel;
   Locale _locale = const Locale('en');
   String _currencyCode = CurrencyConfig.defaultCode;
+  String _countryCode = CountrySportCatalog.defaultCountryCode;
   AppUiMode _uiMode = AppUiMode.organizer;
   bool _loaded = false;
   bool _sportOnboardingComplete = false;
@@ -43,6 +46,10 @@ class AppSettingsController extends ChangeNotifier {
   SportType get sport => _sport;
   Locale get locale => _locale;
   String get currencyCode => _currencyCode;
+  String get countryCode => _countryCode;
+  MatchPayCountry get country => CountrySportCatalog.optionFor(_countryCode);
+  List<SportType> get featuredSports =>
+      CountrySportCatalog.featuredFor(_countryCode);
   AppUiMode get uiMode => _uiMode;
   bool get isLoaded => _loaded;
   bool get sportOnboardingComplete => _sportOnboardingComplete;
@@ -84,6 +91,16 @@ class AppSettingsController extends ChangeNotifier {
       _currencyCode = resolveCurrencyForLocale(_locale);
       await prefs.setString(_keyCurrency, _currencyCode);
     }
+    final hadCountrySaved = prefs.containsKey(_keyCountry);
+    if (hadCountrySaved) {
+      _countryCode = CountrySportCatalog.optionFor(prefs.getString(_keyCountry)).code;
+    } else {
+      _countryCode = CountrySportCatalog.resolveFromLocale(
+        _locale,
+        currencyCode: _currencyCode,
+      );
+      await prefs.setString(_keyCountry, _countryCode);
+    }
     _uiMode = AppUiMode.fromStorage(prefs.getString(_keyUiMode));
     _loaded = true;
     notifyListeners();
@@ -115,7 +132,7 @@ class AppSettingsController extends ChangeNotifier {
     await prefs.setString(_keyUiMode, mode.storageValue);
   }
 
-  /// Idioma del sistema mapeado a un locale soportado por MatchPay.
+  /// Idioma del sistema mapeado a un locale soportado por Kloovi.
   ///
   /// En el primer arranque (sin preferencia guardada) usa la lista de idiomas
   /// del dispositivo (`platformDispatcher.locales`), igual que el onboarding.
@@ -162,6 +179,8 @@ class AppSettingsController extends ChangeNotifier {
         return 'COP';
       case 'PE':
         return 'PEN';
+      case 'UY':
+        return 'UYU';
       case 'BR':
         return 'BRL';
       case 'US':
@@ -301,6 +320,15 @@ class AppSettingsController extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyCurrency, code);
+  }
+
+  Future<void> setCountry(String code) async {
+    final normalized = CountrySportCatalog.optionFor(code).code;
+    if (_countryCode == normalized) return;
+    _countryCode = normalized;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyCountry, normalized);
   }
 
   /// Tema temporal para un partido con deporte distinto al global.

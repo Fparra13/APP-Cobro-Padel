@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "MatchPay" "\0"
-            VALUE "FileDescription", "MatchPay" "\0"
+            VALUE "CompanyName", "Kloovi" "\0"
+            VALUE "FileDescription", "Kloovi" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "matchpay" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 MatchPay. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Kloovi. All rights reserved." "\0"
             VALUE "OriginalFilename", "matchpay.exe" "\0"
-            VALUE "ProductName", "MatchPay" "\0"
+            VALUE "ProductName", "Kloovi" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

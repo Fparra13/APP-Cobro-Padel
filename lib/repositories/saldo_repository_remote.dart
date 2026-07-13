@@ -6,7 +6,7 @@ class SaldoRepositoryRemote {
   final _client = SupabaseHelpers.client;
 
   Future<List<SaldoHistorico>> getByPartido(int partidoId) async {
-    return SupabaseHelpers.guard('Historial saldo partido', () async {
+    return SupabaseHelpers.guard('Historial saldo encuentro', () async {
       final rows = await _client
           .from('saldos_historicos')
           .select('*, profiles:jugador_id(nombre)')

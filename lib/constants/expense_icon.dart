@@ -21,17 +21,32 @@ enum ExpenseIconKey {
 
   static IconData courtIconFor(SportType sport) => switch (sport) {
         SportType.football => Icons.stadium_outlined,
-        SportType.padel => Icons.sports_tennis,
-        SportType.tennis => Icons.sports_tennis,
-        SportType.general => Icons.stadium_outlined,
+        SportType.padel ||
+        SportType.tennis ||
+        SportType.beachTennis ||
+        SportType.pickleball =>
+          Icons.sports_tennis,
+        SportType.futevolei || SportType.volleyball => Icons.sports_volleyball,
+        SportType.golf => Icons.golf_course,
+        SportType.swimming => Icons.pool,
+        SportType.climbing || SportType.trekking => Icons.terrain,
+        _ => Icons.stadium_outlined,
       };
 
   /// Pelotas / equipamiento según deporte.
   static IconData ballsIconFor(SportType sport) => switch (sport) {
-        SportType.football => Icons.sports_soccer,
-        SportType.padel => Icons.sports_baseball,
-        SportType.tennis => Icons.sports_baseball,
-        SportType.general => Icons.sports_baseball,
+        SportType.football || SportType.futevolei => Icons.sports_soccer,
+        SportType.basketball => Icons.sports_basketball,
+        SportType.volleyball => Icons.sports_volleyball,
+        SportType.baseball => Icons.sports_baseball,
+        SportType.padel ||
+        SportType.tennis ||
+        SportType.beachTennis ||
+        SportType.pickleball ||
+        SportType.tableTennis ||
+        SportType.badminton =>
+          Icons.sports_baseball,
+        _ => Icons.sports_baseball,
       };
 
   static ExpenseIconKey fromDb(String? value) {

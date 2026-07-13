@@ -5,14 +5,15 @@ import '../constants/expense_icon.dart';
 /// Selector de icono para gastos compartidos.
 class ExpenseIconPicker extends StatelessWidget {
   final ExpenseIconKey selected;
-  final ValueChanged<ExpenseIconKey> onSelected;
+  final ValueChanged<ExpenseIconKey>? onSelected;
   final List<ExpenseIconKey> options;
 
   const ExpenseIconPicker({
     super.key,
     required this.selected,
-    required this.onSelected,
+    this.onSelected,
     this.options = const [
+      ExpenseIconKey.court,
       ExpenseIconKey.meat,
       ExpenseIconKey.drink,
       ExpenseIconKey.ball,
@@ -23,6 +24,7 @@ class ExpenseIconPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final enabled = onSelected != null;
     return Row(
       children: options.map((key) {
         final isSelected = key == selected;
@@ -31,11 +33,11 @@ class ExpenseIconPicker extends StatelessWidget {
           padding: const EdgeInsets.only(right: 8),
           child: Material(
             color: isSelected
-                ? color.withValues(alpha: 0.15)
+                ? color.withValues(alpha: enabled ? 0.15 : 0.08)
                 : Colors.grey.shade100,
             borderRadius: BorderRadius.circular(12),
             child: InkWell(
-              onTap: () => onSelected(key),
+              onTap: enabled ? () => onSelected!(key) : null,
               borderRadius: BorderRadius.circular(12),
               child: Container(
                 width: 44,
@@ -47,7 +49,11 @@ class ExpenseIconPicker extends StatelessWidget {
                     width: 2,
                   ),
                 ),
-                child: Icon(key.icon, color: color, size: 22),
+                child: Icon(
+                  key.icon,
+                  color: enabled ? color : color.withValues(alpha: 0.55),
+                  size: 22,
+                ),
               ),
             ),
           ),

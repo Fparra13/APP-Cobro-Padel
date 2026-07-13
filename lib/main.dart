@@ -102,6 +102,7 @@ void _syncMoneyFormat(AppSettingsController settings) {
   final currency = settings.currency;
   MoneyFormatConfig.locale = currency.locale;
   MoneyFormatConfig.symbol = currency.symbol;
+  MoneyFormatConfig.decimalDigits = currency.decimalDigits;
   MoneyFormatConfig.dateLocale = settings.locale.languageCode;
 }
 
@@ -118,7 +119,7 @@ class MatchPayApp extends StatelessWidget {
     return MaterialApp(
       navigatorKey: navigatorKey,
       scaffoldMessengerKey: _scaffoldMessengerKey,
-      title: 'MatchPay',
+      title: 'Kloovi',
       debugShowCheckedModeBanner: false,
       locale: settings.locale,
       supportedLocales: AppSettingsController.supportedLocales,
@@ -417,7 +418,6 @@ class _OrganizerShellState extends State<OrganizerShell>
     () => const OrganizerCobrosScreen(),
     () => const JugadoresScreen(),
     () => const HistorialPartidosScreen(),
-    () => const BackupScreen(),
     () => const ConfiguracionScreen(),
   ];
 
@@ -488,7 +488,18 @@ class _OrganizerShellState extends State<OrganizerShell>
     final l10n = context.l10n;
     final palette = context.sportPalette;
     final settings = context.watchSettings();
-    final cacheKey = settings.sport.dbValue;
+    final cacheKey = settings.locale.languageCode;
+    // Evita pantalla en blanco si el índice quedó fuera de rango
+    // (p. ej. tras reducir pestañas con hot reload).
+    final maxIndex = _screenBuilders.length - 1;
+    if (_index > maxIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _index > maxIndex) {
+          setState(() => _index = maxIndex.clamp(0, maxIndex));
+        }
+      });
+    }
+    final safeIndex = _index.clamp(0, maxIndex);
 
     Widget misCobrosIcon({required bool selected}) {
       final icon = Icon(
@@ -507,7 +518,7 @@ class _OrganizerShellState extends State<OrganizerShell>
             child: NavShellScope(
               bottomInset: 72,
               child: LazyIndexedStack(
-                index: _index,
+                index: safeIndex,
                 cacheKey: cacheKey,
                 itemBuilders: _screenBuilders,
               ),
@@ -547,9 +558,9 @@ class _OrganizerShellState extends State<OrganizerShell>
             border: Border(top: BorderSide(color: Color(0xFFE8E6E1))),
           ),
           child: NavigationBar(
-            selectedIndex: _index,
+            selectedIndex: safeIndex,
             onDestinationSelected: (i) {
-              if (i == _index) return;
+              if (i == safeIndex) return;
               setState(() => _index = i);
               if (i == 1) unawaited(_refreshMisCobrosCount());
             },
@@ -574,11 +585,6 @@ class _OrganizerShellState extends State<OrganizerShell>
                 icon: const Icon(Icons.history),
                 selectedIcon: Icon(Icons.history, color: palette.primary),
                 label: l10n.navHistory,
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.cloud_outlined),
-                selectedIcon: Icon(Icons.cloud, color: palette.primary),
-                label: l10n.navCloud,
               ),
               NavigationDestination(
                 icon: const Icon(Icons.settings_outlined),
@@ -693,8 +699,17 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final settings = context.watchSettings();
-    final cacheKey = settings.sport.dbValue;
+    final cacheKey = settings.locale.languageCode;
     final palette = context.sportPalette;
+    final maxIndex = _screenBuilders.length - 1;
+    if (_index > maxIndex) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _index > maxIndex) {
+          setState(() => _index = maxIndex.clamp(0, maxIndex));
+        }
+      });
+    }
+    final safeIndex = _index.clamp(0, maxIndex);
 
     Widget homeIcon({required bool selected}) {
       final icon = Icon(
@@ -717,7 +732,7 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
             child: NavShellScope(
               bottomInset: 72,
               child: LazyIndexedStack(
-                index: _index,
+                index: safeIndex,
                 cacheKey: cacheKey,
                 itemBuilders: _screenBuilders,
               ),
@@ -757,9 +772,9 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
             border: Border(top: BorderSide(color: Color(0xFFE8E6E1))),
           ),
           child: NavigationBar(
-            selectedIndex: _index,
+            selectedIndex: safeIndex,
             onDestinationSelected: (i) async {
-              if (i == _index) return;
+              if (i == safeIndex) return;
               setState(() => _index = i);
               if (i == 0) await _refreshPendientes();
             },

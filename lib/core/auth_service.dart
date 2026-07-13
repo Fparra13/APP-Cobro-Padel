@@ -1,11 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/fcm_service.dart';
 import '../offline/offline_snapshot_store.dart';
+import 'subscription_service.dart';
 import 'supabase_config.dart';
+
+/// Usuario cerró el sheet de Google sin completar.
+class GoogleSignInCancelledException implements Exception {
+  const GoogleSignInCancelledException();
+}
 
 class AuthService {
   AuthService._();
@@ -27,6 +34,8 @@ class AuthService {
   bool get isLoggedIn => currentUser != null;
 
   String? _profileRole;
+  bool _accesoIlimitado = false;
+  String? _profileEmail;
 
   static bool isOrganizerRole(String? role) =>
       role == 'organizer' || role == 'organizador';
@@ -35,6 +44,11 @@ class AuthService {
   bool get isOrganizer => isOrganizerRole(_profileRole);
 
   String? get profileRole => _profileRole;
+
+  /// Founder/staff: sin trial ni paywall (columna `acceso_ilimitado`).
+  bool get hasUnlimitedAccess => _accesoIlimitado;
+
+  String? get profileEmail => _profileEmail;
 
   /// Jugador se convierte en organizador (misma cuenta; habilita crear partidos).
   Future<void> becomeOrganizer() async {
@@ -47,30 +61,64 @@ class AuthService {
     _profileRole = 'organizer';
   }
 
-  /// Recarga rol desde `profiles`. Devuelve true si la lectura a BD fue exitosa.
+  /// Recarga rol y entitlements desde `profiles`.
+  /// Devuelve true si la lectura a BD fue exitosa.
   Future<bool> refreshProfile() async {
     final client = _client;
     final uid = currentUser?.id;
     if (client == null || uid == null) {
       _profileRole = null;
+      _accesoIlimitado = false;
+      _profileEmail = null;
+      SubscriptionService.instance.clearProfileEntitlements();
       return false;
     }
+    final authEmail = currentUser?.email?.trim().toLowerCase();
     try {
-      final row = await client
-          .from('profiles')
-          .select('role')
-          .eq('id', uid)
-          .maybeSingle();
+      Map<String, dynamic>? row;
+      try {
+        row = await client
+            .from('profiles')
+            .select('role, email, acceso_ilimitado')
+            .eq('id', uid)
+            .maybeSingle();
+      } catch (_) {
+        // Migración 047 aún no aplicada.
+        row = await client
+            .from('profiles')
+            .select('role, email')
+            .eq('id', uid)
+            .maybeSingle();
+      }
       if (row != null) {
         _profileRole = row['role'] as String? ?? 'jugador';
+        _accesoIlimitado = row['acceso_ilimitado'] == true;
+        final rowEmail = (row['email'] as String?)?.trim().toLowerCase();
+        _profileEmail =
+            (rowEmail != null && rowEmail.isNotEmpty) ? rowEmail : authEmail;
+        SubscriptionService.instance.syncFromProfile(
+          accesoIlimitado: _accesoIlimitado,
+          email: _profileEmail,
+        );
         return true;
       }
       // Sin fila en profiles: no inferir organizador desde metadata de auth.
       _profileRole = 'jugador';
+      _accesoIlimitado = false;
+      _profileEmail = authEmail;
+      SubscriptionService.instance.syncFromProfile(
+        accesoIlimitado: false,
+        email: _profileEmail,
+      );
       return false;
     } catch (_) {
       // Mantener rol previo si ya se cargó; si no, asumir jugador (nunca organizer).
       _profileRole ??= 'jugador';
+      _profileEmail ??= authEmail;
+      SubscriptionService.instance.syncFromProfile(
+        accesoIlimitado: _accesoIlimitado,
+        email: _profileEmail,
+      );
       return false;
     }
   }
@@ -140,14 +188,129 @@ class AuthService {
     }
   }
 
+  bool _googleInitialized = false;
+
+  Future<void> _ensureGoogleInitialized() async {
+    if (_googleInitialized) return;
+    if (!SupabaseConfig.isGoogleSignInConfigured) {
+      throw Exception(
+        'Google Sign-In no configurado. Define GOOGLE_WEB_CLIENT_ID '
+        '(y GOOGLE_IOS_CLIENT_ID en iOS).',
+      );
+    }
+    await GoogleSignIn.instance.initialize(
+      serverClientId: SupabaseConfig.googleWebClientId,
+      clientId: defaultTargetPlatform == TargetPlatform.iOS &&
+              SupabaseConfig.googleIosClientId.isNotEmpty
+          ? SupabaseConfig.googleIosClientId
+          : null,
+    );
+    _googleInitialized = true;
+  }
+
+  /// Login nativo con Google → sesión Supabase vía ID token.
+  Future<void> signInWithGoogle() async {
+    final client = _client;
+    if (client == null) {
+      throw Exception(
+        'Supabase no configurado. Define SUPABASE_URL y SUPABASE_ANON_KEY.',
+      );
+    }
+
+    try {
+      await _ensureGoogleInitialized();
+      const scopes = ['email', 'profile'];
+      final googleUser = await GoogleSignIn.instance.authenticate(
+        scopeHint: scopes,
+      );
+
+      final authorization =
+          await googleUser.authorizationClient.authorizationForScopes(scopes) ??
+              await googleUser.authorizationClient.authorizeScopes(scopes);
+
+      final idToken = googleUser.authentication.idToken;
+      if (idToken == null) {
+        throw Exception('No se recibió ID token de Google. Revisa la config OAuth.');
+      }
+
+      await client.auth
+          .signInWithIdToken(
+            provider: OAuthProvider.google,
+            idToken: idToken,
+            accessToken: authorization.accessToken,
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw Exception(
+              'Sin respuesta del servidor. Revisa tu conexión e intenta de nuevo.',
+            ),
+          );
+
+      await refreshProfile();
+      await _syncNombreDesdeGoogle(googleUser.displayName);
+    } on GoogleSignInCancelledException {
+      rethrow;
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled ||
+          e.code == GoogleSignInExceptionCode.interrupted) {
+        throw const GoogleSignInCancelledException();
+      }
+      throw Exception(mapGoogleSignInError(e));
+    } on AuthException catch (e) {
+      throw Exception(mapAuthError(e));
+    }
+  }
+
+  /// Si el perfil quedó genérico, usa el nombre de la cuenta Google.
+  Future<void> _syncNombreDesdeGoogle(String? displayName) async {
+    final trimmed = displayName?.trim();
+    if (trimmed == null || trimmed.isEmpty) return;
+    final client = _client;
+    final uid = currentUser?.id;
+    if (client == null || uid == null) return;
+    try {
+      final row = await client
+          .from('profiles')
+          .select('nombre')
+          .eq('id', uid)
+          .maybeSingle();
+      final actual = (row?['nombre'] as String?)?.trim() ?? '';
+      final emailLocal =
+          (currentUser?.email ?? '').split('@').first.trim().toLowerCase();
+      final esGenerico = actual.isEmpty ||
+          actual.toLowerCase() == 'sin nombre' ||
+          (emailLocal.isNotEmpty && actual.toLowerCase() == emailLocal);
+      if (esGenerico) {
+        await client.from('profiles').update({'nombre': trimmed}).eq('id', uid);
+      }
+    } catch (e) {
+      debugPrint('AuthService._syncNombreDesdeGoogle: $e');
+    }
+  }
+
+  static String mapGoogleSignInError(GoogleSignInException e) {
+    switch (e.code) {
+      case GoogleSignInExceptionCode.clientConfigurationError:
+        return 'Google Sign-In mal configurado. Revisa Client IDs y SHA-1.';
+      case GoogleSignInExceptionCode.providerConfigurationError:
+        return 'Google Sign-In no está disponible en este dispositivo.';
+      case GoogleSignInExceptionCode.uiUnavailable:
+        return 'No se pudo mostrar el selector de cuenta Google.';
+      default:
+        final desc = e.description?.trim();
+        if (desc != null && desc.isNotEmpty) return desc;
+        return 'No se pudo iniciar sesión con Google. Intenta de nuevo.';
+    }
+  }
+
   /// Mensajes legibles para errores de Supabase Auth.
   static String mapAuthError(AuthException e) {
     final code = e.code ?? '';
     final status = e.statusCode;
     final msg = e.message.trim();
     if (code == 'over_email_send_rate_limit' ||
-        status == 429 ||
-        status == '429') {
+        status == '429' ||
+        '$status' == '429') {
       return 'Demasiados intentos de envío. Espera unos minutos (hasta 1 hora) '
           'y vuelve a intentar, o revisa si ya tienes un enlace en tu correo '
           'o carpeta de spam.';
@@ -164,6 +327,10 @@ class AuthService {
           'Si el organizador ya te registró en la lista de jugadores, '
           'pide que ejecute la actualización SQL 016 en Supabase e intenta de nuevo. '
           'Si persiste, prueba con el mismo email en unos minutos.';
+    }
+    if (msg.toLowerCase().contains('provider is not enabled') ||
+        msg.toLowerCase().contains('unsupported provider')) {
+      return 'Google no está habilitado en Supabase. Actívalo en Authentication → Providers.';
     }
     if (msg.isNotEmpty) return msg;
     return 'No se pudo enviar el enlace. Intenta de nuevo más tarde.';
@@ -186,6 +353,13 @@ class AuthService {
   Future<void> signOut() async {
     final uid = currentUser?.id;
     await FcmService.instance.clearTokenOnLogout();
+    if (_googleInitialized) {
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (e) {
+        debugPrint('AuthService.signOut Google: $e');
+      }
+    }
     await _client?.auth.signOut();
     if (uid != null) {
       await OfflineSnapshotStore.clearForUser(uid);
