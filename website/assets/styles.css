@@ -85,19 +85,10 @@ img {
 .brand-wordmark {
   height: 28px;
   width: auto;
-  /* Header is dark; wrap handled via panel when needed */
-}
-
-.brand-wordmark-wrap {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.28rem 0.55rem;
-  border-radius: 10px;
-  background: #fff;
 }
 
 .brand .brand-wordmark {
-  height: 22px;
+  height: 26px;
 }
 
 .brand-word span {
@@ -171,13 +162,9 @@ img {
 
 .hero-wordmark {
   display: block;
-  width: min(300px, 78vw);
+  width: min(320px, 82vw);
   height: auto;
   margin: 0 0 1.15rem;
-  padding: 0.85rem 1.1rem;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
   animation: rise 0.7s ease both;
   animation-delay: 0.05s;
 }
