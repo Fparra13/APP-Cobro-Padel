@@ -1,16 +1,16 @@
-/* Kloovi marketing site — court night + lime pulse */
+/* Kloovi marketing — navy court + teal infinity brand */
 :root {
   --ink: #0b1220;
   --ink-soft: #1a2438;
   --muted: #8b97ad;
   --paper: #f4f7fb;
   --line: rgba(255, 255, 255, 0.12);
-  --lime: #c8f542;
-  --lime-deep: #9fd40f;
-  --sky: #6ec8ff;
-  --grad-a: #0b1220;
-  --grad-b: #12263f;
-  --grad-c: #0f3d3a;
+  --lime: #2ec4b6;
+  --lime-deep: #1aa89b;
+  --sky: #5fd4ff;
+  --grad-a: #071018;
+  --grad-b: #0c2430;
+  --grad-c: #0a3d3a;
   --radius: 18px;
   --max: 720px;
   --wide: 1080px;
@@ -44,7 +44,7 @@ a {
 }
 
 a:hover {
-  color: #e4ff8a;
+  color: #7ef0e4;
 }
 
 img {
@@ -80,6 +80,24 @@ img {
   height: 40px;
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.brand-wordmark {
+  height: 28px;
+  width: auto;
+  /* Header is dark; wrap handled via panel when needed */
+}
+
+.brand-wordmark-wrap {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.55rem;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.brand .brand-wordmark {
+  height: 22px;
 }
 
 .brand-word span {
@@ -144,11 +162,24 @@ img {
   width: clamp(88px, 18vw, 128px);
   height: auto;
   border-radius: 28px;
-  margin-bottom: 1.15rem;
+  margin-bottom: 1rem;
   box-shadow:
     0 18px 50px rgba(0, 0, 0, 0.45),
     0 0 0 1px rgba(255, 255, 255, 0.08);
   animation: rise 0.7s ease both;
+}
+
+.hero-wordmark {
+  display: block;
+  width: min(300px, 78vw);
+  height: auto;
+  margin: 0 0 1.15rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  animation: rise 0.7s ease both;
+  animation-delay: 0.05s;
 }
 
 .eyebrow {

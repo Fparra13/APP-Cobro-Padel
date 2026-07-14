@@ -2,7 +2,7 @@
 window.KLOOVI_LOCALES = {
   es: {
     htmlLang: "es",
-    metaTitleHome: "Kloovi — Conecta. Juega. Comparte.",
+    metaTitleHome: "Kloovi — Organiza. Juega. Conecta.",
     metaDescHome:
       "Kloovi ayuda a organizar encuentros y registrar aportes del grupo. No es una app financiera: no recibe ni procesa pagos.",
     metaTitlePrivacy: "Política de Privacidad — Kloovi",
@@ -12,10 +12,10 @@ window.KLOOVI_LOCALES = {
     metaDescTerms:
       "Términos de uso de Kloovi. No somos una app financiera: no recibimos ni procesamos pagos.",
     heroLead:
-      "Conecta. Juega. Comparte. Organiza el encuentro y lleva el registro de aportes del grupo sin drama.",
+      "Organiza el encuentro y lleva el registro de aportes del grupo sin drama.",
     ctaHow: "Ver cómo funciona",
     ctaPrivacy: "Política de privacidad",
-    eyebrow: "App multideporte",
+    eyebrow: "Organiza · Juega · Conecta",
     playSoon: "Pronto",
     playBadgeAlt: "Consíguela en Google Play",
     downloadTitle: "Consíguela en Google Play",
@@ -207,7 +207,7 @@ window.KLOOVI_LOCALES = {
 
   en: {
     htmlLang: "en",
-    metaTitleHome: "Kloovi — Connect. Play. Share.",
+    metaTitleHome: "Kloovi — Organize. Play. Connect.",
     metaDescHome:
       "Kloovi helps organize gatherings and track group contributions. Not a financial app: we do not receive or process payments.",
     metaTitlePrivacy: "Privacy Policy — Kloovi",
@@ -217,10 +217,10 @@ window.KLOOVI_LOCALES = {
     metaDescTerms:
       "Kloovi terms of use. Not a financial app: we do not receive or process payments.",
     heroLead:
-      "Connect. Play. Share. Organize the gathering and track group contributions without the chaos.",
+      "Organize the gathering and track group contributions without the chaos.",
     ctaHow: "See how it works",
     ctaPrivacy: "Privacy policy",
-    eyebrow: "Multi-sport app",
+    eyebrow: "Organize · Play · Connect",
     playSoon: "Soon",
     playBadgeAlt: "Get it on Google Play",
     downloadTitle: "Get it on Google Play",
@@ -410,7 +410,7 @@ window.KLOOVI_LOCALES = {
 
   pt: {
     htmlLang: "pt",
-    metaTitleHome: "Kloovi — Conecta. Joga. Comparte.",
+    metaTitleHome: "Kloovi — Organiza. Joga. Conecta.",
     metaDescHome:
       "Kloovi ajuda a organizar encontros e registrar contribuições do grupo. Não é um app financeiro: não recebe nem processa pagamentos.",
     metaTitlePrivacy: "Política de Privacidade — Kloovi",
@@ -420,10 +420,10 @@ window.KLOOVI_LOCALES = {
     metaDescTerms:
       "Termos de uso da Kloovi. Não somos um app financeiro: não recebemos nem processamos pagamentos.",
     heroLead:
-      "Conecta. Joga. Comparte. Organize o encontro e acompanhe o registro de contribuições do grupo sem estresse.",
+      "Organize o encontro e acompanhe o registro de contribuições do grupo sem estresse.",
     ctaHow: "Ver como funciona",
     ctaPrivacy: "Política de privacidade",
-    eyebrow: "App multiesporte",
+    eyebrow: "Organiza · Joga · Conecta",
     playSoon: "Em breve",
     playBadgeAlt: "Disponível no Google Play",
     downloadTitle: "Disponível no Google Play",
