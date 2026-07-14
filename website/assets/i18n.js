@@ -62,6 +62,12 @@
       fill(el, dict[key]);
     });
 
+    document.querySelectorAll("[data-i18n-alt]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-alt");
+      const value = dict[key];
+      if (typeof value === "string") el.setAttribute("alt", value);
+    });
+
     document.querySelectorAll("[data-i18n-mailto]").forEach((el) => {
       el.setAttribute("href", "mailto:hello@kloovi.app");
       if (!el.getAttribute("data-i18n")) {

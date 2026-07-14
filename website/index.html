@@ -6,9 +6,11 @@
     <title>Kloovi — Conecta. Juega. Comparte.</title>
     <meta
       name="description"
-      content="Kloovi ayuda a organizar partidos y administrar cobros del grupo. No es una app financiera: no recibe ni procesa pagos."
+      content="Kloovi ayuda a organizar encuentros y registrar aportes del grupo. No es una app financiera: no recibe ni procesa pagos."
     />
     <meta name="theme-color" content="#0b1220" />
+    <link rel="icon" type="image/png" href="/assets/brand/favicon.png" />
+    <link rel="apple-touch-icon" href="/assets/brand/logo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,7 +21,10 @@
   </head>
   <body data-page="home">
     <header class="site-header">
-      <a class="brand" href="/">Kloovi<span>.</span></a>
+      <a class="brand" href="/" aria-label="Kloovi">
+        <img class="brand-mark" src="/assets/brand/logo.png" width="40" height="40" alt="" />
+        <span class="brand-word">Kloovi<span>.</span></span>
+      </a>
       <nav class="nav" aria-label="Principal">
         <a href="#como" data-i18n="navHow">Cómo funciona</a>
         <a href="/privacy" data-i18n="navPrivacy">Privacidad</a>
@@ -31,16 +36,38 @@
     <main>
       <section class="hero" aria-label="Portada">
         <div class="hero-inner">
+          <img
+            class="hero-logo"
+            src="/assets/brand/logo.png"
+            width="128"
+            height="128"
+            alt="Kloovi"
+          />
+          <p class="eyebrow" data-i18n="eyebrow">App multideporte</p>
           <h1>Kloovi<em>.</em></h1>
           <p class="hero-lead" data-i18n="heroLead">
-            Conecta. Juega. Comparte. Organiza el partido y lleva los cobros del grupo sin drama.
+            Conecta. Juega. Comparte. Organiza el encuentro y lleva el registro de aportes del grupo sin drama.
           </p>
           <div class="cta-row">
-            <a class="btn btn-primary" href="#como" data-i18n="ctaHow">Ver cómo funciona</a>
-            <a class="btn btn-ghost" href="/privacy" data-i18n="ctaPrivacy">Política de privacidad</a>
+            <a
+              class="store-badge soon"
+              href="#descargar"
+              id="play-badge"
+              aria-disabled="true"
+            >
+              <img
+                src="/assets/brand/google-play-badge.svg"
+                width="180"
+                height="54"
+                alt="Google Play"
+                data-i18n-alt="playBadgeAlt"
+              />
+              <span class="soon-pill" data-i18n="playSoon">Pronto</span>
+            </a>
+            <a class="btn btn-ghost" href="#como" data-i18n="ctaHow">Ver cómo funciona</a>
           </div>
           <p class="hero-note" data-i18n="heroNote">
-            Disponible pronto en Google Play. Kloovi no recibe dinero ni procesa pagos: solo te ayuda a administrar comprobantes y saldos del grupo.
+            Disponible pronto en Google Play. Kloovi no recibe dinero ni procesa pagos: solo te ayuda a registrar comprobantes y saldos del grupo.
           </p>
         </div>
       </section>
@@ -59,9 +86,9 @@
               </p>
             </article>
             <article class="point">
-              <strong data-i18n="point2Title">Administra cobros</strong>
+              <strong data-i18n="point2Title">Registra aportes</strong>
               <p data-i18n="point2Body">
-                Registra quién pagó, guarda comprobantes (fotos) y lleva saldos del grupo dentro de la app.
+                Anota quién aportó, guarda comprobantes (fotos) y sigue saldos del grupo dentro de la app.
               </p>
             </article>
             <article class="point">
@@ -78,7 +105,26 @@
         </div>
       </section>
 
-      <section class="section section-alt" id="contacto">
+      <section class="section section-alt" id="descargar">
+        <div class="wrap download-block">
+          <h2 data-i18n="downloadTitle">Consíguela en Google Play</h2>
+          <p class="sub" data-i18n="downloadSub">
+            Estamos preparando la publicación. Mientras, escribe a hello@kloovi.app si quieres ser de los primeros.
+          </p>
+          <a class="store-badge soon" href="#descargar" aria-disabled="true">
+            <img
+              src="/assets/brand/google-play-badge.svg"
+              width="200"
+              height="60"
+              alt="Google Play"
+              data-i18n-alt="playBadgeAlt"
+            />
+            <span class="soon-pill" data-i18n="playSoon">Pronto</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="section" id="contacto">
         <div class="wrap">
           <h2 data-i18n="contactTitle">Contacto</h2>
           <p class="sub">
@@ -91,7 +137,10 @@
 
     <footer class="site-footer">
       <div class="wrap">
-        <span data-i18n="footerCopy">© 2026 Kloovi · kloovi.app</span>
+        <a class="footer-brand" href="/">
+          <img src="/assets/brand/logo.png" width="28" height="28" alt="" />
+          <span data-i18n="footerCopy">© 2026 Kloovi · kloovi.app</span>
+        </a>
         <nav aria-label="Legal">
           <a href="/privacy" data-i18n="navPrivacy">Privacidad</a>
           <a href="/terms" data-i18n="navTerms">Términos</a>

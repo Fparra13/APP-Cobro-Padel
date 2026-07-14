@@ -11,15 +11,16 @@ window.KLOOVI_LOCALES = {
     metaTitleTerms: "Términos de Servicio — Kloovi",
     metaDescTerms:
       "Términos de uso de Kloovi. No somos una app financiera: no recibimos ni procesamos pagos.",
-    navHow: "Cómo funciona",
-    navPrivacy: "Privacidad",
-    navTerms: "Términos",
-    navHome: "Inicio",
-    navContact: "Contacto",
     heroLead:
       "Conecta. Juega. Comparte. Organiza el encuentro y lleva el registro de aportes del grupo sin drama.",
     ctaHow: "Ver cómo funciona",
     ctaPrivacy: "Política de privacidad",
+    eyebrow: "App multideporte",
+    playSoon: "Pronto",
+    playBadgeAlt: "Consíguela en Google Play",
+    downloadTitle: "Consíguela en Google Play",
+    downloadSub:
+      "Estamos preparando la publicación. Mientras, escribe a hello@kloovi.app si quieres ser de los primeros.",
     heroNote:
       "Disponible pronto en Google Play. Kloovi no recibe dinero ni procesa pagos: solo te ayuda a registrar comprobantes y saldos del grupo.",
     howTitle: "Una app para el grupo, no un banco",
@@ -45,6 +46,11 @@ window.KLOOVI_LOCALES = {
     termsH1: "Términos de Servicio",
     termsMeta: "Última actualización: 13 de julio de 2026 · Kloovi (kloovi.app)",
     backHome: "← Kloovi",
+    navHow: "Cómo funciona",
+    navPrivacy: "Privacidad",
+    navTerms: "Términos",
+    navHome: "Inicio",
+    navContact: "Contacto",
     privacyHtml: `
       <div class="notice">
         <strong>Kloovi no es una app financiera</strong>
@@ -210,15 +216,16 @@ window.KLOOVI_LOCALES = {
     metaTitleTerms: "Terms of Service — Kloovi",
     metaDescTerms:
       "Kloovi terms of use. Not a financial app: we do not receive or process payments.",
-    navHow: "How it works",
-    navPrivacy: "Privacy",
-    navTerms: "Terms",
-    navHome: "Home",
-    navContact: "Contact",
     heroLead:
       "Connect. Play. Share. Organize the gathering and track group contributions without the chaos.",
     ctaHow: "See how it works",
     ctaPrivacy: "Privacy policy",
+    eyebrow: "Multi-sport app",
+    playSoon: "Soon",
+    playBadgeAlt: "Get it on Google Play",
+    downloadTitle: "Get it on Google Play",
+    downloadSub:
+      "We’re preparing the listing. Meanwhile, email hello@kloovi.app if you want early access.",
     heroNote:
       "Coming soon on Google Play. Kloovi does not receive money or process payments—it only helps you record receipts and group balances.",
     howTitle: "An app for the group, not a bank",
@@ -244,6 +251,11 @@ window.KLOOVI_LOCALES = {
     termsH1: "Terms of Service",
     termsMeta: "Last updated: July 13, 2026 · Kloovi (kloovi.app)",
     backHome: "← Kloovi",
+    navHow: "How it works",
+    navPrivacy: "Privacy",
+    navTerms: "Terms",
+    navHome: "Home",
+    navContact: "Contact",
     privacyHtml: `
       <div class="notice">
         <strong>Kloovi is not a financial app</strong>
@@ -407,15 +419,16 @@ window.KLOOVI_LOCALES = {
     metaTitleTerms: "Termos de Serviço — Kloovi",
     metaDescTerms:
       "Termos de uso da Kloovi. Não somos um app financeiro: não recebemos nem processamos pagamentos.",
-    navHow: "Como funciona",
-    navPrivacy: "Privacidade",
-    navTerms: "Termos",
-    navHome: "Início",
-    navContact: "Contato",
     heroLead:
       "Conecta. Joga. Comparte. Organize o encontro e acompanhe o registro de contribuições do grupo sem estresse.",
     ctaHow: "Ver como funciona",
     ctaPrivacy: "Política de privacidade",
+    eyebrow: "App multiesporte",
+    playSoon: "Em breve",
+    playBadgeAlt: "Disponível no Google Play",
+    downloadTitle: "Disponível no Google Play",
+    downloadSub:
+      "Estamos preparando a publicação. Enquanto isso, escreva para hello@kloovi.app se quiser ser dos primeiros.",
     heroNote:
       "Em breve no Google Play. A Kloovi não recebe dinheiro nem processa pagamentos: só ajuda a registrar comprovantes e saldos do grupo.",
     howTitle: "Um app para o grupo, não um banco",
@@ -441,6 +454,11 @@ window.KLOOVI_LOCALES = {
     termsH1: "Termos de Serviço",
     termsMeta: "Última atualização: 13 de julho de 2026 · Kloovi (kloovi.app)",
     backHome: "← Kloovi",
+    navHow: "Como funciona",
+    navPrivacy: "Privacidade",
+    navTerms: "Termos",
+    navHome: "Início",
+    navContact: "Contato",
     privacyHtml: `
       <div class="notice">
         <strong>Kloovi não é um app financeiro</strong>
