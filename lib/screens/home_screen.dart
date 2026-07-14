@@ -26,9 +26,13 @@ import '../utils/app_navigation.dart';
 import '../utils/app_mode_pending.dart';
 import '../widgets/pagos_por_validar_panel.dart';
 import '../widgets/matchpay_ui.dart';
+import '../widgets/kloovi_brand.dart';
 import '../widgets/app_mode_switch_button.dart';
 import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/organizer_cycle_hero.dart';
+import '../utils/cancelar_convocatoria_flow.dart';
+import '../utils/reprogramar_convocatoria_flow.dart';
+import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/organizer_group_summary.dart';
 import '../widgets/quick_actions_panel.dart';
 import '../l10n/matchpay_strings.dart';
@@ -59,8 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _offlineEmpty = false;
   String? _loadError;
   Timer? _reloadDebounce;
-  bool _loadingData = false;
-  bool _pendingSilentReload = false;
 
   @override
   void initState() {
@@ -79,18 +81,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onDataChanged() {
     if (!mounted) return;
     _reloadDebounce?.cancel();
-    _reloadDebounce = Timer(const Duration(milliseconds: 900), () {
+    _reloadDebounce = Timer(const Duration(milliseconds: 350), () {
       if (mounted) _load(silent: true);
     });
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (silent && _loadingData) {
-      _pendingSilentReload = true;
-      return;
-    }
-    _loadingData = true;
-
     if (!silent && _primeraCarga && mounted) {
       setState(() {
         _loading = true;
@@ -159,13 +155,8 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } finally {
-      _loadingData = false;
       if (mounted && _loading) {
         setState(() => _loading = false);
-      }
-      if (_pendingSilentReload && mounted) {
-        _pendingSilentReload = false;
-        unawaited(_load(silent: true));
       }
     }
   }
@@ -274,6 +265,68 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _cancelarConvocatoria(int partidoId) async {
+    if (_readOnly) {
+      _showOfflineWriteBlocked();
+      return;
+    }
+    final host = matchPayRootContext ?? context;
+    if (!host.mounted) return;
+
+    final l10n = host.l10n;
+    final ok = await confirmarEliminarPartido(
+      host,
+      titulo: l10n.tr('organizerCycleCancelConfirmTitle'),
+      mensaje: l10n.tr('organizerCycleCancelConfirmBody'),
+      confirmLabel: l10n.tr('organizerCycleCancelConfirmAction'),
+      consecuencias: [
+        l10n.tr('organizerCycleCancelConsequence1'),
+        l10n.tr('organizerCycleCancelConsequence2'),
+      ],
+    );
+    if (!ok || !mounted) return;
+    try {
+      final conv = await context.repos.getConvocatoriaCompleta(partidoId);
+      final cancelOk = await CancelarConvocatoriaFlow.ejecutar(
+        host,
+        partidoId: partidoId,
+        convocatoria: conv,
+      );
+      if (!cancelOk || !mounted) return;
+      await _load(silent: true);
+      if (!host.mounted) return;
+      ScaffoldMessenger.of(host).showSnackBar(
+        SnackBar(content: Text(l10n.tr('organizerCycleCancelSuccessSnack'))),
+      );
+    } catch (e) {
+      if (!host.mounted) return;
+      ScaffoldMessenger.of(host).showSnackBar(
+        SnackBar(
+          content: Text(host.userError(e)),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    }
+  }
+
+  Future<void> _reprogramarConvocatoria(ConvocatoriaCompleta convocatoria) async {
+    if (_readOnly) {
+      _showOfflineWriteBlocked();
+      return;
+    }
+    final host = matchPayRootContext ?? context;
+    if (!host.mounted) return;
+
+    final ok = await ReprogramarConvocatoriaFlow.ejecutar(
+      host,
+      convocatoria: convocatoria,
+    );
+    if (ok && mounted) {
+      AppRepositories.notifyDataChanged();
+      await _load(silent: true);
+    }
+  }
+
   Future<void> _onCyclePrimaryAction() async {
     final snap = _cycleSnapshot;
     switch (snap.phase) {
@@ -337,27 +390,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
                         child: Row(
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l10n.homeAdminTitle,
-                                    style: MatchPayTokens.displayStyle(),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    l10n.tr('homeAdminTagline'),
-                                    style: MatchPayTokens.bodySmallStyle(
-                                      color: palette.primaryDark,
-                                    ).copyWith(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.35,
-                                      letterSpacing: 0.1,
-                                    ),
-                                  ),
-                                ],
+                            const Expanded(
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: KlooviWordmark(height: 40, maxWidth: 210),
                               ),
                             ),
                             AppModeSwitchButton(
@@ -427,6 +463,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                     null
                                 ? null
                                 : () => _abrirRegistrarGastos(
+                                      cycle.convocatoria!.partido.id!,
+                                    ),
+                            onReschedule: cycle.convocatoria == null
+                                ? null
+                                : () => _reprogramarConvocatoria(
+                                      cycle.convocatoria!,
+                                    ),
+                            onCancel: cycle.convocatoria?.partido.id == null
+                                ? null
+                                : () => _cancelarConvocatoria(
                                       cycle.convocatoria!.partido.id!,
                                     ),
                           ),

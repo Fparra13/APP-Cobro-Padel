@@ -28,6 +28,7 @@ import '../widgets/jugador_avatar.dart';
 import '../widgets/mis_invitaciones_panel.dart';
 import '../widgets/offline_no_data_panel.dart';
 import '../widgets/matchpay_ui.dart';
+import '../widgets/kloovi_brand.dart';
 import '../widgets/partido_estado_publico.dart';
 import '../widgets/player_match_history_tile.dart';
 import '../services/convocatoria_lista_espera_service.dart';
@@ -631,28 +632,12 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        l10n.appName,
-                                        style: MatchPayTokens.displayStyle(
-                                          color: palette.primaryDark,
-                                        ).copyWith(
-                                          fontSize: 20,
-                                          letterSpacing: -0.3,
-                                        ),
-                                      ),
-                                      Text(
-                                        l10n.tr('playerHomeBrandTagline'),
-                                        style: MatchPayTokens.bodySmallStyle(
-                                          color: MatchPayTokens.inkMuted,
-                                        ).copyWith(fontSize: 11.5),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: KlooviWordmark(
+                                      height: 34,
+                                      maxWidth: 180,
+                                    ),
                                   ),
                                 ),
                                 if (esAdmin)

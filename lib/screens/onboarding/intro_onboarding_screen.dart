@@ -7,6 +7,7 @@ import '../../core/matchpay_design_tokens.dart';
 import '../../core/sport_theme.dart';
 import '../../core/sport_type.dart';
 import '../../l10n/matchpay_strings.dart';
+import '../../widgets/kloovi_brand.dart';
 import '../../widgets/matchpay_ui.dart';
 import '../../widgets/onboarding_progress.dart';
 
@@ -68,6 +69,10 @@ class _IntroOnboardingScreenState extends State<IntroOnboardingScreen> {
                     current: 1,
                     total: 1,
                     accent: palette.primary,
+                  ),
+                  const SizedBox(height: 16),
+                  const Center(
+                    child: KlooviBrandHeader(iconSize: 72, wordmarkHeight: 52),
                   ),
                   const SizedBox(height: 20),
                   Text(

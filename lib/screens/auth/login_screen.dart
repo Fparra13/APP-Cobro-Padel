@@ -10,6 +10,7 @@ import '../../core/matchpay_design_tokens.dart';
 import '../../core/sport_theme.dart';
 import '../../core/supabase_config.dart';
 import '../../l10n/matchpay_strings.dart';
+import '../../widgets/kloovi_brand.dart';
 import '../../widgets/matchpay_ui.dart';
 import '../../widgets/sport_icon.dart';
 
@@ -207,7 +208,6 @@ class _LoginScreenState extends State<LoginScreen> {
             _LoginHero(
               linkEnviado: _linkEnviado,
               palette: palette,
-              title: l10n.appName,
               subtitle: _linkEnviado
                   ? l10n.tr('loginSubtitleLinkSent')
                   : l10n.tr(
@@ -223,7 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Transform.translate(
-                      offset: const Offset(0, -28),
+                      offset: const Offset(0, -8),
                       child: MatchPaySurfaceCard(
                         elevated: true,
                         padding: const EdgeInsets.all(20),
@@ -546,13 +546,11 @@ class _GoogleGPainter extends CustomPainter {
 class _LoginHero extends StatelessWidget {
   final bool linkEnviado;
   final SportThemePalette palette;
-  final String title;
   final String subtitle;
 
   const _LoginHero({
     required this.linkEnviado,
     required this.palette,
-    required this.title,
     required this.subtitle,
   });
 
@@ -560,24 +558,8 @@ class _LoginHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [palette.primary, palette.primaryDark],
-        ),
-        borderRadius: const BorderRadius.vertical(
-          bottom: Radius.circular(MatchPayTokens.radiusCard),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: palette.primary.withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 36),
+      color: MatchPayTokens.surfaceBase,
       child: Column(
         children: [
           AnimatedSwitcher(
@@ -588,51 +570,22 @@ class _LoginHero extends StatelessWidget {
                     asset: 'assets/lottie/login_email_sent.json',
                     palette: palette,
                   )
-                : _LoginTrophy(key: const ValueKey('welcome')),
+                : const KlooviBrandHeader(
+                    key: ValueKey('welcome'),
+                    iconSize: 84,
+                    wordmarkHeight: 58,
+                    gap: 12,
+                  ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: MatchPayTokens.displayStyle(color: Colors.white).copyWith(
-              fontSize: 28,
-            ),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             subtitle,
             textAlign: TextAlign.center,
             style: MatchPayTokens.bodySmallStyle(
-              color: Colors.white.withValues(alpha: 0.88),
+              color: MatchPayTokens.inkSecondary,
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _LoginTrophy extends StatelessWidget {
-  const _LoginTrophy({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 120,
-      child: Center(
-        child: Container(
-          width: 88,
-          height: 88,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.14),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(
-            Icons.emoji_events_rounded,
-            size: 52,
-            color: Color(0xFFFFD54F),
-          ),
-        ),
       ),
     );
   }

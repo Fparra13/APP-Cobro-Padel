@@ -8,6 +8,7 @@ import '../../core/matchpay_design_tokens.dart';
 import '../../core/sport_theme.dart';
 import '../../core/sport_type.dart';
 import '../../l10n/matchpay_strings.dart';
+import '../../widgets/kloovi_brand.dart';
 import '../../widgets/matchpay_ui.dart';
 
 /// Pantalla cold start: propuesta de valor + caminos organizador / jugador.
@@ -30,12 +31,8 @@ class AcquisitionScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Spacer(flex: 1),
-                Text(
-                  l10n.appName,
-                  textAlign: TextAlign.center,
-                  style: MatchPayTokens.displayStyle(color: palette.primaryDark),
-                ),
-                const SizedBox(height: 20),
+                const KlooviBrandHeader(iconSize: 96, wordmarkHeight: 68),
+                const SizedBox(height: 28),
                 Text(
                   l10n.tr('acquisitionColdStartTitle'),
                   textAlign: TextAlign.center,

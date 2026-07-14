@@ -4,7 +4,7 @@
   --ink-soft: #243652;
   --muted: #5c6b82;
   --paper: #ffffff;
-  --paper-soft: #f3faf9;
+  --paper-soft: #ffffff;
   --line: rgba(11, 30, 58, 0.1);
   --lime: #2ec4b6;
   --lime-deep: #1aa89b;
@@ -118,22 +118,11 @@ img {
   display: grid;
   align-items: end;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse 75% 55% at 78% 12%, rgba(46, 196, 182, 0.16), transparent 58%),
-    radial-gradient(ellipse 60% 45% at 8% 88%, rgba(95, 212, 255, 0.14), transparent 52%),
-    linear-gradient(180deg, #ffffff 0%, #f7fcfb 55%, #eef9f7 100%);
+  background: #ffffff;
 }
 
 .hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(11, 30, 58, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(11, 30, 58, 0.035) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), transparent 85%);
-  pointer-events: none;
+  display: none;
 }
 
 .hero-inner {
@@ -346,7 +335,7 @@ img {
 }
 
 .section-alt {
-  background: var(--paper-soft);
+  background: #ffffff;
   border-block: 1px solid var(--line);
 }
 
@@ -416,9 +405,7 @@ img {
 /* —— Legal pages —— */
 .legal-hero {
   padding: 6.5rem 0 2rem;
-  background:
-    radial-gradient(ellipse 60% 50% at 80% 0%, rgba(46, 196, 182, 0.14), transparent 55%),
-    linear-gradient(180deg, #ffffff, #f3faf9);
+  background: #ffffff;
 }
 
 .legal-hero h1 {
@@ -517,7 +504,7 @@ img {
 /* —— Footer —— */
 .site-footer {
   padding: 2rem 0 2.5rem;
-  background: #f3faf9;
+  background: #ffffff;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 0.92rem;

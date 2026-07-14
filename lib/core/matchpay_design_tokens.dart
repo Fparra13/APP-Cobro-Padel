@@ -6,9 +6,9 @@ class MatchPayTokens {
   MatchPayTokens._();
 
   // ── Superficies ──────────────────────────────────────────────
-  static const surfaceBase = Color(0xFFF5F4F0);
+  static const surfaceBase = Color(0xFFFFFFFF);
   static const surfaceCard = Color(0xFFFFFFFF);
-  static const surfaceInset = Color(0xFFFAFAF8);
+  static const surfaceInset = Color(0xFFF7FBFB);
   static const borderSubtle = Color(0xFFE8E6E1);
   static const borderStrong = Color(0xFFE5E7EB);
 
