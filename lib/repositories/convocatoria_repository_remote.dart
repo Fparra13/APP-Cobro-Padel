@@ -766,6 +766,23 @@ class ConvocatoriaRepositoryRemote {
     });
   }
 
+  /// Total histórico de confirmaciones del jugador (incluye partidos ya jugados).
+  Future<int> countMisConfirmaciones() async {
+    return SupabaseHelpers.guard('Mis confirmaciones', () async {
+      final uid = SupabaseHelpers.currentUserId;
+      if (uid == null) return 0;
+
+      final rows = await _client
+          .from('convocatoria_jugadores')
+          .select('id')
+          .eq('jugador_id', uid)
+          .eq('estado_confirmacion', EstadoConfirmacion.confirmado.dbValue)
+          .eq('es_suplente', false);
+
+      return (rows as List).length;
+    });
+  }
+
   Future<List<MiConvocatoria>> getCancelacionesJugador() async {
     return SupabaseHelpers.guard('Cancelaciones jugador', () async {
       final uid = SupabaseHelpers.currentUserId;
@@ -792,9 +809,36 @@ class ConvocatoriaRepositoryRemote {
     });
   }
 
+  /// Cancelaciones cuyo popup aún no cerró el jugador (SSOT en servidor).
+  Future<List<MiConvocatoria>> getCancelacionesJugadorPendientes() async {
+    return SupabaseHelpers.guard('Cancelaciones pendientes', () async {
+      final uid = SupabaseHelpers.currentUserId;
+      if (uid == null) return [];
+
+      try {
+        final raw = await _client.rpc('get_cancelaciones_jugador_pendientes');
+        if (raw is List) {
+          return _parseCancelacionesRpc(raw, uid);
+        }
+      } catch (_) {
+        // Fallback: sin columna/RPC, no bombardear con historial.
+        return [];
+      }
+      return [];
+    });
+  }
+
   Future<MiConvocatoria?> getCancelacionJugador(int partidoId) async {
     final todas = await getCancelacionesJugador();
     for (final c in todas) {
+      if (c.partido.id == partidoId) return c;
+    }
+    return null;
+  }
+
+  Future<MiConvocatoria?> getCancelacionJugadorPendiente(int partidoId) async {
+    final pendientes = await getCancelacionesJugadorPendientes();
+    for (final c in pendientes) {
       if (c.partido.id == partidoId) return c;
     }
     return null;

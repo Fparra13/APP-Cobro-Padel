@@ -21,14 +21,20 @@ Crea **tres** clients (mínimo Web + Android):
 
 - Tipo: **Android**
 - Package name: `com.matchpay.app`
-- SHA-1 (debug):
+- SHA-1 (debug) — `flutter run` / debug:
 
-```bash
-keytool -list -v -alias androiddebugkey \
-  -keystore ~/.android/debug.keystore -storepass android -keypass android
+```text
+E1:48:CD:88:00:D3:34:91:31:34:58:C8:5B:AF:A9:1D:AB:48:89:DA
 ```
 
-- SHA-1 (release): el de tu keystore de Play / `key.properties`
+- SHA-1 (release / APK de pruebas / upload keystore):
+
+```text
+04:59:63:56:49:14:BE:DA:90:7C:C8:97:97:FB:33:14:77:B9:18:0A
+```
+
+Ambos deben estar en Firebase → Project settings → app `com.matchpay.app` → **Add fingerprint**.
+Sin el de release, la APK instalada a mano abre login Google y **no entra** (a veces sin mensaje).
 
 ### C) iOS (si compilas iPhone)
 

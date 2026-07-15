@@ -857,25 +857,27 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: _unirseAGrupo,
-                              icon: const Icon(Icons.group_add_rounded),
-                              label: Text(l10n.tr('groupCodeJoinAction')),
+                          if (!esAdmin)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                onPressed: _unirseAGrupo,
+                                icon: const Icon(Icons.group_add_rounded),
+                                label: Text(l10n.tr('groupCodeJoinAction')),
+                              ),
                             ),
-                          ),
                           const SizedBox(height: 8),
                         ] else if (alDia) ...[
                           _HeroEmptyCard(
                             key: const ValueKey('hero-empty'),
                             onOpenCobros: widget.onOpenMisCobros,
-                            onJoinGroup: _unirseAGrupo,
+                            onJoinGroup: esAdmin ? null : _unirseAGrupo,
+                            forOrganizerPlayer: esAdmin,
                           ),
                           const SizedBox(height: 12),
                           _PlayerUpToDateStrip(proximoPartido: null),
                           const SizedBox(height: 20),
-                        ] else ...[
+                        ] else if (!esAdmin) ...[
                           Align(
                             alignment: Alignment.centerLeft,
                             child: OutlinedButton.icon(
@@ -1261,22 +1263,32 @@ class _HeroMatchCard extends StatelessWidget {
 class _HeroEmptyCard extends StatelessWidget {
   final VoidCallback? onOpenCobros;
   final VoidCallback? onJoinGroup;
+  /// Organizador en vista jugador: no empujar a “unirse a un grupo”.
+  final bool forOrganizerPlayer;
 
   const _HeroEmptyCard({
     super.key,
     this.onOpenCobros,
     this.onJoinGroup,
+    this.forOrganizerPlayer = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final palette = context.sportPalette;
+    final showJoin = onJoinGroup != null && !forOrganizerPlayer;
+    final title = forOrganizerPlayer
+        ? l10n.tr('playerHeroAllGood')
+        : l10n.tr('playerHeroWaitingInvite');
+    final subtitle = forOrganizerPlayer
+        ? l10n.tr('playerHeroAllGoodSub')
+        : l10n.tr('playerHeroWaitingInviteSub');
 
     return Material(
       color: Colors.transparent,
       child: Ink(
-        height: onJoinGroup != null ? 230 : 200,
+        height: showJoin ? 230 : 200,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           gradient: LinearGradient(
@@ -1329,7 +1341,7 @@ class _HeroEmptyCard extends StatelessWidget {
                   ),
                   const Spacer(),
                   Text(
-                    l10n.tr('playerHeroWaitingInvite'),
+                    title,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 22,
@@ -1339,14 +1351,14 @@ class _HeroEmptyCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    l10n.tr('playerHeroWaitingInviteSub'),
+                    subtitle,
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.88),
                       fontSize: 13,
                       height: 1.35,
                     ),
                   ),
-                  if (onJoinGroup != null) ...[
+                  if (showJoin) ...[
                     const SizedBox(height: 12),
                     FilledButton.tonal(
                       style: FilledButton.styleFrom(

@@ -22,7 +22,7 @@ class PartidoCanceladoPopupFlow {
 
     List<MiConvocatoria> cancelaciones;
     try {
-      cancelaciones = await repos.getCancelacionesJugador();
+      cancelaciones = await repos.getCancelacionesJugadorPendientes();
     } catch (_) {
       return;
     }
@@ -48,7 +48,8 @@ class PartidoCanceladoPopupFlow {
     final repos = _reposFor(context);
     MiConvocatoria? conv;
     try {
-      conv = await repos.getCancelacionJugador(partidoId);
+      // Solo si el servidor aún la considera pendiente (sobrevive reinstall).
+      conv = await repos.getCancelacionJugadorPendiente(partidoId);
     } catch (_) {
       return;
     }

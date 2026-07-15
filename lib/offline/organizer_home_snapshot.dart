@@ -31,6 +31,17 @@ class OrganizerHomeData {
     required this.cobrosResumen,
   });
 
+  static const empty = OrganizerHomeData(
+    resumenes: [],
+    convocatorias: [],
+    misInvitaciones: [],
+    pagosPorValidar: [],
+    misDeudas: [],
+    partidosJugadosRecientes: [],
+    ultimoPartidoDesglose: [],
+    cobrosResumen: CobrosResumen.zero,
+  );
+
   Map<String, dynamic> toJson() => {
         'resumenes': resumenes.map(resumenJugadorToJson).toList(),
         'convocatorias':

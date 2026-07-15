@@ -15,11 +15,11 @@ import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/mi_convocatoria.dart';
-import '../models/cobros_resumen.dart';
 import '../repositories/partido_repository.dart';
 import '../widgets/partido_estado_publico.dart';
 import '../domain/estado_partido_publico.dart';
 import '../domain/partido_lifecycle.dart';
+import '../domain/organizer_cycle_logic.dart';
 import '../services/convocatoria_lista_espera_service.dart';
 import '../utils/formatters.dart';
 import '../utils/app_navigation.dart';
@@ -57,7 +57,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MiConvocatoria> _misInvitaciones = [];
   List<DetallePartido> _pagosPorValidar = [];
   List<DetallePartido> _misDeudas = [];
-  CobrosResumen _cobrosResumen = CobrosResumen.zero;
   bool _loading = true;
   bool _primeraCarga = true;
   bool _offlineEmpty = false;
@@ -87,14 +86,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (!silent && _primeraCarga && mounted) {
+    // En silent también limpiamos error residual de cargas previos.
+    if (mounted) {
       setState(() {
-        _loading = true;
-        _loadError = null;
-        _offlineEmpty = false;
-      });
-    } else if (!silent && mounted) {
-      setState(() {
+        if (!silent && _primeraCarga) _loading = true;
         _loadError = null;
         _offlineEmpty = false;
       });
@@ -131,16 +126,13 @@ class _HomeScreenState extends State<HomeScreen> {
             _misDeudas = [];
             _partidosJugadosRecientes = [];
             _ultimoPartidoDesglose = [];
-            _cobrosResumen = CobrosResumen.zero;
             _offlineEmpty = true;
             _primeraCarga = false;
           });
         case OrganizerHomeLoadSource.error:
+          // Nunca pantalla de error en Inicio: mostrar vacío usable.
           offlineStatus.markLive();
-          setState(() {
-            _loadError = context.userError(result.error!);
-            _primeraCarga = false;
-          });
+          _applyOrganizerHomeData(OrganizerHomeData.empty);
       }
 
       if (result.source == OrganizerHomeLoadSource.live &&
@@ -154,6 +146,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
+    } catch (_) {
+      if (!mounted) return;
+      _applyOrganizerHomeData(OrganizerHomeData.empty);
     } finally {
       if (mounted && _loading) {
         setState(() => _loading = false);
@@ -170,14 +165,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _misDeudas = data.misDeudas;
       _partidosJugadosRecientes = data.partidosJugadosRecientes;
       _ultimoPartidoDesglose = data.ultimoPartidoDesglose;
-      _cobrosResumen = data.cobrosResumen;
       _offlineEmpty = false;
       _loadError = null;
       _primeraCarga = false;
     });
   }
 
-  bool get _readOnly => context.watch<OfflineStatusController>().isReadOnly;
+  /// Solo [read]: nunca llamar [watch] desde callbacks de UI.
+  bool get _readOnly => context.read<OfflineStatusController>().isReadOnly;
 
   void _showOfflineWriteBlocked() {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -203,8 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
         misInvitaciones: _misInvitaciones,
       );
 
-  int get _jugadoresAlDia =>
-      _resumenes.where((r) => !r.tieneDeuda).length;
+  int get _jugadoresAlDia => jugadoresAlDiaGrupo(_resumenes);
 
   bool get _hasPagosPendientes => _pagosPorValidar
       .any((d) => d.comprobantePendienteValidacion);
@@ -362,6 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final readOnly = context.watch<OfflineStatusController>().isReadOnly;
     final l10n = context.l10n;
     final palette = context.sportPalette;
     final cycle = _cycleSnapshot;
@@ -377,136 +372,202 @@ class _HomeScreenState extends State<HomeScreen> {
                     ? _buildLoadErrorState()
                     : _offlineEmpty
                         ? _buildOfflineEmptyState()
-                        : RefreshIndicator(
-                    color: palette.primary,
-                    onRefresh: () => _load(silent: true),
-                    child: CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      slivers: [
-                  SliverToBoxAdapter(
-                    child: SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-                        child: Row(
-                          children: [
-                            const Expanded(
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: KlooviWordmark(height: 40, maxWidth: 210),
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Material(
+                                color: MatchPayTokens.surfaceBase,
+                                elevation: 0,
+                                child: SafeArea(
+                                  bottom: false,
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      20,
+                                      8,
+                                      12,
+                                      8,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Expanded(
+                                          child: Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: KlooviHomeBrand(
+                                              forOrganizer: true,
+                                            ),
+                                          ),
+                                        ),
+                                        AppModeSwitchButton(
+                                          targetMode: AppUiMode.player,
+                                          pendingCount: _playerPendingCount,
+                                          onPressed: () {
+                                            context.switchAppUiMode(
+                                              AppUiMode.player,
+                                            );
+                                          },
+                                        ),
+                                        IconButton(
+                                          tooltip: l10n.refreshTooltip,
+                                          onPressed: () =>
+                                              _load(silent: true),
+                                          icon: Icon(
+                                            Icons.refresh_rounded,
+                                            color: MatchPayTokens.inkMuted,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                            AppModeSwitchButton(
-                              targetMode: AppUiMode.player,
-                              pendingCount: _playerPendingCount,
-                              onPressed: () {
-                                context.switchAppUiMode(AppUiMode.player);
-                              },
-                            ),
-                            IconButton(
-                              tooltip: l10n.refreshTooltip,
-                              onPressed: () => _load(silent: true),
-                              icon: Icon(
-                                Icons.refresh_rounded,
-                                color: MatchPayTokens.inkMuted,
+                              Expanded(
+                                child: RefreshIndicator(
+                                  color: palette.primary,
+                                  onRefresh: () => _load(silent: true),
+                                  child: CustomScrollView(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    slivers: [
+                                      SliverPadding(
+                                        padding: NavShellScope.listPadding(
+                                          context,
+                                          top: 8,
+                                          bottom: 24,
+                                        ),
+                                        sliver: SliverList(
+                                          delegate: // ignore: prefer_const_constructors
+                                              SliverChildListDelegate([
+                                            OrganizerGroupSummary(
+                                              totalJugadores:
+                                                  _resumenes.length,
+                                              jugadoresConDeuda:
+                                                  jugadoresConDeudaGrupo(
+                                                _resumenes,
+                                              ),
+                                              jugadoresAlDia: _jugadoresAlDia,
+                                              montoPendiente:
+                                                  deudaTotalGrupo(_resumenes),
+                                              onVerCobros:
+                                                  widget.onNavigateTab != null
+                                                      ? () => widget
+                                                          .onNavigateTab!(1)
+                                                      : null,
+                                            ),
+                                            if (_hasPagosPendientes) ...[
+                                              const SizedBox(height: 16),
+                                              MatchPaySectionHeader(
+                                                title: l10n.tr(
+                                                  'paymentsToValidateTitle',
+                                                ),
+                                                count: _pagosPorValidar
+                                                    .where(
+                                                      (d) => d
+                                                          .comprobantePendienteValidacion,
+                                                    )
+                                                    .length,
+                                                accent: true,
+                                                pulseDot: true,
+                                              ),
+                                              const SizedBox(height: 10),
+                                              PagosPorValidarPanel(
+                                                pagos: _pagosPorValidar,
+                                                onValidado: _load,
+                                                prominent: true,
+                                                sectionTitleExternal: true,
+                                                readOnly: readOnly,
+                                                onReadOnlyTap:
+                                                    _showOfflineWriteBlocked,
+                                              ),
+                                            ],
+                                            if (_mostrarHeroOperativo(
+                                              cycle,
+                                            )) ...[
+                                              const SizedBox(height: 20),
+                                              OrganizerCycleHero(
+                                                snapshot: cycle,
+                                                onPrimaryAction:
+                                                    _onCyclePrimaryAction,
+                                                onCreateMatch: () =>
+                                                    showOrganizerMatchMenu(
+                                                  context,
+                                                ),
+                                                onMarkPlayed: cycle
+                                                            .convocatoria
+                                                            ?.partido
+                                                            .id ==
+                                                        null
+                                                    ? null
+                                                    : () =>
+                                                        _abrirRegistrarGastos(
+                                                          cycle
+                                                              .convocatoria!
+                                                              .partido
+                                                              .id!,
+                                                        ),
+                                                onReschedule:
+                                                    cycle.convocatoria == null
+                                                        ? null
+                                                        : () =>
+                                                            _reprogramarConvocatoria(
+                                                              cycle
+                                                                  .convocatoria!,
+                                                            ),
+                                                onCancel: cycle.convocatoria
+                                                            ?.partido.id ==
+                                                        null
+                                                    ? null
+                                                    : () =>
+                                                        _cancelarConvocatoria(
+                                                          cycle.convocatoria!
+                                                              .partido.id!,
+                                                        ),
+                                              ),
+                                            ],
+                                            if (_convocatoriasEnLista
+                                                .isNotEmpty) ...[
+                                              const SizedBox(height: 20),
+                                              MatchPaySectionHeader(
+                                                title: l10n.tr(
+                                                  'homeActiveConvocatorias',
+                                                ),
+                                                count: _convocatoriasEnLista
+                                                    .length,
+                                                accent:
+                                                    _convocatoriasNeedAttention,
+                                                pulseDot:
+                                                    _convocatoriasNeedAttention,
+                                              ),
+                                              const SizedBox(height: 10),
+                                              _buildConvocatoriasActivas(
+                                                _convocatoriasEnLista,
+                                              ),
+                                            ],
+                                            const SizedBox(height: 20),
+                                            QuickActionsPanel(
+                                              resumenes: _resumenes,
+                                              ultimoPartido: _ultimoPartido,
+                                              ultimoPartidoDesglose:
+                                                  _ultimoPartidoDesglose,
+                                              onRefresh: () =>
+                                                  _load(silent: true),
+                                              onNavigateTab:
+                                                  widget.onNavigateTab,
+                                              readOnly: readOnly,
+                                              onReadOnlyTap:
+                                                  _showOfflineWriteBlocked,
+                                            ),
+                                            const SizedBox(height: 88),
+                                          ]),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: NavShellScope.listPadding(context, top: 16, bottom: 24),
-                    sliver: SliverList(
-                      delegate: // ignore: prefer_const_constructors
-                          SliverChildListDelegate([
-                        OrganizerGroupSummary(
-                          totalJugadores: _resumenes.length,
-                          jugadoresConDeuda: _cobrosResumen.jugadoresConDeuda,
-                          jugadoresAlDia: _jugadoresAlDia,
-                          montoPendiente: _cobrosResumen.montoTotalPendiente,
-                          onVerCobros: widget.onNavigateTab != null
-                              ? () => widget.onNavigateTab!(1)
-                              : null,
-                        ),
-                        if (_hasPagosPendientes) ...[
-                          const SizedBox(height: 16),
-                          MatchPaySectionHeader(
-                            title: l10n.tr('paymentsToValidateTitle'),
-                            count: _pagosPorValidar
-                                .where(
-                                  (d) => d.comprobantePendienteValidacion,
-                                )
-                                .length,
-                            accent: true,
-                            pulseDot: true,
+                            ],
                           ),
-                          const SizedBox(height: 10),
-                          PagosPorValidarPanel(
-                            pagos: _pagosPorValidar,
-                            onValidado: _load,
-                            prominent: true,
-                            sectionTitleExternal: true,
-                            readOnly: _readOnly,
-                            onReadOnlyTap: _showOfflineWriteBlocked,
-                          ),
-                        ],
-                        if (_mostrarHeroOperativo(cycle)) ...[
-                          const SizedBox(height: 20),
-                          OrganizerCycleHero(
-                            snapshot: cycle,
-                            onPrimaryAction: _onCyclePrimaryAction,
-                            onCreateMatch: () =>
-                                showOrganizerMatchMenu(context),
-                            onMarkPlayed: cycle.convocatoria?.partido.id ==
-                                    null
-                                ? null
-                                : () => _abrirRegistrarGastos(
-                                      cycle.convocatoria!.partido.id!,
-                                    ),
-                            onReschedule: cycle.convocatoria == null
-                                ? null
-                                : () => _reprogramarConvocatoria(
-                                      cycle.convocatoria!,
-                                    ),
-                            onCancel: cycle.convocatoria?.partido.id == null
-                                ? null
-                                : () => _cancelarConvocatoria(
-                                      cycle.convocatoria!.partido.id!,
-                                    ),
-                          ),
-                        ],
-                        if (_convocatoriasEnLista.isNotEmpty) ...[
-                          const SizedBox(height: 20),
-                          MatchPaySectionHeader(
-                            title: l10n.tr('homeActiveConvocatorias'),
-                            count: _convocatoriasEnLista.length,
-                            accent: _convocatoriasNeedAttention,
-                            pulseDot: _convocatoriasNeedAttention,
-                          ),
-                          const SizedBox(height: 10),
-                          _buildConvocatoriasActivas(_convocatoriasEnLista),
-                        ],
-                        const SizedBox(height: 20),
-                        QuickActionsPanel(
-                          resumenes: _resumenes,
-                          ultimoPartido: _ultimoPartido,
-                          ultimoPartidoDesglose: _ultimoPartidoDesglose,
-                          onRefresh: () => _load(silent: true),
-                          onNavigateTab: widget.onNavigateTab,
-                          readOnly: _readOnly,
-                          onReadOnlyTap: _showOfflineWriteBlocked,
-                        ),
-                        const SizedBox(height: 88),
-                      ]),
-                    ),
-                  ),
-                ],
-                    ),
-                  ),
           ),
-          if (!_readOnly)
+          if (!readOnly)
             Positioned(
               right: 16,
               bottom: 16,

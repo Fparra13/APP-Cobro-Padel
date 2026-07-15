@@ -815,10 +815,8 @@ class PartidoRepositoryRemote {
         jugadorId: jid,
       );
       if (!snapshots.containsKey(snapKey)) {
-        throw DatosInconsistentesException(
-          'Datos inconsistentes: falta snapshot saldo_anterior '
-          '(jugador $jid, partido $partidoId)',
-        );
+        // Datos legacy/demo sin ledger: no tumbar la pantalla; asumir 0.
+        // Flujos de reparación / diagnóstico siguen pudiendo exigir snapshot.
       }
       final saldoAnt = CobroLogic.saldoAnteriorAlPartido(
         snapshotHistorico: snapshots[snapKey],
@@ -1203,6 +1201,7 @@ class PartidoRepositoryRemote {
         cargoPartido: total,
         montoPagadoEnPartido: pagado,
         snapshotSaldoAnterior: saldosAnteriores[key],
+        exigirSnapshot: false,
       );
       if (monto <= 0.005) continue;
       final deuda = DeudaPartidoAnterior(

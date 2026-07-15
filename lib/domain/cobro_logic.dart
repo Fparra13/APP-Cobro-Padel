@@ -230,15 +230,20 @@ class CobroLogic {
   }) =>
       '$partidoId:$jugadorId';
 
-  /// Pendiente neto de un detalle (lectura). Exige snapshot en partido existente.
+  /// Pendiente neto de un detalle (lectura).
+  ///
+  /// Con [exigirSnapshot] (default), falta de snapshot → [DatosInconsistentesException].
+  /// En listados de organizador (home/grupo/ficha) pasar `false` para no tumbar
+  /// pantallas enteras cuando hay datos de prueba o legacy sin ledger.
   static double pendienteNetoDetalle({
     required int partidoId,
     required Object jugadorId,
     required double cargoPartido,
     required double montoPagadoEnPartido,
     required double? snapshotSaldoAnterior,
+    bool exigirSnapshot = true,
   }) {
-    if (snapshotSaldoAnterior == null) {
+    if (snapshotSaldoAnterior == null && exigirSnapshot) {
       throw DatosInconsistentesException(
         'Datos inconsistentes: falta snapshot saldo_anterior '
         '(jugador $jugadorId, partido $partidoId)',
@@ -254,19 +259,26 @@ class CobroLogic {
   }
 
   /// Estado de cobro de un detalle_partido (lectura UI).
+  ///
+  /// Sin snapshot y [exigirSnapshot]=false (default): trata saldo_anterior=0
+  /// para no tumbar pantallas con datos legacy/demo.
   static EstadoPagoDetalle estadoPagoDetalle({
     required int partidoId,
     required Object jugadorId,
     required double cargoPartido,
     required double montoPagadoEnPartido,
     required double? snapshotSaldoAnterior,
+    bool exigirSnapshot = false,
   }) {
-    final saldoAnt = snapshotSaldoAnterior != null
-        ? saldoAnteriorAlPartido(snapshotHistorico: snapshotSaldoAnterior)
-        : throw DatosInconsistentesException(
-            'Datos inconsistentes: falta snapshot saldo_anterior '
-            '(jugador $jugadorId, partido $partidoId)',
-          );
+    if (snapshotSaldoAnterior == null && exigirSnapshot) {
+      throw DatosInconsistentesException(
+        'Datos inconsistentes: falta snapshot saldo_anterior '
+        '(jugador $jugadorId, partido $partidoId)',
+      );
+    }
+    final saldoAnt = saldoAnteriorAlPartido(
+      snapshotHistorico: snapshotSaldoAnterior,
+    );
     final pendiente = obtenerPendientePartido(
       saldoAnteriorAlPartido: saldoAnt,
       cargoPartido: cargoPartido,
@@ -289,6 +301,9 @@ class CobroLogic {
   }
 
   /// Suma pendiente neto de detalles asistidos (lectura batch).
+  ///
+  /// No exige snapshot: filas sin historial usan saldo_anterior 0 (legacy/demo)
+  /// para no tumbar Inicio/Grupo del organizador.
   static Map<String, double> pendienteNetoPorJugadorBatch({
     required Iterable<String> jugadorIds,
     required List<dynamic> detalleRows,
@@ -312,6 +327,7 @@ class CobroLogic {
         cargoPartido: (map['total'] as num).toDouble(),
         montoPagadoEnPartido: (map['monto_pagado'] as num?)?.toDouble() ?? 0,
         snapshotSaldoAnterior: snapshotsPorPartidoJugador[key],
+        exigirSnapshot: false,
       );
       if (pend > 0.005) {
         result[jid] = roundMoney(result[jid]! + pend).toDouble();

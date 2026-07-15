@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:matchpay/domain/cobro_logic.dart';
 import 'package:matchpay/models/cobros_resumen.dart';
 import 'package:matchpay/models/jugador.dart';
 import 'package:matchpay/offline/offline_screen_loader.dart';
@@ -8,16 +9,17 @@ import 'package:matchpay/offline/offline_snapshot_store.dart';
 import 'package:matchpay/offline/organizer_home_loader.dart';
 import 'package:matchpay/offline/organizer_home_snapshot.dart';
 
-OrganizerHomeData _sampleHomeData() => const OrganizerHomeData(
-      resumenes: [],
-      convocatorias: [],
-      misInvitaciones: [],
-      pagosPorValidar: [],
-      misDeudas: [],
-      partidosJugadosRecientes: [],
-      ultimoPartidoDesglose: [],
-      cobrosResumen: CobrosResumen.zero,
-    );
+OrganizerHomeData _sampleHomeData() => OrganizerHomeData.empty;
+
+class _FailingSnapshotStore extends OfflineSnapshotStore {
+  _FailingSnapshotStore(Directory base)
+      : super(userId: 'user-fail', baseDirectory: base);
+
+  @override
+  Future<void> save(String key, Map<String, dynamic> payload) async {
+    throw StateError('save failed');
+  }
+}
 
 void main() {
   late Directory tempDir;
@@ -89,8 +91,31 @@ void main() {
         },
       );
 
-      expect(result.source, OrganizerHomeLoadSource.error);
-      expect(result.error, isA<FormatException>());
+      // Inicio nunca queda en error: degrada a vacío usable.
+      expect(result.source, OrganizerHomeLoadSource.live);
+      expect(result.data, isNotNull);
+      expect(result.data!.resumenes, isEmpty);
+    });
+
+    test('fetch que lanza DatosInconsistentes degrada a vacío vivo', () async {
+      final result = await loadOrganizerHome(
+        snapshotStore: null,
+        fetchOverride: () async {
+          throw const DatosInconsistentesException('falta snapshot');
+        },
+      );
+      expect(result.source, OrganizerHomeLoadSource.live);
+      expect(result.data, OrganizerHomeData.empty);
+    });
+
+    test('fallo al guardar snapshot no tumba fetch exitoso', () async {
+      final result = await loadOrganizerHome(
+        snapshotStore: _FailingSnapshotStore(tempDir),
+        fetchOverride: () async => _sampleHomeData(),
+      );
+
+      expect(result.source, OrganizerHomeLoadSource.live);
+      expect(result.data, isNotNull);
     });
   });
 

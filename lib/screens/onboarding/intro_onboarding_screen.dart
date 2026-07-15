@@ -72,7 +72,7 @@ class _IntroOnboardingScreenState extends State<IntroOnboardingScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Center(
-                    child: KlooviBrandHeader(iconSize: 72, wordmarkHeight: 52),
+                    child: KlooviSplashLogo(height: 100, maxWidth: 280),
                   ),
                   const SizedBox(height: 20),
                   Text(

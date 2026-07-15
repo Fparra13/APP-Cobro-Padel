@@ -189,14 +189,17 @@ class DeudaExplicacionLineas extends StatelessWidget {
   }
 }
 
-/// Teaser compacto de cobros para el Home (detalle completo en Mis cobros).
+/// Teaser de aporte pendiente en Home: encuentro + monto + pagar / detalle.
 class PlayerHomeCobrosTeaser extends StatelessWidget {
   final double total;
   final bool pagando;
   final bool comprobanteEnRevision;
   final ExplicacionDeudaJugador? explicacion;
+  final String? partidoLinea;
+  final int encuentrosPendientes;
   final VoidCallback onPayTotal;
   final VoidCallback onPayOther;
+  final VoidCallback? onVerDetalle;
 
   const PlayerHomeCobrosTeaser({
     super.key,
@@ -204,22 +207,46 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
     required this.pagando,
     required this.comprobanteEnRevision,
     this.explicacion,
+    this.partidoLinea,
+    this.encuentrosPendientes = 1,
     required this.onPayTotal,
     required this.onPayOther,
+    this.onVerDetalle,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final subtitulo = explicacion?.subtituloKey != null
+    final subtituloExplicacion = explicacion?.subtituloKey != null
         ? l10n.tr(
             explicacion!.subtituloKey!,
             params: explicacion!.subtituloParams,
           )
         : null;
+    final contextoEncuentro = (() {
+      final linea = partidoLinea?.trim();
+      if (encuentrosPendientes <= 1) {
+        return linea ?? '';
+      }
+      final extras = encuentrosPendientes - 1;
+      if (linea == null || linea.isEmpty) {
+        return l10n.tr(
+          'playerHomeCobrosTeaserManyCount',
+          params: {'count': '$encuentrosPendientes'},
+        );
+      }
+      return l10n.tr(
+        'playerHomeCobrosTeaserMany',
+        params: {
+          'count': '$extras',
+          'match': linea,
+        },
+      );
+    })();
 
     return MatchPaySurfaceCard(
       urgent: !comprobanteEnRevision,
+      elevated: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -235,16 +262,16 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: MatchPayTokens.accentUrgent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
-                child: Icon(
-                  Icons.account_balance_wallet_outlined,
-                  size: 20,
+                child: const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  size: 22,
                   color: MatchPayTokens.accentUrgent,
                 ),
               ),
@@ -256,21 +283,34 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
                     Text(
                       l10n.tr('playerHomeCobrosTeaserLabel'),
                       style: MatchPayTokens.bodySmallStyle().copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        color: MatchPayTokens.accentUrgent,
                       ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       formatMoney(total),
                       style: MatchPayTokens.titleSmallStyle().copyWith(
-                        fontSize: 22,
+                        fontSize: 24,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    if (subtitulo != null && subtitulo.isNotEmpty) ...[
+                    if (contextoEncuentro.trim().isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        contextoEncuentro.trim(),
+                        style: MatchPayTokens.bodySmallStyle().copyWith(
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                    if (subtituloExplicacion != null &&
+                        subtituloExplicacion.isNotEmpty &&
+                        subtituloExplicacion != contextoEncuentro) ...[
                       const SizedBox(height: 4),
                       Text(
-                        subtitulo,
+                        subtituloExplicacion,
                         style: MatchPayTokens.bodySmallStyle().copyWith(
                           height: 1.3,
                         ),
@@ -284,7 +324,7 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
-            height: 44,
+            height: 46,
             child: FilledButton(
               onPressed: pagando
                   ? null
@@ -314,21 +354,40 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: OutlinedButton(
-              onPressed: pagando
-                  ? null
-                  : () {
-                      if (comprobanteEnRevision) {
-                        CobroPagoFlow.mostrarComprobanteEnRevision(context);
-                        return;
-                      }
-                      onPayOther();
-                    },
-              child: Text(l10n.tr('cobrosAbonoShort')),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    onPressed: pagando
+                        ? null
+                        : () {
+                            if (comprobanteEnRevision) {
+                              CobroPagoFlow.mostrarComprobanteEnRevision(
+                                context,
+                              );
+                              return;
+                            }
+                            onPayOther();
+                          },
+                    child: Text(l10n.tr('cobrosAbonoShort')),
+                  ),
+                ),
+              ),
+              if (onVerDetalle != null) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: OutlinedButton(
+                      onPressed: pagando ? null : onVerDetalle,
+                      child: Text(l10n.tr('cobrosViewDetail')),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
@@ -446,20 +505,9 @@ class PlayerMisCobrosHeroCard extends StatelessWidget {
               ),
             ),
           ],
-          if (onVerDetallePartido != null) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: onVerDetallePartido,
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                ),
-                child: Text(l10n.tr('cobrosViewDetail')),
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
+          // Misma jerarquía que el teaser del Home: pagar primero;
+          // «Otro monto» y «Ver detalle» como secundarios.
+          const SizedBox(height: 16),
           SizedBox(
             height: 48,
             width: double.infinity,
@@ -485,16 +533,34 @@ class PlayerMisCobrosHeroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 44,
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed:
-                  (pagando || comprobanteEnRevision) ? null : onPayAbono,
-              child: Text(l10n.tr('cobrosAbonoShort')),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    onPressed: (pagando || comprobanteEnRevision)
+                        ? null
+                        : onPayAbono,
+                    child: Text(l10n.tr('cobrosAbonoShort')),
+                  ),
+                ),
+              ),
+              if (onVerDetallePartido != null) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 44,
+                    child: OutlinedButton(
+                      onPressed: pagando ? null : onVerDetallePartido,
+                      child: Text(l10n.tr('cobrosViewDetail')),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Text(
             l10n.tr('cobrosAutoApplyHint'),
             style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 11),

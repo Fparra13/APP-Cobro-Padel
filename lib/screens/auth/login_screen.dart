@@ -162,11 +162,29 @@ class _LoginScreenState extends State<LoginScreen> {
       _loadingGoogle = true;
       _mensajeInline = null;
     });
+    final startedAt = DateTime.now();
     try {
       await _auth.signInWithGoogle();
       // AuthGate / auth listener navega al shell.
+      if (!mounted) return;
+      if (_auth.currentUser == null) {
+        _mostrarError(
+          'Google respondió, pero no se creó sesión. Revisa Google en Supabase '
+          '(Client ID Web + Secret) y vuelve a intentar.',
+        );
+      }
     } on GoogleSignInCancelledException {
-      // Usuario cerró el selector: sin snackbar.
+      if (!mounted) return;
+      final elapsedMs =
+          DateTime.now().difference(startedAt).inMilliseconds;
+      // Cierre instantáneo casi nunca es “cancelé a propósito”: suele ser SHA/OAuth.
+      if (elapsedMs < 2500) {
+        _mostrarError(
+          'Google cerró el login al instante. Suele faltar el SHA-1 de esta APK '
+          'en Firebase/Google Cloud, o tu cuenta no está en usuarios de prueba '
+          'de la pantalla de consentimiento OAuth.',
+        );
+      }
     } catch (e, st) {
       debugPrint('LoginScreen._entrarConGoogle: $e\n$st');
       if (!mounted) return;
@@ -570,11 +588,10 @@ class _LoginHero extends StatelessWidget {
                     asset: 'assets/lottie/login_email_sent.json',
                     palette: palette,
                   )
-                : const KlooviBrandHeader(
+                : const KlooviSplashLogo(
                     key: ValueKey('welcome'),
-                    iconSize: 84,
-                    wordmarkHeight: 58,
-                    gap: 12,
+                    height: 132,
+                    maxWidth: 300,
                   ),
           ),
           const SizedBox(height: 12),

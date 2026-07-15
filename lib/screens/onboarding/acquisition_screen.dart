@@ -11,7 +11,7 @@ import '../../l10n/matchpay_strings.dart';
 import '../../widgets/kloovi_brand.dart';
 import '../../widgets/matchpay_ui.dart';
 
-/// Pantalla cold start: propuesta de valor + caminos organizador / jugador.
+/// Pantalla cold start: propuesta de valor + caminos organizador / participante.
 class AcquisitionScreen extends StatelessWidget {
   const AcquisitionScreen({super.key});
 
@@ -31,7 +31,7 @@ class AcquisitionScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Spacer(flex: 1),
-                const KlooviBrandHeader(iconSize: 96, wordmarkHeight: 68),
+                const KlooviSplashLogo(height: 120, maxWidth: 300),
                 const SizedBox(height: 28),
                 Text(
                   l10n.tr('acquisitionColdStartTitle'),
@@ -192,7 +192,10 @@ class AcquisitionGate extends StatelessWidget {
 
     if (!acquisition.isLoaded) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: Colors.white,
+        body: Center(
+          child: KlooviSplashLogo(height: 140, maxWidth: 320),
+        ),
       );
     }
 

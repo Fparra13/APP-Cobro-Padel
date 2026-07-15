@@ -43,12 +43,14 @@ bool detalleCobroOrganizadorPendiente(
 
 List<DetallePartido> cobrosOrganizadorPendientes(PartidoCompleto completo) =>
     completo.detalles
-        .where(
-          (d) => detalleCobroOrganizadorPendiente(
+        .where((d) {
+          // Sin ledger (legacy/reset): no inventar cobro abierto con saldo 0.
+          if (completo.snapshotSaldoCobro(d) == null) return false;
+          return detalleCobroOrganizadorPendiente(
             d,
             saldoAnteriorPartido: completo.saldoAnteriorCobro(d),
-          ),
-        )
+          );
+        })
         .toList();
 
 bool partidoOrganizadorCobrosCerrados(PartidoCompleto completo) {

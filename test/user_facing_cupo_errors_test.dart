@@ -28,4 +28,23 @@ void main() {
       'errorConvocatoriaCerrada',
     );
   });
+
+  test('mapea código de grupo inexistente (Exception envuelta)', () {
+    expect(
+      userFacingError(
+        Exception(
+          'Unirse con código: No encontramos un organizador con ese código · code=P0001',
+        ),
+        tr: tr,
+      ),
+      'groupCodeJoinNotFound',
+    );
+    expect(
+      userFacingError(
+        PostgrestException(message: 'codigo_grupo_propio', code: 'P0001'),
+        tr: tr,
+      ),
+      'groupCodeJoinOwn',
+    );
+  });
 }

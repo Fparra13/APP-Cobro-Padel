@@ -88,18 +88,32 @@ void main() {
   });
 
   test('prioriza el partido más antiguo con cobros abiertos', () {
-    final viejo = _partido([_detalle(total: 1400, pagado: false)]);
+    final viejo = _partido(
+      [_detalle(total: 1400, pagado: false, jugadorSupabaseId: 'j-old')],
+      saldos: {'j-old': 0},
+    );
     final nuevo = PartidoCompleto(
       partido: Partido(
         fecha: DateTime(2026, 7, 10),
         createdAt: DateTime(2026, 7, 10),
       ),
-      detalles: [_detalle(total: 900, pagado: false)],
+      detalles: [
+        _detalle(total: 900, pagado: false, jugadorSupabaseId: 'j-new'),
+      ],
+      saldoAnteriorPorJugador: const {'j-new': 0},
     );
     final elegido = partidoConCobrosPendientes([nuevo, viejo]);
     expect(elegido, viejo);
     expect(montoTotalCobrosPendientes([nuevo, viejo]), 2300);
     expect(partidosConCobrosPendientes([nuevo, viejo]).length, 2);
+  });
+
+  test('sin snapshot de ledger no inventa cobro abierto', () {
+    final pc = _partido([
+      _detalle(total: 1400, pagado: false, jugadorSupabaseId: 'j1'),
+    ]);
+    expect(cobrosOrganizadorPendientes(pc), isEmpty);
+    expect(partidoConCobrosPendientes([pc]), isNull);
   });
 
   test('partido fallback cuando resumen tiene deuda pero detalle bruto pagado', () {

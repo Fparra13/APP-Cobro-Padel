@@ -74,6 +74,7 @@ class MatchPayPreferencesPanel extends StatelessWidget {
         Text(l10n.languageLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         DropdownButtonFormField<Locale>(
+          key: ValueKey('prefs-locale-${locale.languageCode}'),
           initialValue: locale,
           isExpanded: true,
           decoration: const InputDecoration(border: OutlineInputBorder()),

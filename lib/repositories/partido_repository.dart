@@ -354,6 +354,7 @@ class PartidoRepository {
         cargoPartido: (r['total'] as num).toDouble(),
         montoPagadoEnPartido: (r['monto_pagado'] as num?)?.toDouble() ?? 0,
         snapshotSaldoAnterior: snapshots[key],
+        exigirSnapshot: false,
       );
       if (pendiente <= 0.005) continue;
       result.add(
@@ -491,6 +492,7 @@ class PartidoRepository {
         cargoPartido: (r['total'] as num).toDouble(),
         montoPagadoEnPartido: (r['monto_pagado'] as num?)?.toDouble() ?? 0,
         snapshotSaldoAnterior: snapshots[key],
+        exigirSnapshot: false,
       );
       if (pendiente <= 0.005) continue;
       pendientesPorJugador.putIfAbsent(jid, () => []).add(
@@ -663,13 +665,9 @@ class PartidoRepository {
       saldosAnteriores[jid] = entry.value;
     }
 
+    // Legacy/demo sin ledger: asumir saldo_anterior 0 (no tumbar pantallas).
     for (final d in completo.detalles.where((d) => d.asistio)) {
-      if (!saldosAnteriores.containsKey(d.jugadorId)) {
-        throw DatosInconsistentesException(
-          'Datos inconsistentes: falta snapshot saldo_anterior '
-          '(jugador ${d.jugadorId}, partido $partidoId)',
-        );
-      }
+      saldosAnteriores.putIfAbsent(d.jugadorId, () => 0);
     }
 
     final jugadores = await _jugadorRepo.getAll();

@@ -11,7 +11,7 @@ import '../../widgets/kloovi_brand.dart';
 import '../../widgets/matchpay_ui.dart';
 import '../../widgets/onboarding_progress.dart';
 
-/// Intro de valor para jugadores (convocatorias, gastos, pagos).
+/// Intro de valor para participantes (convocatorias, gastos, pagos).
 class PlayerIntroOnboardingScreen extends StatefulWidget {
   const PlayerIntroOnboardingScreen({super.key});
 
@@ -74,7 +74,7 @@ class _PlayerIntroOnboardingScreenState
                   ),
                   const SizedBox(height: 16),
                   const Center(
-                    child: KlooviBrandHeader(iconSize: 72, wordmarkHeight: 52),
+                    child: KlooviSplashLogo(height: 100, maxWidth: 280),
                   ),
                   const SizedBox(height: 20),
                   Text(

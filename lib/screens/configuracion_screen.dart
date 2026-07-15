@@ -176,19 +176,31 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   }
 
   Future<void> _solicitarPermisos() async {
-    final ok = await NotificationService.instance.requestPermissions();
-    setState(() => _permisosOk = ok);
-    if (mounted) {
+    final already =
+        await NotificationService.instance.arePermissionsGranted();
+    if (already) {
+      if (!mounted) return;
+      setState(() => _permisosOk = true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            ok
-                ? context.l10n.tr('configNotificationsGranted')
-                : context.l10n.tr('configNotificationsDenied'),
-          ),
+          content: Text(context.l10n.tr('configNotificationsAlreadyGranted')),
         ),
       );
+      return;
     }
+
+    final ok = await NotificationService.instance.requestPermissions();
+    if (!mounted) return;
+    setState(() => _permisosOk = ok);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? context.l10n.tr('configNotificationsGranted')
+              : context.l10n.tr('configNotificationsDenied'),
+        ),
+      ),
+    );
   }
 
   Future<void> _probarNotificacion() async {
@@ -716,11 +728,13 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            OutlinedButton.icon(
-              onPressed: _solicitarPermisos,
-              icon: const Icon(Icons.security, size: 18),
-              label: Text(l10n.tr('permissions')),
-            ),
+            // Solo pedir permisos si aún faltan; si ya están OK, basta Probar.
+            if (_permisosOk != true)
+              OutlinedButton.icon(
+                onPressed: _solicitarPermisos,
+                icon: const Icon(Icons.security, size: 18),
+                label: Text(l10n.tr('permissions')),
+              ),
             OutlinedButton.icon(
               onPressed: _probarNotificacion,
               icon: const Icon(Icons.notifications_none, size: 18),

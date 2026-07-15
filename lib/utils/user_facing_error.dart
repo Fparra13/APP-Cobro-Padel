@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../domain/cobro_logic.dart';
 import '../offline/network_errors.dart';
 import '../offline/offline_exceptions.dart';
 
@@ -16,6 +17,10 @@ String userFacingError(
   }
   if (isNetworkError(error)) {
     return tr('connectionRequired');
+  }
+  if (error is DatosInconsistentesException ||
+      error.toString().toLowerCase().contains('datos inconsistentes')) {
+    return tr('errorDatosInconsistentes');
   }
 
   if (error is PostgrestException) {
@@ -44,6 +49,8 @@ String userFacingError(
     if (msg.contains('respuesta_no_permitida')) {
       return tr('errorRespuestaNoPermitida');
     }
+    final grupo = _groupCodeJoinError(msg, tr);
+    if (grupo != null) return grupo;
     if (code == '42501' || code == 'PGRST301') {
       return tr('errorPermissionDenied');
     }
@@ -76,6 +83,8 @@ String userFacingError(
   if (msg.contains('respuesta_no_permitida')) {
     return tr('errorRespuestaNoPermitida');
   }
+  final grupo = _groupCodeJoinError(msg, tr);
+  if (grupo != null) return grupo;
   if (msg.contains('code=42501') ||
       msg.contains('permission_denied') ||
       msg.contains('permiso')) {
@@ -101,4 +110,22 @@ String userFacingError(
   }
 
   return tr('errorGeneric');
+}
+
+/// Errores de [unirse_con_codigo_grupo] (RPC o Exception envuelta).
+String? _groupCodeJoinError(String msgLower, Tr tr) {
+  if (msgLower.contains('codigo_grupo_no_encontrado') ||
+      msgLower.contains('no encontramos un organizador')) {
+    return tr('groupCodeJoinNotFound');
+  }
+  if (msgLower.contains('codigo_grupo_propio') ||
+      msgLower.contains('no puedes unirte a tu propio')) {
+    return tr('groupCodeJoinOwn');
+  }
+  if (msgLower.contains('codigo_grupo_invalido') ||
+      (msgLower.contains('código inválido') ||
+          msgLower.contains('codigo invalido'))) {
+    return tr('groupCodeJoinInvalid');
+  }
+  return null;
 }

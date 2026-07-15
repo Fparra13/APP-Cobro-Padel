@@ -27,8 +27,11 @@ Future<OfflineScreenLoadResult<T>> loadWithOfflineSnapshot<T>({
 }) async {
   try {
     final data = await fetch();
+    // Un fallo al cachear no debe tumbar la pantalla si el fetch ya OK.
     if (snapshotStore != null) {
-      await snapshotStore.save(snapshotKey, encode(data));
+      try {
+        await snapshotStore.save(snapshotKey, encode(data));
+      } catch (_) {}
     }
     return OfflineScreenLoadResult(
       source: OfflineScreenLoadSource.live,

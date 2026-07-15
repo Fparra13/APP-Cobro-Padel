@@ -27,7 +27,7 @@ Future<OrganizerHomeLoadResult> loadOrganizerHome({
     fetchOverride != null || repos != null,
     'repos requerido cuando no hay fetchOverride',
   );
-  return loadWithOfflineSnapshot(
+  final result = await loadWithOfflineSnapshot(
     snapshotKey: organizerHomeSnapshotKey,
     snapshotStore: snapshotStore,
     fetch: () =>
@@ -35,6 +35,15 @@ Future<OrganizerHomeLoadResult> loadOrganizerHome({
     encode: (data) => data.toJson(),
     decode: OrganizerHomeData.fromJson,
   );
+  // Inicio del organizador nunca debe quedar en pantalla de error genérica
+  // (datos de prueba / ledger incompleto / RPC puntual). Preferir vacío vivo.
+  if (result.source == OrganizerHomeLoadSource.error) {
+    return const OrganizerHomeLoadResult(
+      source: OrganizerHomeLoadSource.live,
+      data: OrganizerHomeData.empty,
+    );
+  }
+  return result;
 }
 
 Future<OfflineScreenLoadResult<OrganizerCobrosData>> loadOrganizerCobros({
@@ -45,8 +54,10 @@ Future<OfflineScreenLoadResult<OrganizerCobrosData>> loadOrganizerCobros({
     snapshotKey: organizerCobrosSnapshotKey,
     snapshotStore: snapshotStore,
     fetch: () async {
-      final resumenes =
-          await repos.getResumenJugadores(reconciliar: false);
+      final resumenes = await _safeEmpty(
+        () => repos.getResumenJugadores(reconciliar: false),
+        <ResumenJugador>[],
+      );
       return OrganizerCobrosData(resumenes: resumenes);
     },
     encode: (data) => data.toJson(),
@@ -103,45 +114,74 @@ OfflineSnapshotStore? offlineSnapshotStoreForCurrentUser() {
   return OfflineSnapshotStore(userId: userId);
 }
 
+Future<T> _safeEmpty<T>(Future<T> Function() run, T fallback) async {
+  try {
+    return await run();
+  } catch (_) {
+    return fallback;
+  }
+}
+
 Future<OrganizerHomeData> _fetchFromRepos(AppRepositories repos) async {
-  final results = await Future.wait([
-    repos.getResumenJugadores(reconciliar: false),
-    repos.getConvocatoriasActivas(),
-    MisInvitacionesPanel.cargarPendientes(repos),
-    repos.isCloud
-        ? repos.getPagosPorValidar()
-        : Future<List<DetallePartido>>.value([]),
-    repos.isCloud
-        ? repos.getMisDeudasPendientes()
-        : Future<List<DetallePartido>>.value([]),
-    repos.getPartidosJugadosRecientesResumen(limit: 8).then(
-      (partidos) async {
-        if (partidos.isEmpty || partidos.first.partido.id == null) {
-          return (partidos: partidos, desglose: <DesgloseJugador>[]);
-        }
-        final desglose = await repos.getDesglose(
-          partidos.first.partido.id!,
-          reconciliar: false,
-          repararCuenta: false,
+  try {
+    // Cada bloque es independiente: un fallo (ledger incompleto, RPC, etc.)
+    // no tumba todo el Inicio del organizador.
+    final resumenes = await _safeEmpty(
+      () => repos.getResumenJugadores(reconciliar: false),
+      <ResumenJugador>[],
+    );
+    final convocatorias = await _safeEmpty(
+      () => repos.getConvocatoriasActivas(),
+      <ConvocatoriaCompleta>[],
+    );
+    final misInvitaciones = await _safeEmpty(
+      () => MisInvitacionesPanel.cargarPendientes(repos),
+      <MiConvocatoria>[],
+    );
+    final pagosPorValidar = repos.isCloud
+        ? await _safeEmpty(
+            () => repos.getPagosPorValidar(),
+            <DetallePartido>[],
+          )
+        : <DetallePartido>[];
+    final misDeudas = repos.isCloud
+        ? await _safeEmpty(
+            () => repos.getMisDeudasPendientes(),
+            <DetallePartido>[],
+          )
+        : <DetallePartido>[];
+
+    var partidos = <PartidoCompleto>[];
+    var desglose = <DesgloseJugador>[];
+    try {
+      partidos = await repos.getPartidosJugadosRecientesResumen(limit: 8);
+      final id = partidos.isEmpty ? null : partidos.first.partido.id;
+      if (id != null) {
+        desglose = await _safeEmpty(
+          () => repos.getDesglose(
+            id,
+            reconciliar: false,
+            repararCuenta: false,
+          ),
+          <DesgloseJugador>[],
         );
-        return (partidos: partidos, desglose: desglose);
-      },
-    ),
-  ]);
-  final resumenes = results[0] as List<ResumenJugador>;
-  final cobrosResumen = cobrosResumenDesdeResumenes(resumenes);
-  final ultimoPack = results[5] as ({
-    List<PartidoCompleto> partidos,
-    List<DesgloseJugador> desglose,
-  });
-  return OrganizerHomeData(
-    resumenes: resumenes,
-    convocatorias: results[1] as List<ConvocatoriaCompleta>,
-    misInvitaciones: results[2] as List<MiConvocatoria>,
-    pagosPorValidar: results[3] as List<DetallePartido>,
-    misDeudas: ordenarDeudasPorFecha(results[4] as List<DetallePartido>),
-    partidosJugadosRecientes: ultimoPack.partidos,
-    ultimoPartidoDesglose: ultimoPack.desglose,
-    cobrosResumen: cobrosResumen,
-  );
+      }
+    } catch (_) {
+      partidos = [];
+      desglose = [];
+    }
+
+    return OrganizerHomeData(
+      resumenes: resumenes,
+      convocatorias: convocatorias,
+      misInvitaciones: misInvitaciones,
+      pagosPorValidar: pagosPorValidar,
+      misDeudas: ordenarDeudasPorFecha(misDeudas),
+      partidosJugadosRecientes: partidos,
+      ultimoPartidoDesglose: desglose,
+      cobrosResumen: cobrosResumenDesdeResumenes(resumenes),
+    );
+  } catch (_) {
+    return OrganizerHomeData.empty;
+  }
 }

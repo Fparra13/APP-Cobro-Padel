@@ -352,7 +352,7 @@ void main() {
       expect(e.pendienteNeto, 6000);
     });
 
-    test('sin snapshot lanza DatosInconsistentesException', () {
+    test('sin snapshot lanza DatosInconsistentesException si se exige', () {
       expect(
         () => CobroLogic.estadoPagoDetalle(
           partidoId: 4,
@@ -360,9 +360,22 @@ void main() {
           cargoPartido: 5000,
           montoPagadoEnPartido: 0,
           snapshotSaldoAnterior: null,
+          exigirSnapshot: true,
         ),
         throwsA(isA<DatosInconsistentesException>()),
       );
+    });
+
+    test('sin snapshot en UI usa saldo_anterior 0', () {
+      final e = CobroLogic.estadoPagoDetalle(
+        partidoId: 4,
+        jugadorId: 'u4',
+        cargoPartido: 5000,
+        montoPagadoEnPartido: 0,
+        snapshotSaldoAnterior: null,
+      );
+      expect(e.pendienteNeto, 5000);
+      expect(e.partidoCerrado, isFalse);
     });
   });
 }

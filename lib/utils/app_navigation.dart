@@ -187,7 +187,7 @@ Future<bool?> abrirNuevoPartidoJugado(BuildContext context) async {
   final allowed = await FeatureGate.requirePro(
     context,
     feature: ProFeature.createMatch,
-    message: 'Registrar encuentros jugados requiere Kloovi Pro.',
+    message: 'Registrar encuentros requiere Kloovi Pro.',
   );
   if (!allowed || !context.mounted) return null;
   return Navigator.of(context, rootNavigator: true).push<bool>(

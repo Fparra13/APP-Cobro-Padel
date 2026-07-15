@@ -55,7 +55,8 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
   String? _error;
   Timer? _reloadDebounce;
 
-  bool get _readOnly => context.watch<OfflineStatusController>().isReadOnly;
+  /// Solo [read]: nunca llamar [watch] desde callbacks de UI.
+  bool get _readOnly => context.read<OfflineStatusController>().isReadOnly;
 
   @override
   void initState() {
@@ -191,6 +192,8 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Suscripción en build; [_readOnly] usa read para callbacks.
+    context.watch<OfflineStatusController>();
     final l10n = context.l10n;
     return ShellTabScaffold(
       backgroundColor: MatchPayTokens.surfaceBase,

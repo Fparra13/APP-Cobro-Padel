@@ -289,16 +289,23 @@ class AuthService {
   }
 
   static String mapGoogleSignInError(GoogleSignInException e) {
+    final desc = e.description?.trim() ?? '';
+    final lower = desc.toLowerCase();
+    // ApiException 10 = DEVELOPER_ERROR: package/SHA-1 no registrado en Google.
+    if (e.code == GoogleSignInExceptionCode.clientConfigurationError ||
+        lower.contains('10:') ||
+        lower.contains('developer_error') ||
+        lower.contains('api_exception: 10')) {
+      return 'Google Sign-In: falta el SHA-1 de esta APK en Firebase '
+          '(Project settings → tu app Android → Add fingerprint).';
+    }
     switch (e.code) {
-      case GoogleSignInExceptionCode.clientConfigurationError:
-        return 'Google Sign-In mal configurado. Revisa Client IDs y SHA-1.';
       case GoogleSignInExceptionCode.providerConfigurationError:
         return 'Google Sign-In no está disponible en este dispositivo.';
       case GoogleSignInExceptionCode.uiUnavailable:
         return 'No se pudo mostrar el selector de cuenta Google.';
       default:
-        final desc = e.description?.trim();
-        if (desc != null && desc.isNotEmpty) return desc;
+        if (desc.isNotEmpty) return desc;
         return 'No se pudo iniciar sesión con Google. Intenta de nuevo.';
     }
   }

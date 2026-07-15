@@ -77,10 +77,12 @@ class AppSettingsController extends ChangeNotifier {
         prefs.getBool(_keyIntroOnboarded) ?? _sportOnboardingComplete;
     final savedLocale = prefs.getString(_keyLocale);
     if (savedLocale != null) {
-      _locale = _parseLocale(savedLocale);
+      _locale = normalizePickerLocale(_parseLocale(savedLocale));
     } else {
-      _locale = resolveDeviceLocale(
-        deviceLocales: WidgetsBinding.instance.platformDispatcher.locales,
+      _locale = normalizePickerLocale(
+        resolveDeviceLocale(
+          deviceLocales: WidgetsBinding.instance.platformDispatcher.locales,
+        ),
       );
       await prefs.setString(_keyLocale, _localeTag(_locale));
     }
@@ -306,11 +308,15 @@ class AppSettingsController extends ChangeNotifier {
   }
 
   Future<void> setLocale(Locale locale) async {
-    if (_locale == locale) return;
-    _locale = locale;
+    final next = normalizePickerLocale(locale);
+    if (_locale.languageCode == next.languageCode &&
+        _locale.countryCode == next.countryCode) {
+      return;
+    }
+    _locale = next;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyLocale, _localeTag(locale));
+    await prefs.setString(_keyLocale, _localeTag(next));
     await syncLocaleToProfile();
   }
 

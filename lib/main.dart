@@ -38,6 +38,7 @@ import 'services/notification_service.dart';
 import 'services/supabase_realtime_service.dart';
 import 'widgets/lazy_indexed_stack.dart';
 import 'widgets/offline_readonly_banner.dart';
+import 'widgets/kloovi_brand.dart';
 import 'utils/nav_shell_layout.dart';
 import 'widgets/mis_invitaciones_panel.dart';
 import 'utils/formatters.dart' show MoneyFormatConfig;
@@ -209,7 +210,10 @@ class AuthGate extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            backgroundColor: Colors.white,
+            body: Center(
+              child: KlooviSplashLogo(height: 140, maxWidth: 320),
+            ),
           );
         }
 
@@ -301,6 +305,7 @@ class _RoleAwareShellState extends State<RoleAwareShell> {
   }
 
   Future<void> _loadRole() async {
+    final splashStarted = DateTime.now();
     if (mounted) {
       setState(() {
         _loading = true;
@@ -325,6 +330,15 @@ class _RoleAwareShellState extends State<RoleAwareShell> {
 
     if (!mounted) return;
 
+    // Deja leer el slogan del splash antes de entrar al home.
+    const minSplash = Duration(milliseconds: 2400);
+    final elapsed = DateTime.now().difference(splashStarted);
+    if (elapsed < minSplash) {
+      await Future<void>.delayed(minSplash - elapsed);
+    }
+
+    if (!mounted) return;
+
     setState(() {
       _loadError = !profileOk && AuthService.instance.profileRole == null;
       _loading = false;
@@ -340,7 +354,10 @@ class _RoleAwareShellState extends State<RoleAwareShell> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: Colors.white,
+        body: Center(
+          child: KlooviSplashLogo(height: 140, maxWidth: 320),
+        ),
       );
     }
     if (_loadError) {
@@ -786,8 +803,8 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
                 label: l10n.navHome,
               ),
               NavigationDestination(
-                icon: const Icon(Icons.sports_soccer_outlined),
-                selectedIcon: Icon(Icons.sports_soccer_rounded, color: palette.primary),
+                icon: const Icon(Icons.event_outlined),
+                selectedIcon: Icon(Icons.event_rounded, color: palette.primary),
                 label: l10n.navMyMatches,
               ),
               NavigationDestination(

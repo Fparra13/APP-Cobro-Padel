@@ -354,7 +354,11 @@ class _MatchHistoryEmptyState extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const Text('🏟️', style: TextStyle(fontSize: 48)),
+          Icon(
+            Icons.event_available_outlined,
+            size: 48,
+            color: MatchPayTokens.inkMuted,
+          ),
           const SizedBox(height: 16),
           Text(
             l10n.tr('playerMatchHistoryEmpty'),

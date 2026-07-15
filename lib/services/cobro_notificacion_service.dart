@@ -6,6 +6,7 @@ import '../core/sport_theme.dart';
 import '../core/sport_type.dart';
 import '../core/supabase_config.dart';
 import '../core/supabase_helpers.dart';
+import '../domain/cobro_notificacion_logic.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/partido.dart';
@@ -27,180 +28,219 @@ class CobroNotificacionService {
     if (!SupabaseConfig.isConfigured) return;
 
     try {
-      final repos = AppRepositories.tryActive;
-      if (repos == null) return;
-
-      final completo = await repos.getPartidoCompleto(partidoId);
-      if (completo == null) {
-        debugPrint('CobroNotificacion: partido $partidoId no encontrado');
-        return;
+      var enviados = await _notificarCobrosPartidoOnce(partidoId);
+      if (enviados == 0) {
+        // Snapshot/desglose a veces llegan un instante después del insert.
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        enviados = await _notificarCobrosPartidoOnce(partidoId);
       }
-
-      final desglose = await repos.getDesglose(partidoId, reconciliar: false);
-      final desglosePorId = {
-        for (final d in desglose)
-          if (d.jugadorSupabaseId != null) d.jugadorSupabaseId!: d,
-      };
-
-      final pago = await _prefs.datosPago;
-      final fechaTxt = formatDiaCompleto(completo.partido.fecha);
-      final uid = AuthService.instance.currentUser?.id;
-
-      final pendientes = completo.detalles.where((d) {
-        if (!d.asistio || d.jugadorSupabaseId == null) return false;
-        final snap = completo.snapshotSaldoCobro(d);
-        if (snap == null) return false;
-        return d.tieneDeudaNeto(snapshotSaldoAnterior: snap);
-      }).toList();
-
-      var enviados = 0;
-      await Future.wait(
-        pendientes.map((det) async {
-          final jugadorId = det.jugadorSupabaseId!;
-          final d = desglosePorId[jugadorId];
-          final snap = completo.snapshotSaldoCobro(det);
-          final monto = d?.pendientePartido ??
-              (snap != null
-                  ? det
-                      .estadoCobro(snapshotSaldoAnterior: snap)
-                      .pendienteNeto
-                  : 0);
-          if (monto <= 0 && det.total <= 0) return;
-
-          final targetId = await _resolverIdNotificacion(jugadorId);
-          if (targetId.isEmpty) return;
-
-          final lang = await NotificationLocale.forUser(targetId);
-          final titulo = NotificationLocale.tr(lang, 'notifMatchChargeTitle');
-          final sportParams = _sportParams(completo.partido.sportType, lang);
-          final cuerpo = d != null
-              ? _resumenPush(d, completo.partido, fechaTxt, lang)
-              : '${sportParams['sportEmoji']} ${sportParams['sport']} · ${NotificationLocale.tr(
-                  lang,
-                  'notifMatchChargeBodySimple',
-                  params: {
-                    'date': fechaTxt,
-                    'amount': formatMoney(monto),
-                  },
-                )}';
-
-          final detalleTexto = d != null
-              ? MensajeCobroService.construirDetallePartido(
-                  partido: completo.partido,
-                  desglose: d,
-                  deudasAnteriores: const [],
-                  pago: pago,
-                )
-              : _detalleSimple(completo.partido, det, monto, lang);
-
-          if (uid != null && uid == targetId) {
-            await NotificationService.instance.showCobroPartido(
-              partidoId: partidoId,
-              titulo: titulo,
-              cuerpo: cuerpo,
-              detalle: detalleTexto,
-            );
-            enviados++;
-            return;
-          }
-
-          await PushNotificationService.instance.enviar(
-            userIds: [targetId],
-            title: titulo,
-            body: cuerpo,
-            data: {
-              'type': 'cobro_partido',
-              'partido_id': '$partidoId',
-              'detalle': _truncar(detalleTexto, 900),
-            },
-          );
-          enviados++;
-        }),
-      );
-
-      final cubiertosConFavor = completo.detalles.where((d) {
-        if (!d.asistio || d.jugadorSupabaseId == null) return false;
-        final snap = completo.snapshotSaldoCobro(d);
-        if (snap == null) return false;
-        if (d.tieneDeudaNeto(snapshotSaldoAnterior: snap)) return false;
-        final dsg = desglosePorId[d.jugadorSupabaseId!];
-        if (dsg == null) return false;
-        return dsg.saldoFavorAplicado > 0.005 &&
-            dsg.pendientePartido <= 0.005 &&
-            dsg.montoPagado <= 0.005;
-      }).toList();
-
-      await Future.wait(
-        cubiertosConFavor.map((det) async {
-          final jugadorId = det.jugadorSupabaseId!;
-          final dsg = desglosePorId[jugadorId]!;
-          final targetId = await _resolverIdNotificacion(jugadorId);
-          if (targetId.isEmpty) return;
-
-          final lang = await NotificationLocale.forUser(targetId);
-          final titulo =
-              NotificationLocale.tr(lang, 'notifMatchPaidWithCreditTitle');
-          final cuerpo = NotificationLocale.tr(
-            lang,
-            'notifMatchPaidWithCreditBody',
-            params: {
-              'matchAmount': formatMoney(dsg.totalPartido),
-              'credit': formatMoney(dsg.saldoFavorAplicado),
-            },
-          );
-          final creditoRestante = dsg.saldoRestantePartido < -0.005
-              ? -dsg.saldoRestantePartido
-              : 0.0;
-          final detalleTexto = [
-            NotificationLocale.tr(
-              lang,
-              'notifMatchPaidWithCreditDetail',
-              params: {
-                'matchAmount': formatMoney(dsg.totalPartido),
-                'credit': formatMoney(dsg.saldoFavorAplicado),
-              },
-            ),
-            if (creditoRestante > 0.005)
-              NotificationLocale.tr(
-                lang,
-                'notifMatchPaidWithCreditRemaining',
-                params: {'amount': formatMoney(creditoRestante)},
-              ),
-          ].join('\n');
-
-          if (uid != null && uid == targetId) {
-            await NotificationService.instance.showCobroPartido(
-              partidoId: partidoId,
-              titulo: titulo,
-              cuerpo: cuerpo,
-              detalle: detalleTexto,
-            );
-            enviados++;
-            return;
-          }
-
-          await PushNotificationService.instance.enviar(
-            userIds: [targetId],
-            title: titulo,
-            body: cuerpo,
-            data: {
-              'type': 'cobro_partido_favor',
-              'partido_id': '$partidoId',
-              'detalle': _truncar(detalleTexto, 900),
-            },
-          );
-          enviados++;
-        }),
-      );
-
       if (enviados == 0) {
         debugPrint('CobroNotificacion: sin notificaciones en $partidoId');
       } else {
-        debugPrint('CobroNotificacion: $enviados push(es) para partido $partidoId');
+        debugPrint(
+          'CobroNotificacion: $enviados push(es) para partido $partidoId',
+        );
       }
     } catch (e, st) {
       debugPrint('CobroNotificacionService.notificarCobrosPartido: $e\n$st');
     }
+  }
+
+  Future<int> _notificarCobrosPartidoOnce(int partidoId) async {
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+
+    final repos = AppRepositories.tryActive;
+    if (repos == null) {
+      debugPrint('CobroNotificacion: AppRepositories.tryActive es null');
+      return 0;
+    }
+
+    final completo = await repos.getPartidoCompleto(partidoId);
+    if (completo == null) {
+      debugPrint('CobroNotificacion: partido $partidoId no encontrado');
+      return 0;
+    }
+
+    final desglose = await repos.getDesglose(partidoId, reconciliar: false);
+    final desglosePorId = {
+      for (final d in desglose)
+        if (d.jugadorSupabaseId != null) d.jugadorSupabaseId!: d,
+    };
+
+    final pago = await _prefs.datosPago;
+    final fechaTxt = formatDiaCompleto(completo.partido.fecha);
+    final uid = AuthService.instance.currentUser?.id;
+
+    final candidatos = completo.detalles.where((d) {
+      return debeNotificarCobroPendiente(
+        detalle: d,
+        desglose: desglosePorId[d.jugadorSupabaseId],
+        snapshotSaldoAnterior: completo.snapshotSaldoCobro(d),
+      );
+    }).toList();
+
+    if (candidatos.isEmpty) {
+      debugPrint(
+        'CobroNotificacion: sin candidatos con deuda en $partidoId '
+        '(detalles=${completo.detalles.length}, desglose=${desglose.length})',
+      );
+    }
+
+    var enviados = 0;
+    await Future.wait(
+      candidatos.map((det) async {
+        final jugadorId = det.jugadorSupabaseId!;
+        final d = desglosePorId[jugadorId];
+        final snap = completo.snapshotSaldoCobro(det);
+        final monto = montoNotificacionCobroPendiente(
+          detalle: det,
+          desglose: d,
+          snapshotSaldoAnterior: snap,
+        );
+        if (monto <= 0.005) return;
+
+        final targetId = await _resolverIdNotificacion(jugadorId);
+        if (targetId.isEmpty) {
+          debugPrint(
+            'CobroNotificacion: sin targetId para jugador $jugadorId',
+          );
+          return;
+        }
+
+        final lang = await NotificationLocale.forUser(targetId);
+        final titulo = NotificationLocale.tr(lang, 'notifMatchChargeTitle');
+        final sportParams = _sportParams(completo.partido.sportType, lang);
+        final cuerpo = d != null
+            ? _resumenPush(d, completo.partido, fechaTxt, lang)
+            : '${sportParams['sportEmoji']} ${sportParams['sport']} · ${NotificationLocale.tr(
+                lang,
+                'notifMatchChargeBodySimple',
+                params: {
+                  'date': fechaTxt,
+                  'amount': formatMoney(monto),
+                },
+              )}';
+
+        final detalleTexto = d != null
+            ? MensajeCobroService.construirDetallePartido(
+                partido: completo.partido,
+                desglose: d,
+                deudasAnteriores: const [],
+                pago: pago,
+              )
+            : _detalleSimple(completo.partido, det, monto, lang);
+
+        final ok = await _entregarCobroJugador(
+          uid: uid,
+          targetId: targetId,
+          partidoId: partidoId,
+          titulo: titulo,
+          cuerpo: cuerpo,
+          detalleTexto: detalleTexto,
+          type: 'cobro_partido',
+        );
+        if (ok) enviados++;
+      }),
+    );
+
+    final cubiertosConFavor = completo.detalles.where((d) {
+      return debeNotificarCobroCubiertoConFavor(
+        detalle: d,
+        desglose: desglosePorId[d.jugadorSupabaseId],
+        snapshotSaldoAnterior: completo.snapshotSaldoCobro(d),
+      );
+    }).toList();
+
+    await Future.wait(
+      cubiertosConFavor.map((det) async {
+        final jugadorId = det.jugadorSupabaseId!;
+        final dsg = desglosePorId[jugadorId];
+        if (dsg == null) return;
+        final targetId = await _resolverIdNotificacion(jugadorId);
+        if (targetId.isEmpty) return;
+
+        final lang = await NotificationLocale.forUser(targetId);
+        final titulo =
+            NotificationLocale.tr(lang, 'notifMatchPaidWithCreditTitle');
+        final cuerpo = NotificationLocale.tr(
+          lang,
+          'notifMatchPaidWithCreditBody',
+          params: {
+            'matchAmount': formatMoney(dsg.totalPartido),
+            'credit': formatMoney(dsg.saldoFavorAplicado),
+          },
+        );
+        final creditoRestante = dsg.saldoRestantePartido < -0.005
+            ? -dsg.saldoRestantePartido
+            : 0.0;
+        final detalleTexto = [
+          NotificationLocale.tr(
+            lang,
+            'notifMatchPaidWithCreditDetail',
+            params: {
+              'matchAmount': formatMoney(dsg.totalPartido),
+              'credit': formatMoney(dsg.saldoFavorAplicado),
+            },
+          ),
+          if (creditoRestante > 0.005)
+            NotificationLocale.tr(
+              lang,
+              'notifMatchPaidWithCreditRemaining',
+              params: {'amount': formatMoney(creditoRestante)},
+            ),
+        ].join('\n');
+
+        final ok = await _entregarCobroJugador(
+          uid: uid,
+          targetId: targetId,
+          partidoId: partidoId,
+          titulo: titulo,
+          cuerpo: cuerpo,
+          detalleTexto: detalleTexto,
+          type: 'cobro_partido_favor',
+        );
+        if (ok) enviados++;
+      }),
+    );
+
+    return enviados;
+  }
+
+  /// Local inmediata si sos el destinatario + push FCM.
+  /// Antes, al ser organizador=jugador, solo salía local y se salteaba el push.
+  Future<bool> _entregarCobroJugador({
+    required String? uid,
+    required String targetId,
+    required int partidoId,
+    required String titulo,
+    required String cuerpo,
+    required String detalleTexto,
+    required String type,
+  }) async {
+    final esSelf = uid != null && uid == targetId;
+    if (esSelf) {
+      await NotificationService.instance.showCobroPartido(
+        partidoId: partidoId,
+        titulo: titulo,
+        cuerpo: cuerpo,
+        detalle: detalleTexto,
+      );
+      NotificationService.instance.showInAppSnack(cuerpo);
+    }
+
+    await PushNotificationService.instance.enviar(
+      userIds: [targetId],
+      title: titulo,
+      body: cuerpo,
+      playerNotifyType: type == 'cobro_partido' ? 'cobro_partido' : null,
+      playerNotifyPartidoId: type == 'cobro_partido' ? partidoId : null,
+      data: {
+        'type': type,
+        'partido_id': '$partidoId',
+        'detalle': _truncar(detalleTexto, 900),
+      },
+    );
+    return true;
   }
 
   String _detalleSimple(

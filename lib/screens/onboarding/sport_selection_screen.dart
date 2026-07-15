@@ -9,6 +9,7 @@ import '../../core/sport_type.dart';
 import '../../l10n/matchpay_strings.dart';
 import '../../utils/matchpay_context.dart';
 import '../../widgets/matchpay_ui.dart';
+import '../../widgets/kloovi_brand.dart';
 import '../../widgets/onboarding_progress.dart';
 import 'intro_onboarding_screen.dart';
 import 'player_intro_onboarding_screen.dart';
@@ -495,7 +496,10 @@ class _SportOnboardingGateState extends State<SportOnboardingGate> {
 
     if (!settings.isLoaded || _autoCompleting) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: Colors.white,
+        body: Center(
+          child: KlooviSplashLogo(height: 140, maxWidth: 320),
+        ),
       );
     }
 
@@ -505,7 +509,10 @@ class _SportOnboardingGateState extends State<SportOnboardingGate> {
           _autoCompletePendingSteps();
         });
         return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
+          backgroundColor: Colors.white,
+          body: Center(
+            child: KlooviSplashLogo(height: 140, maxWidth: 320),
+          ),
         );
       }
       if (acq.intent == MatchPayAcquisitionIntent.createFirstGroup) {
@@ -519,7 +526,10 @@ class _SportOnboardingGateState extends State<SportOnboardingGate> {
         _autoCompletePendingSteps();
       });
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        backgroundColor: Colors.white,
+        body: Center(
+          child: KlooviSplashLogo(height: 140, maxWidth: 320),
+        ),
       );
     }
 
