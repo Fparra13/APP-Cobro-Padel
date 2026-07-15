@@ -331,6 +331,8 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
               params: {'name': result.nombre},
             ),
     );
+    await UnirseGrupoSheet.maybeShowCuentaAdicionalInfo(context, result);
+    if (!mounted) return;
     await _load(silent: true);
   }
 

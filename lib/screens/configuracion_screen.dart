@@ -12,10 +12,12 @@ import '../core/matchpay_design_tokens.dart';
 import '../services/notification_service.dart';
 import '../services/preferences_service.dart';
 import '../widgets/app_mode_switch_panel.dart';
+import '../widgets/codigo_grupo_organizador_card.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/matchpay_preferences_panel.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/mis_recintos_panel.dart';
+import '../widgets/unirse_grupo_sheet.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
@@ -248,6 +250,76 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
                 if (_isOrganizer) ...[
                   const AppModeSwitchPanel(),
                   _configDivider(),
+                ],
+
+                // Código de grupo / unirse a grupos
+                if (AuthService.instance.isLoggedIn) ...[
+                  if (enModoOrganizador) ...[
+                    const CodigoGrupoOrganizadorCard(),
+                    _configDivider(),
+                  ],
+                  // También como jugador (o dual): unirse a otros grupos
+                  if (!enModoOrganizador || _isOrganizer) ...[
+                    MatchPaySurfaceCard(
+                      onTap: () async {
+                        final result = await UnirseGrupoSheet.show(context);
+                        if (!context.mounted || result == null) return;
+                        final msg = result.yaEstaba
+                            ? l10n.tr(
+                                'groupCodeJoinAlready',
+                                params: {'name': result.nombre},
+                              )
+                            : l10n.tr(
+                                'groupCodeJoinSuccess',
+                                params: {'name': result.nombre},
+                              );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(msg)),
+                        );
+                        if (!context.mounted) return;
+                        await UnirseGrupoSheet.maybeShowCuentaAdicionalInfo(
+                          context,
+                          result,
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: context.sportPalette.primary
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(
+                              Icons.group_add_rounded,
+                              color: context.sportPalette.primaryDark,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l10n.tr('groupCodeJoinTitle'),
+                                  style: MatchPayTokens.titleSmallStyle(),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  l10n.tr('groupCodeJoinSubtitle'),
+                                  style: MatchPayTokens.bodySmallStyle(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right_rounded),
+                        ],
+                      ),
+                    ),
+                    _configDivider(),
+                  ],
                 ],
 
                 // 3. Preferencias regionales + deporte
