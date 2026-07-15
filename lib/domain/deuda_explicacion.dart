@@ -15,13 +15,16 @@ class LineaExplicacionDeuda {
   });
 }
 
-/// Explicación legible de la deuda actual (SSOT: saldo_acumulado).
+/// Explicación legible de la deuda actual en UNA cuenta
+/// (SSOT: `organizador_jugadores.saldo_acumulado` con ese organizador).
 class ExplicacionDeudaJugador {
   final double deudaActual;
   final List<LineaExplicacionDeuda> lineas;
   final int? partidoIdContexto;
   final String? subtituloKey;
   final Map<String, String> subtituloParams;
+  /// Organizador de la cuenta explicada (si se conoce).
+  final String? organizadorId;
 
   const ExplicacionDeudaJugador({
     required this.deudaActual,
@@ -29,10 +32,12 @@ class ExplicacionDeudaJugador {
     this.partidoIdContexto,
     this.subtituloKey,
     this.subtituloParams = const {},
+    this.organizadorId,
   });
 }
 
-/// Crédito a favor en cuenta (saldo_acumulado negativo).
+/// Crédito a favor en esa cuenta (saldo_acumulado negativo).
+/// No se puede aplicar contra deuda de otro organizador.
 double saldoAFavorJugador(double saldoAcumulado) =>
     CobroLogic.obtenerCreditoJugador(saldoAcumulado: saldoAcumulado);
 
@@ -43,6 +48,8 @@ double saldoAFavorJugador(double saldoAcumulado) =>
 ExplicacionDeudaJugador? explicarDeudaJugador({
   required double saldoAcumulado,
   required List<SaldoHistorico> historial,
+  /// Cuenta a la que pertenece [saldoAcumulado] (documentación / UI futura).
+  String? organizadorId,
 }) {
   final deudaActual =
       CobroLogic.obtenerPendienteJugador(saldoAcumulado: saldoAcumulado);
@@ -71,6 +78,7 @@ ExplicacionDeudaJugador? explicarDeudaJugador({
       ],
       subtituloKey: 'deudaExplainSubtitleAccumulated',
       subtituloParams: {'amount': formatMoney(deudaActual)},
+      organizadorId: organizadorId,
     );
   }
 
@@ -145,6 +153,7 @@ ExplicacionDeudaJugador? explicarDeudaJugador({
     partidoIdContexto: h.partidoId,
     subtituloKey: subtituloKey,
     subtituloParams: subtituloParams,
+    organizadorId: organizadorId,
   );
 }
 

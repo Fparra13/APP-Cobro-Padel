@@ -121,7 +121,9 @@ class Jugador {
     return Jugador(
       supabaseId: SupabaseParse.toStringOrNull(map['id']),
       nombre: SupabaseParse.asString(map['nombre'], fallback: 'Sin nombre'),
-      activo: SupabaseParse.toBool(map['activo']),
+      // Roster RPC expone perfil_activo; profiles usa activo.
+      activo: SupabaseParse.toBool(map['activo'] ?? map['perfil_activo']),
+      // Saldo de la cuenta con ESTE organizador (organizador_jugadores), no global.
       saldoAcumulado: SupabaseParse.toDouble(map['saldo_acumulado']),
       email: SupabaseParse.toStringOrNull(map['email'])?.toLowerCase(),
       telefono: SupabaseParse.toStringOrNull(map['telefono']),
@@ -132,10 +134,10 @@ class Jugador {
   }
 
   Map<String, dynamic> toSupabaseMap() {
+    // No enviar saldo_acumulado a profiles: el SSOT vive en organizador_jugadores.
     final map = <String, dynamic>{
       'nombre': nombre,
       'activo': activo,
-      'saldo_acumulado': saldoAcumulado,
     };
     final id = supabaseId;
     if (id != null && id.isNotEmpty) map['id'] = id;

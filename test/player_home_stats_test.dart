@@ -37,4 +37,34 @@ void main() {
     expect(stats.pagosAlDia, 1);
     expect(stats.partidosImpagos, 1);
   });
+
+  test(
+    'confirmaciones usan historial, no solo convocatorias vigentes',
+    () {
+      final now = DateTime(2026, 7, 14);
+      final stats = buildMisEstadisticasDesdeHome(
+        uid: 'uid-1',
+        perfil: Jugador(
+          supabaseId: 'uid-1',
+          nombre: 'Francisco',
+          createdAt: now,
+        ),
+        partidosJugados: [
+          DetallePartido(
+            partidoId: 1,
+            jugadorSupabaseId: 'uid-1',
+            total: 6000,
+            pagado: true,
+            fechaPartido: now,
+          ),
+        ],
+        // get_mis_convocatorias_jugador solo trae vigentes → a menudo 0/1.
+        convocatorias: const [],
+        confirmacionesHistoricas: 12,
+      );
+
+      expect(stats, isNotNull);
+      expect(stats!.convocatoriasConfirmadas, 12);
+    },
+  );
 }

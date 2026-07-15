@@ -69,7 +69,8 @@ class ResumenJugador {
     required this.totalPendiente,
   });
 
-  /// Deuda neta del jugador. Fuente: [saldoActual] (`profiles.saldo_acumulado`).
+  /// Deuda neta del jugador con ESTE organizador.
+  /// Fuente: [saldoActual] (`organizador_jugadores.saldo_acumulado`).
   double get deudaVisible =>
       CobroLogic.obtenerPendienteJugador(saldoAcumulado: saldoActual);
 
@@ -251,9 +252,8 @@ class PartidoRepository {
       'cargo_partido': cargo,
       'abono': pago.montoPagado,
       'saldo_nuevo': pago.saldoNuevo,
-      'fecha': pago.montoPagado > 0
-          ? ahora.toIso8601String()
-          : partido.fecha.toIso8601String(),
+      // Siempre ahora (ver remoto): no usar fecha del partido.
+      'fecha': ahora.toIso8601String(),
       'concepto': pago.concepto,
     });
 
@@ -273,7 +273,7 @@ class PartidoRepository {
       'saldos_historicos',
       where: 'jugador_id = ?',
       whereArgs: [jugadorId],
-      orderBy: 'fecha ASC, id ASC',
+      orderBy: 'id ASC',
     );
     if (rows.isEmpty) {
       await db.update(
@@ -780,7 +780,7 @@ class PartidoRepository {
 
     final rows = await db.query(
       'saldos_historicos',
-      orderBy: 'fecha ASC, id ASC',
+      orderBy: 'id ASC',
     );
 
     final saldosFinales = <int, double>{};

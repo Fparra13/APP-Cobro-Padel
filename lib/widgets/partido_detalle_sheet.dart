@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/matchpay_design_tokens.dart';
 import '../core/app_repositories.dart';
+import '../core/auth_service.dart';
 import '../domain/cobro_logic.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/datos_pago_organizador.dart';
@@ -171,15 +172,17 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
     if (ids.isEmpty) return;
     final repos = AppRepositories.I;
     // Un listado del roster + filtro local (evita N getJugador).
+    // getJugadores ya trae oj.saldo_acumulado de ESTE organizador.
     final todos = await repos.getJugadores(incluirUsuarioActual: true);
     final map = <String, Jugador>{
       for (final j in todos)
         if (ids.contains(j.keyId)) j.keyId: j,
     };
     final faltantes = ids.where((id) => !map.containsKey(id));
+    final orgId = AuthService.instance.currentUser?.id;
     await Future.wait([
       for (final id in faltantes)
-        repos.getJugador(id).then((j) {
+        repos.getJugador(id, organizadorId: orgId).then((j) {
           if (j != null) map[id] = j;
         }),
     ]);
@@ -240,7 +243,10 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
     await _conFeedback(
       () async {
         final jugador = d.jugadorKeyId.isNotEmpty
-            ? await repos.getJugador(d.jugadorKeyId)
+            ? await repos.getJugador(
+                d.jugadorKeyId,
+                organizadorId: AuthService.instance.currentUser?.id,
+              )
             : null;
         await pdfService.generarReportePersonal(
           completo: completo,
@@ -365,7 +371,10 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
       var fail = 0;
       for (final d in conApp) {
         try {
-          Jugador? jugador = await AppRepositories.I.getJugador(d.jugadorKeyId);
+          Jugador? jugador = await AppRepositories.I.getJugador(
+            d.jugadorKeyId,
+            organizadorId: AuthService.instance.currentUser?.id,
+          );
           if (jugador == null) {
             fail++;
             continue;
@@ -843,6 +852,7 @@ class _JugadorCobroCard extends StatelessWidget {
     final credito = desglose.creditoCuenta > 0.005
         ? desglose.creditoCuenta
         : (jugador != null
+            // Fallback: saldo de la cuenta con este org (roster / getJugador+org).
             ? CobroLogic.obtenerCreditoJugador(
                 saldoAcumulado: jugador!.saldoAcumulado,
               )

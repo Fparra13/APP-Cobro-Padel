@@ -134,26 +134,44 @@ class CobroLogic {
 
   // --- Single Source of Truth (lectura) ---
   //
-  // Dueño de la deuda: `profiles.saldo_acumulado` (> 0 debe, < 0 crédito).
-  // `saldos_historicos` solo audita cómo se llegó a ese saldo.
+  // Dueño de la deuda: `organizador_jugadores.saldo_acumulado` por cuenta
+  // (jugador ↔ organizador). > 0 debe a ese org; < 0 crédito solo con ese org.
+  // `saldos_historicos` (con organizador_id) audita cómo se llegó a ese saldo.
+  //
+  // INVARIANTE multi-org: NUNCA netear. Crédito con Org A no reduce deuda
+  // con Org B. Home = suma de deudas > 0 únicamente ([totalDeudaHomeSinNetear]).
   //
   // Regla: ninguna pantalla, modelo ni SQL debe calcular deuda con
   // `total - monto_pagado` sin pasar por estas funciones.
 
-  /// Cuánto debe el jugador ahora mismo.
+  /// Cuánto debe el jugador en UNA cuenta (con un organizador).
   ///
-  /// Fuente única: [saldoAcumulado] de `profiles`.
+  /// Fuente: [saldoAcumulado] de `organizador_jugadores` (no global).
   static double obtenerPendienteJugador({required double saldoAcumulado}) {
     return saldoAcumulado > 0.005
         ? roundMoney(saldoAcumulado).toDouble()
         : 0;
   }
 
-  /// Crédito a favor del jugador (positivo).
+  /// Crédito a favor del jugador en UNA cuenta (positivo).
   static double obtenerCreditoJugador({required double saldoAcumulado}) {
     return saldoAcumulado < -0.005
         ? roundMoney(-saldoAcumulado).toDouble()
         : 0;
+  }
+
+  /// Total para home del jugador: suma solo saldos > 0.
+  ///
+  /// **No netea** créditos de otras cuentas. Pasar saldos de cada
+  /// organizador (p. ej. desde `get_mis_cuentas_saldo`).
+  static double totalDeudaHomeSinNetear({
+    required Iterable<double> saldosPorOrganizador,
+  }) {
+    var total = 0.0;
+    for (final saldo in saldosPorOrganizador) {
+      total += obtenerPendienteJugador(saldoAcumulado: saldo);
+    }
+    return roundMoney(total).toDouble();
   }
 
   /// Cuánto falta por un partido concreto (contexto del cargo).
@@ -185,7 +203,7 @@ class CobroLogic {
       ) <=
       0.005;
 
-  /// Suma de deuda neta de todos los jugadores del grupo.
+  /// Suma de deuda neta de todos los jugadores del grupo (un organizador).
   static double obtenerPendienteGrupo({
     required Iterable<double> saldosAcumulados,
   }) {

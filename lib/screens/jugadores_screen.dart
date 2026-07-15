@@ -16,9 +16,10 @@ import '../services/recordatorio_service.dart';
 import '../services/whatsapp_share_service.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
+import '../utils/nav_shell_layout.dart';
 import '../utils/single_action.dart';
 import '../widgets/ayuda_tip.dart';
-import '../utils/nav_shell_layout.dart';
+import '../widgets/codigo_grupo_organizador_card.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/jugador_app_badge.dart';
 import '../widgets/matchpay_ui.dart';
@@ -339,6 +340,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
   }
 
   Future<void> _enviarCobroWhatsApp(Jugador j) async {
+    // j.saldoAcumulado = cuenta con ESTE organizador (RPC roster / oj).
     if (j.tieneMatchPayApp || !j.puedeEnviarWhatsApp || j.saldoAcumulado <= 0) {
       return;
     }
@@ -471,6 +473,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                               padding: NavShellScope.listPadding(context),
                               children: [
                                 _buildEmptyState(),
+                                const SizedBox(height: 16),
+                                const CodigoGrupoOrganizadorCard(),
                               ],
                             )
                           : ListView(
@@ -481,6 +485,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                                 right: 16,
                               ),
                               children: [
+                                const CodigoGrupoOrganizadorCard(),
+                                const SizedBox(height: 16),
                                 _buildResumen(activos, conDeuda),
                                 const SizedBox(height: 16),
                                 AyudaTip(texto: l10n.tr('playersHelpTip')),

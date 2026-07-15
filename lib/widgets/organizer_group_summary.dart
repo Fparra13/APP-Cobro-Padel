@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/formatters.dart';
+import '../utils/matchpay_context.dart';
 import 'matchpay_ui.dart';
 
-/// Resumen del grupo en el home del organizador: monto pendiente + 3 fichas.
+/// Resumen del grupo en Inicio: monto + pendientes, con icono de aporte.
 class OrganizerGroupSummary extends StatelessWidget {
   final int totalJugadores;
   final int jugadoresConDeuda;
+  /// Sin deuda neta (incluye saldo a favor).
   final int jugadoresAlDia;
   final double montoPendiente;
   final VoidCallback? onVerCobros;
@@ -24,7 +26,8 @@ class OrganizerGroupSummary extends StatelessWidget {
 
   bool get _todosAlDia => jugadoresConDeuda == 0;
 
-  String _debtPlayersLine(MatchPayStrings l10n) {
+  String _pendientesLinea(MatchPayStrings l10n) {
+    if (jugadoresConDeuda == 0) return l10n.tr('homeNoPendingDebts');
     if (jugadoresConDeuda == 1) {
       return l10n.tr('cobrosCardOnePlayerWithDebt');
     }
@@ -37,6 +40,9 @@ class OrganizerGroupSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final accent = _todosAlDia
+        ? MatchPayTokens.accentSuccess
+        : MatchPayTokens.accentUrgent;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -51,60 +57,81 @@ class OrganizerGroupSummary extends StatelessWidget {
           elevated: true,
           urgent: !_todosAlDia,
           onTap: onVerCobros,
-          child: Row(
-            children: [
-              _SummaryIconBadge(allPaid: _todosAlDia),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _todosAlDia
-                          ? l10n.tr('homeGroupAllPaid')
-                          : l10n.tr(
-                              'homeAmountToCollect',
-                              params: {
-                                'amount': formatMoney(montoPendiente),
-                              },
-                            ),
-                      style: _todosAlDia
-                          ? MatchPayTokens.titleMediumStyle()
-                          : MatchPayTokens.displayStyle(
-                              color: MatchPayTokens.accentUrgent,
-                            ).copyWith(fontSize: 22, height: 1.15),
+          padding: EdgeInsets.zero,
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 5,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: const BorderRadius.horizontal(
+                      left: Radius.circular(MatchPayTokens.radiusCard),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _todosAlDia
-                          ? l10n.tr('homeNoPendingDebts')
-                          : _debtPlayersLine(l10n),
-                      style: MatchPayTokens.bodySmallStyle().copyWith(
-                        color: _todosAlDia
-                            ? MatchPayTokens.accentSuccess
-                            : MatchPayTokens.inkSecondary,
-                        fontWeight:
-                            _todosAlDia ? FontWeight.w600 : FontWeight.w500,
-                      ),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 14, 18),
+                    child: Row(
+                      children: [
+                        _GroupMoneyBadge(allPaid: _todosAlDia),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _todosAlDia
+                                    ? l10n.tr('homeGroupAllPaid')
+                                    : formatMoney(montoPendiente),
+                                style: MatchPayTokens.displayStyle(
+                                  color: _todosAlDia
+                                      ? MatchPayTokens.accentSuccess
+                                      : MatchPayTokens.ink,
+                                ).copyWith(
+                                  fontSize: _todosAlDia ? 22 : 32,
+                                  letterSpacing: -0.7,
+                                  height: 1.05,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _pendientesLinea(l10n),
+                                style: MatchPayTokens.bodySmallStyle(
+                                  color: _todosAlDia
+                                      ? MatchPayTokens.accentSuccess
+                                      : MatchPayTokens.inkSecondary,
+                                ).copyWith(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (!_todosAlDia && onVerCobros != null) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  l10n.tr('cobrosCardViewCobros'),
+                                  style: MatchPayTokens.bodySmallStyle(
+                                    color: context.sportPrimaryDark,
+                                  ).copyWith(fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (onVerCobros != null)
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: MatchPayTokens.inkMuted,
+                          ),
+                      ],
                     ),
-                    if (!_todosAlDia && onVerCobros != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        l10n.tr('cobrosCardViewCobros'),
-                        style: MatchPayTokens.bodySmallStyle(
-                          color: MatchPayTokens.accentUrgent,
-                        ).copyWith(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-              ),
-              if (onVerCobros != null && !_todosAlDia)
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: MatchPayTokens.accentUrgent.withValues(alpha: 0.65),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -116,7 +143,7 @@ class OrganizerGroupSummary extends StatelessWidget {
                 child: MatchPayStatChip(
                   width: null,
                   icon: Icons.people_rounded,
-                  iconColor: MatchPayTokens.accentUrgent,
+                  iconColor: MatchPayTokens.inkSecondary,
                   value: '$totalJugadores',
                   label: l10n.tr('homeStatPlayers'),
                 ),
@@ -125,12 +152,14 @@ class OrganizerGroupSummary extends StatelessWidget {
               Expanded(
                 child: MatchPayStatChip(
                   width: null,
-                  icon: Icons.warning_amber_rounded,
-                  iconColor: MatchPayTokens.accentError,
+                  icon: Icons.account_balance_wallet_outlined,
+                  iconColor: jugadoresConDeuda > 0
+                      ? MatchPayTokens.accentUrgent
+                      : MatchPayTokens.inkMuted,
                   value: '$jugadoresConDeuda',
                   label: l10n.tr('homeStatWithDebt'),
                   borderColor: jugadoresConDeuda > 0
-                      ? MatchPayTokens.accentError.withValues(alpha: 0.35)
+                      ? MatchPayTokens.accentUrgent.withValues(alpha: 0.35)
                       : null,
                 ),
               ),
@@ -152,94 +181,31 @@ class OrganizerGroupSummary extends StatelessWidget {
   }
 }
 
-/// Icono del resumen: check estático si al día; cobros con pulso suave si hay deuda.
-class _SummaryIconBadge extends StatefulWidget {
+class _GroupMoneyBadge extends StatelessWidget {
   final bool allPaid;
 
-  const _SummaryIconBadge({required this.allPaid});
-
-  @override
-  State<_SummaryIconBadge> createState() => _SummaryIconBadgeState();
-}
-
-class _SummaryIconBadgeState extends State<_SummaryIconBadge>
-    with SingleTickerProviderStateMixin {
-  AnimationController? _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _syncAnimation();
-  }
-
-  @override
-  void didUpdateWidget(covariant _SummaryIconBadge oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.allPaid != widget.allPaid) {
-      _syncAnimation();
-    }
-  }
-
-  void _syncAnimation() {
-    if (!widget.allPaid) {
-      _controller ??= AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 2000),
-      )..repeat(reverse: true);
-    } else {
-      _controller?.dispose();
-      _controller = null;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
-  }
+  const _GroupMoneyBadge({required this.allPaid});
 
   @override
   Widget build(BuildContext context) {
-    final allPaid = widget.allPaid;
-    final gradient = allPaid
-        ? [
-            MatchPayTokens.accentSuccessBg,
-            MatchPayTokens.accentSuccess.withValues(alpha: 0.18),
-          ]
-        : [
-            MatchPayTokens.accentUrgentBg,
-            MatchPayTokens.accentUrgent.withValues(alpha: 0.14),
-          ];
-    final iconColor = allPaid
+    final color = allPaid
         ? MatchPayTokens.accentSuccess
         : MatchPayTokens.accentUrgent;
-    final icon = allPaid
-        ? Icons.check_circle_rounded
-        : Icons.payments_outlined;
-
-    Widget iconWidget = Icon(icon, color: iconColor, size: 28);
-
-    if (!allPaid && _controller != null) {
-      iconWidget = ScaleTransition(
-        scale: Tween<double>(begin: 1.0, end: 1.08).animate(
-          CurvedAnimation(parent: _controller!, curve: Curves.easeInOut),
-        ),
-        child: iconWidget,
-      );
-    }
-
     return Container(
       width: 52,
       height: 52,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradient,
-        ),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
-      child: Center(child: iconWidget),
+      child: Icon(
+        allPaid
+            ? Icons.check_circle_rounded
+            : Icons.account_balance_wallet_rounded,
+        color: color,
+        size: 26,
+      ),
     );
   }
 }

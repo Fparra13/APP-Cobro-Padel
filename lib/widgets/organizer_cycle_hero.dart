@@ -33,9 +33,10 @@ class OrganizerCycleSnapshot {
   final int partidosCobroPendiente;
   /// Jugadores con cobro pendiente en esos partidos.
   final int jugadoresCobroPendiente;
-  /// Suma pendiente en cuenta (SSOT saldo_acumulado del grupo).
+  /// Suma pendiente en cuenta (SSOT `organizador_jugadores.saldo_acumulado`
+  /// del roster de este organizador).
   final double montoCobroPendienteTotal;
-  /// Jugadores con deuda en cuenta.
+  /// Jugadores con deuda en cuenta (solo este org).
   final List<ResumenJugador> deudoresGrupo;
 
   const OrganizerCycleSnapshot({
@@ -113,7 +114,7 @@ class OrganizerCycleSnapshot {
           partidosConCobrosPendientes(partidosJugadosRecientes);
       final jugadoresPend =
           jugadoresPendientesUnicos(partidosJugadosRecientes);
-      // SSOT grupo: saldo_acumulado (no sumar pendiente neto por partido).
+      // SSOT grupo: saldo de cuentas de ESTE org (no sumar neto por partido).
       final montoPend = resumenesGrupo.isNotEmpty
           ? deudaGrupo
           : montoTotalCobrosPendientes(partidosJugadosRecientes);
@@ -758,7 +759,7 @@ class _ResolutionHero extends StatelessWidget {
               elevation: 0,
               shape: shape,
             ),
-            icon: const Icon(Icons.sports, size: 18),
+            icon: const Icon(Icons.event_available_rounded, size: 18),
             label: Text(
               l10n.tr('organizerCycleUnresolvedMarkPlayed'),
               style: const TextStyle(fontWeight: FontWeight.w700),

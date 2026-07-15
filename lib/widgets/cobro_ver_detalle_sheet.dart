@@ -52,30 +52,30 @@ class CobroVerDetalleSheet extends StatelessWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: MatchPayTokens.surfaceBase,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.72,
-        minChildSize: 0.45,
-        maxChildSize: 0.92,
-        builder: (_, scrollCtrl) => SingleChildScrollView(
-          controller: scrollCtrl,
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-          child: CobroVerDetalleSheet(
-            detalle: detalle,
-            desglose: desglose,
-            saldoAnteriorAlPartido: saldoAnteriorAlPartido,
-            saldoAcumuladoJugador: saldoAcumuladoJugador,
-            esAnclaCuenta: esAnclaCuenta,
-            historialSaldo: historialSaldo,
-            onPayTotal: onPayTotal,
-            onPayAbono: onPayAbono,
+      builder: (ctx) {
+        final maxH = MediaQuery.sizeOf(ctx).height * 0.9;
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxH),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            child: CobroVerDetalleSheet(
+              detalle: detalle,
+              desglose: desglose,
+              saldoAnteriorAlPartido: saldoAnteriorAlPartido,
+              saldoAcumuladoJugador: saldoAcumuladoJugador,
+              esAnclaCuenta: esAnclaCuenta,
+              historialSaldo: historialSaldo,
+              onPayTotal: onPayTotal,
+              onPayAbono: onPayAbono,
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

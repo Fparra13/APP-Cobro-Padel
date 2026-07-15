@@ -51,10 +51,12 @@ void main() {
     final exp = explicarDeudaJugador(
       saldoAcumulado: 5000,
       historial: historial,
+      organizadorId: 'org-francisco',
     );
 
     expect(exp, isNotNull);
     expect(exp!.deudaActual, 5000);
+    expect(exp.organizadorId, 'org-francisco');
     expect(exp.partidoIdContexto, 54);
     expect(
       exp.lineas.map((l) => l.labelKey),

@@ -1,9 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:matchpay/domain/cobro_logic.dart';
 
-/// Casos canónicos de Kloovi.
-///
-/// Convención en código/BD: saldo_acumulado > 0 = debe, < 0 = crédito a favor.
+/// Convención: `organizador_jugadores.saldo_acumulado` > 0 = debe a ese org,
+/// < 0 = crédito solo con ese org. Nunca netear entre organizadores.
 void main() {
   group('obtenerPendienteJugador / obtenerCreditoJugador', () {
     test('sin deuda ni crédito', () {
@@ -18,6 +17,46 @@ void main() {
     test('crédito 5000', () {
       expect(CobroLogic.obtenerPendienteJugador(saldoAcumulado: -5000), 0);
       expect(CobroLogic.obtenerCreditoJugador(saldoAcumulado: -5000), 5000);
+    });
+  });
+
+  group('totalDeudaHomeSinNetear — regresión Demo 01 / Demo 02', () {
+    test('Demo 01: deuda 7000 Francisco + crédito 3000 Org B → home 7000', () {
+      // Nunca 4000 (neteo incorrecto 7000-3000).
+      expect(
+        CobroLogic.totalDeudaHomeSinNetear(
+          saldosPorOrganizador: const [7000.0, -3000.0],
+        ),
+        7000,
+      );
+    });
+
+    test('Demo 02: crédito 2000 Francisco + deuda 4000 Org B → home 4000', () {
+      // Nunca 2000 (neteo incorrecto 4000-2000).
+      expect(
+        CobroLogic.totalDeudaHomeSinNetear(
+          saldosPorOrganizador: const [-2000.0, 4000.0],
+        ),
+        4000,
+      );
+    });
+
+    test('solo créditos → home 0', () {
+      expect(
+        CobroLogic.totalDeudaHomeSinNetear(
+          saldosPorOrganizador: const [-1000.0, -500.0],
+        ),
+        0,
+      );
+    });
+
+    test('dos deudas en orgs distintos se suman', () {
+      expect(
+        CobroLogic.totalDeudaHomeSinNetear(
+          saldosPorOrganizador: const [3000.0, 2000.0, -1000.0],
+        ),
+        5000,
+      );
     });
   });
 
@@ -316,7 +355,8 @@ void main() {
   });
 
   group('obtenerPendienteGrupo', () {
-    test('suma deuda neta de jugadores', () {
+    test('suma deuda neta de jugadores del MISMO organizador', () {
+      // Créditos del grupo no restan: [5000, 0, -3000, 2000] → 7000.
       expect(
         CobroLogic.obtenerPendienteGrupo(
           saldosAcumulados: [5000, 0, -3000, 2000],

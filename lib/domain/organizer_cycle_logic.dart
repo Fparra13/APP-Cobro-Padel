@@ -149,6 +149,13 @@ double deudaTotalGrupo(List<ResumenJugador> resumenes) =>
 int jugadoresConDeudaGrupo(List<ResumenJugador> resumenes) =>
     resumenes.where((r) => r.tieneDeuda).length;
 
+/// Sin deuda neta (incluye saldo a favor).
+int jugadoresAlDiaGrupo(List<ResumenJugador> resumenes) =>
+    resumenes.where((r) => !r.tieneDeuda).length;
+
+int jugadoresConCreditoGrupo(List<ResumenJugador> resumenes) =>
+    resumenes.where((r) => r.tieneCredito).length;
+
 CobrosResumen cobrosResumenDesdeResumenes(List<ResumenJugador> resumenes) =>
     CobrosResumen(
       montoTotalPendiente: deudaTotalGrupo(resumenes),

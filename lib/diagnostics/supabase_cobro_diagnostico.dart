@@ -32,8 +32,8 @@ class SupabaseCobroDiagnostico {
       c,
       tabla: 'saldos_historicos',
       select:
-          'id, jugador_id, partido_id, saldo_anterior, cargo_partido, abono, '
-          'saldo_nuevo, fecha, concepto, profiles(nombre)',
+          'id, jugador_id, organizador_id, partido_id, saldo_anterior, '
+          'cargo_partido, abono, saldo_nuevo, fecha, concepto, profiles(nombre)',
     );
 
     final idsReferenciados = <String>{
@@ -43,7 +43,7 @@ class SupabaseCobroDiagnostico {
         SupabaseParse.asString(row['jugador_id']),
     }..removeWhere((id) => id.isEmpty);
 
-    final jugadorRows = await _cargarPerfiles(c, idsReferenciados);
+    final jugadorRows = await _cargarCuentas(c, idsReferenciados);
 
     return analizarFilas(
       detalleRows: detalleRows,
@@ -111,33 +111,61 @@ class SupabaseCobroDiagnostico {
     return out;
   }
 
-  static Future<List<Map<String, dynamic>>> _cargarPerfiles(
+  /// Saldo por cuenta (`organizador_jugadores`), no wallet global de profiles.
+  static Future<List<Map<String, dynamic>>> _cargarCuentas(
     SupabaseClient client,
     Set<String> idsReferenciados,
   ) async {
     final rows = await _cargarPaginado(
       client,
-      tabla: 'profiles',
-      select: 'id, nombre, saldo_acumulado, activo',
+      tabla: 'organizador_jugadores',
+      select: 'jugador_id, organizador_id, saldo_acumulado',
     );
 
-    final porId = <String, Map<String, dynamic>>{
-      for (final row in rows)
-        SupabaseParse.asString(row['id']): Map<String, dynamic>.from(row),
-    };
+    final jugadorIds = <String>{
+      for (final row in rows) SupabaseParse.asString(row['jugador_id']),
+      ...idsReferenciados,
+    }..removeWhere((id) => id.isEmpty);
 
-    for (final id in idsReferenciados) {
-      porId.putIfAbsent(
-        id,
-        () => {
-          'id': id,
-          'nombre': null,
-          'saldo_acumulado': 0,
-        },
-      );
+    final nombres = <String, String?>{};
+    if (jugadorIds.isNotEmpty) {
+      final profiles = await client
+          .from('profiles')
+          .select('id, nombre')
+          .inFilter('id', jugadorIds.toList());
+      for (final raw in profiles as List) {
+        final map = Map<String, dynamic>.from(raw as Map);
+        nombres[SupabaseParse.asString(map['id'])] =
+            SupabaseParse.toStringOrNull(map['nombre']);
+      }
     }
 
-    return porId.values.toList();
+    final out = <Map<String, dynamic>>[
+      for (final row in rows)
+        {
+          'id': SupabaseParse.asString(row['jugador_id']),
+          'jugador_id': SupabaseParse.asString(row['jugador_id']),
+          'organizador_id': SupabaseParse.asString(row['organizador_id']),
+          'nombre': nombres[SupabaseParse.asString(row['jugador_id'])],
+          'saldo_acumulado': SupabaseParse.toDouble(row['saldo_acumulado']),
+        },
+    ];
+
+    final cubiertos = <String>{
+      for (final row in out) SupabaseParse.asString(row['jugador_id']),
+    };
+    for (final id in idsReferenciados) {
+      if (cubiertos.contains(id)) continue;
+      out.add({
+        'id': id,
+        'jugador_id': id,
+        'organizador_id': null,
+        'nombre': nombres[id],
+        'saldo_acumulado': 0,
+      });
+    }
+
+    return out;
   }
 
   static DiagnosticoDetalleInput _detalleFromRow(Map<String, dynamic> row) {
@@ -154,6 +182,7 @@ class SupabaseCobroDiagnostico {
   }
 
   static DiagnosticoHistorialInput _historialFromRow(Map<String, dynamic> row) {
+    final orgRaw = row['organizador_id'];
     return DiagnosticoHistorialInput(
       historialId: SupabaseParse.toInt(row['id']),
       jugadorId: SupabaseParse.asString(row['jugador_id']),
@@ -167,14 +196,24 @@ class SupabaseCobroDiagnostico {
       saldoNuevo: SupabaseParse.toDouble(row['saldo_nuevo']),
       fecha: SupabaseParse.toDateTime(row['fecha']),
       concepto: SupabaseParse.asString(row['concepto'], fallback: 'Movimiento'),
+      organizadorId: orgRaw == null || orgRaw.toString().isEmpty
+          ? null
+          : SupabaseParse.asString(orgRaw),
     );
   }
 
   static DiagnosticoJugadorInput _jugadorFromRow(Map<String, dynamic> row) {
+    final orgRaw = row['organizador_id'];
+    final jugadorId = row.containsKey('jugador_id')
+        ? SupabaseParse.asString(row['jugador_id'])
+        : SupabaseParse.asString(row['id']);
     return DiagnosticoJugadorInput(
-      jugadorId: SupabaseParse.asString(row['id']),
+      jugadorId: jugadorId,
       nombre: SupabaseParse.toStringOrNull(row['nombre']),
       saldoAcumulado: SupabaseParse.toDouble(row['saldo_acumulado']),
+      organizadorId: orgRaw == null || orgRaw.toString().isEmpty
+          ? null
+          : SupabaseParse.asString(orgRaw),
     );
   }
 }

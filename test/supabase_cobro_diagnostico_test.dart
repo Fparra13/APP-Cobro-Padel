@@ -257,5 +257,114 @@ void main() {
         greaterThanOrEqualTo(2),
       );
     });
+
+    test(
+      'Demo 01 filas Supabase: dos orgs no netean ni rompen cadena',
+      () {
+        const demo = '11111111-aaaa-bbbb-cccc-dddddddddddd';
+        const francisco = '22222222-aaaa-bbbb-cccc-ffffffffffff';
+        const orgB = '33333333-aaaa-bbbb-cccc-ffffffffffff';
+
+        final reporte = SupabaseCobroDiagnostico.analizarFilas(
+          detalleRows: const [],
+          historialRows: [
+            {
+              'id': 1,
+              'jugador_id': demo,
+              'organizador_id': francisco,
+              'partido_id': 10,
+              'saldo_anterior': 0,
+              'cargo_partido': 7000,
+              'abono': 0,
+              'saldo_nuevo': 7000,
+              'fecha': '2026-01-01T12:00:00.000Z',
+              'concepto': 'Deuda Francisco',
+              'profiles': {'nombre': 'Demo 01'},
+            },
+            {
+              'id': 2,
+              'jugador_id': demo,
+              'organizador_id': orgB,
+              'partido_id': 11,
+              'saldo_anterior': 0,
+              'cargo_partido': 0,
+              'abono': 3000,
+              'saldo_nuevo': -3000,
+              'fecha': '2026-01-02T12:00:00.000Z',
+              'concepto': 'Crédito Org B',
+              'profiles': {'nombre': 'Demo 01'},
+            },
+          ],
+          jugadorRows: [
+            {
+              'jugador_id': demo,
+              'organizador_id': francisco,
+              'nombre': 'Demo 01',
+              'saldo_acumulado': 7000,
+            },
+            {
+              'jugador_id': demo,
+              'organizador_id': orgB,
+              'nombre': 'Demo 01',
+              'saldo_acumulado': -3000,
+            },
+          ],
+        );
+
+        expect(reporte.tieneProblemas, isFalse);
+        expect(
+          reporte.conteoPorTipo[CobroInconsistenciaTipo.historialCadenaRota],
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'sin organizador_id (legacy) mezcla cadenas del mismo jugador',
+      () {
+        // Regresión: si el loader omitiera organizador_id, el motor netearía.
+        const demo = '44444444-aaaa-bbbb-cccc-dddddddddddd';
+
+        final reporte = SupabaseCobroDiagnostico.analizarFilas(
+          detalleRows: const [],
+          historialRows: [
+            {
+              'id': 1,
+              'jugador_id': demo,
+              'partido_id': 10,
+              'saldo_anterior': 0,
+              'cargo_partido': 7000,
+              'abono': 0,
+              'saldo_nuevo': 7000,
+              'fecha': '2026-01-01T12:00:00.000Z',
+              'concepto': 'Org A',
+            },
+            {
+              'id': 2,
+              'jugador_id': demo,
+              'partido_id': 11,
+              'saldo_anterior': 0,
+              'cargo_partido': 0,
+              'abono': 3000,
+              'saldo_nuevo': -3000,
+              'fecha': '2026-01-02T12:00:00.000Z',
+              'concepto': 'Org B',
+            },
+          ],
+          jugadorRows: [
+            {
+              'id': demo,
+              'nombre': 'Demo',
+              'saldo_acumulado': 4000,
+            },
+          ],
+        );
+
+        expect(
+          reporte.conteoPorTipo[CobroInconsistenciaTipo.historialCadenaRota],
+          greaterThanOrEqualTo(1),
+        );
+      },
+    );
   });
 }

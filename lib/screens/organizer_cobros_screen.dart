@@ -133,11 +133,16 @@ class _OrganizerCobrosScreenState extends State<OrganizerCobrosScreen> {
     return switch (_filtro) {
       _FiltroCobros.todos => copy,
       _FiltroCobros.conDeuda => copy.where((r) => r.tieneDeuda).toList(),
-      _FiltroCobros.alDia =>
-        copy.where((r) => !r.tieneDeuda && !r.tieneCredito).toList(),
+      // Al día = sin deuda neta (incluye quien tiene saldo a favor).
+      _FiltroCobros.alDia => copy.where((r) => !r.tieneDeuda).toList(),
       _FiltroCobros.credito => copy.where((r) => r.tieneCredito).toList(),
     };
   }
+
+  int get _countTodos => _resumenes.length;
+  int get _countDeuda => _resumenes.where((r) => r.tieneDeuda).length;
+  int get _countAlDia => _resumenes.where((r) => !r.tieneDeuda).length;
+  int get _countCredito => _resumenes.where((r) => r.tieneCredito).length;
 
   void _abrirFicha(String jugadorKey) {
     Navigator.pushNamed(context, '/historial', arguments: jugadorKey);
@@ -181,7 +186,10 @@ class _OrganizerCobrosScreenState extends State<OrganizerCobrosScreen> {
                             child: Row(
                               children: [
                                 _FiltroChip(
-                                  label: l10n.tr('organizerCobrosFilterAll'),
+                                  label: l10n.tr(
+                                    'organizerCobrosFilterAllCount',
+                                    params: {'count': '$_countTodos'},
+                                  ),
                                   selected: _filtro == _FiltroCobros.todos,
                                   onTap: () => setState(
                                     () => _filtro = _FiltroCobros.todos,
@@ -189,7 +197,10 @@ class _OrganizerCobrosScreenState extends State<OrganizerCobrosScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 _FiltroChip(
-                                  label: l10n.tr('organizerCobrosFilterDebt'),
+                                  label: l10n.tr(
+                                    'organizerCobrosFilterDebtCount',
+                                    params: {'count': '$_countDeuda'},
+                                  ),
                                   selected: _filtro == _FiltroCobros.conDeuda,
                                   onTap: () => setState(
                                     () => _filtro = _FiltroCobros.conDeuda,
@@ -197,8 +208,10 @@ class _OrganizerCobrosScreenState extends State<OrganizerCobrosScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 _FiltroChip(
-                                  label:
-                                      l10n.tr('organizerCobrosFilterUpToDate'),
+                                  label: l10n.tr(
+                                    'organizerCobrosFilterUpToDateCount',
+                                    params: {'count': '$_countAlDia'},
+                                  ),
                                   selected: _filtro == _FiltroCobros.alDia,
                                   onTap: () => setState(
                                     () => _filtro = _FiltroCobros.alDia,
@@ -206,7 +219,10 @@ class _OrganizerCobrosScreenState extends State<OrganizerCobrosScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 _FiltroChip(
-                                  label: l10n.tr('organizerCobrosFilterCredit'),
+                                  label: l10n.tr(
+                                    'organizerCobrosFilterCreditCount',
+                                    params: {'count': '$_countCredito'},
+                                  ),
                                   selected: _filtro == _FiltroCobros.credito,
                                   onTap: () => setState(
                                     () => _filtro = _FiltroCobros.credito,

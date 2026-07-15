@@ -265,5 +265,122 @@ void main() {
       expect(texto, contains('Detalle sin snapshot'));
       expect(texto, contains('partido: 99'));
     });
+
+    test(
+      'Demo 01: crédito con un org y deuda con otro no rompe cadena ni neto',
+      () {
+        // Mismo jugador, dos cuentas. Sin clave por org el historial
+        // 7000 → −3000 marcaría cadena rota y saldo “global” falso.
+        const demo = 'demo-01';
+        const francisco = 'org-francisco';
+        const orgB = 'org-b';
+
+        final reporte = CobroDiagnostico.analizar(
+          detalles: const [],
+          historial: [
+            DiagnosticoHistorialInput(
+              historialId: 1,
+              jugadorId: demo,
+              organizadorId: francisco,
+              partidoId: 10,
+              saldoAnterior: 0,
+              cargoPartido: 7000,
+              abono: 0,
+              saldoNuevo: 7000,
+              fecha: DateTime(2026, 1, 1),
+              concepto: 'Deuda Francisco',
+            ),
+            DiagnosticoHistorialInput(
+              historialId: 2,
+              jugadorId: demo,
+              organizadorId: orgB,
+              partidoId: 11,
+              saldoAnterior: 0,
+              cargoPartido: 0,
+              abono: 3000,
+              saldoNuevo: -3000,
+              fecha: DateTime(2026, 1, 2),
+              concepto: 'Crédito Org B',
+            ),
+          ],
+          jugadores: const [
+            DiagnosticoJugadorInput(
+              jugadorId: demo,
+              nombre: 'Demo 01',
+              organizadorId: francisco,
+              saldoAcumulado: 7000,
+            ),
+            DiagnosticoJugadorInput(
+              jugadorId: demo,
+              nombre: 'Demo 01',
+              organizadorId: orgB,
+              saldoAcumulado: -3000,
+            ),
+          ],
+        );
+
+        expect(reporte.tieneProblemas, isFalse);
+        expect(
+          reporte.conteoPorTipo[CobroInconsistenciaTipo.historialCadenaRota],
+          isNull,
+        );
+        expect(
+          reporte.conteoPorTipo[
+              CobroInconsistenciaTipo.saldoAcumuladoDifiereHistorial],
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'Demo 02: crédito Francisco + deuda Org B — cuentas independientes OK',
+      () {
+        const demo = 'demo-02';
+        const francisco = 'org-francisco';
+        const orgB = 'org-b';
+
+        final reporte = CobroDiagnostico.analizar(
+          detalles: const [],
+          historial: [
+            DiagnosticoHistorialInput(
+              historialId: 3,
+              jugadorId: demo,
+              organizadorId: francisco,
+              saldoAnterior: 0,
+              cargoPartido: 0,
+              abono: 2000,
+              saldoNuevo: -2000,
+              fecha: DateTime(2026, 2, 1),
+              concepto: 'Crédito Francisco',
+            ),
+            DiagnosticoHistorialInput(
+              historialId: 4,
+              jugadorId: demo,
+              organizadorId: orgB,
+              saldoAnterior: 0,
+              cargoPartido: 4000,
+              abono: 0,
+              saldoNuevo: 4000,
+              fecha: DateTime(2026, 2, 2),
+              concepto: 'Deuda Org B',
+            ),
+          ],
+          jugadores: const [
+            DiagnosticoJugadorInput(
+              jugadorId: demo,
+              organizadorId: francisco,
+              saldoAcumulado: -2000,
+            ),
+            DiagnosticoJugadorInput(
+              jugadorId: demo,
+              organizadorId: orgB,
+              saldoAcumulado: 4000,
+            ),
+          ],
+        );
+
+        expect(reporte.tieneProblemas, isFalse);
+      },
+    );
   });
 }

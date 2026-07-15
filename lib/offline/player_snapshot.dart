@@ -1,6 +1,7 @@
 import '../models/deuda_partido_anterior.dart';
 import '../models/estadisticas_jugador.dart';
 import '../models/jugador.dart';
+import '../models/cuenta_saldo.dart';
 import '../models/detalle_partido.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/saldo_historico.dart';
@@ -20,6 +21,10 @@ class PlayerHomeData {
   final List<DetallePartido> partidosJugados;
   final List<SaldoHistorico> historialSaldo;
   final Map<int, double> saldosPorPartido;
+  /// Cuentas por organizador (SSOT multi-org). Vacío en snapshots viejos.
+  final List<CuentaSaldo> cuentasSaldo;
+  /// Total home = suma deudas > 0 (sin netear). Null en snapshots viejos.
+  final double? totalDeudaHome;
 
   const PlayerHomeData({
     required this.convocatorias,
@@ -29,6 +34,8 @@ class PlayerHomeData {
     required this.partidosJugados,
     required this.historialSaldo,
     required this.saldosPorPartido,
+    this.cuentasSaldo = const [],
+    this.totalDeudaHome,
   });
 
   Map<String, dynamic> toJson() => {
@@ -43,6 +50,8 @@ class PlayerHomeData {
         'saldosPorPartido': saldosPorPartido.map(
           (k, v) => MapEntry(k.toString(), v),
         ),
+        'cuentasSaldo': cuentasSaldo.map(cuentaSaldoToJson).toList(),
+        'totalDeudaHome': totalDeudaHome,
       };
 
   factory PlayerHomeData.fromJson(Map<String, dynamic> json) {
@@ -73,6 +82,11 @@ class PlayerHomeData {
       saldosPorPartido: saldosRaw.map(
         (k, v) => MapEntry(int.parse(k.toString()), (v as num).toDouble()),
       ),
+      cuentasSaldo: (json['cuentasSaldo'] as List? ?? const [])
+          .whereType<Map>()
+          .map((e) => cuentaSaldoFromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      totalDeudaHome: (json['totalDeudaHome'] as num?)?.toDouble(),
     );
   }
 }

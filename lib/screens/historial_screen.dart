@@ -143,9 +143,11 @@ class _HistorialScreenState extends State<HistorialScreen> {
 
   ExplicacionDeudaJugador? get _explicacionDeuda {
     final saldo = _jugador?.saldoAcumulado ?? 0;
+    final orgId = AuthService.instance.currentUser?.id;
     return explicarDeudaJugador(
       saldoAcumulado: saldo,
       historial: _historial,
+      organizadorId: orgId,
     );
   }
 

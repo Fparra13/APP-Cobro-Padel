@@ -33,11 +33,21 @@ void main() {
     expect(r.tieneDeuda, isTrue);
   });
 
-  test('deuda visible = saldo_acumulado (no suma bruta por partido)', () {
-    // Si saldo es 0 pero hay detalles impagos, la BD está desalineada;
-    // la UI muestra saldo_acumulado como verdad.
+  test('deuda visible = saldo de la cuenta con ESTE org (no suma bruta)', () {
+    // Si saldo de cuenta es 0 pero hay detalles impagos, la BD está
+    // desalineada; la UI muestra organizador_jugadores.saldo_acumulado.
     final r = _resumen(saldo: 0, totalPendiente: 1400);
     expect(r.deudaVisible, 0);
     expect(r.tieneDeuda, isFalse);
   });
+
+  test(
+    'crédito en esta cuenta no se presenta como deuda (otro org no aplica)',
+    () {
+      // Demo-like: crédito solo con este organizador.
+      final r = _resumen(saldo: -3000);
+      expect(r.deudaVisible, 0);
+      expect(r.creditoVisible, 3000);
+    },
+  );
 }

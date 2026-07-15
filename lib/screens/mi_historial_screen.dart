@@ -4,14 +4,15 @@ import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/sport_type.dart';
-import '../domain/cobro_logic.dart';
 import '../domain/deuda_explicacion.dart';
 import '../l10n/matchpay_strings.dart';
+import '../models/cuenta_saldo.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/player_historial_entry.dart';
 import '../models/saldo_historico.dart';
+import '../utils/cobro_jugador_ui.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
 import '../widgets/cobro_ver_detalle_sheet.dart';
@@ -36,7 +37,9 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
   List<PlayerHistorialEntry> _entradas = [];
   Map<int, double> _saldosPorPartido = {};
   List<SaldoHistorico> _historialSaldo = [];
-  double _saldoAcumulado = 0;
+  List<CuentaSaldo> _cuentas = [];
+  double _totalDeudaHome = 0;
+  CuentaSaldo? _cuentaFoco;
   bool _loading = true;
   String? _error;
   SportType? _filtroDeporte;
@@ -72,29 +75,37 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
       final results = await Future.wait([
         repos.getMisPartidosJugados(limit: 100),
         repos.getCancelacionesJugador(),
+        repos.listarMisCuentasSaldo(),
+        repos.getMiTotalDeudaHome(),
       ]);
       final partidos = results[0] as List<DetallePartido>;
       final cancelaciones = results[1] as List<MiConvocatoria>;
+      final cuentas = results[2] as List<CuentaSaldo>;
+      final totalRpc = results[3] as double;
+      final total = totalRpc > 0.005
+          ? totalRpc
+          : totalDeudaDesdeCuentas(cuentas);
+      final foco = cuentaConMayorDeuda(cuentas);
       final entradas = PlayerHistorialEntry.merge(
         jugados: partidos,
         cancelados: cancelaciones,
       );
       final ids = partidos.map((p) => p.partidoId).toSet();
       final saldos = await repos.getMisSaldosAnterioresPartidos(ids);
-      final historialFuture = uid != null
-          ? repos.getSaldosByJugador(uid)
-          : Future.value(<SaldoHistorico>[]);
-      final jugadorFuture = uid != null
-          ? repos.getJugador(uid)
-          : Future.value(null);
-      final historialSaldo = await historialFuture;
-      final jugador = await jugadorFuture;
+      final historialSaldo = uid != null && foco != null
+          ? await repos.getSaldosByJugador(
+              uid,
+              organizadorId: foco.organizadorId,
+            )
+          : <SaldoHistorico>[];
       if (!mounted) return;
       setState(() {
         _entradas = entradas;
         _saldosPorPartido = saldos;
         _historialSaldo = historialSaldo;
-        _saldoAcumulado = jugador?.saldoAcumulado ?? 0;
+        _cuentas = cuentas;
+        _totalDeudaHome = total;
+        _cuentaFoco = foco;
         _loading = false;
         _error = null;
       });
@@ -122,13 +133,30 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
     } catch (_) {}
 
     if (!mounted) return;
+
+    double? saldoCuenta;
+    final orgId = detalle.organizadorId ?? _cuentaFoco?.organizadorId;
+    if (orgId != null) {
+      for (final c in _cuentas) {
+        if (c.organizadorId == orgId) {
+          saldoCuenta = c.saldoAcumulado;
+          break;
+        }
+      }
+    }
+    final historial = orgId == null
+        ? _historialSaldo
+        : _historialSaldo
+            .where((h) => h.organizadorId == orgId)
+            .toList(growable: false);
+
     await CobroVerDetalleSheet.show(
       context,
       detalle: detalle,
       desglose: desglose,
       saldoAnteriorAlPartido: _saldosPorPartido[detalle.partidoId],
-      saldoAcumuladoJugador: _saldoAcumulado,
-      historialSaldo: _historialSaldo,
+      saldoAcumuladoJugador: saldoCuenta,
+      historialSaldo: historial,
     );
   }
 
@@ -136,13 +164,15 @@ class _MiHistorialScreenState extends State<MiHistorialScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final palette = context.sportPalette;
-    final cuentaConDeuda =
-        CobroLogic.obtenerPendienteJugador(saldoAcumulado: _saldoAcumulado) >
-            0.005;
-    final explicacion = cuentaConDeuda
+    final cuentaConDeuda = _totalDeudaHome > 0.005;
+    final saldoFoco = _cuentaFoco?.saldoAcumulado;
+    final explicacion = cuentaConDeuda &&
+            saldoFoco != null &&
+            _cuentaFoco != null
         ? explicarDeudaJugador(
-            saldoAcumulado: _saldoAcumulado,
+            saldoAcumulado: saldoFoco,
             historial: _historialSaldo,
+            organizadorId: _cuentaFoco!.organizadorId,
           )
         : null;
     DetallePartido? ancla;

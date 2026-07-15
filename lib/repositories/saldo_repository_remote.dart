@@ -27,13 +27,19 @@ class SaldoRepositoryRemote {
     });
   }
 
-  Future<List<SaldoHistorico>> getByJugador(String jugadorId) async {
+  Future<List<SaldoHistorico>> getByJugador(
+    String jugadorId, {
+    String? organizadorId,
+  }) async {
     return SupabaseHelpers.guard('Historial saldo jugador', () async {
-      final rows = await _client
+      var query = _client
           .from('saldos_historicos')
           .select('*, profiles:jugador_id(nombre)')
-          .eq('jugador_id', jugadorId)
-          .order('fecha', ascending: false);
+          .eq('jugador_id', jugadorId);
+      if (organizadorId != null && organizadorId.isNotEmpty) {
+        query = query.eq('organizador_id', organizadorId);
+      }
+      final rows = await query.order('fecha', ascending: false);
 
       return (rows as List).map((row) {
         final map = Map<String, dynamic>.from(row);

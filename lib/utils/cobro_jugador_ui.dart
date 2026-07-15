@@ -2,10 +2,46 @@ import '../core/sport_theme.dart';
 import '../core/sport_type.dart';
 import '../l10n/matchpay_strings.dart';
 import '../domain/cobro_logic.dart';
+import '../models/cuenta_saldo.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../widgets/desglose_cobro_panel.dart';
 import 'formatters.dart';
+
+/// Cuenta con mayor deuda viva (> 0). Null si ninguna debe.
+CuentaSaldo? cuentaConMayorDeuda(Iterable<CuentaSaldo> cuentas) {
+  CuentaSaldo? best;
+  for (final c in cuentas) {
+    if (c.deuda <= 0.005) continue;
+    if (best == null || c.deuda > best.deuda) best = c;
+  }
+  return best;
+}
+
+/// Total home desde cuentas (sin netear). Preferir RPC si ya lo tienes.
+double totalDeudaDesdeCuentas(Iterable<CuentaSaldo> cuentas) =>
+    CobroLogic.totalDeudaHomeSinNetear(
+      saldosPorOrganizador: cuentas.map((c) => c.saldoAcumulado),
+    );
+
+/// Suma de créditos a favor (solo display “al día”; nunca restar a deudas).
+double totalCreditoDesdeCuentas(Iterable<CuentaSaldo> cuentas) {
+  var total = 0.0;
+  for (final c in cuentas) {
+    total += c.credito;
+  }
+  return total;
+}
+
+/// Deudas de una sola cuenta (mismo organizador).
+List<DetallePartido> deudasDeOrganizador(
+  Iterable<DetallePartido> deudas,
+  String organizadorId,
+) {
+  return deudas
+      .where((d) => d.organizadorId == organizadorId)
+      .toList(growable: false);
+}
 
 /// Prioridad de atención para mostrar el cobro protagonista (no cronología pura).
 int _prioridadAtencion(DetallePartido d, {double? saldoAnteriorAlPartido}) {
@@ -72,7 +108,10 @@ bool partidoRequiereAtencionEnLista(
       0.005;
 }
 
-/// Partidos a listar en Mis cobros: ancla de la cuenta + cargos marginales abiertos.
+/// Partidos a listar en Mis cobros de UNA cuenta (un organizador).
+///
+/// [saldoAcumuladoJugador] es el saldo de esa cuenta (`organizador_jugadores`),
+/// no un wallet global. No mezclar cuentas de distintos orgs aquí.
 ({DetallePartido? ancla, List<DetallePartido> otros}) cobrosVisiblesJugador({
   required List<DetallePartido> deudas,
   required Map<int, DesgloseJugador?> desgloses,
@@ -82,6 +121,30 @@ bool partidoRequiereAtencionEnLista(
   if (deudas.isEmpty) {
     return (ancla: null, otros: const []);
   }
+
+  // SSOT de cuenta: sin deuda viva no se puede "volver a pagar" por filas sueltas,
+  // aunque getMisDeudas traiga basura (detalle pagado, snapshot 0, etc.).
+  // Solo se listan comprobantes en revisión.
+  if (saldoAcumuladoJugador != null &&
+      CobroLogic.obtenerPendienteJugador(
+            saldoAcumulado: saldoAcumuladoJugador,
+          ) <=
+          0.005) {
+    final enRevision =
+        deudas.where((d) => d.comprobantePendienteValidacion).toList();
+    if (enRevision.isEmpty) {
+      return (ancla: null, otros: const []);
+    }
+    final ordenados = ordenarCobrosPorAtencion(
+      enRevision,
+      saldosAnterioresPorPartido: saldosAnterioresPorPartido,
+    );
+    return (
+      ancla: ordenados.first,
+      otros: ordenados.length > 1 ? ordenados.sublist(1) : const [],
+    );
+  }
+
   final ordenados = ordenarCobrosPorAtencion(
     deudas,
     saldosAnterioresPorPartido: saldosAnterioresPorPartido,
@@ -118,13 +181,43 @@ bool partidoRequiereAtencionEnLista(
   );
 }
 
+/// Detalle a abrir desde «Ver detalle» en home/mis cobros.
+///
+/// Usa el ancla visible. Si la cuenta está al día / con crédito, no reabre
+/// filas fantasma (partidos ya cubiertos con saldo a favor).
+DetallePartido? detalleCobroParaVerDetalle({
+  required List<DetallePartido> deudas,
+  required Map<int, DesgloseJugador?> desgloses,
+  Map<int, double>? saldosAnterioresPorPartido,
+  double? saldoAcumuladoJugador,
+}) {
+  if (deudas.isEmpty) return null;
+  final visibles = cobrosVisiblesJugador(
+    deudas: deudas,
+    desgloses: desgloses,
+    saldosAnterioresPorPartido: saldosAnterioresPorPartido,
+    saldoAcumuladoJugador: saldoAcumuladoJugador,
+  );
+  if (visibles.ancla != null) return visibles.ancla;
+  if (saldoAcumuladoJugador != null &&
+      CobroLogic.obtenerPendienteJugador(
+            saldoAcumulado: saldoAcumuladoJugador,
+          ) <=
+          0.005) {
+    return null;
+  }
+  return detalleAnclaPago(deudas) ?? deudas.first;
+}
+
 double totalPendienteCobros(
   List<DetallePartido> deudas,
   Map<int, DesgloseJugador?> desgloses, {
   Map<int, double>? saldosAnterioresPorPartido,
   double? saldoAcumuladoJugador,
 }) {
-  if (saldoAcumuladoJugador != null && saldoAcumuladoJugador > 0.005) {
+  // SSOT de UNA cuenta. Para home multi-org usar
+  // CobroLogic.totalDeudaHomeSinNetear (suma solo deudas > 0).
+  if (saldoAcumuladoJugador != null) {
     return CobroLogic.obtenerPendienteJugador(
       saldoAcumulado: saldoAcumuladoJugador,
     );
@@ -217,3 +310,19 @@ String resumenDeportesLinea(
 ) {
   return resumenDeportesPorCerrar(deudas, l10n, lang).join(' · ');
 }
+
+/// Lista corta para el resumen de deportes (solo cobros visibles).
+List<DetallePartido> cobrosParaResumenDeportes({
+  required DetallePartido? ancla,
+  required List<DetallePartido> otros,
+}) {
+  if (ancla == null) return const [];
+  return [ancla, ...otros];
+}
+
+/// Mis cobros muestra hero de pago solo con deuda viva o comprobante en revisión.
+bool mostrarHeroCobroPendiente({
+  required double totalPendiente,
+  required bool comprobanteEnRevision,
+}) =>
+    totalPendiente > 0.005 || comprobanteEnRevision;

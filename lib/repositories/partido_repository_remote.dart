@@ -70,11 +70,15 @@ class PartidoRepositoryRemote {
     final unique = ids.toSet().toList();
     if (unique.isEmpty) return {};
     final rows = await _client.from('profiles').select().inFilter('id', unique);
+    final saldosCuenta = await _fetchSaldosCuentaBatch(unique);
     final map = <String, Jugador>{};
     for (final row in rows as List) {
       final jugador = Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
       final id = jugador.supabaseId;
-      if (id != null && id.isNotEmpty) map[id] = jugador;
+      if (id == null || id.isEmpty) continue;
+      map[id] = jugador.copyWith(
+        saldoAcumulado: saldosCuenta[id] ?? 0,
+      );
     }
     return map;
   }
@@ -130,25 +134,33 @@ class PartidoRepositoryRemote {
     return map;
   }
 
+  /// Saldos vivos de cuentas con el organizador autenticado
+  /// (`organizador_jugadores.saldo_acumulado`).
   Future<Map<String, double>> _fetchSaldosCuentaBatch(
-    Iterable<String> jugadorIds,
-  ) async {
+    Iterable<String> jugadorIds, {
+    String? organizadorId,
+  }) async {
     final ids = jugadorIds.where((id) => id.isNotEmpty).toSet().toList();
     if (ids.isEmpty) return {};
+    final orgId = organizadorId ?? SupabaseHelpers.currentUserId;
+    if (orgId == null) return {};
 
     final rows = await _client
-        .from('profiles')
-        .select('id, saldo_acumulado')
-        .inFilter('id', ids);
+        .from('organizador_jugadores')
+        .select('jugador_id, saldo_acumulado')
+        .eq('organizador_id', orgId)
+        .inFilter('jugador_id', ids);
 
     final map = <String, double>{};
     for (final row in rows as List) {
-      final id = row['id']?.toString();
+      final id = row['jugador_id']?.toString();
       if (id == null || id.isEmpty) continue;
       map[id] = SupabaseParse.toDouble(row['saldo_acumulado']);
     }
     return map;
   }
+
+  String? get _organizadorIdActual => SupabaseHelpers.currentUserId;
 
   /// Snapshot inmutable al registrar el cargo. Error si falta en partido existente.
   Future<double> _requerirSaldoAnteriorSnapshot({
@@ -212,20 +224,29 @@ class PartidoRepositoryRemote {
     return roundMoney(jugador.saldoAcumulado).toDouble();
   }
 
-  /// Si el saldo del perfil es menor que la suma de pendientes en detalles,
-  /// reparte la diferencia (abonos registrados en cuenta pero no en detalle).
+  /// Si el saldo de la cuenta con este org es menor que la suma de pendientes
+  /// en detalles de ESTE org, reparte la diferencia en detalles.
   Future<bool> _sincronizarDetallesConSaldoPerfil(String jugadorId) async {
-    final jugador = await _jugadorRepo.getById(jugadorId);
-    if (jugador == null) return false;
+    final orgId = _organizadorIdActual;
+    if (orgId == null) return false;
 
-    final saldoPerfil = roundMoney(jugador.saldoAcumulado).toDouble();
-    if (saldoPerfil < -0.005) return false;
+    final saldoCuenta = roundMoney(
+      await _jugadorRepo.getSaldoCuenta(
+        organizadorId: orgId,
+        jugadorId: jugadorId,
+      ),
+    ).toDouble();
+    if (saldoCuenta < -0.005) return false;
 
     final rows = await _client
         .from('detalles_partido')
-        .select('partido_id, total, monto_pagado')
+        .select(
+          'partido_id, total, monto_pagado, '
+          'partidos!inner(organizador_id)',
+        )
         .eq('jugador_id', jugadorId)
-        .eq('asistio', true);
+        .eq('asistio', true)
+        .eq('partidos.organizador_id', orgId);
     if ((rows as List).isEmpty) return false;
 
     final partidoIds = <int>{};
@@ -256,7 +277,7 @@ class PartidoRepositoryRemote {
     }
     sumPendiente = roundMoney(sumPendiente).toDouble();
 
-    final exceso = roundMoney(sumPendiente - saldoPerfil).toDouble();
+    final exceso = roundMoney(sumPendiente - saldoCuenta).toDouble();
     if (exceso <= 0.005) return false;
 
     await _aplicarPagoEnDetallesImpagos(
@@ -268,18 +289,27 @@ class PartidoRepositoryRemote {
   }
 
   /// Aplica un pago sobre detalles con deuda neta pendiente (FIFO por fecha).
+  /// Solo toca partidos del organizador autenticado.
   Future<void> _aplicarPagoEnDetallesImpagos({
     required String jugadorId,
     required double monto,
     required DateTime fecha,
   }) async {
     if (monto <= 0.005) return;
+    final orgId = _organizadorIdActual;
 
-    final rows = await _client
+    var query = _client
         .from('detalles_partido')
-        .select('id, total, monto_pagado, partido_id, partidos!inner(fecha)')
+        .select(
+          'id, total, monto_pagado, partido_id, '
+          'partidos!inner(fecha, organizador_id)',
+        )
         .eq('jugador_id', jugadorId)
         .eq('asistio', true);
+    if (orgId != null) {
+      query = query.eq('partidos.organizador_id', orgId);
+    }
+    final rows = await query;
 
     final sorted = (rows as List).map((row) {
       final map = Map<String, dynamic>.from(row);
@@ -499,13 +529,15 @@ class PartidoRepositoryRemote {
       historialRows.add({
         'jugador_id': jugadorId,
         'partido_id': partidoId,
+        'organizador_id': _organizadorIdActual,
         'saldo_anterior': saldoAnterior,
         'cargo_partido': cargo,
         'abono': montoPagado,
         'saldo_nuevo': saldoNuevo,
-        'fecha': montoPagado > 0
-            ? ahora.toIso8601String()
-            : partido.fecha.toIso8601String(),
+        // Siempre "ahora": si usamos fecha del partido, un cargo cubierto con
+        // saldo a favor queda detrás del abono en ORDER BY fecha y el crédito
+        // no se descuenta al recalcular.
+        'fecha': ahora.toIso8601String(),
         'concepto': concepto,
       });
       jugadorIdsConCargo.add(jugadorId);
@@ -860,7 +892,8 @@ class PartidoRepositoryRemote {
   }
 
   Future<List<ResumenJugador>> getResumenJugadores({bool reconciliar = false}) async {
-    final jugadores = await _jugadorRepo.getAll();
+    // Roster + saldo de ESTE organizador (getAll → oj.saldo_acumulado).
+    final jugadores = await _jugadorRepo.getAll(incluirUsuarioActual: true);
     final ids = jugadores
         .map((j) => j.supabaseId)
         .whereType<String>()
@@ -873,15 +906,21 @@ class PartidoRepositoryRemote {
       );
     }
 
-    final statsRows = await _client
+    final orgId = _organizadorIdActual;
+    var statsQuery = _client
         .from('detalles_partido')
         .select(
           'jugador_id, partido_id, total, monto_pagado, pagado, asistio, '
           'comprobante_url, comprobante_validado, monto_pago_declarado, '
-          'partidos!inner(fecha)',
+          'partidos!inner(fecha, organizador_id)',
         )
         .inFilter('jugador_id', ids)
         .eq('asistio', true);
+    // Solo partidos de ESTE organizador (no mezclar cuentas de otros orgs).
+    if (orgId != null) {
+      statsQuery = statsQuery.eq('partidos.organizador_id', orgId);
+    }
+    final statsRows = await statsQuery;
 
     final saldosAnteriores =
         await _fetchSaldosAnterioresDetalles(statsRows as List);
@@ -907,6 +946,7 @@ class PartidoRepositoryRemote {
       final jid = jugador.supabaseId;
       if (jid == null) continue;
       final stats = statsPorJugador[jid] ?? (partidos: 0, pendiente: 0.0);
+      // SSOT: saldo de la cuenta con este org (ya viene en jugador).
       resumenes.add(ResumenJugador(
         jugador: jugador,
         saldoActual: jugador.saldoAcumulado,
@@ -1034,7 +1074,11 @@ class PartidoRepositoryRemote {
         // Fallback si la migración 050 aún no está.
       }
 
-      final jugador = await _jugadorRepo.getById(jugadorId);
+      final orgId = _organizadorIdActual;
+      final jugador = await _jugadorRepo.getById(
+        jugadorId,
+        organizadorId: orgId,
+      );
       if (jugador == null) return;
 
       final saldoAnterior = jugador.saldoAcumulado;
@@ -1052,6 +1096,7 @@ class PartidoRepositoryRemote {
 
       await _client.from('saldos_historicos').insert({
         'jugador_id': jugadorId,
+        'organizador_id': orgId,
         'saldo_anterior': saldoAnterior,
         'cargo_partido': 0,
         'abono': monto,
@@ -1071,14 +1116,19 @@ class PartidoRepositoryRemote {
   Future<List<DeudaPartidoAnterior>> _fetchPendientesPorPartido(
     String jugadorId,
   ) async {
-    final rows = await _client
+    final orgId = _organizadorIdActual;
+    var query = _client
         .from('detalles_partido')
         .select(
           'jugador_id, partido_id, total, monto_pagado, '
-          'partidos!inner(id, fecha, recinto, sport_type)',
+          'partidos!inner(id, fecha, recinto, sport_type, organizador_id)',
         )
         .eq('jugador_id', jugadorId)
         .eq('asistio', true);
+    if (orgId != null) {
+      query = query.eq('partidos.organizador_id', orgId);
+    }
+    final rows = await query;
 
     final saldosAnteriores =
         await _fetchSaldosAnterioresDetalles(rows as List);
@@ -1089,14 +1139,19 @@ class PartidoRepositoryRemote {
     List<String> jugadorIds,
   ) async {
     if (jugadorIds.isEmpty) return {};
-    final rows = await _client
+    final orgId = _organizadorIdActual;
+    var query = _client
         .from('detalles_partido')
         .select(
           'jugador_id, partido_id, total, monto_pagado, '
-          'partidos!inner(id, fecha, recinto, sport_type)',
+          'partidos!inner(id, fecha, recinto, sport_type, organizador_id)',
         )
         .inFilter('jugador_id', jugadorIds)
         .eq('asistio', true);
+    if (orgId != null) {
+      query = query.eq('partidos.organizador_id', orgId);
+    }
+    final rows = await query;
 
     final saldosAnteriores =
         await _fetchSaldosAnterioresDetalles(rows as List);
@@ -1167,7 +1222,10 @@ class PartidoRepositoryRemote {
   @Deprecated('Solo reparación manual; no usar en flujo normal')
   Future<void> reconciliarDetallesJugador(String jugadorId) async {
     await SupabaseHelpers.write('Reconciliar detalles jugador', () async {
-      final jugador = await _jugadorRepo.getById(jugadorId);
+      final jugador = await _jugadorRepo.getById(
+        jugadorId,
+        organizadorId: _organizadorIdActual,
+      );
       if (jugador == null) return;
 
       final saldo = jugador.saldoAcumulado;
@@ -1415,11 +1473,16 @@ class PartidoRepositoryRemote {
   Future<({int partidosJugados, int partidosPagados, int partidosImpagos})>
       getResumenPartidosJugador(String jugadorId) async {
     return SupabaseHelpers.guard('Resumen encuentros jugador', () async {
-      final rows = await _client
+      final orgId = _organizadorIdActual;
+      var query = _client
           .from('detalles_partido')
-          .select('pagado')
+          .select('pagado, partidos!inner(organizador_id)')
           .eq('jugador_id', jugadorId)
           .eq('asistio', true);
+      if (orgId != null) {
+        query = query.eq('partidos.organizador_id', orgId);
+      }
+      final rows = await query;
 
       var jugados = 0;
       var pagados = 0;
@@ -1837,7 +1900,7 @@ class PartidoRepositoryRemote {
       final rows = await _client
           .from('detalles_partido')
           .select(
-            '*, partidos!inner(fecha, recinto, estado, sport_type)',
+            '*, partidos!inner(fecha, recinto, estado, sport_type, organizador_id)',
           )
           .eq('jugador_id', uid)
           .eq('asistio', true)
@@ -1857,6 +1920,8 @@ class PartidoRepositoryRemote {
           sportType: SportType.fromDb(
             SupabaseParse.toStringOrNull(partidoEmbed?['sport_type']),
           ),
+          organizadorId:
+              SupabaseParse.toStringOrNull(partidoEmbed?['organizador_id']),
         );
       }).toList();
 
@@ -2006,8 +2071,38 @@ class PartidoRepositoryRemote {
         final key = d.id?.toString() ?? '${d.partidoId}:${d.jugadorKeyId}';
         unicos[key] = d;
       }
-      return _filtrarMisDeudasNetas(unicos.values.toList(), uid);
+      final conOrg = await _enrichOrganizadorIds(unicos.values.toList());
+      return _filtrarMisDeudasNetas(conOrg, uid);
     });
+  }
+
+  Future<List<DetallePartido>> _enrichOrganizadorIds(
+    List<DetallePartido> deudas,
+  ) async {
+    final missing = deudas
+        .where((d) => d.organizadorId == null || d.organizadorId!.isEmpty)
+        .map((d) => d.partidoId)
+        .toSet()
+        .toList();
+    if (missing.isEmpty) return deudas;
+
+    final rows = await _client
+        .from('partidos')
+        .select('id, organizador_id')
+        .inFilter('id', missing);
+    final byPartido = <int, String>{};
+    for (final row in rows as List) {
+      final id = (row['id'] as num?)?.toInt();
+      final org = row['organizador_id']?.toString();
+      if (id == null || org == null || org.isEmpty) continue;
+      byPartido[id] = org;
+    }
+    return [
+      for (final d in deudas)
+        d.organizadorId != null && d.organizadorId!.isNotEmpty
+            ? d
+            : d.copyWith(organizadorId: byPartido[d.partidoId]),
+    ];
   }
 
   Future<List<DetallePartido>> _filtrarMisDeudasNetas(
@@ -2028,7 +2123,13 @@ class PartidoRepositoryRemote {
 
     return candidatos.where((d) {
       if (d.comprobantePendienteValidacion) return true;
+      // Cubierto con saldo a favor: pagado=true y monto_pagado=0. No reabrir.
+      if (d.pagado) return false;
       final saldoAnt = saldoPorPartido[d.partidoId];
+      if (saldoAnt == null) {
+        // Sin snapshot: no inventar deuda neta con saldo 0; solo residual bruto.
+        return (d.total - d.montoPagado) > 0.005;
+      }
       return CobroLogic.pendienteNetoDetalle(
             partidoId: d.partidoId,
             jugadorId: uid,
@@ -2041,11 +2142,19 @@ class PartidoRepositoryRemote {
   }
 
   Future<List<DetallePartido>> _fetchMisDeudasDirecto(String uid) async {
+    // Solo abiertos o con comprobante en revisión (antes: últimos 40 asistidos
+    // incluían partidos ya cubiertos con crédito → UI ofrecía pagar de nuevo).
     final rows = await _client
         .from('detalles_partido')
-        .select('*, partidos(fecha, recinto, estado, sport_type)')
+        .select(
+          '*, partidos(fecha, recinto, estado, sport_type, organizador_id)',
+        )
         .eq('jugador_id', uid)
         .eq('asistio', true)
+        .or(
+          'pagado.eq.false,'
+          'and(comprobante_url.not.is.null,comprobante_validado.eq.false)',
+        )
         .order('partido_id', ascending: false)
         .limit(40);
 
@@ -2061,6 +2170,8 @@ class PartidoRepositoryRemote {
         sportType: SportType.fromDb(
           SupabaseParse.toStringOrNull(partidoEmbed?['sport_type']),
         ),
+        organizadorId:
+            SupabaseParse.toStringOrNull(partidoEmbed?['organizador_id']),
       );
     }).toList();
   }
@@ -2340,7 +2451,10 @@ class PartidoRepositoryRemote {
           break;
       }
 
-      final jugador = await _jugadorRepo.getById(jugadorId);
+      final jugador = await _jugadorRepo.getById(
+        jugadorId,
+        organizadorId: _organizadorIdActual,
+      );
       if (jugador == null) return;
 
       final saldoAnterior = jugador.saldoAcumulado;
@@ -2382,6 +2496,7 @@ class PartidoRepositoryRemote {
       await _client.from('saldos_historicos').insert({
         'jugador_id': jugadorId,
         'partido_id': partidoId,
+        'organizador_id': _organizadorIdActual,
         'saldo_anterior': saldoAnterior,
         'cargo_partido': 0,
         'abono': abono,

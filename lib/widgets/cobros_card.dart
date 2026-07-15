@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/formatters.dart';
+import '../utils/matchpay_context.dart';
 import 'matchpay_ui.dart';
 
-/// Tarjeta neutra de cobranza: título + monto + jugadores con deuda.
+/// Estado del grupo: monto + pendientes, con acento visual de aporte.
 class CobrosCard extends StatelessWidget {
   final double montoTotalPendiente;
   final int jugadoresConDeuda;
@@ -20,15 +21,13 @@ class CobrosCard extends StatelessWidget {
     this.showAction = true,
   });
 
-  Color get _accentColor {
-    if (jugadoresConDeuda == 0) return MatchPayTokens.inkMuted;
-    if (jugadoresConDeuda >= 6) return MatchPayTokens.accentError;
-    return MatchPayTokens.accentUrgent;
-  }
+  bool get _todosAlDia => jugadoresConDeuda == 0;
 
-  String _jugadoresLinea(MatchPayStrings l10n) {
+  String _pendientesLinea(MatchPayStrings l10n) {
     if (jugadoresConDeuda == 0) return l10n.tr('cobrosCardNoDebts');
-    if (jugadoresConDeuda == 1) return l10n.tr('cobrosCardOnePlayerWithDebt');
+    if (jugadoresConDeuda == 1) {
+      return l10n.tr('cobrosCardOnePlayerWithDebt');
+    }
     return l10n.tr(
       'cobrosCardPlayersWithDebt',
       params: {'count': '$jugadoresConDeuda'},
@@ -38,16 +37,21 @@ class CobrosCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final accent = _accentColor;
+    final accent = _todosAlDia
+        ? MatchPayTokens.accentSuccess
+        : MatchPayTokens.accentUrgent;
 
     return MatchPaySurfaceCard(
+      elevated: true,
+      urgent: !_todosAlDia,
+      onTap: onVerCobros,
       padding: EdgeInsets.zero,
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(
-              width: 4,
+              width: 5,
               decoration: BoxDecoration(
                 color: accent,
                 borderRadius: const BorderRadius.horizontal(
@@ -57,54 +61,97 @@ class CobrosCard extends StatelessWidget {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                padding: const EdgeInsets.fromLTRB(16, 18, 18, 18),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      l10n.tr('cobrosCardTitle'),
-                      style: MatchPayTokens.titleSmallStyle(),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      formatMoney(montoTotalPendiente),
-                      style: MatchPayTokens.statValueStyle().copyWith(
-                        fontSize: 32,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.tr('cobrosCardAmountLabel'),
-                      style: MatchPayTokens.bodySmallStyle(),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _jugadoresLinea(l10n),
-                      style: MatchPayTokens.bodySmallStyle(color: accent)
-                          .copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    if (showAction) ...[
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: onVerCobros,
-                        style: FilledButton.styleFrom(
-                          minimumSize: const Size.fromHeight(46),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              MatchPayTokens.radiusButton,
+                    _GroupStatusBadge(allPaid: _todosAlDia),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _todosAlDia
+                                ? l10n.tr('homeGroupAllPaid')
+                                : formatMoney(montoTotalPendiente),
+                            style: MatchPayTokens.displayStyle(
+                              color: _todosAlDia
+                                  ? MatchPayTokens.accentSuccess
+                                  : MatchPayTokens.ink,
+                            ).copyWith(
+                              fontSize: _todosAlDia ? 22 : 32,
+                              letterSpacing: -0.7,
+                              height: 1.05,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                        ),
-                        child: Text(l10n.tr('cobrosCardViewCobros')),
+                          const SizedBox(height: 6),
+                          Text(
+                            _pendientesLinea(l10n),
+                            style: MatchPayTokens.bodySmallStyle(
+                              color: _todosAlDia
+                                  ? MatchPayTokens.accentSuccess
+                                  : MatchPayTokens.inkSecondary,
+                            ).copyWith(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (showAction &&
+                              onVerCobros != null &&
+                              !_todosAlDia) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              l10n.tr('cobrosCardViewCobros'),
+                              style: MatchPayTokens.bodySmallStyle(
+                                color: context.sportPrimaryDark,
+                              ).copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
+                    ),
+                    if (onVerCobros != null)
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: MatchPayTokens.inkMuted,
+                      ),
                   ],
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _GroupStatusBadge extends StatelessWidget {
+  final bool allPaid;
+
+  const _GroupStatusBadge({required this.allPaid});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = allPaid
+        ? MatchPayTokens.accentSuccess
+        : MatchPayTokens.accentUrgent;
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Icon(
+        allPaid
+            ? Icons.check_circle_rounded
+            : Icons.account_balance_wallet_rounded,
+        color: color,
+        size: 26,
       ),
     );
   }

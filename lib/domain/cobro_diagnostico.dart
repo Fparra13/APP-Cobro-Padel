@@ -22,7 +22,7 @@ extension CobroInconsistenciaTipoLabel on CobroInconsistenciaTipo {
         CobroInconsistenciaTipo.detalleSinSnapshotHistorico =>
           'Detalle sin snapshot en saldos_historicos',
         CobroInconsistenciaTipo.saldoAcumuladoDifiereHistorial =>
-          'saldo_acumulado difiere del historial',
+          'saldo_acumulado de cuenta difiere del historial',
         CobroInconsistenciaTipo.historialMovimientoIncoherente =>
           'Movimiento histórico incoherente',
         CobroInconsistenciaTipo.historialCadenaRota =>
@@ -74,6 +74,8 @@ class DiagnosticoHistorialInput {
   final double saldoNuevo;
   final DateTime fecha;
   final String concepto;
+  /// Cuenta (organizador). Null = legacy single-wallet audit.
+  final String? organizadorId;
 
   const DiagnosticoHistorialInput({
     this.historialId,
@@ -86,22 +88,26 @@ class DiagnosticoHistorialInput {
     required this.saldoNuevo,
     required this.fecha,
     required this.concepto,
+    this.organizadorId,
   });
 
   bool get esSnapshotPartido =>
       partidoId != null && cargoPartido > 0.005;
 }
 
-/// Jugador con saldo actual para comparar contra historial.
+/// Cuenta (jugador↔organizador) con saldo actual vs historial.
 class DiagnosticoJugadorInput {
   final String jugadorId;
   final String? nombre;
   final double saldoAcumulado;
+  /// Cuenta auditada. Null = legacy (un solo saldo por jugador).
+  final String? organizadorId;
 
   const DiagnosticoJugadorInput({
     required this.jugadorId,
     this.nombre,
     required this.saldoAcumulado,
+    this.organizadorId,
   });
 }
 
@@ -204,6 +210,12 @@ class CobroDiagnostico {
 
   static const _tol = 0.005;
 
+  /// Clave de cuenta: con org no se mezclan historiales de distintos orgs.
+  static String _claveCuenta(String jugadorId, String? organizadorId) {
+    if (organizadorId == null || organizadorId.isEmpty) return jugadorId;
+    return '$jugadorId|$organizadorId';
+  }
+
   static CobroDiagnosticoReporte analizar({
     required List<DiagnosticoDetalleInput> detalles,
     required List<DiagnosticoHistorialInput> historial,
@@ -214,10 +226,11 @@ class CobroDiagnostico {
     final historialPorPartido = <int, List<DiagnosticoHistorialInput>>{};
     final snapshotsPorPartidoJugador =
         <String, List<DiagnosticoHistorialInput>>{};
-    final historialPorJugador = <String, List<DiagnosticoHistorialInput>>{};
+    final historialPorCuenta = <String, List<DiagnosticoHistorialInput>>{};
 
     for (final h in historial) {
-      historialPorJugador.putIfAbsent(h.jugadorId, () => []).add(h);
+      final cuentaKey = _claveCuenta(h.jugadorId, h.organizadorId);
+      historialPorCuenta.putIfAbsent(cuentaKey, () => []).add(h);
       final pid = h.partidoId;
       if (pid != null) {
         historialPorPartido.putIfAbsent(pid, () => []).add(h);
@@ -307,8 +320,8 @@ class CobroDiagnostico {
       _revisarPagadoVsCobroLogic(d, snap.saldoAnterior, issues);
     }
 
-    // Historial: coherencia de cada movimiento y cadena por jugador.
-    for (final entry in historialPorJugador.entries) {
+    // Historial: coherencia de cada movimiento y cadena por CUENTA (jugador+org).
+    for (final entry in historialPorCuenta.entries) {
       final rows = List<DiagnosticoHistorialInput>.from(entry.value)
         ..sort((a, b) {
           final cmp = a.fecha.compareTo(b.fecha);
@@ -332,10 +345,12 @@ class CobroDiagnostico {
               jugadorNombre: h.jugadorNombre,
               mensaje:
                   'saldo_anterior ${h.saldoAnterior} no encadena con '
-                  'saldo_nuevo previo $saldoPrevio',
+                  'saldo_nuevo previo $saldoPrevio'
+                  '${h.organizadorId != null ? ' (org ${h.organizadorId})' : ''}',
               datos: {
                 'saldo_anterior': h.saldoAnterior,
                 'saldo_nuevo_previo': saldoPrevio,
+                if (h.organizadorId != null) 'organizador_id': h.organizadorId,
               },
             ),
           );
@@ -344,9 +359,9 @@ class CobroDiagnostico {
       }
     }
 
-    // 3. saldo_acumulado vs último saldo_nuevo del historial.
-    final saldoEsperadoPorJugador = <String, double>{};
-    for (final entry in historialPorJugador.entries) {
+    // 3. saldo de cuenta vs último saldo_nuevo del historial de ESA cuenta.
+    final saldoEsperadoPorCuenta = <String, double>{};
+    for (final entry in historialPorCuenta.entries) {
       final rows = entry.value.toList()
         ..sort((a, b) {
           final cmp = a.fecha.compareTo(b.fecha);
@@ -354,12 +369,13 @@ class CobroDiagnostico {
           return (a.historialId ?? 0).compareTo(b.historialId ?? 0);
         });
       if (rows.isNotEmpty) {
-        saldoEsperadoPorJugador[entry.key] = rows.last.saldoNuevo;
+        saldoEsperadoPorCuenta[entry.key] = rows.last.saldoNuevo;
       }
     }
 
     for (final j in jugadores) {
-      final esperado = saldoEsperadoPorJugador[j.jugadorId];
+      final cuentaKey = _claveCuenta(j.jugadorId, j.organizadorId);
+      final esperado = saldoEsperadoPorCuenta[cuentaKey];
       if (esperado == null) {
         if (j.saldoAcumulado.abs() > _tol) {
           issues.add(
@@ -369,10 +385,12 @@ class CobroDiagnostico {
               jugadorNombre: j.nombre,
               mensaje:
                   'Jugador ${j.nombre ?? j.jugadorId} tiene saldo '
-                  '${j.saldoAcumulado} sin movimientos en historial',
+                  '${j.saldoAcumulado} sin movimientos en historial'
+                  '${j.organizadorId != null ? ' (org ${j.organizadorId})' : ''}',
               datos: {
                 'saldo_acumulado': j.saldoAcumulado,
                 'saldo_esperado_historial': 0,
+                if (j.organizadorId != null) 'organizador_id': j.organizadorId,
               },
             ),
           );
@@ -388,12 +406,14 @@ class CobroDiagnostico {
             jugadorNombre: j.nombre,
             mensaje:
                 'saldo_acumulado ${j.saldoAcumulado} ≠ '
-                'último saldo_nuevo histórico $esperado',
+                'último saldo_nuevo histórico $esperado'
+                '${j.organizadorId != null ? ' (org ${j.organizadorId})' : ''}',
             datos: {
               'saldo_acumulado': j.saldoAcumulado,
               'saldo_esperado_historial': esperado,
               'diferencia':
                   roundMoney(j.saldoAcumulado - esperado).toDouble(),
+              if (j.organizadorId != null) 'organizador_id': j.organizadorId,
             },
           ),
         );

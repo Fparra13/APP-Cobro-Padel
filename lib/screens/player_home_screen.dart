@@ -16,6 +16,7 @@ import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/estadisticas_jugador.dart';
 import '../models/jugador.dart';
+import '../models/cuenta_saldo.dart';
 import '../models/mi_convocatoria.dart';
 import '../repositories/partido_repository.dart';
 import '../l10n/matchpay_strings.dart';
@@ -23,6 +24,7 @@ import '../utils/cobro_jugador_ui.dart';
 import '../utils/formatters.dart';
 import '../utils/partido_cancelado_popup_flow.dart';
 import '../widgets/player_matches_to_close.dart';
+import '../widgets/cobro_ver_detalle_sheet.dart';
 import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/mis_invitaciones_panel.dart';
@@ -44,6 +46,7 @@ import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
 import '../utils/perfil_foto.dart';
 import '../widgets/app_mode_switch_button.dart';
+import '../widgets/unirse_grupo_sheet.dart';
 import 'responder_convocatoria_screen.dart';
 
 /// Home jugador: funcionalidad intacta, estética premium y deportiva.
@@ -72,6 +75,8 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   List<SaldoHistorico> _historialSaldo = [];
   Map<int, double> _saldosPorPartido = {};
   final Map<int, DesgloseJugador?> _desglosePorPartido = {};
+  List<CuentaSaldo> _cuentasSaldo = [];
+  double _totalDeudaHome = 0;
   Jugador? _perfil;
   EstadisticasJugador? _misStats;
   bool _loading = true;
@@ -213,6 +218,8 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
             _historialSaldo = [];
             _saldosPorPartido = {};
             _desglosePorPartido.clear();
+            _cuentasSaldo = [];
+            _totalDeudaHome = 0;
             _perfil = null;
             _misStats = null;
             _heroConvocatoriaCompleta = null;
@@ -268,6 +275,9 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       _historialSaldo = data.historialSaldo;
       _saldosPorPartido = data.saldosPorPartido;
       _desglosePorPartido.clear();
+      _cuentasSaldo = data.cuentasSaldo;
+      _totalDeudaHome = data.totalDeudaHome ??
+          totalDeudaDesdeCuentas(data.cuentasSaldo);
       _perfil = data.perfil;
       _misStats = data.misStats;
       _showOrganizerNudge = showNudge;
@@ -293,12 +303,35 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     unawaited(PartidoCanceladoPopupFlow.mostrarPendientesEnHome(context));
   }
 
-  bool get _readOnly => context.watch<OfflineStatusController>().isReadOnly;
+  /// Solo [read]: nunca llamar [watch] desde callbacks (p. ej. Ver detalle).
+  bool get _readOnly => context.read<OfflineStatusController>().isReadOnly;
 
   void _showOfflineWriteBlocked() {
     NotificationService.instance.showInAppSnack(
       context.l10n.tr('offlineWriteBlocked'),
     );
+  }
+
+  Future<void> _unirseAGrupo() async {
+    if (_readOnly) {
+      _showOfflineWriteBlocked();
+      return;
+    }
+    final result = await UnirseGrupoSheet.show(context);
+    if (!mounted || result == null) return;
+    final l10n = context.l10n;
+    NotificationService.instance.showInAppSnack(
+      result.yaEstaba
+          ? l10n.tr(
+              'groupCodeJoinAlready',
+              params: {'name': result.nombre},
+            )
+          : l10n.tr(
+              'groupCodeJoinSuccess',
+              params: {'name': result.nombre},
+            ),
+    );
+    await _load(silent: true);
   }
 
   Future<int> _loadOrganizerPendingCount(AppRepositories repos) async {
@@ -459,11 +492,32 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     await openOrganizerSubscriptionFlow(context);
   }
 
+  CuentaSaldo? get _cuentaFoco => cuentaConMayorDeuda(_cuentasSaldo);
+
+  double? get _saldoCuentaFoco => _cuentaFoco?.saldoAcumulado;
+
+  List<DetallePartido> get _deudasCuentaFoco {
+    final orgId = _cuentaFoco?.organizadorId;
+    if (orgId == null) return const [];
+    return deudasDeOrganizador(_deudas, orgId);
+  }
+
+  List<SaldoHistorico> get _historialCuentaFoco {
+    final orgId = _cuentaFoco?.organizadorId;
+    if (orgId == null) return const [];
+    return _historialSaldo
+        .where((h) => h.organizadorId == orgId)
+        .toList(growable: false);
+  }
+
   ExplicacionDeudaJugador? get _explicacionDeuda {
-    final saldo = _perfil?.saldoAcumulado ?? 0;
+    final cuenta = _cuentaFoco;
+    final saldo = cuenta?.saldoAcumulado;
+    if (cuenta == null || saldo == null) return null;
     return explicarDeudaJugador(
       saldoAcumulado: saldo,
-      historial: _historialSaldo,
+      historial: _historialCuentaFoco,
+      organizadorId: cuenta.organizadorId,
     );
   }
 
@@ -473,6 +527,50 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
 
   void _pagarOtroDesdeHomeTeaser() {
     widget.onPayOtherFromHome?.call();
+  }
+
+  void _verDetalleCobroDesdeHome() {
+    final deudasFoco = _deudasCuentaFoco;
+    final saldo = _saldoCuentaFoco;
+    final detalle = detalleCobroParaVerDetalle(
+      deudas: deudasFoco,
+      desgloses: _desglosePorPartido,
+      saldosAnterioresPorPartido: _saldosPorPartido,
+      saldoAcumuladoJugador: saldo,
+    );
+    if (detalle == null) {
+      widget.onOpenMisCobros?.call();
+      return;
+    }
+    final bloqueado =
+        deudasFoco.any((d) => d.comprobantePendienteValidacion);
+    final ancla = cobrosVisiblesJugador(
+      deudas: deudasFoco,
+      desgloses: _desglosePorPartido,
+      saldosAnterioresPorPartido: _saldosPorPartido,
+      saldoAcumuladoJugador: saldo,
+    ).ancla;
+    CobroVerDetalleSheet.show(
+      context,
+      detalle: detalle,
+      desglose: _desglosePorPartido[detalle.partidoId],
+      saldoAnteriorAlPartido: _saldosPorPartido[detalle.partidoId],
+      saldoAcumuladoJugador: saldo,
+      esAnclaCuenta: ancla?.partidoId == detalle.partidoId || ancla == null,
+      historialSaldo: _historialCuentaFoco,
+      onPayTotal: bloqueado || _readOnly
+          ? null
+          : () {
+              Navigator.of(context).maybePop();
+              widget.onPayTotalFromHome?.call();
+            },
+      onPayAbono: bloqueado || _readOnly
+          ? null
+          : () {
+              Navigator.of(context).maybePop();
+              widget.onPayOtherFromHome?.call();
+            },
+    );
   }
 
   void _openHistorial() {
@@ -554,22 +652,32 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final readOnly = context.watch<OfflineStatusController>().isReadOnly;
     final l10n = context.l10n;
     final palette = context.sportPalette;
     final esAdmin = AuthService.instance.isOrganizer;
     final hero = _heroConvocatoria;
-    final deudaTotal = totalPendienteCobros(
-      _deudas,
-      _desglosePorPartido,
-      saldosAnterioresPorPartido: _saldosPorPartido,
-      saldoAcumuladoJugador: _perfil?.saldoAcumulado,
-    );
+    // Home: solo suma deudas > 0 (nunca perfil.saldoAcumulado / neteo).
+    final deudaTotal = _totalDeudaHome > 0.005
+        ? _totalDeudaHome
+        : totalDeudaDesdeCuentas(_cuentasSaldo);
     final alDia = deudaTotal <= 0.005;
     final explicacion = _explicacionDeuda;
     final empathy = _organizerEmpathyCopy();
     final headline = _dynamicHeadline(l10n, deudaTotal, hero);
+    final deudasFoco = _deudasCuentaFoco;
+    final saldoFoco = _saldoCuentaFoco;
     final comprobanteEnRevision =
-        _deudas.any((d) => d.comprobantePendienteValidacion);
+        deudasFoco.any((d) => d.comprobantePendienteValidacion);
+    final cobrosVisibles = cobrosVisiblesJugador(
+      deudas: deudasFoco,
+      desgloses: _desglosePorPartido,
+      saldosAnterioresPorPartido: _saldosPorPartido,
+      saldoAcumuladoJugador: saldoFoco,
+    );
+    final encuentrosPendientesCount =
+        (cobrosVisibles.ancla != null ? 1 : 0) + cobrosVisibles.otros.length;
+    final partidoLineaCobro = lineaPartidoDetalle(cobrosVisibles.ancla);
 
     return ShellTabScaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
@@ -577,116 +685,127 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
           ? const PlayerHomeShimmer()
           : _offlineEmpty
               ? const OfflineNoDataPanel()
-              : RefreshIndicator(
-              color: palette.primary,
-              onRefresh: () => _load(silent: true),
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  // Header: avatar + acciones; saludo y titular a ancho completo
-                  SliverToBoxAdapter(
-                    child: SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 12, 0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                InkWell(
-                                  onTap: _readOnly ? null : _cambiarFoto,
-                                  borderRadius: BorderRadius.circular(24),
-                                  child: Stack(
-                                    children: [
-                                      JugadorAvatar(
-                                        nombre: _perfil?.nombre ?? _nombreCorto,
-                                        fotoUrl: _perfil?.fotoUrl,
-                                        fotoPath: _perfil?.fotoPath,
-                                        size: 48,
-                                        borderRadius: 24,
-                                      ),
-                                      Positioned(
-                                        right: 0,
-                                        bottom: 0,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(3),
-                                          decoration: BoxDecoration(
-                                            color: MatchPayTokens.ink,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: MatchPayTokens.surfaceBase,
-                                              width: 1.5,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.camera_alt_rounded,
-                                            size: 10,
-                                            color: Colors.white,
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Material(
+                      color: MatchPayTokens.surfaceBase,
+                      elevation: 0,
+                      child: SafeArea(
+                        bottom: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              InkWell(
+                                onTap: readOnly ? null : _cambiarFoto,
+                                borderRadius: BorderRadius.circular(24),
+                                child: Stack(
+                                  children: [
+                                    JugadorAvatar(
+                                      nombre:
+                                          _perfil?.nombre ?? _nombreCorto,
+                                      fotoUrl: _perfil?.fotoUrl,
+                                      fotoPath: _perfil?.fotoPath,
+                                      size: 48,
+                                      borderRadius: 24,
+                                    ),
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(3),
+                                        decoration: BoxDecoration(
+                                          color: MatchPayTokens.ink,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: MatchPayTokens.surfaceBase,
+                                            width: 1.5,
                                           ),
                                         ),
+                                        child: const Icon(
+                                          Icons.camera_alt_rounded,
+                                          size: 10,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: KlooviWordmark(
-                                      height: 34,
-                                      maxWidth: 180,
                                     ),
-                                  ),
+                                  ],
                                 ),
-                                if (esAdmin)
-                                  AppModeSwitchButton(
-                                    targetMode: AppUiMode.organizer,
-                                    pendingCount: _organizerPendingCount,
-                                    onPressed: _switchToOrganizer,
-                                  ),
-                                IconButton(
-                                  onPressed: _load,
-                                  icon: Icon(
-                                    Icons.refresh_rounded,
-                                    color: MatchPayTokens.inkMuted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              l10n.tr(
-                                'playerGreetingSmall',
-                                params: {'name': _nombreCorto},
                               ),
-                              style: MatchPayTokens.bodySmallStyle().copyWith(
-                                color: MatchPayTokens.inkMuted,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (headline.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                headline,
-                                style: MatchPayTokens.headlineStyle().copyWith(
-                                  fontSize: 21,
-                                  height: 1.3,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: KlooviHomeBrand(
+                                    forOrganizer: false,
+                                    wordmarkHeight: 34,
+                                    maxWidth: 180,
+                                  ),
                                 ),
-                                maxLines: 3,
+                              ),
+                              if (esAdmin)
+                                AppModeSwitchButton(
+                                  targetMode: AppUiMode.organizer,
+                                  pendingCount: _organizerPendingCount,
+                                  onPressed: _switchToOrganizer,
+                                ),
+                              IconButton(
+                                onPressed: _load,
+                                icon: Icon(
+                                  Icons.refresh_rounded,
+                                  color: MatchPayTokens.inkMuted,
+                                ),
                               ),
                             ],
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-
-                  SliverPadding(
-                    padding: NavShellScope.listPadding(context, top: 12),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
+                    Expanded(
+                      child: RefreshIndicator(
+                        color: palette.primary,
+                        onRefresh: () => _load(silent: true),
+                        child: CustomScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          slivers: [
+                            // Saludo y titular (scroll); logo/menús quedan fijos arriba.
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      l10n.tr(
+                                        'playerGreetingSmall',
+                                        params: {'name': _nombreCorto},
+                                      ),
+                                      style: MatchPayTokens.bodySmallStyle().copyWith(
+                                        color: MatchPayTokens.inkMuted,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (headline.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        headline,
+                                        style: MatchPayTokens.headlineStyle().copyWith(
+                                          fontSize: 21,
+                                          height: 1.3,
+                                        ),
+                                        maxLines: 3,
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                            SliverPadding(
+                              padding: NavShellScope.listPadding(context, top: 12),
+                              sliver: SliverList(
+                                delegate: SliverChildListDelegate([
                         if (_error != null) ...[
                           _ErrorBanner(
                             error: _error!,
@@ -695,7 +814,33 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 16),
                         ],
 
-                        // 1. Próximo partido / convocatoria (prioridad visual)
+                        // Urgencia: aporte pendiente primero.
+                        if (!alDia) ...[
+                          MatchPaySectionHeader(
+                            title: l10n.tr('playerHomeCobrosSection'),
+                            accent: true,
+                            pulseDot: true,
+                          ),
+                          const SizedBox(height: 10),
+                          PlayerHomeCobrosTeaser(
+                            total: deudaTotal,
+                            pagando: false,
+                            comprobanteEnRevision: comprobanteEnRevision,
+                            explicacion: explicacion,
+                            partidoLinea: partidoLineaCobro,
+                            encuentrosPendientes: encuentrosPendientesCount,
+                            onPayTotal: readOnly
+                                ? _showOfflineWriteBlocked
+                                : _pagarTotalDesdeHomeTeaser,
+                            onPayOther: readOnly
+                                ? _showOfflineWriteBlocked
+                                : _pagarOtroDesdeHomeTeaser,
+                            onVerDetalle: _verDetalleCobroDesdeHome,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+
+                        // Próximo partido / convocatoria
                         if (hero != null) ...[
                           AnimatedSwitcher(
                             duration: const Duration(milliseconds: 280),
@@ -709,15 +854,35 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                               onTap: () => _openConvocatoria(hero),
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: _unirseAGrupo,
+                              icon: const Icon(Icons.group_add_rounded),
+                              label: Text(l10n.tr('groupCodeJoinAction')),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                         ] else if (alDia) ...[
                           _HeroEmptyCard(
                             key: const ValueKey('hero-empty'),
                             onOpenCobros: widget.onOpenMisCobros,
+                            onJoinGroup: _unirseAGrupo,
                           ),
                           const SizedBox(height: 12),
                           _PlayerUpToDateStrip(proximoPartido: null),
                           const SizedBox(height: 20),
+                        ] else ...[
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: OutlinedButton.icon(
+                              onPressed: _unirseAGrupo,
+                              icon: const Icon(Icons.group_add_rounded),
+                              label: Text(l10n.tr('groupCodeJoinAction')),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                         ],
 
                         if (alDia && hero != null) ...[
@@ -728,7 +893,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 8),
                         ],
 
-                        // 2. Otras convocatorias pendientes / próximas
+                        // Otras convocatorias pendientes / próximas
                         if (_otrasPendientes.isNotEmpty) ...[
                           MatchPaySectionHeader(
                             title: l10n.tr('playerInvitedTitle'),
@@ -737,7 +902,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 10),
                           MisInvitacionesPanel(
                             convocatorias: _otrasPendientes,
-                            readOnly: _readOnly,
+                            readOnly: readOnly,
                             onReadOnlyTap: _showOfflineWriteBlocked,
                             onRespondido: _load,
                           ),
@@ -754,27 +919,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                               convocatoria: c,
                               onTap: () => _openConvocatoria(c),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-
-                        // 3. Cuenta pendiente (compacto; detalle en Mis cobros)
-                        if (!alDia) ...[
-                          MatchPaySectionHeader(
-                            title: l10n.tr('playerHomeCobrosSection'),
-                          ),
-                          const SizedBox(height: 10),
-                          PlayerHomeCobrosTeaser(
-                            total: deudaTotal,
-                            pagando: false,
-                            comprobanteEnRevision: comprobanteEnRevision,
-                            explicacion: explicacion,
-                            onPayTotal: _readOnly
-                                ? _showOfflineWriteBlocked
-                                : _pagarTotalDesdeHomeTeaser,
-                            onPayOther: _readOnly
-                                ? _showOfflineWriteBlocked
-                                : _pagarOtroDesdeHomeTeaser,
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -836,12 +980,15 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           ),
                           const SizedBox(height: 24),
                         ],
-                      ]),
+                                ]),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
+                  ],
+                ),
     );
   }
 }
@@ -1111,10 +1258,12 @@ class _HeroMatchCard extends StatelessWidget {
 
 class _HeroEmptyCard extends StatelessWidget {
   final VoidCallback? onOpenCobros;
+  final VoidCallback? onJoinGroup;
 
   const _HeroEmptyCard({
     super.key,
     this.onOpenCobros,
+    this.onJoinGroup,
   });
 
   @override
@@ -1122,86 +1271,94 @@ class _HeroEmptyCard extends StatelessWidget {
     final l10n = context.l10n;
     final palette = context.sportPalette;
 
-    return MatchPayTapScale(
-      onTap: onOpenCobros,
-      child: Material(
-        color: Colors.transparent,
-        child: Ink(
-          height: 200,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                palette.primaryDark.withValues(alpha: 0.92),
-                palette.primary,
-                palette.primary.withValues(alpha: 0.78),
-              ],
-            ),
-            boxShadow: MatchPayTokens.shadowHero(palette.primary),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                right: -20,
-                bottom: -30,
-                child: Opacity(
-                  opacity: 0.12,
-                  child: Text(
-                    palette.emoji,
-                    style: const TextStyle(fontSize: 140),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        l10n.tr('playerStatusUpToDate').toUpperCase(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      l10n.tr('playerHeroWaitingInvite'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        height: 1.15,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      l10n.tr('playerHeroWaitingInviteSub'),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.88),
-                        fontSize: 13,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return Material(
+      color: Colors.transparent,
+      child: Ink(
+        height: onJoinGroup != null ? 230 : 200,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              palette.primaryDark.withValues(alpha: 0.92),
+              palette.primary,
+              palette.primary.withValues(alpha: 0.78),
             ],
           ),
+          boxShadow: MatchPayTokens.shadowHero(palette.primary),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              right: -20,
+              bottom: -30,
+              child: Opacity(
+                opacity: 0.12,
+                child: Text(
+                  palette.emoji,
+                  style: const TextStyle(fontSize: 140),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      l10n.tr('playerStatusUpToDate').toUpperCase(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    l10n.tr('playerHeroWaitingInvite'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    l10n.tr('playerHeroWaitingInviteSub'),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.88),
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                  if (onJoinGroup != null) ...[
+                    const SizedBox(height: 12),
+                    FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: palette.primaryDark,
+                      ),
+                      onPressed: onJoinGroup,
+                      child: Text(l10n.tr('groupCodeJoinAction')),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

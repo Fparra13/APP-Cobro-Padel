@@ -15,11 +15,14 @@ import '../models/estadisticas_jugador.dart';
 import '../models/estado_partido.dart';
 import '../models/gasto_por_concepto.dart';
 import '../models/jugador.dart';
+import '../models/cuenta_saldo.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/partido.dart';
 import '../models/recinto.dart';
 import '../models/saldo_historico.dart';
+import '../models/codigo_grupo.dart';
 import '../repositories/backup_repository.dart';
+import '../repositories/codigo_grupo_repository_remote.dart';
 import '../repositories/convocatoria_repository.dart';
 import '../repositories/convocatoria_repository_remote.dart';
 import '../repositories/estadisticas_repository.dart';
@@ -111,6 +114,8 @@ class AppRepositories {
   final EstadisticasRepositoryRemote _estadisticasRemote =
       EstadisticasRepositoryRemote();
   final RecintoRepositoryRemote _recintoRemote = RecintoRepositoryRemote();
+  final CodigoGrupoRepositoryRemote _codigoGrupoRemote =
+      CodigoGrupoRepositoryRemote();
 
   static AppRepositories get I {
     assert(_instance != null, 'AppRepositories no inicializado');
@@ -179,9 +184,39 @@ class AppRepositories {
     return _jugadorLocal.getAll(soloActivos: soloActivos);
   }
 
-  Future<Jugador?> getJugador(String keyId) {
-    if (useRemote) return _jugadorRemote.getById(keyId);
+  Future<Jugador?> getJugador(String keyId, {String? organizadorId}) {
+    if (useRemote) {
+      return _jugadorRemote.getById(keyId, organizadorId: organizadorId);
+    }
     return _jugadorLocal.getById(_localId(keyId));
+  }
+
+  /// Saldo de la cuenta jugador↔organizador (SSOT remoto).
+  Future<double> getSaldoCuenta({
+    required String organizadorId,
+    required String jugadorId,
+  }) {
+    if (useRemote) {
+      return _jugadorRemote.getSaldoCuenta(
+        organizadorId: organizadorId,
+        jugadorId: jugadorId,
+      );
+    }
+    return _jugadorLocal.getById(_localId(jugadorId)).then(
+          (j) => j?.saldoAcumulado ?? 0,
+        );
+  }
+
+  /// Cuentas del jugador autenticado (una por organizador).
+  Future<List<CuentaSaldo>> listarMisCuentasSaldo() {
+    if (useRemote) return _jugadorRemote.listarMisCuentasSaldo();
+    return Future.value(const []);
+  }
+
+  /// Total home: suma solo deudas > 0 (sin netear créditos entre orgs).
+  Future<double> getMiTotalDeudaHome() {
+    if (useRemote) return _jugadorRemote.getMiTotalDeudaHome();
+    return Future.value(0);
   }
 
   Future<Jugador?> getJugadorPorEmail(String email) {
@@ -202,6 +237,28 @@ class AppRepositories {
   Future<int> deleteJugador(String keyId) {
     if (useRemote) return _jugadorRemote.delete(keyId);
     return _jugadorLocal.delete(_localId(keyId));
+  }
+
+  // --- Código de grupo ---
+
+  Future<String> obtenerMiCodigoGrupo() {
+    if (useRemote) return _codigoGrupoRemote.obtenerMiCodigo();
+    throw UnsupportedError('Requiere conexión a Supabase');
+  }
+
+  Future<String> regenerarMiCodigoGrupo() {
+    if (useRemote) return _codigoGrupoRemote.regenerarMiCodigo();
+    throw UnsupportedError('Requiere conexión a Supabase');
+  }
+
+  Future<UnirseGrupoResult> unirseConCodigoGrupo(String codigo) {
+    if (useRemote) return _codigoGrupoRemote.unirseConCodigo(codigo);
+    throw UnsupportedError('Requiere conexión a Supabase');
+  }
+
+  Future<List<MiOrganizadorGrupo>> listarMisOrganizadores() {
+    if (useRemote) return _codigoGrupoRemote.listarMisOrganizadores();
+    return Future.value(const []);
   }
 
   // --- Partidos ---
@@ -793,6 +850,14 @@ class AppRepositories {
     return [];
   }
 
+  /// Confirmaciones históricas del jugador (no solo convocatorias vigentes).
+  Future<int> countMisConfirmaciones() async {
+    if (useRemote) {
+      return _convocatoriaRemote.countMisConfirmaciones();
+    }
+    return 0;
+  }
+
   Future<List<MiConvocatoria>> getCancelacionesJugador() async {
     await relinkConvocatoriasPorEmail();
     if (useRemote) {
@@ -801,10 +866,26 @@ class AppRepositories {
     return [];
   }
 
+  Future<List<MiConvocatoria>> getCancelacionesJugadorPendientes() async {
+    await relinkConvocatoriasPorEmail();
+    if (useRemote) {
+      return _convocatoriaRemote.getCancelacionesJugadorPendientes();
+    }
+    return [];
+  }
+
   Future<MiConvocatoria?> getCancelacionJugador(int partidoId) async {
     await relinkConvocatoriasPorEmail();
     if (useRemote) {
       return _convocatoriaRemote.getCancelacionJugador(partidoId);
+    }
+    return null;
+  }
+
+  Future<MiConvocatoria?> getCancelacionJugadorPendiente(int partidoId) async {
+    await relinkConvocatoriasPorEmail();
+    if (useRemote) {
+      return _convocatoriaRemote.getCancelacionJugadorPendiente(partidoId);
     }
     return null;
   }
@@ -915,8 +996,16 @@ class AppRepositories {
     return _saldoLocal.getByPartido(partidoId);
   }
 
-  Future<List<SaldoHistorico>> getSaldosByJugador(String jugadorId) {
-    if (useRemote) return _saldoRemote.getByJugador(jugadorId);
+  Future<List<SaldoHistorico>> getSaldosByJugador(
+    String jugadorId, {
+    String? organizadorId,
+  }) {
+    if (useRemote) {
+      return _saldoRemote.getByJugador(
+        jugadorId,
+        organizadorId: organizadorId,
+      );
+    }
     return _saldoLocal.getByJugador(_localId(jugadorId));
   }
 

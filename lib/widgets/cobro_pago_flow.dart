@@ -62,11 +62,18 @@ class CobroPagoFlow {
     }
 
     double? saldoAcumulado = saldoAcumuladoJugador;
-    if (saldoAcumulado == null) {
+    if (saldoAcumulado == null && AppRepositories.isReady) {
       final uid = AuthService.instance.currentUser?.id;
-      if (uid != null && AppRepositories.isReady) {
-        final jugador = await AppRepositories.I.getJugador(uid);
-        saldoAcumulado = jugador?.saldoAcumulado;
+      final orgId = ancla?.organizadorId;
+      if (uid != null && orgId != null && orgId.isNotEmpty) {
+        saldoAcumulado = await AppRepositories.I.getSaldoCuenta(
+          organizadorId: orgId,
+          jugadorId: uid,
+        );
+      } else if (uid != null) {
+        // Nunca usar profiles: saldo por cuenta. Fallback = mayor deuda.
+        final cuentas = await AppRepositories.I.listarMisCuentasSaldo();
+        saldoAcumulado = cuentaConMayorDeuda(cuentas)?.saldoAcumulado;
       }
     }
 

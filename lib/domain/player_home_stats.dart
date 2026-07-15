@@ -4,11 +4,18 @@ import '../models/jugador.dart';
 import '../models/mi_convocatoria.dart';
 
 /// Estadísticas del jugador autenticado a partir de datos ya visibles con RLS de jugador.
+///
+/// [confirmacionesHistoricas]: total de veces que confirmó (incluye partidos ya
+/// jugados/cancelados). Las convocatorias vigentes solas subestiman el contador
+/// porque `get_mis_convocatorias_jugador` solo trae organizando/confirmado.
 EstadisticasJugador? buildMisEstadisticasDesdeHome({
   required String? uid,
   required Jugador? perfil,
   required List<DetallePartido> partidosJugados,
   required List<MiConvocatoria> convocatorias,
+  int confirmacionesHistoricas = 0,
+  /// Deuda home sin netear (suma deudas > 0). No usar saldo de un solo org.
+  double? totalDeudaHome,
 }) {
   if (uid == null) return null;
 
@@ -35,9 +42,12 @@ EstadisticasJugador? buildMisEstadisticasDesdeHome({
     }
   }
 
-  final convocatoriasConfirmadas = convocatorias
+  final vigentesConfirmadas = convocatorias
       .where((c) => !c.entry.esSuplente && c.estaConfirmado)
       .length;
+  final convocatoriasConfirmadas = confirmacionesHistoricas > vigentesConfirmadas
+      ? confirmacionesHistoricas
+      : vigentesConfirmadas;
 
   if (partidosJugados.isEmpty && convocatoriasConfirmadas == 0) {
     return null;
@@ -55,7 +65,7 @@ EstadisticasJugador? buildMisEstadisticasDesdeHome({
     partidosImpagos: impagos,
     promedioDiasPago: 0,
     totalGastado: totalGastado,
-    saldoActual: perfil?.saldoAcumulado ?? 0,
+    saldoActual: totalDeudaHome ?? 0,
     convocatoriasConfirmadas: convocatoriasConfirmadas,
     partidosUltimos90Dias: partidos90,
   );

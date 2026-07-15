@@ -12,6 +12,8 @@ class SaldoHistorico {
   final DateTime fecha;
   final String concepto;
   final String? nombreJugador;
+  /// Cuenta (organizador) a la que pertenece el movimiento.
+  final String? organizadorId;
 
   const SaldoHistorico({
     this.id,
@@ -25,6 +27,7 @@ class SaldoHistorico {
     required this.fecha,
     required this.concepto,
     this.nombreJugador,
+    this.organizadorId,
   });
 
   String get jugadorKeyId =>
@@ -40,6 +43,7 @@ class SaldoHistorico {
         'saldo_nuevo': saldoNuevo,
         'fecha': fecha.toIso8601String(),
         'concepto': concepto,
+        'organizador_id': organizadorId,
       };
 
   factory SaldoHistorico.fromMap(Map<String, dynamic> map) => SaldoHistorico(
@@ -53,6 +57,7 @@ class SaldoHistorico {
         fecha: DateTime.parse(map['fecha'] as String),
         concepto: map['concepto'] as String,
         nombreJugador: map['nombre_jugador'] as String?,
+        organizadorId: map['organizador_id']?.toString(),
       );
 
   factory SaldoHistorico.fromSupabaseMap(Map<String, dynamic> map) =>
@@ -69,5 +74,6 @@ class SaldoHistorico {
         fecha: SupabaseParse.toDateTime(map['fecha']),
         concepto: SupabaseParse.asString(map['concepto'], fallback: 'Movimiento'),
         nombreJugador: SupabaseParse.toStringOrNull(map['nombre_jugador']),
+        organizadorId: SupabaseParse.toStringOrNull(map['organizador_id']),
       );
 }

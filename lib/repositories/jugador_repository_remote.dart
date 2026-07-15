@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_helpers.dart';
+import '../models/cuenta_saldo.dart';
 import '../models/jugador.dart';
 
-/// Repositorio de jugadores contra Supabase (`profiles`).
+/// Repositorio de jugadores contra Supabase (`profiles` + cuentas
+/// `organizador_jugadores.saldo_acumulado`).
 class JugadorRepositoryRemote {
   final _client = SupabaseHelpers.client;
 
@@ -19,6 +23,7 @@ class JugadorRepositoryRemote {
       final seen = <String>{};
 
       // Preferir RPC (SECURITY DEFINER): estable con RLS de aislamiento.
+      // Incluye oj.saldo_acumulado de la cuenta con este organizador.
       try {
         final raw = await _client.rpc(
           'get_mis_jugadores_organizador',
@@ -41,14 +46,23 @@ class JugadorRepositoryRemote {
 
       if (jugadores.isEmpty) {
         try {
-          final linkRows = await _client
+          var linkQuery = _client
               .from('organizador_jugadores')
-              .select('jugador_id')
+              .select('jugador_id, saldo_acumulado')
               .eq('organizador_id', uid);
+          if (soloActivos == true) {
+            linkQuery = linkQuery.eq('activo', true);
+          }
+          final linkRows = await linkQuery;
+          final saldoPorJugador = <String, double>{};
           final ids = <String>[];
           for (final raw in linkRows as List) {
-            final id = (raw as Map)['jugador_id']?.toString();
-            if (id != null && id.isNotEmpty) ids.add(id);
+            final map = Map<String, dynamic>.from(raw as Map);
+            final id = map['jugador_id']?.toString();
+            if (id == null || id.isEmpty) continue;
+            ids.add(id);
+            saldoPorJugador[id] =
+                (map['saldo_acumulado'] as num?)?.toDouble() ?? 0;
           }
           if (ids.isNotEmpty) {
             var profileQuery =
@@ -58,12 +72,15 @@ class JugadorRepositoryRemote {
             }
             final profiles = await profileQuery;
             for (final raw in profiles as List) {
-              final jugador = Jugador.fromSupabaseMap(
+              final base = Jugador.fromSupabaseMap(
                 Map<String, dynamic>.from(raw as Map),
               );
-              final id = jugador.supabaseId;
-              if (id != null) seen.add(id);
-              jugadores.add(jugador);
+              final id = base.supabaseId;
+              if (id == null) continue;
+              seen.add(id);
+              jugadores.add(
+                base.copyWith(saldoAcumulado: saldoPorJugador[id] ?? 0),
+              );
             }
           }
         } catch (_) {
@@ -73,7 +90,7 @@ class JugadorRepositoryRemote {
 
       // Incluir al organizador (también juega / aparece en roster y convocatorias).
       if (incluirUsuarioActual && !seen.contains(uid)) {
-        final yo = await getById(uid);
+        final yo = await getById(uid, organizadorId: uid);
         if (yo != null && (soloActivos != true || yo.activo)) {
           jugadores.insert(0, yo);
         }
@@ -86,12 +103,23 @@ class JugadorRepositoryRemote {
     });
   }
 
-  Future<Jugador?> getById(String id) async {
+  /// Perfil + saldo de cuenta con [organizadorId] (default: org autenticado).
+  ///
+  /// Sin [organizadorId] ni sesión de org, [Jugador.saldoAcumulado] queda en 0
+  /// (el saldo global en profiles ya no existe).
+  Future<Jugador?> getById(String id, {String? organizadorId}) async {
     return SupabaseHelpers.guard('Obtener jugador', () async {
       final row =
           await _client.from('profiles').select().eq('id', id).maybeSingle();
       if (row == null) return null;
-      return Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
+      final base = Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
+      final orgId = organizadorId ?? SupabaseHelpers.currentUserId;
+      if (orgId == null) return base;
+      final saldo = await getSaldoCuenta(
+        organizadorId: orgId,
+        jugadorId: id,
+      );
+      return base.copyWith(saldoAcumulado: saldo);
     });
   }
 
@@ -105,7 +133,132 @@ class JugadorRepositoryRemote {
           .eq('email', normalized)
           .maybeSingle();
       if (row == null) return null;
-      return Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
+      final base = Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
+      final orgId = SupabaseHelpers.currentUserId;
+      if (orgId == null) return base;
+      final jid = base.supabaseId;
+      if (jid == null) return base;
+      final saldo = await getSaldoCuenta(
+        organizadorId: orgId,
+        jugadorId: jid,
+      );
+      return base.copyWith(saldoAcumulado: saldo);
+    });
+  }
+
+  /// Saldo vivo de la cuenta jugador↔organizador (`organizador_jugadores`).
+  Future<double> getSaldoCuenta({
+    required String organizadorId,
+    required String jugadorId,
+  }) async {
+    return SupabaseHelpers.guard('Obtener saldo cuenta', () async {
+      final row = await _client
+          .from('organizador_jugadores')
+          .select('saldo_acumulado')
+          .eq('organizador_id', organizadorId)
+          .eq('jugador_id', jugadorId)
+          .maybeSingle();
+      if (row == null) return 0.0;
+      return (row['saldo_acumulado'] as num?)?.toDouble() ?? 0.0;
+    });
+  }
+
+  /// Cuentas del jugador autenticado con cada organizador (incluye créditos).
+  Future<List<CuentaSaldo>> listarMisCuentasSaldo() async {
+    return SupabaseHelpers.guard('Listar mis cuentas saldo', () async {
+      try {
+        final raw = await _client.rpc('get_mis_cuentas_saldo');
+        final items = _asMapList(raw);
+        if (items != null) {
+          return items.map(CuentaSaldo.fromJson).toList();
+        }
+      } catch (_) {
+        // Fallback abajo.
+      }
+      final uid = SupabaseHelpers.currentUserId;
+      if (uid == null) return [];
+      final linkRows = await _client
+          .from('organizador_jugadores')
+          .select('organizador_id, saldo_acumulado, activo, left_at')
+          .eq('jugador_id', uid);
+      final orgIds = <String>[];
+      final byOrg = <String, Map<String, dynamic>>{};
+      for (final raw in linkRows as List) {
+        final map = Map<String, dynamic>.from(raw as Map);
+        final oid = map['organizador_id']?.toString();
+        if (oid == null || oid.isEmpty) continue;
+        orgIds.add(oid);
+        byOrg[oid] = map;
+      }
+      if (orgIds.isEmpty) return [];
+      final profiles = await _client
+          .from('profiles')
+          .select('id, nombre, foto_url')
+          .inFilter('id', orgIds);
+      final out = <CuentaSaldo>[];
+      for (final raw in profiles as List) {
+        final pr = Map<String, dynamic>.from(raw as Map);
+        final oid = pr['id']?.toString();
+        if (oid == null) continue;
+        final link = byOrg[oid];
+        if (link == null) continue;
+        out.add(
+          CuentaSaldo.fromJson({
+            'organizador_id': oid,
+            'nombre': pr['nombre'],
+            'foto_url': pr['foto_url'],
+            'saldo_acumulado': link['saldo_acumulado'],
+            'activo': link['activo'],
+            'left_at': link['left_at'],
+          }),
+        );
+      }
+      out.sort(
+        (a, b) => a.nombreOrganizador
+            .toLowerCase()
+            .compareTo(b.nombreOrganizador.toLowerCase()),
+      );
+      return out;
+    });
+  }
+
+  List<Map<String, dynamic>>? _asMapList(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          return decoded
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  /// Total home: solo suma deudas > 0. No netea créditos entre organizadores.
+  Future<double> getMiTotalDeudaHome() async {
+    return SupabaseHelpers.guard('Total deuda home', () async {
+      try {
+        final raw = await _client.rpc('get_mi_total_deuda_home');
+        if (raw is num) return raw.toDouble();
+        if (raw is String) return double.tryParse(raw) ?? 0;
+        return 0;
+      } catch (_) {
+        final cuentas = await listarMisCuentasSaldo();
+        var total = 0.0;
+        for (final c in cuentas) {
+          if (c.saldoAcumulado > 0.005) total += c.saldoAcumulado;
+        }
+        return total;
+      }
     });
   }
 
@@ -236,42 +389,57 @@ class JugadorRepositoryRemote {
     });
   }
 
-  Future<void> updateSaldo(String jugadorId, double nuevoSaldo) async {
-    await SupabaseHelpers.write('Actualizar saldo', () async {
-      // profiles.saldo_acumulado está protegido por trigger; el SSOT es
-      // saldos_historicos vía RPC SECURITY DEFINER.
-      try {
-        await _client.rpc(
-          'recalcular_saldo_jugador',
-          params: {'p_jugador_id': jugadorId},
-        );
-        return;
-      } catch (_) {
-        // Fallback legacy si el RPC no está desplegado.
+  /// Recalcula el saldo de la cuenta org↔jugador desde `saldos_historicos`.
+  ///
+  /// [nuevoSaldo] se ignora (compat API): el SSOT se deriva del historial.
+  Future<void> updateSaldo(
+    String jugadorId,
+    double nuevoSaldo, {
+    String? organizadorId,
+  }) async {
+    // Mantener firma posicional para callers existentes; valor no se escribe.
+    assert(nuevoSaldo.isFinite);
+    await SupabaseHelpers.write('Actualizar saldo cuenta', () async {
+      final orgId = organizadorId ?? SupabaseHelpers.currentUserId;
+      if (orgId == null) {
+        throw Exception('updateSaldo: sin organizador autenticado');
       }
-      await _client
-          .from('profiles')
-          .update({'saldo_acumulado': nuevoSaldo})
-          .eq('id', jugadorId);
+      await _client.rpc(
+        'recalcular_saldo_cuenta',
+        params: {
+          'p_organizador_id': orgId,
+          'p_jugador_id': jugadorId,
+        },
+      );
     });
   }
 
-  /// Recalcula saldos de varios jugadores en una sola llamada RPC.
-  Future<void> recalcularSaldosBatch(List<String> jugadorIds) async {
+  /// Recalcula saldos de varias cuentas del organizador autenticado.
+  Future<void> recalcularSaldosBatch(
+    List<String> jugadorIds, {
+    String? organizadorId,
+  }) async {
     final ids = jugadorIds.where((id) => id.isNotEmpty).toSet().toList();
     if (ids.isEmpty) return;
-    await SupabaseHelpers.write('Recalcular saldos batch', () async {
+    await SupabaseHelpers.write('Recalcular saldos cuentas batch', () async {
+      final orgId = organizadorId ?? SupabaseHelpers.currentUserId;
+      if (orgId == null) {
+        throw Exception('recalcularSaldosBatch: sin organizador autenticado');
+      }
       try {
         await _client.rpc(
-          'recalcular_saldos_jugadores',
-          params: {'p_jugador_ids': ids},
+          'recalcular_saldos_cuentas',
+          params: {
+            'p_organizador_id': orgId,
+            'p_jugador_ids': ids,
+          },
         );
         return;
       } catch (_) {
-        // Fallback: uno a uno (más lento).
+        // Fallback: uno a uno.
       }
       for (final id in ids) {
-        await updateSaldo(id, 0);
+        await updateSaldo(id, 0, organizadorId: orgId);
       }
     });
   }
@@ -295,21 +463,31 @@ class JugadorRepositoryRemote {
     return 1;
   }
 
+  /// Soft-leave del roster: conserva saldo de la cuenta (no hard-delete oj).
   Future<int> delete(String id) async {
-    await SupabaseHelpers.write('Eliminar jugador', () async {
+    await SupabaseHelpers.write('Salir jugador del roster', () async {
       final uid = SupabaseHelpers.currentUserId;
-      if (uid != null) {
-        await _client
-            .from('organizador_jugadores')
-            .delete()
-            .eq('organizador_id', uid)
-            .eq('jugador_id', id);
-      }
-      // Si el perfil sigue vinculado a otros clubs o tiene auth, el DELETE
-      // puede no aplicar; el unlink ya lo saca del roster de este organizador.
+      if (uid == null) return;
       try {
-        await _client.from('profiles').delete().eq('id', id);
-      } catch (_) {}
+        await _client.rpc(
+          'bloquear_salida_cuenta_si_necesario',
+          params: {
+            'p_organizador_id': uid,
+            'p_jugador_id': id,
+          },
+        );
+        return;
+      } catch (_) {
+        // Fallback si RPC no está.
+      }
+      await _client
+          .from('organizador_jugadores')
+          .update({
+            'activo': false,
+            'left_at': DateTime.now().toUtc().toIso8601String(),
+          })
+          .eq('organizador_id', uid)
+          .eq('jugador_id', id);
     });
     return 1;
   }

@@ -4,6 +4,7 @@ import '../models/deuda_partido_anterior.dart';
 import '../models/detalle_partido.dart';
 import '../models/estadisticas_jugador.dart';
 import '../models/jugador.dart';
+import '../models/cuenta_saldo.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/saldo_historico.dart';
 import '../domain/player_home_stats.dart';
@@ -67,6 +68,9 @@ Future<PlayerHomeData> _fetchPlayerHome(AppRepositories repos) async {
       repos.getSaldosByJugador(uid)
     else
       Future<List<SaldoHistorico>>.value([]),
+    repos.countMisConfirmaciones(),
+    repos.listarMisCuentasSaldo(),
+    repos.getMiTotalDeudaHome(),
   ]);
 
   List<EstadisticasJugador> statsAll = const [];
@@ -82,6 +86,9 @@ Future<PlayerHomeData> _fetchPlayerHome(AppRepositories repos) async {
   final deudas = ordenarDeudasPorFecha(results[1] as List<DetallePartido>);
   final perfil = results[2] as Jugador?;
   final partidosJugados = results[3] as List<DetallePartido>;
+  final confirmacionesHistoricas = results[5] as int;
+  final cuentasSaldo = results[6] as List<CuentaSaldo>;
+  final totalDeudaHome = results[7] as double;
   final partidoIds = {
     ...deudas.map((d) => d.partidoId),
     ...partidosJugados.map((p) => p.partidoId),
@@ -98,6 +105,8 @@ Future<PlayerHomeData> _fetchPlayerHome(AppRepositories repos) async {
     perfil: perfil,
     partidosJugados: partidosJugados,
     convocatorias: convocatorias,
+    confirmacionesHistoricas: confirmacionesHistoricas,
+    totalDeudaHome: totalDeudaHome,
   );
   if (mine == null && uid != null) {
     for (final s in statsAll) {
@@ -116,6 +125,8 @@ Future<PlayerHomeData> _fetchPlayerHome(AppRepositories repos) async {
     partidosJugados: partidosJugados,
     historialSaldo: results[4] as List<SaldoHistorico>,
     saldosPorPartido: saldosPorPartido,
+    cuentasSaldo: cuentasSaldo,
+    totalDeudaHome: totalDeudaHome,
   );
 }
 
@@ -123,9 +134,11 @@ Future<PlayerJugadorFichaData> _fetchPlayerJugadorFicha(
   AppRepositories repos,
   String jugadorKey,
 ) async {
+  // Vista organizador: saldo e historial de la cuenta con auth.uid().
+  final orgId = AuthService.instance.currentUser?.id;
   final data = await Future.wait([
-    repos.getJugador(jugadorKey),
-    repos.getSaldosByJugador(jugadorKey),
+    repos.getJugador(jugadorKey, organizadorId: orgId),
+    repos.getSaldosByJugador(jugadorKey, organizadorId: orgId),
     repos.getPartidosPendientesJugador(jugadorKey),
     repos.getResumenPartidosJugador(jugadorKey),
   ]);

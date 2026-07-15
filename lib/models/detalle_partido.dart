@@ -22,6 +22,8 @@ class DetallePartido {
   final DateTime? fechaPartido;
   final String? recintoPartido;
   final SportType? sportType;
+  /// Organizador dueño del partido (cuenta de cobro). Null solo en datos legacy.
+  final String? organizadorId;
 
   const DetallePartido({
     this.id,
@@ -42,6 +44,7 @@ class DetallePartido {
     this.fechaPartido,
     this.recintoPartido,
     this.sportType,
+    this.organizadorId,
   });
 
   /// @deprecated Usar [pagoParcialNeto].
@@ -134,6 +137,7 @@ class DetallePartido {
     DateTime? fechaPartido,
     String? recintoPartido,
     SportType? sportType,
+    String? organizadorId,
   }) {
     return DetallePartido(
       id: id ?? this.id,
@@ -154,6 +158,7 @@ class DetallePartido {
       fechaPartido: fechaPartido ?? this.fechaPartido,
       recintoPartido: recintoPartido ?? this.recintoPartido,
       sportType: sportType ?? this.sportType,
+      organizadorId: organizadorId ?? this.organizadorId,
     );
   }
 
@@ -188,6 +193,7 @@ class DetallePartido {
     DateTime? fechaPartido,
     String? recintoPartido,
     SportType? sportType,
+    String? organizadorId,
   }) =>
       DetallePartido(
         id: (map['id'] as num?)?.toInt(),
@@ -207,5 +213,8 @@ class DetallePartido {
         fechaPartido: fechaPartido,
         recintoPartido: recintoPartido,
         sportType: sportType,
+        organizadorId: organizadorId ??
+            SupabaseParse.toStringOrNull(map['organizador_id']) ??
+            SupabaseParse.toStringOrNull(map['partido_organizador_id']),
       );
 }

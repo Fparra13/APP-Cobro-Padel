@@ -19,7 +19,8 @@ class DesgloseJugador {
   final double montoPagado;
   final double saldoRestante;
   final bool pagado;
-  /// Saldo vivo en cuenta (`profiles.saldo_acumulado`), lectura batch en desglose.
+  /// Saldo vivo en la cuenta con el organizador del partido
+  /// (`organizador_jugadores.saldo_acumulado`).
   final double? saldoAcumuladoCuenta;
 
   const DesgloseJugador({

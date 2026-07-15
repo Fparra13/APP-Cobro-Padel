@@ -9,6 +9,7 @@ import '../models/saldo_historico.dart';
 import '../models/detalle_partido.dart';
 import '../models/estado_partido.dart' show EstadoConfirmacion;
 import '../models/jugador.dart';
+import '../models/cuenta_saldo.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/partido.dart';
 import '../repositories/partido_repository.dart';
@@ -23,6 +24,18 @@ CobrosResumen cobrosResumenFromJson(Map<String, dynamic> json) => CobrosResumen(
           (json['montoTotalPendiente'] as num?)?.toDouble() ?? 0,
       jugadoresConDeuda: (json['jugadoresConDeuda'] as num?)?.toInt() ?? 0,
     );
+
+Map<String, dynamic> cuentaSaldoToJson(CuentaSaldo c) => {
+      'organizador_id': c.organizadorId,
+      'nombre': c.nombreOrganizador,
+      'foto_url': c.fotoUrl,
+      'saldo_acumulado': c.saldoAcumulado,
+      'activo': c.activo,
+      'left_at': c.leftAt?.toIso8601String(),
+    };
+
+CuentaSaldo cuentaSaldoFromJson(Map<String, dynamic> json) =>
+    CuentaSaldo.fromJson(json);
 
 Map<String, dynamic> jugadorToSnapshotJson(Jugador j) => {
       ...j.toMap(),
@@ -80,6 +93,7 @@ Map<String, dynamic> detallePartidoToJson(DetallePartido d) => {
       'fecha_partido': d.fechaPartido?.toIso8601String(),
       'recinto_partido': d.recintoPartido,
       'sport_type': d.sportType?.dbValue,
+      'organizador_id': d.organizadorId,
     };
 
 DetallePartido detallePartidoFromJson(Map<String, dynamic> json) =>
@@ -106,6 +120,7 @@ DetallePartido detallePartidoFromJson(Map<String, dynamic> json) =>
       sportType: json['sport_type'] != null
           ? SportType.fromDb(json['sport_type'] as String?)
           : null,
+      organizadorId: json['organizador_id'] as String?,
     );
 
 Map<String, dynamic> convocatoriaEntryToJson(ConvocatoriaJugadorEntry e) => {
@@ -284,6 +299,7 @@ SaldoHistorico saldoHistoricoFromJson(Map<String, dynamic> json) {
     fecha: base.fecha,
     concepto: base.concepto,
     nombreJugador: json['nombre_jugador'] as String? ?? base.nombreJugador,
+    organizadorId: json['organizador_id'] as String? ?? base.organizadorId,
   );
 }
 
