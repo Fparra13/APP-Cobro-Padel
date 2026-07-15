@@ -1,27 +1,15 @@
 # Documentos legales (GitHub Pages)
 
-Esta carpeta publica la **política de privacidad** de Kloovi para Google Play y para enlaces dentro de la app.
+La **política de privacidad vigente** vive en el sitio oficial:
 
-## URL pública
+**https://www.kloovi.app/privacy**
 
-Tras activar GitHub Pages (abajo), la URL será:
+`docs/privacy.html` solo redirige a esa URL (útil para enlaces antiguos de GitHub Pages / Play).
 
-**https://fparra13.github.io/APP-Cobro-Padel/privacy.html**
+## App
 
-GitHub Pages ya está configurado en el repo (workflow `.github/workflows/pages.yml`).
-Tras cada push a `main` que toque `docs/`, se republica automáticamente.
+`lib/core/legal_urls.dart` apunta a `https://www.kloovi.app/privacy`.
 
-Si la URL devuelve 404, revisa **Actions → Deploy GitHub Pages** en GitHub
-y espera 1–2 minutos a que termine el despliegue.
+## Sitio fuente
 
-## Antes de publicar en Play Store
-
-1. **Correo de contacto:** sustituye `privacidad@matchpay.app` en `privacy.html` por un correo real que revises (mismo que en la ficha de Play).
-2. **Eliminación de cuenta:** cuando exista el flujo in-app, actualiza la sección 10 de `privacy.html` para indicar la ruta exacta en Configuración.
-
-## Archivos
-
-| Archivo        | Uso                                      |
-|----------------|------------------------------------------|
-| `privacy.html` | Política de privacidad (ES / EN / PT)    |
-| `index.html`   | Página de entrada con enlace a privacidad |
+Editar el contenido legal en `website/assets/locales.js` (`privacyHtml` / `termsHtml`, ES/EN/PT) y desplegar `website/` a Vercel (`kloovi.app`).

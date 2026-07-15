@@ -25,7 +25,7 @@ window.KLOOVI_LOCALES = {
       "Disponible pronto en Google Play. Kloovi no recibe dinero ni procesa pagos: solo te ayuda a registrar comprobantes y saldos del grupo.",
     howTitle: "Una app para el grupo, no un banco",
     howSub:
-      "Pensada para organizadores y jugadores de pádel u otros deportes: convocatorias, confirmaciones y seguimiento de quién ya aportó.",
+      "Pensada para organizadores y participantes de pádel, yoga u otras actividades: convocatorias, confirmaciones y seguimiento de quién ya aportó.",
     point1Title: "Organiza",
     point1Body:
       "Arma el encuentro, invita al roster y mira quién confirma, quién falta o quién queda como suplente.",
@@ -34,17 +34,17 @@ window.KLOOVI_LOCALES = {
       "Anota quién aportó, guarda comprobantes (fotos) y sigue saldos del grupo dentro de la app.",
     point3Title: "Sin pasarela de pago",
     point3Body:
-      "Kloovi no cobra a jugadores ni recibe transferencias. El dinero se mueve fuera de la app, entre ustedes.",
+      "Kloovi no cobra a participantes ni recibe transferencias. El dinero se mueve fuera de la app, entre ustedes.",
     calloutTitle: "Importante para Play Store y usuarios",
     calloutBody:
-      "Kloovi <strong>no es una aplicación financiera</strong>. No es billetera, banco, procesador de pagos ni intermediario de dinero. Solo almacena información administrativa y comprobantes que el organizador o el jugador cargan para llevar el control del grupo.",
+      "Kloovi <strong>no es una aplicación financiera</strong>. No es billetera, banco, procesador de pagos ni intermediario de dinero. Solo almacena información administrativa y comprobantes que el organizador o el participante cargan para llevar el control del grupo.",
     contactTitle: "Contacto",
     contactSub: "¿Dudas de privacidad, cuenta o publicación?",
     footerCopy: "© {year} Kloovi · kloovi.app",
     privacyH1: "Política de Privacidad",
-    privacyMeta: "Última actualización: 13 de julio de 2026 · Responsable: Kloovi (kloovi.app)",
+    privacyMeta: "Última actualización: 15 de julio de 2026 · Responsable: Kloovi (kloovi.app)",
     termsH1: "Términos de Servicio",
-    termsMeta: "Última actualización: 13 de julio de 2026 · Kloovi (kloovi.app)",
+    termsMeta: "Última actualización: 15 de julio de 2026 · Kloovi (kloovi.app)",
     backHome: "← Kloovi",
     navHow: "Cómo funciona",
     navPrivacy: "Privacidad",
@@ -55,7 +55,7 @@ window.KLOOVI_LOCALES = {
       <div class="notice">
         <strong>Kloovi no es una app financiera</strong>
         <span class="notice-key">Kloovi no recibe, custodia, transfiere ni procesa dinero.</span>
-        No somos un banco, billetera electrónica, procesador de pagos (PSP) ni intermediario de pagos. La app solo ayuda a organizar encuentros deportivos y a registrar información administrativa entre miembros de un grupo (por ejemplo, quién aportó y comprobantes fotográficos). Cualquier pago real ocurre fuera de Kloovi, entre organizador y jugadores (transferencia, efectivo u otro medio elegido por ustedes).
+        No somos un banco, billetera electrónica, procesador de pagos (PSP) ni intermediario de pagos. La app solo ayuda a organizar encuentros deportivos y a registrar información administrativa entre miembros de un grupo (por ejemplo, quién aportó y comprobantes fotográficos). Cualquier pago real ocurre fuera de Kloovi, entre organizador y participantes (transferencia, efectivo u otro medio elegido por ustedes).
       </div>
       <p>Esta Política explica qué datos personales tratamos cuando usas la aplicación móvil Kloovi y el sitio <a href="https://kloovi.app">kloovi.app</a>, con qué finalidades, con quién los compartimos y qué derechos tienes. Contacto de privacidad: <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
 
@@ -64,7 +64,7 @@ window.KLOOVI_LOCALES = {
 
       <h2>1.1 Definiciones</h2>
       <p>En esta Política, <strong>“Organizador”</strong> es el usuario que crea un encuentro y registra administrativamente los aportes realizados por los participantes.</p>
-      <p><strong>“Jugador”</strong> o participante es el usuario invitado o vinculado al encuentro o al roster del organizador.</p>
+      <p><strong>“Participante”</strong> es el usuario invitado o vinculado al encuentro o a la lista del organizador.</p>
       <p><strong>“Comprobante”</strong> es un archivo (típicamente una imagen) que un usuario sube como evidencia de un pago realizado fuera de Kloovi.</p>
 
       <h2>2. Qué datos tratamos</h2>
@@ -161,7 +161,7 @@ window.KLOOVI_LOCALES = {
       <p>Kloovi es multideporte. Puedes, entre otras funciones:</p>
       <ul>
         <li>organizar encuentros e invitaciones/confirmaciones;</li>
-        <li>mantener un roster de jugadores;</li>
+        <li>mantener una lista de participantes;</li>
         <li>registrar aportes, saldos y conceptos del grupo;</li>
         <li>adjuntar y revisar comprobantes de pagos externos.</li>
       </ul>
@@ -187,7 +187,7 @@ window.KLOOVI_LOCALES = {
       <h2>7. Permisos y notificaciones</h2>
       <p>Cámara, galería, notificaciones e internet solo para las funciones descritas en la Política de Privacidad y con tu permiso cuando el sistema lo requiera.</p>
       <h2>8. Suscripciones (si aplican)</h2>
-      <p>Un cobro por software al organizador (plan de la app) no es un servicio financiero ni un pago “en nombre” de los jugadores del encuentro.</p>
+      <p>Un cobro por software al organizador (plan de la app) no es un servicio financiero ni un pago “en nombre” de los participantes del encuentro.</p>
       <h2>9. Disponibilidad</h2>
       <p>Servicio “tal cual” y según disponibilidad; pueden existir interrupciones.</p>
       <h2>10. Limitación de responsabilidad</h2>
@@ -230,7 +230,7 @@ window.KLOOVI_LOCALES = {
       "Coming soon on Google Play. Kloovi does not receive money or process payments—it only helps you record receipts and group balances.",
     howTitle: "An app for the group, not a bank",
     howSub:
-      "Built for organizers and players of padel and other sports: summons, confirmations, and tracking who already contributed.",
+      "Built for organizers and participants of padel, yoga, and other activities: summons, confirmations, and tracking who already contributed.",
     point1Title: "Organize",
     point1Body:
       "Set up the gathering, invite your roster, and see who confirmed, who’s missing, or who’s on the waitlist.",
@@ -239,17 +239,17 @@ window.KLOOVI_LOCALES = {
       "Log who contributed, store receipt photos, and follow group balances inside the app.",
     point3Title: "No payment gateway",
     point3Body:
-      "Kloovi does not charge players or receive transfers. Money moves outside the app, between you.",
+      "Kloovi does not charge participants or receive transfers. Money moves outside the app, between you.",
     calloutTitle: "Important for Play Store and users",
     calloutBody:
-      "Kloovi <strong>is not a financial application</strong>. It is not a wallet, bank, payment processor, or money intermediary. It only stores administrative information and receipts that organizers or players upload to keep the group organized.",
+      "Kloovi <strong>is not a financial application</strong>. It is not a wallet, bank, payment processor, or money intermediary. It only stores administrative information and receipts that organizers or participants upload to keep the group organized.",
     contactTitle: "Contact",
     contactSub: "Questions about privacy, your account, or publishing?",
     footerCopy: "© {year} Kloovi · kloovi.app",
     privacyH1: "Privacy Policy",
-    privacyMeta: "Last updated: July 13, 2026 · Controller: Kloovi (kloovi.app)",
+    privacyMeta: "Last updated: July 15, 2026 · Controller: Kloovi (kloovi.app)",
     termsH1: "Terms of Service",
-    termsMeta: "Last updated: July 13, 2026 · Kloovi (kloovi.app)",
+    termsMeta: "Last updated: July 15, 2026 · Kloovi (kloovi.app)",
     backHome: "← Kloovi",
     navHow: "How it works",
     navPrivacy: "Privacy",
@@ -260,7 +260,7 @@ window.KLOOVI_LOCALES = {
       <div class="notice">
         <strong>Kloovi is not a financial app</strong>
         <span class="notice-key">Kloovi does not receive, hold, transfer, or process money.</span>
-        We are not a bank, e-wallet, payment service provider (PSP), or payment intermediary. The app only helps organize multi-sport gatherings and record administrative information among group members (who contributed, receipt photos, etc.). Any real payment happens outside Kloovi, between organizer and players.
+        We are not a bank, e-wallet, payment service provider (PSP), or payment intermediary. The app only helps organize multi-sport gatherings and record administrative information among group members (who contributed, receipt photos, etc.). Any real payment happens outside Kloovi, between organizer and participants.
       </div>
       <p>This Policy explains what personal data we process when you use the Kloovi mobile app and <a href="https://kloovi.app">kloovi.app</a>. Privacy contact: <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
 
@@ -269,7 +269,7 @@ window.KLOOVI_LOCALES = {
 
       <h2>1.1 Definitions</h2>
       <p>In this Policy, <strong>“Organizer”</strong> means the user who creates a gathering and administratively records contributions made by participants.</p>
-      <p><strong>“Player”</strong> or participant means a user invited or linked to the gathering or the organizer’s roster.</p>
+      <p><strong>“Participant”</strong> means a user invited or linked to the gathering or the organizer’s roster.</p>
       <p><strong>“Receipt”</strong> means a file (typically an image) uploaded as evidence of a payment made outside Kloovi.</p>
 
       <h2>2. Data we process</h2>
@@ -365,7 +365,7 @@ window.KLOOVI_LOCALES = {
       <p>Kloovi is multi-sport. Among other features, you can:</p>
       <ul>
         <li>organize gatherings and invitations/confirmations;</li>
-        <li>maintain a player roster;</li>
+        <li>maintain a participant roster;</li>
         <li>record contributions, balances, and group labels;</li>
         <li>attach and review receipts for external payments.</li>
       </ul>
@@ -390,7 +390,7 @@ window.KLOOVI_LOCALES = {
       <h2>7. Permissions and notifications</h2>
       <p>Camera, gallery, notifications, and internet only for the functions described in the Privacy Policy and with your permission when the OS requires it.</p>
       <h2>8. Subscriptions (if any)</h2>
-      <p>Charging organizers for software is not a financial product and is not collecting player fees “on behalf of” gathering participants through Kloovi.</p>
+      <p>Charging organizers for software is not a financial product and is not collecting participant fees “on behalf of” gathering participants through Kloovi.</p>
       <h2>9. Availability</h2>
       <p>Service is provided “as is” and as available; interruptions may occur.</p>
       <h2>10. Limitation of liability</h2>
@@ -433,7 +433,7 @@ window.KLOOVI_LOCALES = {
       "Em breve no Google Play. A Kloovi não recebe dinheiro nem processa pagamentos: só ajuda a registrar comprovantes e saldos do grupo.",
     howTitle: "Um app para o grupo, não um banco",
     howSub:
-      "Pensada para organizadores e jogadores de padel e outros esportes: convocações, confirmações e quem já contribuiu.",
+      "Pensada para organizadores e participantes de padel, yoga e outras atividades: convocações, confirmações e quem já contribuiu.",
     point1Title: "Organize",
     point1Body:
       "Monte o encontro, convide o roster e veja quem confirmou, quem falta ou quem está na reserva.",
@@ -442,17 +442,17 @@ window.KLOOVI_LOCALES = {
       "Anote quem contribuiu, guarde comprovantes (fotos) e acompanhe saldos do grupo no app.",
     point3Title: "Sem gateway de pagamento",
     point3Body:
-      "A Kloovi não cobra jogadores nem recebe transferências. O dinheiro circula fora do app, entre vocês.",
+      "A Kloovi não cobra participantes nem recebe transferências. O dinheiro circula fora do app, entre vocês.",
     calloutTitle: "Importante para a Play Store e usuários",
     calloutBody:
-      "A Kloovi <strong>não é um aplicativo financeiro</strong>. Não é carteira, banco, processador de pagamentos nem intermediário de dinheiro. Só armazena informação administrativa e comprovantes que organizador ou jogador enviam para controlar o grupo.",
+      "A Kloovi <strong>não é um aplicativo financeiro</strong>. Não é carteira, banco, processador de pagamentos nem intermediário de dinheiro. Só armazena informação administrativa e comprovantes que organizador ou participante enviam para controlar o grupo.",
     contactTitle: "Contato",
     contactSub: "Dúvidas de privacidade, conta ou publicação?",
     footerCopy: "© {year} Kloovi · kloovi.app",
     privacyH1: "Política de Privacidade",
-    privacyMeta: "Última atualização: 13 de julho de 2026 · Responsável: Kloovi (kloovi.app)",
+    privacyMeta: "Última atualização: 15 de julho de 2026 · Responsável: Kloovi (kloovi.app)",
     termsH1: "Termos de Serviço",
-    termsMeta: "Última atualização: 13 de julho de 2026 · Kloovi (kloovi.app)",
+    termsMeta: "Última atualização: 15 de julho de 2026 · Kloovi (kloovi.app)",
     backHome: "← Kloovi",
     navHow: "Como funciona",
     navPrivacy: "Privacidade",
@@ -463,7 +463,7 @@ window.KLOOVI_LOCALES = {
       <div class="notice">
         <strong>Kloovi não é um app financeiro</strong>
         <span class="notice-key">A Kloovi não recebe, custodia, transfere nem processa dinheiro.</span>
-        Não somos banco, carteira digital, processador de pagamentos (PSP) nem intermediário de pagamentos. O app só ajuda a organizar encontros multiesporte e a registrar informação administrativa entre membros de um grupo. Qualquer pagamento real ocorre fora da Kloovi, entre organizador e jogadores.
+        Não somos banco, carteira digital, processador de pagamentos (PSP) nem intermediário de pagamentos. O app só ajuda a organizar encontros multiesporte e a registrar informação administrativa entre membros de um grupo. Qualquer pagamento real ocorre fora da Kloovi, entre organizador e participantes.
       </div>
       <p>Esta Política explica quais dados pessoais tratamos ao usar o app Kloovi e o site <a href="https://kloovi.app">kloovi.app</a>. Contato: <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
 
@@ -472,7 +472,7 @@ window.KLOOVI_LOCALES = {
 
       <h2>1.1 Definições</h2>
       <p>Nesta Política, <strong>“Organizador”</strong> é o usuário que cria um encontro e registra administrativamente as contribuições dos participantes.</p>
-      <p><strong>“Jogador”</strong> ou participante é o usuário convidado ou vinculado ao encontro ou ao roster do organizador.</p>
+      <p><strong>“Participante”</strong> é o usuário convidado ou vinculado ao encontro ou à lista do organizador.</p>
       <p><strong>“Comprovante”</strong> é um arquivo (em geral uma imagem) enviado como evidência de um pagamento feito fora da Kloovi.</p>
 
       <h2>2. Quais dados tratamos</h2>
@@ -566,7 +566,7 @@ window.KLOOVI_LOCALES = {
       <p>Kloovi é multiesporte. Entre outras funções, você pode:</p>
       <ul>
         <li>organizar encontros e convites/confirmações;</li>
-        <li>manter um roster de jogadores;</li>
+        <li>manter uma lista de participantes;</li>
         <li>registrar contribuições, saldos e rótulos do grupo;</li>
         <li>anexar e revisar comprovantes de pagamentos externos.</li>
       </ul>
@@ -591,7 +591,7 @@ window.KLOOVI_LOCALES = {
       <h2>7. Permissões e notificações</h2>
       <p>Câmera, galeria, notificações e internet apenas para as funções descritas na Política de Privacidade.</p>
       <h2>8. Assinaturas (se houver)</h2>
-      <p>Cobrança de software ao organizador não é produto financeiro nem cobrança “em nome” dos jogadores do encontro.</p>
+      <p>Cobrança de software ao organizador não é produto financeiro nem cobrança “em nome” dos participantes do encontro.</p>
       <h2>9. Disponibilidade</h2>
       <p>Serviço “no estado em que se encontra” e conforme disponibilidade.</p>
       <h2>10. Limitação de responsabilidade</h2>

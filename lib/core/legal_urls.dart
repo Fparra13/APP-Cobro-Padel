@@ -1,8 +1,7 @@
-/// URLs públicas de documentos legales (GitHub Pages).
+/// URLs públicas de documentos legales (sitio oficial kloovi.app).
 class LegalUrls {
   LegalUrls._();
 
-  /// Política de privacidad en GitHub Pages (`docs/` + workflow Actions).
-  static const privacyPolicy =
-      'https://fparra13.github.io/APP-Cobro-Padel/privacy.html';
+  /// Política de privacidad vigente.
+  static const privacyPolicy = 'https://www.kloovi.app/privacy';
 }
