@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../l10n/matchpay_strings.dart';
+import '../utils/comprobante_path.dart';
+import 'supabase_storage_service.dart';
 
 class ComprobanteService {
   ComprobanteService._();
@@ -25,10 +27,30 @@ class ComprobanteService {
 
   Future<File?> resolveFile(String? relativePath) async {
     if (relativePath == null || relativePath.isEmpty) return null;
+    if (isCloudComprobantePath(relativePath)) return null;
     final docs = await getApplicationDocumentsDirectory();
     final file = File(p.join(docs.path, relativePath));
     if (await file.exists()) return file;
     return null;
+  }
+
+  /// Local [File] o URL firmada de Storage para mostrar / ampliar.
+  Future<({File? file, String? networkUrl})> resolveForDisplay(
+    String? path,
+  ) async {
+    if (path == null || path.isEmpty) {
+      return (file: null, networkUrl: null);
+    }
+    if (isCloudComprobantePath(path)) {
+      try {
+        final url = await SupabaseStorageService.instance.signedUrl(path);
+        return (file: null, networkUrl: url);
+      } catch (_) {
+        return (file: null, networkUrl: null);
+      }
+    }
+    final file = await resolveFile(path);
+    return (file: file, networkUrl: null);
   }
 
   Future<ImageSource?> askSource(BuildContext context) {
@@ -70,7 +92,7 @@ class ComprobanteService {
     if (xFile == null) return null;
 
     if (replacePath != null) {
-      await delete(replacePath);
+      await deleteAny(replacePath);
     }
 
     final dir = await _storageDir();
@@ -82,11 +104,49 @@ class ComprobanteService {
 
   Future<void> delete(String? relativePath) async {
     if (relativePath == null || relativePath.isEmpty) return;
+    if (isCloudComprobantePath(relativePath)) return;
     final docs = await getApplicationDocumentsDirectory();
     final file = File(p.join(docs.path, relativePath));
     if (await file.exists()) {
       await file.delete();
     }
+  }
+
+  /// Borra local o en Storage según el tipo de path.
+  Future<void> deleteAny(String? path) async {
+    if (path == null || path.isEmpty) return;
+    if (isCloudComprobantePath(path)) {
+      await SupabaseStorageService.instance.deleteIfExists(path);
+      return;
+    }
+    await delete(path);
+  }
+
+  /// Si [path] es local, sube a Storage y borra el archivo local.
+  /// Paths cloud se dejan igual. Devuelve el path a persistir en DB.
+  Future<String?> ensureCloudPath({
+    required String? path,
+    required String userId,
+    int? partidoId,
+  }) async {
+    if (path == null || path.isEmpty) return null;
+    if (isCloudComprobantePath(path)) return path;
+
+    final file = await resolveFile(path);
+    if (file == null) {
+      // Referencia local rota: no subir basura; conservar path (legacy).
+      return path;
+    }
+
+    final subfolder =
+        partidoId != null ? 'gastos/$partidoId' : 'gastos';
+    final cloud = await SupabaseStorageService.instance.uploadComprobante(
+      userId: userId,
+      file: file,
+      subfolder: subfolder,
+    );
+    await delete(path);
+    return cloud;
   }
 }
 
@@ -94,17 +154,17 @@ Future<void> showComprobanteViewer(
   BuildContext context, {
   required String relativePath,
 }) async {
-  final file = await ComprobanteService.instance.resolveFile(relativePath);
-  if (!context.mounted || file == null) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.tr('receiptImageNotFound'))),
-      );
-    }
+  final resolved =
+      await ComprobanteService.instance.resolveForDisplay(relativePath);
+  if (!context.mounted) return;
+
+  if (resolved.file == null && resolved.networkUrl == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.tr('receiptImageNotFound'))),
+    );
     return;
   }
 
-  if (!context.mounted) return;
   await showDialog<void>(
     context: context,
     builder: (ctx) => Dialog(
@@ -124,7 +184,16 @@ Future<void> showComprobanteViewer(
           ),
           Flexible(
             child: InteractiveViewer(
-              child: Image.file(file, fit: BoxFit.contain),
+              child: resolved.file != null
+                  ? Image.file(resolved.file!, fit: BoxFit.contain)
+                  : Image.network(
+                      resolved.networkUrl!,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, _, _) => Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(ctx.l10n.tr('receiptImageNotFound')),
+                      ),
+                    ),
             ),
           ),
         ],

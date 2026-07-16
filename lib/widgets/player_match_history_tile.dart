@@ -14,6 +14,7 @@ import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../widgets/desglose_cobro_panel.dart';
 import '../widgets/matchpay_ui.dart';
+import 'comprobante_historico_chip.dart';
 import 'sport_icon.dart';
 
 /// Cómo mostrar cada fila del historial de partidos del jugador.
@@ -513,6 +514,7 @@ class PlayerMatchHistoryTile extends StatelessWidget {
                     ),
                   ),
                 ],
+                ComprobanteHistoricoChip(detalle: detalle),
               ],
             ),
           ),
@@ -655,6 +657,7 @@ class PlayerMatchHistoryTile extends StatelessWidget {
                     ),
                   ),
                 ],
+                ComprobanteHistoricoChip(detalle: detalle),
               ],
             ),
           ),

@@ -38,19 +38,30 @@ class DesgloseCalculoPanel extends StatelessWidget {
     final saldoFavor = d.saldoAnterior < 0 ? -d.saldoAnterior : 0.0;
     final totalDebido =
         soloPartidoActual ? d.netoAPagarPartido : d.totalDebido;
+    final usandoCuenta = !soloPartidoActual && montoTransferirCuenta != null;
     final aTransferir = soloPartidoActual
         ? d.pendienteMarginalPartido
-        : (montoTransferirCuenta != null && montoTransferirCuenta! > 0.005
-            ? montoTransferirCuenta!
+        : (usandoCuenta
+            ? (montoTransferirCuenta! > 0.005 ? montoTransferirCuenta! : 0.0)
             : (d.saldoRestante > 0 ? d.saldoRestante : 0.0));
     final saldoRestante = soloPartidoActual
         ? d.saldoRestantePartido
         : d.saldoRestante;
+    final creditoCuentaVivo =
+        usandoCuenta && aTransferir <= 0.005 ? d.creditoCuenta : 0.0;
     final pagado = soloPartidoActual
         ? d.partidoCubiertoMarginal
-        : d.saldoRestante <= 0.005;
-    final generaFavor =
-        soloPartidoActual ? d.generaSaldoAFavorPartido : d.generaSaldoAFavor;
+        : (usandoCuenta
+            ? aTransferir <= 0.005
+            : d.saldoRestante <= 0.005);
+    final generaFavor = soloPartidoActual
+        ? d.generaSaldoAFavorPartido
+        : (usandoCuenta
+            ? creditoCuentaVivo > 0.005
+            : d.generaSaldoAFavor);
+    final montoResultado = generaFavor
+        ? (usandoCuenta ? creditoCuentaVivo : -saldoRestante)
+        : aTransferir;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -93,7 +104,7 @@ class DesgloseCalculoPanel extends StatelessWidget {
           bold: true,
           compact: compact,
         ),
-        if (d.montoPagado > 0 && montoTransferirCuenta == null)
+        if (d.montoPagado > 0)
           _Fila(
             label: l10n.tr('breakdownPaidAmount'),
             monto: d.montoPagado,
@@ -106,7 +117,7 @@ class DesgloseCalculoPanel extends StatelessWidget {
           label: pagado && generaFavor
               ? l10n.tr('breakdownCreditResult')
               : l10n.tr('breakdownToTransfer'),
-          monto: pagado && generaFavor ? -saldoRestante : aTransferir,
+          monto: montoResultado,
           bold: true,
           destacado: true,
           compact: compact,
@@ -331,11 +342,25 @@ String estadoTextoCobro(
     }
     return l10n.tr('cobroStatusReceiptReview');
   }
-  if (saldoAnteriorAlPartido != null) {
-    final estado = d.estadoCobro(snapshotSaldoAnterior: saldoAnteriorAlPartido);
-    if (estado.tieneDeuda) return l10n.tr('cobroStatusPending');
-    if (estado.pagoParcial) return l10n.tr('cobroStatusPartialRegistered');
-    return l10n.tr('cobroStatusPaid');
+  // Alinear con el desglose del encuentro (solo cargo de ESTE partido),
+  // no con deuda de cuenta/FIFO antiguo — si no, "A transferir $0" y
+  // "Pendiente de pago" contradicen.
+  final pendienteMatch = saldoAnteriorAlPartido != null
+      ? CobroLogic.pendienteFifoDetalle(
+          saldoAnterior: saldoAnteriorAlPartido,
+          cargoPartido: d.total,
+          montoPagadoEnPartido: d.montoPagado,
+        )
+      : CalculationService.pendientePartido(
+          saldoAnterior: 0,
+          cargoPartido: d.total,
+          montoPagado: d.montoPagado,
+        );
+  if (pendienteMatch > 0.005) {
+    if (d.montoPagado > 0.005) {
+      return l10n.tr('cobroStatusPartialRegistered');
+    }
+    return l10n.tr('cobroStatusPending');
   }
   return l10n.tr('cobroStatusPaid');
 }

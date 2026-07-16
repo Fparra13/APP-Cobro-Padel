@@ -47,6 +47,30 @@ class DesgloseJugador {
     );
   }
 
+  /// Deuda viva de la cuenta con este organizador (SSOT).
+  double get pendienteCuenta {
+    if (saldoAcumuladoCuenta == null) return 0;
+    return CobroLogic.obtenerPendienteJugador(
+      saldoAcumulado: saldoAcumuladoCuenta!,
+    );
+  }
+
+  /// Pendiente a mostrar/cobrar en UI de organizador.
+  /// Prefiere saldo de cuenta cuando está disponible.
+  double get pendienteOrganizador {
+    if (saldoAcumuladoCuenta != null) return pendienteCuenta;
+    return pendientePartido;
+  }
+
+  /// True si el organizador aún debe cobrar a este jugador.
+  bool get tieneCobroPendienteOrganizador => pendienteOrganizador > 0.005;
+
+  /// Vista “pagado / al día” para el organizador (SSOT cuenta si existe).
+  bool get alDiaOrganizador {
+    if (saldoAcumuladoCuenta != null) return pendienteCuenta <= 0.005;
+    return pagadoEnPartido;
+  }
+
   bool get pagoParcial => !pagadoEnPartido && montoPagado > 0.005;
 
   String get jugadorKeyId =>

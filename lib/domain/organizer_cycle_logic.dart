@@ -16,9 +16,14 @@ double pendienteOrganizadorDetalle(
 
 /// Cobro del partido aún abierto para el organizador (deuda monetaria neta).
 /// Los comprobantes por validar tienen su propia sección en el home.
+///
+/// [saldoAcumuladoCuenta]: SSOT vivo de la cuenta. Si la cuenta está al día o
+/// a favor, no hay cobro pendiente aunque el detalle del partido diga lo
+/// contrario (ledger desalineado tras pagos posteriores).
 bool detalleCobroOrganizadorPendiente(
   DetallePartido d, {
   double saldoAnteriorPartido = 0,
+  double? saldoAcumuladoCuenta,
 }) {
   if (!d.asistio) return false;
 
@@ -27,6 +32,14 @@ bool detalleCobroOrganizadorPendiente(
     saldoAnteriorPartido: saldoAnteriorPartido,
   );
   if (pendiente <= 0.005) return false;
+
+  if (saldoAcumuladoCuenta != null &&
+      CobroLogic.obtenerPendienteJugador(
+            saldoAcumulado: saldoAcumuladoCuenta,
+          ) <=
+          0.005) {
+    return false;
+  }
 
   // Comprobante pendiente cuando el partido ya está cubierto (neto).
   if (d.comprobantePendienteValidacion &&
@@ -49,6 +62,7 @@ List<DetallePartido> cobrosOrganizadorPendientes(PartidoCompleto completo) =>
           return detalleCobroOrganizadorPendiente(
             d,
             saldoAnteriorPartido: completo.saldoAnteriorCobro(d),
+            saldoAcumuladoCuenta: completo.saldoCuentaCobro(d),
           );
         })
         .toList();

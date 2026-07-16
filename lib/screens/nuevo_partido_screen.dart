@@ -140,7 +140,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   void _eliminarGastoCompartido(SharedExpenseEntry entry) {
     setState(() {
       if (entry.comprobantePath != null) {
-        ComprobanteService.instance.delete(entry.comprobantePath);
+        ComprobanteService.instance.deleteAny(entry.comprobantePath);
       }
       entry.dispose();
       _gastosCompartidos.remove(entry);
@@ -591,7 +591,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
 
   void _eliminarCobroIndividual(String jugadorId, CobroIndividualEntry entry) {
     setState(() {
-      ComprobanteService.instance.delete(entry.comprobantePath);
+      ComprobanteService.instance.deleteAny(entry.comprobantePath);
       final lista = _cobrosIndividuales[jugadorId];
       lista?.remove(entry);
       entry.dispose();
@@ -634,7 +634,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       cobro.conceptoCtrl.clear();
       cobro.montoCtrl.clear();
       if (cobro.comprobantePath != null) {
-        ComprobanteService.instance.delete(cobro.comprobantePath);
+        ComprobanteService.instance.deleteAny(cobro.comprobantePath);
         cobro.comprobantePath = null;
       }
     });
@@ -1556,7 +1556,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           onChanged: (_) {
             // Sin setState: el ListenableBuilder reacciona al controller.
             if (entry.monto <= 0 && entry.comprobantePath != null) {
-              ComprobanteService.instance.delete(entry.comprobantePath);
+              ComprobanteService.instance.deleteAny(entry.comprobantePath);
               entry.comprobantePath = null;
             }
             if (entry.monto <= 0) {
@@ -2374,7 +2374,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             inputFormatters: moneyInputFormatters,
             onChanged: (_) {
               if (cobro.monto <= 0 && cobro.comprobantePath != null) {
-                ComprobanteService.instance.delete(cobro.comprobantePath);
+                ComprobanteService.instance.deleteAny(cobro.comprobantePath);
                 cobro.comprobantePath = null;
               }
             },

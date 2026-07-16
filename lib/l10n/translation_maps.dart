@@ -105,14 +105,14 @@ class TranslationMaps {
     'organizerCyclePhasePreparing': 'Preparar el encuentro',
     'organizerCyclePhaseAtRisk': 'Encuentro en riesgo',
     'organizerCyclePhaseCupImpossible': 'Encuentro en riesgo',
-    'organizerCycleAtRiskTitle': 'No hay jugadores suficientes',
+    'organizerCycleAtRiskTitle': 'No hay participantes suficientes',
     'organizerCycleAtRiskBody':
         'El encuentro no reúne las confirmaciones necesarias para jugar.',
     'organizerCycleAtRiskAction':
         'Reprograma la fecha o cancela el encuentro.',
     'organizerCycleAtRiskReschedule': 'Reprogramar',
     'organizerCycleAtRiskCancel': 'Cancelar encuentro',
-    'convocatoriaCupImpossibleTitle': 'No hay jugadores suficientes',
+    'convocatoriaCupImpossibleTitle': 'No hay participantes suficientes',
     'convocatoriaCupImpossibleBody':
         'El encuentro no reúne las confirmaciones necesarias para jugar.',
     'organizerCyclePhaseNeedsResolution': 'Resolver encuentro',
@@ -128,7 +128,7 @@ class TranslationMaps {
     'organizerCycleConfirmedLine':
         '{confirmed} confirmados · {pending} pendientes',
     'organizerCycleRosterFull': '{confirmed}/{max} confirmados',
-    'organizerCyclePlayersNeeded': 'Faltan {count} jugadores',
+    'organizerCyclePlayersNeeded': 'Faltan {count} participantes',
     'organizerCycleReadyTonight': 'Todo listo para esta noche',
     'organizerCycleNeedConfirmations':
         'Solo faltan {count} confirmaciones',
@@ -145,7 +145,7 @@ class TranslationMaps {
     'organizerCycleUnresolvedCancel': 'Cancelar',
     'organizerCycleCancelConfirmTitle': '¿Cancelar este encuentro?',
     'organizerCycleCancelConfirmBody':
-        'El encuentro no se realizó. Los jugadores dejarán de ver la convocatoria.',
+        'El encuentro no se realizó. Los participantes dejarán de ver la convocatoria.',
     'organizerCycleCancelConfirmAction': 'Sí, cancelar encuentro',
     'organizerCycleCancelSuccessSnack': 'Encuentro cancelado',
     'organizerCycleCancelConsequence1':
@@ -161,24 +161,24 @@ class TranslationMaps {
     'organizerCycleCollectingTitle': 'Pendiente de cobro',
     'organizerCycleCollectingSingleTitle': '{emoji} {date}',
     'organizerCycleCollectingOpenMatches': '{count} encuentros abiertos',
-    'organizerCycleCollectingOnePlayerPending': '1 jugador pendiente',
-    'organizerCycleCollectingPlayersPending': '{count} jugadores pendientes',
+    'organizerCycleCollectingOnePlayerPending': '1 participante pendiente',
+    'organizerCycleCollectingPlayersPending': '{count} participantes pendientes',
     'organizerCycleCollectingAmountPending': '{amount} por cobrar',
     'organizerCycleCollectingToCollect': 'por cobrar',
     'organizerCycleCollectingOneDebtor': '{name} debe {amount}',
-    'organizerCycleCollectingManyDebtors': '{count} jugadores con deuda',
+    'organizerCycleCollectingManyDebtors': '{count} participantes con deuda',
     'organizerCycleCollectingGroupSummary':
-        '{count} jugadores con deuda · {countMatches} encuentros abiertos',
-    'organizerCycleCollectingSomeoneOwes': 'Hay jugadores con deuda',
+        '{count} participantes con deuda · {countMatches} encuentros abiertos',
+    'organizerCycleCollectingSomeoneOwes': 'Hay participantes con deuda',
     'organizerCycleCollectingOpenMatchesHint':
         'Cobros abiertos en {count} encuentros',
     'organizerCycleCollectingReviewMatch': 'Revisar encuentro',
     'organizerCycleCollectingNextReview': 'El siguiente a revisar',
     'organizerCycleCollectingMatchGenerated': 'Total generado',
     'organizerCycleReviewMatchCta': 'Revisar encuentro',
-    'organizerCycleCollectingPlayers': '{count} jugadores',
+    'organizerCycleCollectingPlayers': '{count} participantes',
     'organizerCycleCollectingOutstanding':
-        '{total} generados · {count} jugadores',
+        '{total} generados · {count} participantes',
     'organizerCycleCollectingMultiTitle': '{count} encuentros por cobrar',
     'organizerCycleCollectingMultiSubtitle':
         'Empieza por el encuentro del {date}',
@@ -196,7 +196,7 @@ class TranslationMaps {
     'organizerCycleAllPaidMatchRef': 'Encuentro del {date} · {place}',
     'organizerCycleAllPaidMatchDate': 'Encuentro del {date}',
     'matchStatusConfirmedShort': 'Encuentro confirmado',
-    'matchStatusWaitingShort': 'Faltan jugadores',
+    'matchStatusWaitingShort': 'Faltan participantes',
     'matchStatusEvaluatingShort': 'Pendiente de decisión',
     'matchStatusCupImpossibleShort': 'Encuentro en riesgo',
     'matchStatusRescheduledShort': 'Encuentro reprogramado',
@@ -204,14 +204,14 @@ class TranslationMaps {
     'matchStatusPlayedShort': 'Encuentro registrado',
     'matchStatusConfirmedTitle': 'Encuentro confirmado',
     'matchStatusConfirmedBody':
-        '{confirmed} de {max} jugadores confirmados. ¡Todo listo!',
-    'matchStatusWaitingTitle': 'Faltan jugadores',
+        '{confirmed} de {max} participantes confirmados. ¡Todo listo!',
+    'matchStatusWaitingTitle': 'Faltan participantes',
     'matchStatusWaitingBody':
-        'Faltan {missing} jugador(es) por confirmar.',
+        'Faltan {missing} participante(s) por confirmar.',
     'matchStatusEvaluatingTitle': 'Pendiente de decisión',
     'matchStatusEvaluatingBody':
         'Faltan confirmaciones y el encuentro está cerca.',
-    'matchStatusCupImpossibleTitle': 'No hay jugadores suficientes',
+    'matchStatusCupImpossibleTitle': 'No hay participantes suficientes',
     'matchStatusCupImpossibleBody':
         'El encuentro no reúne las confirmaciones necesarias para jugar.',
     'matchStatusRescheduledTitle': 'Encuentro reprogramado',
@@ -244,7 +244,7 @@ class TranslationMaps {
     'reprogramSuccessSnack':
         'Encuentro reprogramado · {push} push · {whatsapp} WhatsApp',
     'remindPendingNoneSnack': 'No hay invitados pendientes de confirmar',
-    'remindPendingSuccessSnack': 'Recordatorio enviado a {count} jugadores',
+    'remindPendingSuccessSnack': 'Recordatorio enviado a {count} participantes',
     'homeSportMode': 'Deporte principal: {sport}',
     'configScreenTitle': 'Configuración',
     'configOpenBackupSubtitle': 'Sincronización en la nube y exportar PDF',
@@ -313,7 +313,7 @@ class TranslationMaps {
     'homeMatchMenuTitle': '¿Qué quieres hacer?',
     'homeOrganizeConvocatoria': 'Organizar convocatoria',
     'homeOrganizeConvocatoriaSubtitle':
-        'Confirmar jugadores antes del encuentro (sin cobros)',
+        'Confirmar participantes antes del encuentro (sin cobros)',
     'homeRegisterPlayedMatch': 'Registrar encuentro realizado',
     'homeRegisterPlayedMatchSubtitle': 'Cobros, asistentes y pagos',
     'homeActiveConvocatorias': 'Convocatorias activas',
@@ -357,11 +357,11 @@ class TranslationMaps {
     'homeNobodyOwes': 'Nadie debe. Todos al día.',
     'homeManualPaymentsHelpTitle': 'Pagos manuales',
     'homeManualPaymentsHelpBody':
-        'Registra aquí pagos en efectivo u otros medios fuera de la app.\n\nLo habitual es que el jugador declare su pago y suba comprobante desde Mis cobros; tú lo validas en Pagos por validar.\n\n• Varios seleccionados → pago total de cada uno\n• Un solo jugador → pago total o abono parcial',
-    'homeDebtorsSummary': '{count} jugador(es) · Total {amount}',
-    'homeViewAllDebtors': 'Ver jugadores ({count})',
+        'Registra aquí pagos en efectivo u otros medios fuera de la app.\n\nLo habitual es que el participante declare su pago y suba comprobante desde Mis cobros; tú lo validas en Pagos por validar.\n\n• Varios seleccionados → pago total de cada uno\n• Un solo participante → pago total o abono parcial',
+    'homeDebtorsSummary': '{count} participante(s) · Total {amount}',
+    'homeViewAllDebtors': 'Ver participantes ({count})',
     'homePlanillaCompactHint':
-        'Registra pagos en la ficha de cada jugador.',
+        'Registra pagos en la ficha de cada participante.',
     'homePayFull': 'Pago total',
     'homePartialPayment': 'Abono',
     'homePartialAmountLabel': 'Monto del abono',
@@ -370,15 +370,15 @@ class TranslationMaps {
     'homeRegisterPartialPayment': 'Registrar abono',
     'homeClearSelection': 'Cancelar selección',
     'homeRegisterFullPaymentCount': 'Registrar pago total ({count})',
-    'homePlayerSheetTitle': 'Ficha del jugador',
-    'homePlayerSheetSubtitle': 'Toca un jugador para ver su historial y saldo',
-    'homeViewPlayerProfile': 'Ver ficha de un jugador',
-    'homeSelectedPlayers': '{count} jugador(es) seleccionado(s)',
+    'homePlayerSheetTitle': 'Ficha del participante',
+    'homePlayerSheetSubtitle': 'Toca un participante para ver su historial y saldo',
+    'homeViewPlayerProfile': 'Ver ficha de un participante',
+    'homeSelectedPlayers': '{count} participante(s) seleccionado(s)',
     'homeSelectedAllUpToDate': 'Los seleccionados ya están al día.',
     'homePlayerBalanceLine': '{name} · Saldo {amount}',
     'homeOwesSuffix': 'debe {amount}',
     'homeBatchPaymentNote':
-        'Se registrará el pago total de cada jugador ({amount} en total).',
+        'Se registrará el pago total de cada participante ({amount} en total).',
     'errorAmountGreaterThanZero': 'Introduce un importe superior a 0',
     'paymentConceptWithCredit': 'Abono con saldo a favor',
     'paymentConceptFull': 'Abono total',
@@ -403,6 +403,9 @@ class TranslationMaps {
     'cobroStatusReceiptReview': 'Comprobante en revisión',
     'cobroStatusReceiptReviewAmount':
         '{type} {amount} · comprobante en revisión',
+    'cobroStatusReceiptSent': 'Comprobante enviado',
+    'cobroStatusReceiptRejected': 'Comprobante rechazado',
+    'cobroStatusReceiptApproved': 'Comprobante aprobado',
     'paymentPendingApprovalTitle': 'Pago pendiente de aprobación',
     'paymentPendingApprovalBody':
         'Ya declaraste un pago o abono y el organizador aún no lo valida. '
@@ -419,11 +422,12 @@ class TranslationMaps {
     'snackDebtCleared': 'Deuda saldada · {name}',
     'snackPartialPayment': 'Abono {amount} · Queda {remaining} · {name}',
     'snackFullPaymentMultiple':
-        'Pago total registrado para {count} jugadores',
+        'Pago total registrado para {count} participantes',
     'matchesPlayedCount': '{count} encuentros',
     'homePlayerRowSubtitle': '{count} encuentros · Toca para abrir ficha',
     'homeConvocatoriaConfirmedLine': '{confirmed}/{max} confirmados',
     'homeConvocatoriaPendingShort': '{count} pendientes',
+    'homeNextConvocatoriaBadge': 'Próxima',
     'statusOwes': 'Pendiente',
     'statusCredit': 'A favor',
     'statusUpToDate': 'Al día',
@@ -443,7 +447,7 @@ class TranslationMaps {
     'configBankDataTitle': 'Datos bancarios (para reportes PDF)',
     'configPaymentInfoTitle': 'Cómo pagarme',
     'configPaymentInfoHint':
-        'Texto libre para transferencias (PIX, alias, cuenta, IBAN…). Se envía en avisos y WhatsApp, no en el PDF.',
+        'Texto libre para transferencias (PIX, alias, cuenta, IBAN…). Tus participantes lo ven al abrir el cobro de tu grupo.',
     'configPaymentNameLabel': 'A nombre de',
     'configPaymentNameHint': 'Ej. Francisco Parra',
     'configPaymentDetailLabel': 'Dato para transferir',
@@ -463,9 +467,9 @@ class TranslationMaps {
         'Así te verán el organizador y el resto del grupo en convocatorias.',
     'nameLabel': 'Nombre',
     'emailLabel': 'Correo (opcional)',
-    'playerNameRequired': 'Escribe el nombre del jugador',
+    'playerNameRequired': 'Escribe el nombre del participante',
     'playerDuplicateContact':
-        'Ya existe un jugador con ese correo o WhatsApp.',
+        'Ya existe un participante con ese correo o WhatsApp.',
     'emailFormatInvalid': 'Correo no válido',
     'sendDebtWhatsApp': 'Enviar cobro por WhatsApp',
     'contactWhatsAppTooltip': 'Contactar por WhatsApp',
@@ -480,7 +484,7 @@ class TranslationMaps {
     'sendConvocatoriaWhatsApp': 'Enviar convocatoria',
     'sendChargeWhatsAppBulk': 'Enviar cobro por WhatsApp ({count})',
     'sendChargeWhatsAppBulkHint':
-        'Se abre un chat por jugador. Repite para el resto.',
+        'Se abre un chat por participante. Repite para el resto.',
     'whatsappOpening': 'Abriendo WhatsApp…',
     'whatsappOpenFailed': 'No se pudo abrir WhatsApp',
     'whatsappNoNumber':
@@ -588,6 +592,7 @@ class TranslationMaps {
     'playerStatAttendancePride': 'asistencia',
     'playerStatRecentMatches': 'últimos 90 días',
     'playerStatConfirmedPride': 'confirmaciones',
+    'playerStatResponsePride': 'respuesta',
     'playerStatOnTimePride': 'pagos al día',
     'playerRecentMatchesTitle': 'Últimos encuentros',
     'playerActivityTitle': 'Tu actividad',
@@ -638,7 +643,7 @@ class TranslationMaps {
     'playerHeroNextMatch': 'Próximo encuentro',
     'playerHeroTapToReply': 'Toca para responder',
     'playerHeroConfirmRescheduled': 'Confirmar nueva fecha',
-    'playerHeroCuposLine': 'Hasta {max} jugadores',
+    'playerHeroCuposLine': 'Hasta {max} participantes',
     'playerPerformanceTitle': 'Tu rendimiento',
     'playerSummaryTitle': 'Resumen',
     'playerStatInvites': 'Por responder',
@@ -690,7 +695,7 @@ class TranslationMaps {
         '¿Tienes otro grupo que aún va por WhatsApp?',
     'organizerNudgeAction': 'Más información',
     'payBtn': 'Pagar',
-    'playerDefaultName': 'Jugador',
+    'playerDefaultName': 'Participante',
     'playerInvitedTitle': 'Te convocaron',
     'playerInvitedSubtitle': '{count} encuentro(s) esperan tu respuesta',
     'playerUpcomingTitle': 'Próximos encuentros',
@@ -719,6 +724,16 @@ class TranslationMaps {
         'Tu pago cubrirá automáticamente tus encuentros pendientes',
     'cobrosViewCharge': 'Ver cobro',
     'cobrosViewDetail': 'Ver detalle',
+    'cobrosMatchBreakdownTitle': 'Desglose del encuentro',
+    'cobrosAccountSummaryTitle': 'Resumen de tu cuenta',
+    'paymentInfoLoading': 'Cargando datos de pago…',
+    'paymentInfoMissingOrganizer':
+        'Este organizador aún no publicó cómo pagarle. Pregúntale por WhatsApp o copia el aviso del cobro.',
+    'paymentInfoPayToOrganizer': 'Cómo pagarle al organizador',
+    'paymentInfoPayToNamed': 'Cómo pagarle a {name}',
+    'paymentInfoPayee': 'A nombre de: {name}',
+    'paymentInfoCopied': 'Datos de pago copiados',
+    'copyPaymentInfoTooltip': 'Copiar datos de pago',
     'cobrosViewChargeTitle': 'Detalle del encuentro',
     'cobrosGoToPay': 'Ir a pagar',
     'cobrosPayDialogTitle': 'Confirmar pago total',
@@ -743,7 +758,7 @@ class TranslationMaps {
     'viewChargesAndPay': 'Ver cobros y pagar',
     'myCharges': 'Mis cobros',
     'organizerPlayerUpToDate':
-        'Como jugador estás al día. Aquí pagas si te incluyen en un encuentro.',
+        'Como participante estás al día. Aquí pagas si te incluyen en un encuentro.',
     'viewMyChargesTab': 'Ir a mis cobros',
     'playerAllQuietTitle': 'Todo tranquilo por ahora',
     'playerAllQuietBody':
@@ -799,7 +814,7 @@ class TranslationMaps {
     'historyPastConvocatoriasSubtitle':
         'Pasó la fecha del encuentro · registra cobros o elimina',
     'historyMatchesCountTitle': '{count} encuentros',
-    'historyPendingChargesSubtitle': '{count} jugador(es) con cobro pendiente',
+    'historyPendingChargesSubtitle': '{count} participante(s) con cobro pendiente',
     'historyAllChargesPaid': 'Todos los cobros al día ✓',
     'historyTapMatchHelp':
         'Toca un encuentro para ver el detalle. '
@@ -819,7 +834,7 @@ class TranslationMaps {
         'Aparecen quienes pagan al día sin impagos pendientes.',
     'rankingNoWorstTitle': '¡Nadie en la lista negra!',
     'rankingNoWorstSubtitle':
-        'No hay jugadores con impagos ni pagos tardíos.',
+        'No hay participantes con impagos ni pagos tardíos.',
     'convocatoriaConfirmedLine': 'Confirmado · {date} · {time}',
     'convocatoriaConfirmedCount':
         '{confirmed}/{max} confirmados · {invited} invitados',
@@ -828,7 +843,7 @@ class TranslationMaps {
     'deleteMatchMessageWithVenue':
         'Vas a eliminar el encuentro del {date} en {venue}.',
     'matchDeleted': 'Encuentro eliminado',
-    'matchPlayersCount': '{count} jugadores',
+    'matchPlayersCount': '{count} participantes',
     'matchAllPaid': 'Todos pagaron',
     'matchUnpaidCount': '{count} sin pagar',
     'rankingBestStat': '{onTime} pagos al día · {percent}%',
@@ -837,12 +852,12 @@ class TranslationMaps {
     'backupLocalTitle': 'Respaldo local y reportes',
     'backupSupabaseTitle': 'Sincronización activa',
     'backupSupabaseBody':
-        'Jugadores, encuentros, cobros y saldos viven en la nube y se '
+        'Participantes, encuentros, cobros y saldos viven en la nube y se '
         'actualizan solos. No es un respaldo manual: es tu base de datos online.',
     'backupSupabaseWhatStores':
         'Incluye convocatorias, pagos validados y saldos. '
-        'Los comprobantes de pago solo se guardan mientras los revisas; '
-        'al aprobar o rechazar se eliminan para no ocupar almacenamiento.',
+        'Los comprobantes (pagos y gastos) se guardan en la nube hasta 14 días '
+        'desde que se suben; después se eliminan automáticamente.',
     'backupExportImportTitle': 'Exportar / Importar',
     'backupOfflineHint':
         'Modo sin conexión: haz una copia de seguridad manualmente antes de cambiar de móvil.',
@@ -879,9 +894,9 @@ class TranslationMaps {
     'asistenciasStatPending': 'Pendientes',
     'asistenciasStatDeclined': 'No asisten',
     'asistenciasStatInvited': 'Invitados',
-    'asistenciasStartersTitle': 'Titulares ({count})',
-    'asistenciasSubsTitle': 'Suplentes ({count})',
-    'asistenciasSubsEmpty': 'Sin suplentes en espera',
+    'asistenciasStartersTitle': 'Invitados ({count})',
+    'asistenciasSubsTitle': 'Lista de espera ({count})',
+    'asistenciasSubsEmpty': 'Sin nadie en lista de espera',
     'asistenciasDeclinedTitle': 'No asisten ({count})',
     'asistenciasSeeAllStarters': 'Ver todos los titulares',
     'asistenciasSeeAllSubs': 'Ver todos los suplentes',
@@ -897,38 +912,42 @@ class TranslationMaps {
     'asistenciasManualSnackDeclined': '{name} · No asiste',
     'asistenciasManualSnackPending': '{name} · Pendiente',
     'asistenciasRemindPending': 'Recordar a pendientes',
-    'asistenciasEditDetails': 'Editar datos del encuentro',
+    'asistenciasEditDetails': 'Editar participantes',
     'organizeAutoConfirmedSnack':
         'Cupos completos: encuentro confirmado automáticamente',
     'organizePromotedFromWaitlist':
-        '{count} jugador(es) promovido(s) desde lista de espera',
-    'organizeMaxStartersError': 'Máximo {max} titulares (cupos del encuentro)',
+        '{count} participante(s) promovido(s) desde lista de espera',
+    'organizeMaxStartersError':
+        'Máximo {max} participantes (cupos del encuentro)',
     'organizeSlotsFullError':
         'Cupos llenos ({max}/{max}). Marca a alguien como "No va" para liberar un cupo.',
     'organizeSelectStarterOrSub':
-        'Selecciona al menos un titular o suplente',
+        'Selecciona al menos un participante',
     'organizeNominateStartersError':
-        'Debes nominar {max} titulares (cupos del encuentro). Actualmente: {current}.',
-    'organizeMaxStartersShort': 'Máximo {max} titulares',
+        'Debes seleccionar {max} participantes (cupos del encuentro). Actualmente: {current}.',
+    'organizeMaxStartersShort': 'Máximo {max} participantes',
     'organizeStartersNoProfileError':
-        'Hay titulares sin perfil en Supabase. Revisa que tengan email en Jugadores.',
+        'Hay participantes sin perfil en Supabase. Revisa que tengan email en Participantes.',
     'organizeExitWithoutSavingTitle': '¿Salir sin guardar?',
+    'organizeExitConfirmTitle': '¿Salir?',
     'organizeExitStatesSavedBody':
-        'Los cambios de estado se guardan al salir.',
+        'Si agregaste o quitaste gente de la lista y aún no alcanzó a guardarse, '
+        'esos cambios se perderán.',
     'organizeExitDraftBody':
         'Puedes guardar un borrador y retomarlo desde Inicio.',
     'organizeKeepEditing': 'Seguir editando',
     'organizeExitWithoutSaving': 'Salir sin guardar',
+    'organizeExitConfirmAction': 'Salir',
     'organizeSaveDraft': 'Guardar borrador',
     'organizeMatchAlreadyConfirmed': 'El encuentro ya está confirmado',
     'organizeInviteAlreadySent': 'La convocatoria ya fue enviada',
-    'organizeSelectAtLeastOneStarter': 'Selecciona al menos un titular',
+    'organizeSelectAtLeastOneStarter': 'Selecciona al menos un participante',
     'organizeInviteSentSnack': 'Convocatoria enviada',
     'organizeSendFailed': 'No se pudo enviar: {error}',
     'organizeNoConfirmedTitle': 'Sin confirmados',
     'organizeNoConfirmedBody':
         'Nadie está marcado como confirmado. '
-        '¿Registrar cobros igual seleccionando jugadores manualmente?',
+        '¿Registrar cobros igual seleccionando participantes manualmente?',
     'organizeDeleteInviteTitle': 'Eliminar convocatoria',
     'organizeDeleteInviteMessage':
         'Vas a eliminar esta convocatoria por completo.',
@@ -938,22 +957,26 @@ class TranslationMaps {
         'No quedará registro de este encuentro en la app.',
     'organizeDeleteInviteConsequence3':
         'Esta acción es permanente y no se puede deshacer.',
+    'organizeDeleteRedirectCancelBody':
+        'Hay {count} persona(s) confirmada(s). No se puede eliminar en silencio: se cancelará el encuentro y se les avisará.',
+    'organizeDeleteRedirectCancelConsequence1':
+        'Los participantes confirmados recibirán aviso de cancelación.',
     'organizeLoadFailed': 'No se pudo cargar la convocatoria',
     'organizeHelpConfirmed':
         'El grupo ya está confirmado. Cuando se juegue, '
         'usa "Ir a cobrar" para registrar los pagos.',
     'organizeHelpTracking':
-        'Los jugadores con app responden desde Kloovi en tiempo real. '
+        'Los participantes con app responden desde Kloovi en tiempo real. '
         'Para quienes no tienen app, envía la convocatoria por WhatsApp '
         'o registra su respuesta tocando su estado.',
     'organizePastDateBanner':
         'La fecha del encuentro ya pasó. Registra los cobros con quienes '
         'asistieron o elimina la convocatoria si no se realizó.',
     'organizeHelpDraft':
-        'Completa los datos, elige titulares y suplentes, '
+        'Completa los datos, elige a quién invitar '
         'y pulsa "Enviar convocatoria". Recibirán push.',
     'organizeConfirmedBar':
-        'Confirmado · {confirmed}/{max} jugadores',
+        'Confirmado · {confirmed}/{max} participantes',
     'organizeTrackingBar':
         'Seguimiento activo · {confirmed}/{max} confirmados · {pending} pendientes',
     'organizeAutoConfirmInProgress':
@@ -969,9 +992,9 @@ class TranslationMaps {
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmados · {pending} pendientes · {waiting} en espera',
     'organizeSummarySlotsFull':
-        'Cupos llenos · {starters} titulares',
+        'Cupos llenos · {starters} invitados',
     'organizeSummarySlotsAvailable':
-        '{available} cupo(s) libre(s) · {starters} titulares · {subs} suplentes',
+        '{available} cupo(s) libre(s) · {starters} invitados · {subs} en espera',
     'organizeRecentVenues': 'Recintos recientes',
     'organizeMaxSlotsLabel': 'Cupos máximos',
     'organizeResponseDeadlineLabel': 'Tiempo límite para confirmar',
@@ -990,34 +1013,40 @@ class TranslationMaps {
         'La fecha del encuentro debe ser en el futuro',
     'organizeHoursCount': '{n} hora(s)',
     'organizeAddRegularPlayersFirst': 'Agrega participantes habituales primero',
-    'organizeStartersTitle': 'Titulares (máx. {max})',
+    'organizeStartersTitle': '¿A quién quieres invitar?',
     'organizeAutoSelect': 'Auto',
     'organizeClearSelection': 'Limpiar',
+    'organizeSearchHint': 'Buscar persona',
     'organizeStartersHintTracking':
         'Con app: responden solos. Sin app: toca su estado para registrar respuesta.',
     'organizeStartersHintDraft':
-        'Marca titulares antes de enviar la convocatoria.',
+        'Selecciona hasta {max} personas que recibirán esta convocatoria. '
+        'Si marcas más, pasarán a la lista de espera.',
     'organizeWhatsAppNoAppTitle': 'Convocatoria por WhatsApp',
     'organizeWhatsAppNoAppSubtitle':
-        '{count} jugador(es) sin app · {withWhatsApp} con WhatsApp',
+        '{count} participante(s) sin app · {withWhatsApp} con WhatsApp',
     'organizeWhatsAppNoAppHint':
-        'Envía el mensaje de convocatoria a cada jugador sin app. '
+        'Envía el mensaje de convocatoria a cada participante sin app. '
         'Luego registra su respuesta tocando su estado en la lista.',
-    'organizeWhatsAppNoAppButton': 'WhatsApp · jugadores sin app',
+    'organizeWhatsAppNoAppButton': 'WhatsApp · participantes sin app',
     'organizeWhatsAppNoAppPlayerStatus': 'Estado: {status}',
     'organizeStatusRespondInApp': 'Responde desde la app',
     'organizeWaitlistTitle': 'Lista de espera (orden de prioridad)',
     'organizeWaitlistHint':
-        'Define quién entra primero si se libera un cupo. '
+        'Vacía hasta que marques más personas en la lista de arriba. '
         'Arrastra para cambiar prioridad (1 = primero).',
     'organizeWaitlistHintTracking':
         'Puedes reordenar la prioridad mientras el encuentro no haya empezado.',
+    'organizeWaitlistNeedFullSlots':
+        'Completa los cupos de la convocatoria para poder armar la lista de espera.',
     'organizeWaitlistEmpty':
-        'Añade suplentes con los botones de arriba. Tú defines el orden.',
+        'Nadie en espera. Con los cupos llenos, marca más personas arriba '
+        'para añadirlas aquí.',
+    'organizeWaitlistBadge': 'En espera',
     'organizeWaitlistRemove': 'Quitar de lista de espera',
     'organizeWaitlistAddedSnack': '{name} añadido a lista de espera',
     'organizeWaitlistPriority': 'Prioridad {n}',
-    'organizeSelectStartersAndSubs': 'Selecciona titulares y/o suplentes',
+    'organizeSelectStartersAndSubs': 'Selecciona a quién quieres invitar',
     'statusConfirmed': 'Confirmado',
     'statusDeclined': 'No va',
     'statusNoResponse': 'Sin respuesta',
@@ -1145,11 +1174,11 @@ class TranslationMaps {
     'editMatchTitle': 'Editar encuentro',
     'newMatchTitle': 'Nuevo encuentro',
     'collaborativeModeHint':
-        'Modo colaborativo: cada jugador ve su monto en la app y sube comprobante. '
+        'Modo colaborativo: cada participante ve su monto en la app y sube comprobante. '
         'Tú validas el pago desde el detalle del encuentro.',
     'addPlayersFirst': 'Primero agrega participantes habituales',
     'goToPlayers': 'Ir a Participantes',
-    'matchConfirmedLine': 'Encuentro confirmado · {players}',
+    'matchConfirmedLine': 'Encuentro confirmado · {participants}',
     'onePlayer': '1 participante',
     'chargeStepsHint': '1) Participantes → 2) Gastos y pagos',
     'editingExistingMatch': 'Editando encuentro existente',
@@ -1163,20 +1192,20 @@ class TranslationMaps {
     'matchExpensesSubtitle': 'Cuánto costó y cómo se reparte',
     'enterExpensesHere': 'Ingresa los gastos aquí',
     'enterExpensesHint':
-        'Cancha, pelotas u otros. Se reparten entre los jugadores '
+        'Cancha, pelotas u otros. Se reparten entre los participantes '
         'marcados en el paso 2.',
-    'onePlayerSplitsExpenses': '1 jugador reparte los gastos del grupo',
-    'nPlayersSplitExpenses': '{count} jugadores reparten los gastos del grupo',
+    'onePlayerSplitsExpenses': '1 participante reparte los gastos del grupo',
+    'nPlayersSplitExpenses': '{count} participantes reparten los gastos del grupo',
     'forWholeGroup': 'Para todo el grupo',
     'allAttendeesPaySame': 'Todos los asistentes pagan lo mismo',
     'courtAndBallsPerPerson':
         'Cancha {court} c/u · Pelotas {balls} c/u',
-    'perPersonWithCount': '{amount} c/u · {count} jugadores',
+    'perPersonWithCount': '{amount} c/u · {count} participantes',
     'enterAttendeesToCalcPerPerson': 'Ingresa asistentes para calcular c/u',
-    'participantsInStep2': 'Selecciona jugadores en el paso 2',
+    'participantsInStep2': 'Selecciona participantes en el paso 2',
     'playersNoneSelected': 'Ninguno seleccionado · {total} en la lista',
     'playersSelectedCount': '{count} de {total} seleccionados',
-    'playersSearchHint': 'Buscar jugador',
+    'playersSearchHint': 'Buscar participante',
     'playersClearSelection': 'Limpiar',
     'playersSelectFiltered': 'Seleccionar {count}',
     'playersSelectFilteredHint': 'Marca los resultados del filtro',
@@ -1190,17 +1219,17 @@ class TranslationMaps {
     'playersCollapseList': 'Ocultar lista',
     'stepNumber': 'Paso {n}',
     'individualChargeTip':
-        '¿Un jugador pagó algo solo para él? Usa '
-        '"Cobro extra" en su fila de jugador arriba (raqueta, multa, etc.).',
+        '¿Un participante pagó algo solo para él? Usa '
+        '"Cobro extra" en su fila de participante arriba (raqueta, multa, etc.).',
     'totalAmountLabel': 'Monto total',
     'perPersonParticipants': '{amount} c/u · {count} participan',
     'whoParticipated': '¿Quién participó? ({count})',
     'all': 'Todos',
     'none': 'Ninguno',
-    'confirmedPlayersTitle': 'Jugadores confirmados',
-    'playersAndPaymentsTitle': 'Jugadores y pagos',
+    'confirmedPlayersTitle': 'Participantes confirmados',
+    'playersAndPaymentsTitle': 'Participantes y pagos',
     'playersCloudSubtitle':
-        'Los pagos los gestionan los jugadores desde la app',
+        'Los pagos los gestionan los participantes desde la app',
     'playersOrganizingSubtitle':
         'Confirmados listos — indica cuánto pagó cada uno',
     'playersLocalSubtitle': 'Marca quién asistió y cuánto pagó',
@@ -1242,7 +1271,7 @@ class TranslationMaps {
         '{name}: pulsa "Confirmar abono" antes de guardar',
     'errorSaveExtraChargeFirst':
         '{name}: pulsa "Guardar cobro" en el cobro extra pendiente',
-    'errorMarkAtLeastOnePlayer': 'Marca al menos un jugador asistente',
+    'errorMarkAtLeastOnePlayer': 'Marca al menos un participante asistente',
     'errorSharedExpenseName': 'Escribe el nombre del gasto comencuentro',
     'errorMarkParticipants': 'Marca quién participó en "{label}"',
     'errorSaving': 'Error al guardar: {error}',
@@ -1255,7 +1284,7 @@ class TranslationMaps {
     'saveMatch': 'Guardar encuentro',
     'confirmSaveMatchTitle': '¿Guardar encuentro?',
     'confirmSaveMatchBody':
-        'Revisa que los gastos y jugadores estén correctos antes de confirmar.',
+        'Revisa que los gastos y participantes estén correctos antes de confirmar.',
     'confirmSaveChargesBody':
         'Revisa cobros y asistentes antes de registrar el encuentro.',
     'finalSummaryTitle': 'Resumen final',
@@ -1299,7 +1328,7 @@ class TranslationMaps {
     'snackPartialWithCredit': 'Abono {amount} · Saldo a favor: {credit}',
     'snackDebtClearedShort': 'Deuda saldada',
     'snackPartialRemainingShort': 'Abono {amount} · Queda {remaining}',
-    'playerNoEmail': 'Este jugador no tiene email registrado',
+    'playerNoEmail': 'Este participante no tiene email registrado',
     'pushSentTo': 'Notificación push enviada a {name}',
     'pushSendFailed': 'No se pudo enviar: {error}',
     'playerSheetLoadFailed': 'No se pudo cargar la ficha',
@@ -1408,7 +1437,7 @@ class TranslationMaps {
     'noMatchesRegistered': 'Sin encuentros registrados',
     'pdfLabel': 'PDF',
     'paidVerb': 'Pagó',
-    'matchListSubtitle': '{players} jugadores · {amount}{unpaid}',
+    'matchListSubtitle': '{participants} participantes · {amount}{unpaid}',
     'matchUnpaidSuffix': ' · {count} sin pagar',
     'paymentsToValidateTitle': 'Pagos por validar',
     'paymentsToValidateSubtitle':
@@ -1425,7 +1454,7 @@ class TranslationMaps {
         '¿Conciliar el pago de {amount} de {name}?',
     'rejectReceiptMessage':
         '¿Rechazar el comprobante de {name}? Podrá enviar uno nuevo.',
-    'thisPlayer': 'este jugador',
+    'thisPlayer': 'este participante',
     'yesReconcile': 'Sí, conciliar',
     'yesReject': 'Sí, rechazar',
     'partialReceivedUpdated': 'Abono recibido · saldo actualizado',
@@ -1444,7 +1473,7 @@ class TranslationMaps {
         'Quedarás marcado como confirmado para el encuentro del {date}.',
     'respondDeclineBodyConvocate':
         'El organizador verá que no puedes asistir y podrá convocar '
-        'a otro jugador.',
+        'a otro participante.',
     'attendanceConfirmedSnack': 'Asistencia confirmada',
     'responseSentOrganizer': 'Respuesta enviada al organizador',
     'pendingConvocatoria': 'Convocatoria pendiente',
@@ -1491,12 +1520,12 @@ class TranslationMaps {
     'matchDetailHelpTip':
         'Quien tiene Kloovi (Android) ve el cobro en la app y puede recibir un aviso push. '
         'Si juega en iPhone o no tiene la app, copia el mensaje o envía un PDF por WhatsApp/mail.',
-    'playersChargesTitle': 'Jugadores y cobros',
+    'playersChargesTitle': 'Participantes y cobros',
     'playersChargesSubtitle': 'Estado y desglose de cada uno',
     'shareOutsideAppTitle': 'Compartir fuera de la app',
     'shareOutsideAppSubtitle': 'iPhone u otros sin Kloovi',
     'shareOutsideAppHint':
-        'Usa “Copiar mensaje” en cada jugador o genera el PDF del encuentro para enviarlo por WhatsApp o mail.',
+        'Usa “Copiar mensaje” en cada participante o genera el PDF del encuentro para enviarlo por WhatsApp o mail.',
     'notifyInAppTooltip': 'Avisar en la app',
     'copyChargeMessageTooltip': 'Copiar mensaje (WhatsApp / iPhone)',
     'chargeMessageCopied': 'Mensaje copiado · pégalo en WhatsApp o mail',
@@ -1504,24 +1533,27 @@ class TranslationMaps {
         'Sin perfil en la app. Copia el mensaje o envía el PDF.',
     'noAppShort': 'Sin app',
     'remindDebtorsWithApp': 'Avisar a {count} con app',
-    'matchRemindersSent': 'Avisamos a {count} jugador(es) en la app',
-    'matchSummaryAllPaid': 'Todos al día ({count} jugadores)',
+    'matchRemindersSent': 'Avisamos a {count} participante(s) en la app',
+    'matchSummaryAllPaid': 'Todos al día ({count} participantes)',
     'matchSummaryPending':
         '{pending} de {total} pendientes · {amount}',
     'generalReportTitle': 'Informe general',
-    'generalReportSubtitle': 'Todos los jugadores en un solo PDF',
+    'generalReportSubtitle': 'Todos los participantes en un solo PDF',
     'generatingPdf': 'Generando PDF...',
     'generateMatchPdf': 'Generar PDF del encuentro',
     'individualReportsTitle': 'Informes individuales',
     'individualReportsSubtitle': 'Envia uno a uno para mayor privacidad',
     'chargeBreakdownTitle': 'Desglose de cobros',
-    'chargeBreakdownSubtitle': 'Detalle por jugador',
+    'chargeBreakdownSubtitle': 'Detalle por participante',
     'paidOk': 'Pagado OK',
     'partialOwesShort': 'Parcial - debe {amount}',
     'individualPdfTooltip': 'PDF individual',
     'creditedAmountLabel': 'Saldo a favor {amount}',
     'accountCreditAfterMatchNote':
         '{amount} a favor en su cuenta (se descontará en el próximo encuentro)',
+    'matchDetailAccountCredit': 'Cuenta: saldo a favor {amount}',
+    'matchDetailAccountDebt': 'Cuenta: pendiente {amount}',
+    'matchDetailAccountSettled': 'Cuenta: al día',
     'paidShort': 'Pagado',
     'paidPartialAmount': 'Abonado {amount}',
     'pendingStatus': 'Pendiente',
@@ -1540,7 +1572,7 @@ class TranslationMaps {
     'sendRemindersTitle': 'Enviar recordatorios',
     'sendRemindersBody':
         'Se enviarán {count} notificación(es) push '
-        'a jugadores con la app instalada.\n\n'
+        'a participantes con la app instalada.\n\n'
         'Quienes no tengan Android pueden recibir el mensaje copiado manualmente.',
     'sendBtn': 'Enviar',
     'remindersSentSummary':
@@ -1552,9 +1584,9 @@ class TranslationMaps {
     'reminderSentTo':
         'Listo: ya avisamos a {name}. Recibirá una alerta en su app.',
     'messageCopied': 'Mensaje copiado · pégalo en WhatsApp o mail',
-    'debtorsSummaryLine': '{count} jugadores · Total {amount}',
+    'debtorsSummaryLine': '{count} participantes · Total {amount}',
     'reminderPushHint':
-        'Push a jugadores con la app. '
+        'Push a participantes con la app. '
         'Sin Android/iPhone: usa "Copiar mensaje" y envía manualmente.',
     'owesNoAppLine': 'Debe {amount} · Sin app',
     'copyMessageTooltip': 'Copiar mensaje manual',
@@ -1565,10 +1597,10 @@ class TranslationMaps {
     'matchDateLine': 'Encuentro {date}',
     'sendReportsHelpTip':
         'PDF general = encuentro completo. '
-        'PDF junto a cada jugador = informe privado.',
+        'PDF junto a cada participante = informe privado.',
     'generating': 'Generando...',
     'generalPdf': 'PDF general',
-    'tapPdfPerPlayer': 'Toca PDF junto a cada jugador:',
+    'tapPdfPerPlayer': 'Toca PDF junto a cada participante:',
     'paidCheck': 'PAGADO ✓',
     'partialOwesLine': 'Parcial {paid} · Debe {remaining}',
     'owesColon': 'Debe: {amount}',
@@ -1582,34 +1614,34 @@ class TranslationMaps {
     'convocatoriaNotFoundSnack':
         'No encontramos tu convocatoria. Actualiza el inicio o contacta al organizador.',
     'noUnpaidPlayersDeadline':
-        'No hay jugadores impagos que cumplan el plazo',
-    'unpaidPlayersTitle': 'Jugadores impagos',
+        'No hay participantes impagos que cumplan el plazo',
+    'unpaidPlayersTitle': 'Participantes impagos',
     'debtOlderThanDay': 'Deuda de más de {days} día',
     'debtOlderThanDays': 'Deuda de más de {days} días',
     'debtChartAllUpToDate': '¡Todos al día!',
-    'debtChartOnePlayerUpToDate': '{count} jugador sin deuda pendiente',
-    'debtChartPlayersUpToDate': '{count} jugadores sin deuda pendiente',
+    'debtChartOnePlayerUpToDate': '{count} participante sin deuda pendiente',
+    'debtChartPlayersUpToDate': '{count} participantes sin deuda pendiente',
     'debtChartToCollect': 'Por cobrar',
-    'debtChartOneDebtorLine': '1 jugador · Total {amount}',
-    'debtChartDebtorsLine': '{count} jugadores · Total {amount}',
+    'debtChartOneDebtorLine': '1 participante · Total {amount}',
+    'debtChartDebtorsLine': '{count} participantes · Total {amount}',
     'debtChartRemindPush': 'Recordar por push',
     'debtChartShowLess': 'Ver menos',
     'debtChartShowMore': 'Ver {count} más',
     'notifChannelRemindersName': 'Recordatorios de cobro',
     'notifChannelRemindersDesc':
-        'Avisos de jugadores con pagos pendientes',
+        'Avisos de participantes con pagos pendientes',
     'notifChannelConvocatoriaName': 'Convocatorias',
     'notifChannelConvocatoriaDesc':
         'Invitaciones a encuentros',
-    'notifDailyBody': 'Revisa si hay jugadores con pagos pendientes',
-    'notifOnePlayerUnpaidTitle': '1 jugador sin pagar',
-    'notifNPlayersUnpaidTitle': '{count} jugadores sin pagar',
+    'notifDailyBody': 'Revisa si hay participantes con pagos pendientes',
+    'notifOnePlayerUnpaidTitle': '1 participante sin pagar',
+    'notifNPlayersUnpaidTitle': '{count} participantes sin pagar',
     'notifOnePlayerUnpaidBody':
         '{name} lleva más de {days} días sin pagar. Toca para enviar recordatorio.',
     'notifOnePlayerUnpaidBodyOneDay':
         '{name} lleva más de 1 día sin pagar. Toca para enviar recordatorio.',
     'notifNPlayersUnpaidBody':
-        'Hay {count} jugadores con deuda de más de {days} días. Toca para enviar recordatorios.',
+        'Hay {count} participantes con deuda de más de {days} días. Toca para enviar recordatorios.',
     'notifTestTitle': 'Recordatorio de prueba',
     'notifTestBody':
         'Las notificaciones están activas. Toca para abrir recordatorios.',
@@ -1671,8 +1703,8 @@ class TranslationMaps {
     'openVenueMapError': 'No se pudo abrir el mapa',
     'notifPromocionBodyInApp':
         '📍 {venue} · {date} · Responde en {hours} h en la app',
-    'notifOrganizerConfirmTitle': '✅ Confirmación de jugador',
-    'notifOrganizerDeclineTitle': '❌ Jugador no puede ir',
+    'notifOrganizerConfirmTitle': '✅ Confirmación de participante',
+    'notifOrganizerDeclineTitle': '❌ Participante no puede ir',
     'notifOrganizerConfirmBody':
         '{name} confirmó asistencia al encuentro del {date}.',
     'notifOrganizerDeclineBody':
@@ -1795,14 +1827,14 @@ class TranslationMaps {
     'organizerCyclePhasePreparing': 'Prepare the session',
     'organizerCyclePhaseAtRisk': 'Session at risk',
     'organizerCyclePhaseCupImpossible': 'Session at risk',
-    'organizerCycleAtRiskTitle': 'Not enough players',
+    'organizerCycleAtRiskTitle': 'Not enough participants',
     'organizerCycleAtRiskBody':
         'The session does not have the confirmations needed to play.',
     'organizerCycleAtRiskAction':
         'Reschedule the date or cancel the session.',
     'organizerCycleAtRiskReschedule': 'Reschedule',
     'organizerCycleAtRiskCancel': 'Cancel session',
-    'convocatoriaCupImpossibleTitle': 'Not enough players',
+    'convocatoriaCupImpossibleTitle': 'Not enough participants',
     'convocatoriaCupImpossibleBody':
         'The session does not have the confirmations needed to play.',
     'organizerCyclePhaseNeedsResolution': 'Resolve session',
@@ -1818,7 +1850,7 @@ class TranslationMaps {
     'organizerCycleConfirmedLine':
         '{confirmed} confirmed · {pending} pending',
     'organizerCycleRosterFull': '{confirmed}/{max} confirmed',
-    'organizerCyclePlayersNeeded': '{count} players still needed',
+    'organizerCyclePlayersNeeded': '{count} participants still needed',
     'organizerCycleReadyTonight': 'All set for tonight',
     'organizerCycleNeedConfirmations':
         'Only {count} confirmations left',
@@ -1835,7 +1867,7 @@ class TranslationMaps {
     'organizerCycleUnresolvedCancel': 'Cancel',
     'organizerCycleCancelConfirmTitle': 'Cancel this session?',
     'organizerCycleCancelConfirmBody':
-        'The session did not happen. Players will no longer see the invite.',
+        'The session did not happen. Participants will no longer see the invite.',
     'organizerCycleCancelConfirmAction': 'Yes, cancel session',
     'organizerCycleCancelSuccessSnack': 'Session cancelled',
     'organizerCycleCancelConsequence1':
@@ -1851,24 +1883,24 @@ class TranslationMaps {
     'organizerCycleCollectingTitle': 'Outstanding balance',
     'organizerCycleCollectingSingleTitle': '{emoji} {date}',
     'organizerCycleCollectingOpenMatches': '{count} open sessions',
-    'organizerCycleCollectingOnePlayerPending': '1 player pending',
-    'organizerCycleCollectingPlayersPending': '{count} players pending',
+    'organizerCycleCollectingOnePlayerPending': '1 participant pending',
+    'organizerCycleCollectingPlayersPending': '{count} participants pending',
     'organizerCycleCollectingAmountPending': '{amount} to collect',
     'organizerCycleCollectingToCollect': 'to collect',
     'organizerCycleCollectingOneDebtor': '{name} owes {amount}',
-    'organizerCycleCollectingManyDebtors': '{count} players in debt',
+    'organizerCycleCollectingManyDebtors': '{count} participants in debt',
     'organizerCycleCollectingGroupSummary':
-        '{count} players in debt · {countMatches} open sessions',
-    'organizerCycleCollectingSomeoneOwes': 'Some players owe money',
+        '{count} participants in debt · {countMatches} open sessions',
+    'organizerCycleCollectingSomeoneOwes': 'Some participants owe money',
     'organizerCycleCollectingOpenMatchesHint':
         'Open charges in {count} sessions',
     'organizerCycleCollectingReviewMatch': 'Review session',
     'organizerCycleCollectingNextReview': 'Next to review',
     'organizerCycleCollectingMatchGenerated': 'Total generated',
     'organizerCycleReviewMatchCta': 'Review session',
-    'organizerCycleCollectingPlayers': '{count} players',
+    'organizerCycleCollectingPlayers': '{count} participants',
     'organizerCycleCollectingOutstanding':
-        '{total} generated · {count} players',
+        '{total} generated · {count} participants',
     'organizerCycleCollectingMultiTitle': '{count} sessions to collect',
     'organizerCycleCollectingMultiSubtitle':
         'Start with the one on {date}',
@@ -1886,7 +1918,7 @@ class TranslationMaps {
     'organizerCycleAllPaidMatchRef': 'Session on {date} · {place}',
     'organizerCycleAllPaidMatchDate': 'Session on {date}',
     'matchStatusConfirmedShort': 'Session confirmed',
-    'matchStatusWaitingShort': 'Players missing',
+    'matchStatusWaitingShort': 'Participants missing',
     'matchStatusEvaluatingShort': 'Pending decision',
     'matchStatusCupImpossibleShort': 'Session at risk',
     'matchStatusRescheduledShort': 'Session rescheduled',
@@ -1894,14 +1926,14 @@ class TranslationMaps {
     'matchStatusPlayedShort': 'Session logged',
     'matchStatusConfirmedTitle': 'Session confirmed',
     'matchStatusConfirmedBody':
-        '{confirmed} of {max} players confirmed. All set!',
-    'matchStatusWaitingTitle': 'Players still needed',
+        '{confirmed} of {max} participants confirmed. All set!',
+    'matchStatusWaitingTitle': 'Participants still needed',
     'matchStatusWaitingBody':
-        '{missing} player(s) still need to confirm.',
+        '{missing} participant(s) still need to confirm.',
     'matchStatusEvaluatingTitle': 'Pending decision',
     'matchStatusEvaluatingBody':
         'Missing confirmations and the session is soon.',
-    'matchStatusCupImpossibleTitle': 'Not enough players',
+    'matchStatusCupImpossibleTitle': 'Not enough participants',
     'matchStatusCupImpossibleBody':
         'The session does not have the confirmations needed to play.',
     'matchStatusRescheduledTitle': 'Session rescheduled',
@@ -1927,12 +1959,12 @@ class TranslationMaps {
     'reprogramPickTimeTitle': 'New session time',
     'reprogramConfirmTitle': 'Reschedule and notify?',
     'reprogramConfirmBody':
-        'The session will move to {date} and all roster players will be notified (app and WhatsApp).',
+        'The session will move to {date} and all roster participants will be notified (app and WhatsApp).',
     'reprogramConfirmAction': 'Reschedule and notify',
     'reprogramSuccessSnack':
         'Session rescheduled · {push} push · {whatsapp} WhatsApp',
     'remindPendingNoneSnack': 'No pending invitations to remind',
-    'remindPendingSuccessSnack': 'Reminder sent to {count} players',
+    'remindPendingSuccessSnack': 'Reminder sent to {count} participants',
     'homeSportMode': 'Primary sport: {sport}',
     'configScreenTitle': 'Settings',
     'configOpenBackupSubtitle': 'Cloud sync and PDF export',
@@ -1993,7 +2025,7 @@ class TranslationMaps {
     'homeMatchMenuTitle': 'What would you like to do?',
     'homeOrganizeConvocatoria': 'Organize invite',
     'homeOrganizeConvocatoriaSubtitle':
-        'Confirm players before the session (no charges)',
+        'Confirm participants before the session (no charges)',
     'homeRegisterPlayedMatch': 'Log a completed session',
     'homeRegisterPlayedMatchSubtitle': 'Charges, attendees, and payments',
     'homeActiveConvocatorias': 'Active invites',
@@ -2023,7 +2055,7 @@ class TranslationMaps {
     'organizerCobrosFilterDebtCount': 'Pending · {count}',
     'organizerCobrosFilterUpToDateCount': 'Up to date · {count}',
     'organizerCobrosFilterCreditCount': 'Credit · {count}',
-    'organizerCobrosEmptyFilter': 'No players in this filter.',
+    'organizerCobrosEmptyFilter': 'No participants in this filter.',
     'homeNoPendingDebts': 'No one pending',
     'homeAmountToCollect': '{amount}',
     'homeStatPlayers': 'Participants',
@@ -2037,10 +2069,10 @@ class TranslationMaps {
     'homeNobodyOwes': 'Nobody owes anything. Everyone is up to date.',
     'homeManualPaymentsHelpTitle': 'Manual payments',
     'homeManualPaymentsHelpBody':
-        'Record cash or off-app payments here.\n\nUsually the player declares payment and uploads a receipt from My charges; you validate it in Payments to review.\n\n• Multiple selected → full payment for each\n• One player → full payment or partial payment',
-    'homeDebtorsSummary': '{count} player(s) · Total {amount}',
-    'homeViewAllDebtors': 'View players ({count})',
-    'homePlanillaCompactHint': 'Register payments from each player profile.',
+        'Record cash or off-app payments here.\n\nUsually the participant declares payment and uploads a receipt from My charges; you validate it in Payments to review.\n\n• Multiple selected → full payment for each\n• One participant → full payment or partial payment',
+    'homeDebtorsSummary': '{count} participant(s) · Total {amount}',
+    'homeViewAllDebtors': 'View participants ({count})',
+    'homePlanillaCompactHint': 'Register payments from each participant profile.',
     'homePayFull': 'Pay in full',
     'homePartialPayment': 'Partial payment',
     'homePartialAmountLabel': 'Payment amount',
@@ -2049,15 +2081,15 @@ class TranslationMaps {
     'homeRegisterPartialPayment': 'Record partial payment',
     'homeClearSelection': 'Clear selection',
     'homeRegisterFullPaymentCount': 'Record full payment ({count})',
-    'homePlayerSheetTitle': 'Player profile',
-    'homePlayerSheetSubtitle': 'Tap a player to view history and balance',
-    'homeViewPlayerProfile': 'View a player profile',
-    'homeSelectedPlayers': '{count} player(s) selected',
-    'homeSelectedAllUpToDate': 'Selected players are already up to date.',
+    'homePlayerSheetTitle': 'Participant profile',
+    'homePlayerSheetSubtitle': 'Tap a participant to view history and balance',
+    'homeViewPlayerProfile': 'View a participant profile',
+    'homeSelectedPlayers': '{count} participant(s) selected',
+    'homeSelectedAllUpToDate': 'Selected participants are already up to date.',
     'homePlayerBalanceLine': '{name} · Balance {amount}',
     'homeOwesSuffix': 'owes {amount}',
     'homeBatchPaymentNote':
-        'Full payment will be recorded for each player ({amount} total).',
+        'Full payment will be recorded for each participant ({amount} total).',
     'errorAmountGreaterThanZero': 'Enter an amount greater than 0',
     'paymentConceptWithCredit': 'Payment with credit balance',
     'paymentConceptFull': 'Full payment',
@@ -2080,6 +2112,9 @@ class TranslationMaps {
     'breakdownToTransfer': 'To transfer',
     'breakdownCreditResult': 'Credit balance',
     'cobroStatusReceiptReview': 'Receipt under review',
+    'cobroStatusReceiptSent': 'Receipt sent',
+    'cobroStatusReceiptRejected': 'Receipt rejected',
+    'cobroStatusReceiptApproved': 'Receipt approved',
     'paymentPendingApprovalTitle': 'Payment pending approval',
     'paymentPendingApprovalBody':
         'You already declared a payment or partial payment and the organizer '
@@ -2099,11 +2134,12 @@ class TranslationMaps {
     'snackDebtCleared': 'Debt cleared · {name}',
     'snackPartialPayment': 'Payment {amount} · Remaining {remaining} · {name}',
     'snackFullPaymentMultiple':
-        'Full payment recorded for {count} players',
+        'Full payment recorded for {count} participants',
     'matchesPlayedCount': '{count} sessions',
     'homePlayerRowSubtitle': '{count} sessions · Tap to open profile',
     'homeConvocatoriaConfirmedLine': '{confirmed}/{max} confirmed',
     'homeConvocatoriaPendingShort': '{count} pending',
+    'homeNextConvocatoriaBadge': 'Next',
     'statusOwes': 'Pending',
     'statusCredit': 'Credit',
     'statusUpToDate': 'Up to date',
@@ -2123,7 +2159,7 @@ class TranslationMaps {
     'configBankDataTitle': 'Bank details (for PDF reports)',
     'configPaymentInfoTitle': 'How to pay me',
     'configPaymentInfoHint':
-        'Free-text for transfers (PIX, alias, account, IBAN…). Sent in alerts and WhatsApp, not in the PDF.',
+        'Free-text for transfers (PIX, alias, account, IBAN…). Players see this when they open a charge from your group.',
     'configPaymentNameLabel': 'Pay to',
     'configPaymentNameHint': 'E.g. Francisco Parra',
     'configPaymentDetailLabel': 'Payment details',
@@ -2143,9 +2179,9 @@ class TranslationMaps {
         'This is how the organizer and group will see you in invites.',
     'nameLabel': 'Name',
     'emailLabel': 'Email (optional)',
-    'playerNameRequired': 'Enter the player name',
+    'playerNameRequired': 'Enter the participant name',
     'playerDuplicateContact':
-        'A player with that email or WhatsApp already exists.',
+        'A participant with that email or WhatsApp already exists.',
     'emailFormatInvalid': 'Invalid email address',
     'sendDebtWhatsApp': 'Send payment reminder via WhatsApp',
     'contactWhatsAppTooltip': 'Contact via WhatsApp',
@@ -2160,7 +2196,7 @@ class TranslationMaps {
     'sendConvocatoriaWhatsApp': 'Send invite',
     'sendChargeWhatsAppBulk': 'Send charge via WhatsApp ({count})',
     'sendChargeWhatsAppBulkHint':
-        'Opens one chat per player. Repeat for the rest.',
+        'Opens one chat per participant. Repeat for the rest.',
     'whatsappOpening': 'Opening WhatsApp…',
     'whatsappOpenFailed': 'Could not open WhatsApp',
     'whatsappNoNumber':
@@ -2214,7 +2250,7 @@ class TranslationMaps {
     'groupCodeRegen': 'Generate new',
     'groupCodeRegenTitle': 'Generate a new code?',
     'groupCodeRegenBody':
-        'The current code will stop working. Players already in your group are not affected.',
+        'The current code will stop working. Participants already in your group are not affected.',
     'groupCodeRegenConfirm': 'Generate new',
     'groupCodeRegenDone': 'Code updated',
     'groupCodeJoinTitle': 'Join a group',
@@ -2266,6 +2302,7 @@ class TranslationMaps {
     'playerStatAttendancePride': 'attendance',
     'playerStatRecentMatches': 'last 90 days',
     'playerStatConfirmedPride': 'confirmations',
+    'playerStatResponsePride': 'response rate',
     'playerStatOnTimePride': 'on-time payments',
     'playerRecentMatchesTitle': 'Recent sessions',
     'playerActivityTitle': 'Your activity',
@@ -2316,7 +2353,7 @@ class TranslationMaps {
     'playerHeroNextMatch': 'Next session',
     'playerHeroTapToReply': 'Tap to reply',
     'playerHeroConfirmRescheduled': 'Confirm new date',
-    'playerHeroCuposLine': 'Up to {max} players',
+    'playerHeroCuposLine': 'Up to {max} participants',
     'playerPerformanceTitle': 'Your performance',
     'playerSummaryTitle': 'Summary',
     'playerStatInvites': 'To reply',
@@ -2367,7 +2404,7 @@ class TranslationMaps {
         'Got another group still on WhatsApp?',
     'organizerNudgeAction': 'Learn more',
     'payBtn': 'Pay',
-    'playerDefaultName': 'Player',
+    'playerDefaultName': 'Participant',
     'playerInvitedTitle': "You've been invited",
     'playerInvitedSubtitle': '{count} session(es) await your response',
     'playerUpcomingTitle': 'Upcoming sessions',
@@ -2396,6 +2433,16 @@ class TranslationMaps {
         'Your payment will automatically apply to your pending sessions',
     'cobrosViewCharge': 'View charge',
     'cobrosViewDetail': 'View details',
+    'cobrosMatchBreakdownTitle': 'Session breakdown',
+    'cobrosAccountSummaryTitle': 'Your account summary',
+    'paymentInfoLoading': 'Loading payment details…',
+    'paymentInfoMissingOrganizer':
+        'This organizer hasn’t shared how to pay yet. Ask them on WhatsApp or check the charge message.',
+    'paymentInfoPayToOrganizer': 'How to pay the organizer',
+    'paymentInfoPayToNamed': 'How to pay {name}',
+    'paymentInfoPayee': 'Pay to: {name}',
+    'paymentInfoCopied': 'Payment details copied',
+    'copyPaymentInfoTooltip': 'Copy payment details',
     'cobrosViewChargeTitle': 'Session details',
     'cobrosGoToPay': 'Go to pay',
     'cobrosPayDialogTitle': 'Confirm full payment',
@@ -2419,7 +2466,7 @@ class TranslationMaps {
     'viewChargesAndPay': 'View charges and pay',
     'myCharges': 'My charges',
     'organizerPlayerUpToDate':
-        'As a player you are up to date. Pay here if you are included in a session.',
+        'As a participant you are up to date. Pay here if you are included in a session.',
     'viewMyChargesTab': 'Go to my charges',
     'playerAllQuietTitle': 'All quiet for now',
     'playerAllQuietBody':
@@ -2474,7 +2521,7 @@ class TranslationMaps {
     'historyPastConvocatoriasSubtitle':
         'Session date passed · register charges or delete',
     'historyMatchesCountTitle': '{count} sessions',
-    'historyPendingChargesSubtitle': '{count} player(s) with pending charges',
+    'historyPendingChargesSubtitle': '{count} participant(s) with pending charges',
     'historyAllChargesPaid': 'All charges up to date ✓',
     'historyTapMatchHelp':
         'Tap a session for details. '
@@ -2491,10 +2538,10 @@ class TranslationMaps {
     'rankingWorstPayersSubtitle': 'Those who take longest (no hard feelings 😄)',
     'rankingNoBestYetTitle': 'No best payers yet',
     'rankingNoBestYetSubtitle':
-        'Players who pay on time with no unpaid charges appear here.',
+        'Participants who pay on time with no unpaid charges appear here.',
     'rankingNoWorstTitle': 'Nobody on the naughty list!',
     'rankingNoWorstSubtitle':
-        'No players with unpaid charges or late payments.',
+        'No participants with unpaid charges or late payments.',
     'convocatoriaConfirmedLine': 'Confirmed · {date} · {time}',
     'convocatoriaConfirmedCount':
         '{confirmed}/{max} confirmed · {invited} invited',
@@ -2503,7 +2550,7 @@ class TranslationMaps {
     'deleteMatchMessageWithVenue':
         'You are about to delete the session on {date} at {venue}.',
     'matchDeleted': 'Session deleted',
-    'matchPlayersCount': '{count} players',
+    'matchPlayersCount': '{count} participants',
     'matchAllPaid': 'Everyone paid',
     'matchUnpaidCount': '{count} unpaid',
     'rankingBestStat': '{onTime} on-time payments · {percent}%',
@@ -2512,12 +2559,12 @@ class TranslationMaps {
     'backupLocalTitle': 'Local backup and reports',
     'backupSupabaseTitle': 'Sync is active',
     'backupSupabaseBody':
-        'Players, sessions, charges, and balances live in the cloud and '
+        'Participants, sessions, charges, and balances live in the cloud and '
         'update automatically. This is not a manual backup — it is your online database.',
     'backupSupabaseWhatStores':
         'Includes invites, validated payments, and balances. '
-        'Payment receipts are kept only while you review them; '
-        'approving or rejecting deletes them to save storage.',
+        'Receipts (payments and expenses) stay in the cloud for up to 14 days '
+        'from upload, then are deleted automatically.',
     'backupExportImportTitle': 'Export / Import',
     'backupOfflineHint':
         'Offline mode: back up manually before switching phones.',
@@ -2554,9 +2601,9 @@ class TranslationMaps {
     'asistenciasStatPending': 'Pending',
     'asistenciasStatDeclined': 'Not going',
     'asistenciasStatInvited': 'Invited',
-    'asistenciasStartersTitle': 'Starters ({count})',
-    'asistenciasSubsTitle': 'Subs ({count})',
-    'asistenciasSubsEmpty': 'No substitutes waiting',
+    'asistenciasStartersTitle': 'Invited ({count})',
+    'asistenciasSubsTitle': 'Waitlist ({count})',
+    'asistenciasSubsEmpty': 'No one on the waitlist',
     'asistenciasDeclinedTitle': 'Not going ({count})',
     'asistenciasSeeAllStarters': 'See all starters',
     'asistenciasSeeAllSubs': 'See all subs',
@@ -2572,38 +2619,42 @@ class TranslationMaps {
     'asistenciasManualSnackDeclined': '{name} · Not going',
     'asistenciasManualSnackPending': '{name} · Pending',
     'asistenciasRemindPending': 'Remind pending',
-    'asistenciasEditDetails': 'Edit session details',
+    'asistenciasEditDetails': 'Edit participants',
     'organizeAutoConfirmedSnack':
         'All slots filled: session confirmed automatically',
     'organizePromotedFromWaitlist':
-        '{count} player(s) promoted from the waitlist',
-    'organizeMaxStartersError': 'Maximum {max} starters (session slots)',
+        '{count} participant(s) promoted from the waitlist',
+    'organizeMaxStartersError':
+        'Maximum {max} participants (session slots)',
     'organizeSlotsFullError':
         'Slots full ({max}/{max}). Mark someone as "Not going" to free a slot.',
     'organizeSelectStarterOrSub':
-        'Select at least one starter or substitute',
+        'Select at least one participant',
     'organizeNominateStartersError':
-        'You must nominate {max} starters (session slots). Currently: {current}.',
-    'organizeMaxStartersShort': 'Maximum {max} starters',
+        'You must select {max} participants (session slots). Currently: {current}.',
+    'organizeMaxStartersShort': 'Maximum {max} participants',
     'organizeStartersNoProfileError':
-        'Some starters have no Supabase profile. Make sure they have email in Players.',
+        'Some participants have no Supabase profile. Make sure they have email in Participants.',
     'organizeExitWithoutSavingTitle': 'Leave without saving?',
+    'organizeExitConfirmTitle': 'Leave?',
     'organizeExitStatesSavedBody':
-        'Status changes are saved when you leave.',
+        'If you added or removed people from the list and it has not saved yet, '
+        'those changes will be lost.',
     'organizeExitDraftBody':
         'You can save a draft and resume it from Home.',
     'organizeKeepEditing': 'Keep editing',
     'organizeExitWithoutSaving': 'Leave without saving',
+    'organizeExitConfirmAction': 'Leave',
     'organizeSaveDraft': 'Save draft',
     'organizeMatchAlreadyConfirmed': 'The session is already confirmed',
     'organizeInviteAlreadySent': 'The invite was already sent',
-    'organizeSelectAtLeastOneStarter': 'Select at least one starter',
+    'organizeSelectAtLeastOneStarter': 'Select at least one participant',
     'organizeInviteSentSnack': 'Invite sent',
     'organizeSendFailed': 'Could not send: {error}',
-    'organizeNoConfirmedTitle': 'No confirmed players',
+    'organizeNoConfirmedTitle': 'No confirmed participants',
     'organizeNoConfirmedBody':
         'Nobody is marked as confirmed. '
-        'Record charges anyway by selecting players manually?',
+        'Record charges anyway by selecting participants manually?',
     'organizeDeleteInviteTitle': 'Delete invite',
     'organizeDeleteInviteMessage':
         'You are about to delete this invite completely.',
@@ -2613,22 +2664,26 @@ class TranslationMaps {
         'No record of this session will remain in the app.',
     'organizeDeleteInviteConsequence3':
         'This action is permanent and cannot be undone.',
+    'organizeDeleteRedirectCancelBody':
+        'There are {count} confirmed participant(s). It cannot be deleted silently: the session will be cancelled and they will be notified.',
+    'organizeDeleteRedirectCancelConsequence1':
+        'Confirmed participants will receive a cancellation notice.',
     'organizeLoadFailed': 'Could not load the invite',
     'organizeHelpConfirmed':
         'The group is confirmed. When the session is done, '
         'use "Go to charges" to record payments.',
     'organizeHelpTracking':
-        'Players with the app respond from Kloovi in real time. '
+        'Participants with the app respond from Kloovi in real time. '
         'For those without the app, send the invite via WhatsApp '
         'or record their response by tapping their status.',
     'organizePastDateBanner':
         'The session date has passed. Register charges for those who '
         'attended or delete the invite if it was cancelled.',
     'organizeHelpDraft':
-        'Fill in the details, choose starters and substitutes, '
+        'Fill in the details, choose who to invite, '
         'and tap "Send invite". They will receive a push notification.',
     'organizeConfirmedBar':
-        'Confirmed · {confirmed}/{max} players',
+        'Confirmed · {confirmed}/{max} participants',
     'organizeTrackingBar':
         'Active tracking · {confirmed}/{max} confirmed · {pending} pending',
     'organizeAutoConfirmInProgress':
@@ -2644,9 +2699,9 @@ class TranslationMaps {
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmed · {pending} pending · {waiting} waiting',
     'organizeSummarySlotsFull':
-        'Slots full · {starters} starters',
+        'Slots full · {starters} invited',
     'organizeSummarySlotsAvailable':
-        '{available} slot(s) available · {starters} starters · {subs} substitutes',
+        '{available} slot(s) available · {starters} invited · {subs} waiting',
     'organizeRecentVenues': 'Recent venues',
     'organizeMaxSlotsLabel': 'Maximum slots',
     'organizeResponseDeadlineLabel': 'Response deadline',
@@ -2664,34 +2719,40 @@ class TranslationMaps {
     'organizeMatchDateMustBeFuture': 'The session must be in the future',
     'organizeHoursCount': '{n} hour(s)',
     'organizeAddRegularPlayersFirst': 'Add regular participants first',
-    'organizeStartersTitle': 'Starters (max. {max})',
+    'organizeStartersTitle': 'Who do you want to invite?',
     'organizeAutoSelect': 'Auto',
     'organizeClearSelection': 'Clear',
+    'organizeSearchHint': 'Search people',
     'organizeStartersHintTracking':
         'With app: they respond on their own. No app: tap their status to record.',
     'organizeStartersHintDraft':
-        'Mark starters before sending the invite.',
+        'Select up to {max} people who will receive this invite. '
+        'Anyone beyond that goes to the waitlist.',
     'organizeWhatsAppNoAppTitle': 'Invite via WhatsApp',
     'organizeWhatsAppNoAppSubtitle':
-        '{count} player(s) without app · {withWhatsApp} with WhatsApp',
+        '{count} participant(s) without app · {withWhatsApp} with WhatsApp',
     'organizeWhatsAppNoAppHint':
-        'Send the invite message to each player without the app. '
+        'Send the invite message to each participant without the app. '
         'Then record their response by tapping their status in the list.',
-    'organizeWhatsAppNoAppButton': 'WhatsApp · players without app',
+    'organizeWhatsAppNoAppButton': 'WhatsApp · participants without app',
     'organizeWhatsAppNoAppPlayerStatus': 'Status: {status}',
     'organizeStatusRespondInApp': 'Responds in the app',
     'organizeWaitlistTitle': 'Waitlist (priority order)',
     'organizeWaitlistHint':
-        'Set who enters first if a slot opens. '
+        'Empty until you select more people in the list above. '
         'Drag to change priority (1 = first).',
     'organizeWaitlistHintTracking':
         'You can reorder priority until session time.',
+    'organizeWaitlistNeedFullSlots':
+        'Fill all invite slots before building the waitlist.',
     'organizeWaitlistEmpty':
-        'Add substitutes with the buttons above. You define the order.',
+        'Nobody waiting. Once slots are full, check more people above '
+        'to add them here.',
+    'organizeWaitlistBadge': 'Waiting',
     'organizeWaitlistRemove': 'Remove from waitlist',
     'organizeWaitlistAddedSnack': '{name} added to waitlist',
     'organizeWaitlistPriority': 'Priority {n}',
-    'organizeSelectStartersAndSubs': 'Select starters and/or substitutes',
+    'organizeSelectStartersAndSubs': 'Select who you want to invite',
     'statusConfirmed': 'Confirmed',
     'statusDeclined': 'Not going',
     'statusNoResponse': 'No response',
@@ -2818,11 +2879,11 @@ class TranslationMaps {
     'editMatchTitle': 'Edit session',
     'newMatchTitle': 'New session',
     'collaborativeModeHint':
-        'Collaborative mode: each player sees their amount in the app and uploads a receipt. '
+        'Collaborative mode: each participant sees their amount in the app and uploads a receipt. '
         'You validate payment from the session details.',
     'addPlayersFirst': 'Add regular participants first',
     'goToPlayers': 'Go to Participants',
-    'matchConfirmedLine': 'Session confirmed · {players}',
+    'matchConfirmedLine': 'Session confirmed · {participants}',
     'onePlayer': '1 participant',
     'chargeStepsHint': '1) Participants → 2) Expenses and payments',
     'editingExistingMatch': 'Editing existing session',
@@ -2836,20 +2897,20 @@ class TranslationMaps {
     'matchExpensesSubtitle': 'How much it cost and how it splits',
     'enterExpensesHere': 'Enter expenses here',
     'enterExpensesHint':
-        'Court, balls, or other costs. Split among players '
+        'Court, balls, or other costs. Split among participants '
         'selected in step 2.',
-    'onePlayerSplitsExpenses': '1 player splits group expenses',
-    'nPlayersSplitExpenses': '{count} players split group expenses',
+    'onePlayerSplitsExpenses': '1 participant splits group expenses',
+    'nPlayersSplitExpenses': '{count} participants split group expenses',
     'forWholeGroup': 'For the whole group',
     'allAttendeesPaySame': 'All attendees pay the same',
     'courtAndBallsPerPerson':
         'Court {court} each · Balls {balls} each',
-    'perPersonWithCount': '{amount} each · {count} players',
+    'perPersonWithCount': '{amount} each · {count} participants',
     'enterAttendeesToCalcPerPerson': 'Add attendees to calculate per person',
-    'participantsInStep2': 'Select players in step 2',
+    'participantsInStep2': 'Select participants in step 2',
     'playersNoneSelected': 'None selected · {total} in the list',
     'playersSelectedCount': '{count} of {total} selected',
-    'playersSearchHint': 'Search player',
+    'playersSearchHint': 'Search participant',
     'playersClearSelection': 'Clear',
     'playersSelectFiltered': 'Select {count}',
     'playersSelectFilteredHint': 'Mark the filtered results',
@@ -2863,24 +2924,24 @@ class TranslationMaps {
     'playersCollapseList': 'Hide list',
     'stepNumber': 'Step {n}',
     'individualChargeTip':
-        'Did one player pay something only for themselves? Use '
-        '"Extra charge" in their player row above (racket, fine, etc.).',
+        'Did one participant pay something only for themselves? Use '
+        '"Extra charge" in their participant row above (racket, fine, etc.).',
     'totalAmountLabel': 'Total amount',
     'perPersonParticipants': '{amount} each · {count} joined',
     'whoParticipated': 'Who joined? ({count})',
     'all': 'All',
     'none': 'None',
-    'confirmedPlayersTitle': 'Confirmed players',
-    'playersAndPaymentsTitle': 'Players and payments',
-    'playersCloudSubtitle': 'Players manage payments from the app',
+    'confirmedPlayersTitle': 'Confirmed participants',
+    'playersAndPaymentsTitle': 'Participants and payments',
+    'playersCloudSubtitle': 'Participants manage payments from the app',
     'playersOrganizingSubtitle':
-        'Confirmed players ready — enter how much each paid',
+        'Confirmed participants ready — enter how much each paid',
     'playersLocalSubtitle': 'Mark who attended and how much they paid',
     'playersCloudHint':
         'Mark who attended. Supabase will calculate each amount '
-        'and notify players to pay.',
+        'and notify participants to pay.',
     'playersOrganizingHint':
-        'Confirmed players are already marked. '
+        'Confirmed participants are already marked. '
         'Enter full payment, partial payment (with confirm), or no payment.',
     'playersLocalHint':
         '1) Mark who attended · 2) Enter payments · '
@@ -2914,7 +2975,7 @@ class TranslationMaps {
         '{name}: tap "Confirm partial payment" before saving',
     'errorSaveExtraChargeFirst':
         '{name}: tap "Save charge" on the pending extra charge',
-    'errorMarkAtLeastOnePlayer': 'Mark at least one attending player',
+    'errorMarkAtLeastOnePlayer': 'Mark at least one attending participant',
     'errorSharedExpenseName': 'Enter the shared expense name',
     'errorMarkParticipants': 'Mark who joined "{label}"',
     'errorSaving': 'Error saving: {error}',
@@ -2927,7 +2988,7 @@ class TranslationMaps {
     'saveMatch': 'Save session',
     'confirmSaveMatchTitle': 'Save session?',
     'confirmSaveMatchBody':
-        'Check that expenses and players are correct before confirming.',
+        'Check that expenses and participants are correct before confirming.',
     'confirmSaveChargesBody':
         'Review charges and attendees before registering the session.',
     'finalSummaryTitle': 'Final summary',
@@ -2971,7 +3032,7 @@ class TranslationMaps {
     'snackPartialWithCredit': 'Payment {amount} · Credit balance: {credit}',
     'snackDebtClearedShort': 'Debt cleared',
     'snackPartialRemainingShort': 'Payment {amount} · Remaining {remaining}',
-    'playerNoEmail': 'This player has no email on file',
+    'playerNoEmail': 'This participant has no email on file',
     'pushSentTo': 'Push notification sent to {name}',
     'pushSendFailed': 'Could not send: {error}',
     'playerSheetLoadFailed': 'Could not load profile',
@@ -3080,7 +3141,7 @@ class TranslationMaps {
     'noMatchesRegistered': 'No sessions recorded',
     'pdfLabel': 'PDF',
     'paidVerb': 'Paid',
-    'matchListSubtitle': '{players} players · {amount}{unpaid}',
+    'matchListSubtitle': '{participants} participants · {amount}{unpaid}',
     'matchUnpaidSuffix': ' · {count} unpaid',
     'paymentsToValidateTitle': 'Payments to review',
     'paymentsToValidateSubtitle':
@@ -3097,7 +3158,7 @@ class TranslationMaps {
         'Reconcile the payment of {amount} from {name}?',
     'rejectReceiptMessage':
         'Reject the receipt from {name}? They can submit a new one.',
-    'thisPlayer': 'this player',
+    'thisPlayer': 'this participant',
     'yesReconcile': 'Yes, reconcile',
     'yesReject': 'Yes, reject',
     'partialReceivedUpdated': 'Partial payment received · balance updated',
@@ -3116,7 +3177,7 @@ class TranslationMaps {
         'You will be marked as confirmed for the session on {date}.',
     'respondDeclineBodyConvocate':
         'The organizer will see you cannot attend and may invite '
-        'another player.',
+        'another participant.',
     'attendanceConfirmedSnack': 'Attendance confirmed',
     'responseSentOrganizer': 'Response sent to organizer',
     'pendingConvocatoria': 'Pending invite',
@@ -3161,14 +3222,14 @@ class TranslationMaps {
     'pdfPlayerReady': 'PDF for {name} ready to share',
     'matchDetailTitle': 'Session details',
     'matchDetailHelpTip':
-        'Players with Kloovi (Android) see the charge in the app and can get a push alert. '
+        'Participants with Kloovi (Android) see the charge in the app and can get a push alert. '
         'For iPhone or anyone without the app, copy the message or send a PDF via WhatsApp/email.',
-    'playersChargesTitle': 'Players and charges',
-    'playersChargesSubtitle': 'Status and breakdown for each player',
+    'playersChargesTitle': 'Participants and charges',
+    'playersChargesSubtitle': 'Status and breakdown for each participant',
     'shareOutsideAppTitle': 'Share outside the app',
     'shareOutsideAppSubtitle': 'iPhone or others without Kloovi',
     'shareOutsideAppHint':
-        'Use “Copy message” on each player or generate the session PDF to send via WhatsApp or email.',
+        'Use “Copy message” on each participant or generate the session PDF to send via WhatsApp or email.',
     'notifyInAppTooltip': 'Notify in app',
     'copyChargeMessageTooltip': 'Copy message (WhatsApp / iPhone)',
     'chargeMessageCopied': 'Message copied · paste in WhatsApp or email',
@@ -3176,24 +3237,27 @@ class TranslationMaps {
         'No app profile. Copy the message or send the PDF.',
     'noAppShort': 'No app',
     'remindDebtorsWithApp': 'Notify {count} with app',
-    'matchRemindersSent': 'Notified {count} player(s) in the app',
-    'matchSummaryAllPaid': 'Everyone settled ({count} players)',
+    'matchRemindersSent': 'Notified {count} participant(s) in the app',
+    'matchSummaryAllPaid': 'Everyone settled ({count} participants)',
     'matchSummaryPending':
         '{pending} of {total} pending · {amount}',
     'generalReportTitle': 'General report',
-    'generalReportSubtitle': 'All players in one PDF',
+    'generalReportSubtitle': 'All participants in one PDF',
     'generatingPdf': 'Generating PDF...',
     'generateMatchPdf': 'Generate session PDF',
     'individualReportsTitle': 'Individual reports',
     'individualReportsSubtitle': 'Send one by one for more privacy',
     'chargeBreakdownTitle': 'Charge breakdown',
-    'chargeBreakdownSubtitle': 'Detail per player',
+    'chargeBreakdownSubtitle': 'Detail per participant',
     'paidOk': 'Paid OK',
     'partialOwesShort': 'Partial - owes {amount}',
     'individualPdfTooltip': 'Individual PDF',
     'creditedAmountLabel': 'Credit balance {amount}',
     'accountCreditAfterMatchNote':
         '{amount} credit on their account (will apply to the next session)',
+    'matchDetailAccountCredit': 'Account: {amount} credit',
+    'matchDetailAccountDebt': 'Account: {amount} pending',
+    'matchDetailAccountSettled': 'Account: settled',
     'paidShort': 'Paid',
     'paidPartialAmount': 'Paid {amount}',
     'pendingStatus': 'Pending',
@@ -3212,7 +3276,7 @@ class TranslationMaps {
     'sendRemindersTitle': 'Send reminders',
     'sendRemindersBody':
         '{count} push notification(s) will be sent '
-        'to players with the app installed.\n\n'
+        'to participants with the app installed.\n\n'
         'Those without Android can receive the copied message manually.',
     'sendBtn': 'Send',
     'remindersSentSummary':
@@ -3224,9 +3288,9 @@ class TranslationMaps {
     'reminderSentTo':
         'Done: we notified {name}. They will get an alert in their app.',
     'messageCopied': 'Message copied · paste in WhatsApp or email',
-    'debtorsSummaryLine': '{count} players · Total {amount}',
+    'debtorsSummaryLine': '{count} participants · Total {amount}',
     'reminderPushHint':
-        'Push to players with the app. '
+        'Push to participants with the app. '
         'Without Android/iPhone: use "Copy message" and send manually.',
     'owesNoAppLine': 'Owes {amount} · No app',
     'copyMessageTooltip': 'Copy message manually',
@@ -3237,10 +3301,10 @@ class TranslationMaps {
     'matchDateLine': 'Session {date}',
     'sendReportsHelpTip':
         'General PDF = full session. '
-        'PDF next to each player = private report.',
+        'PDF next to each participant = private report.',
     'generating': 'Generating...',
     'generalPdf': 'General PDF',
-    'tapPdfPerPlayer': 'Tap PDF next to each player:',
+    'tapPdfPerPlayer': 'Tap PDF next to each participant:',
     'paidCheck': 'PAID ✓',
     'partialOwesLine': 'Partial {paid} · Owes {remaining}',
     'owesColon': 'Owes: {amount}',
@@ -3253,33 +3317,33 @@ class TranslationMaps {
     'receiptImageNotFound': 'Receipt image not found',
     'convocatoriaNotFoundSnack':
         'We could not find your invitation. Refresh home or contact the organizer.',
-    'noUnpaidPlayersDeadline': 'No unpaid players meet the deadline',
-    'unpaidPlayersTitle': 'Unpaid players',
+    'noUnpaidPlayersDeadline': 'No unpaid participants meet the deadline',
+    'unpaidPlayersTitle': 'Unpaid participants',
     'debtOlderThanDay': 'Debt older than {days} day',
     'debtOlderThanDays': 'Debt older than {days} days',
     'debtChartAllUpToDate': 'Everyone is up to date!',
-    'debtChartOnePlayerUpToDate': '{count} player with no pending debt',
-    'debtChartPlayersUpToDate': '{count} players with no pending debt',
+    'debtChartOnePlayerUpToDate': '{count} participant with no pending debt',
+    'debtChartPlayersUpToDate': '{count} participants with no pending debt',
     'debtChartToCollect': 'To collect',
-    'debtChartOneDebtorLine': '1 player · Total {amount}',
-    'debtChartDebtorsLine': '{count} players · Total {amount}',
+    'debtChartOneDebtorLine': '1 participant · Total {amount}',
+    'debtChartDebtorsLine': '{count} participants · Total {amount}',
     'debtChartRemindPush': 'Remind via push',
     'debtChartShowLess': 'Show less',
     'debtChartShowMore': 'Show {count} more',
     'notifChannelRemindersName': 'Payment reminders',
-    'notifChannelRemindersDesc': 'Alerts for players with pending payments',
+    'notifChannelRemindersDesc': 'Alerts for participants with pending payments',
     'notifChannelConvocatoriaName': 'Session invitations',
     'notifChannelConvocatoriaDesc':
         'Session invitations',
-    'notifDailyBody': 'Check if any players have pending payments',
-    'notifOnePlayerUnpaidTitle': '1 player has not paid',
-    'notifNPlayersUnpaidTitle': '{count} players have not paid',
+    'notifDailyBody': 'Check if any participants have pending payments',
+    'notifOnePlayerUnpaidTitle': '1 participant has not paid',
+    'notifNPlayersUnpaidTitle': '{count} participants have not paid',
     'notifOnePlayerUnpaidBody':
         '{name} has not paid for more than {days} days. Tap to send a reminder.',
     'notifOnePlayerUnpaidBodyOneDay':
         '{name} has not paid for more than 1 day. Tap to send a reminder.',
     'notifNPlayersUnpaidBody':
-        '{count} players owe for more than {days} days. Tap to send reminders.',
+        '{count} participants owe for more than {days} days. Tap to send reminders.',
     'notifTestTitle': 'Test reminder',
     'notifTestBody':
         'Notifications are active. Tap to open reminders.',
@@ -3341,8 +3405,8 @@ class TranslationMaps {
     'openVenueMapError': 'Could not open maps',
     'notifPromocionBodyInApp':
         '📍 {venue} · {date} · Respond within {hours} h in the app',
-    'notifOrganizerConfirmTitle': '✅ Player confirmed',
-    'notifOrganizerDeclineTitle': '❌ Player cannot attend',
+    'notifOrganizerConfirmTitle': '✅ Participant confirmed',
+    'notifOrganizerDeclineTitle': '❌ Participant cannot attend',
     'notifOrganizerConfirmBody':
         '{name} confirmed attendance for the session on {date}.',
     'notifOrganizerDeclineBody':
@@ -3465,14 +3529,14 @@ class TranslationMaps {
     'organizerCyclePhasePreparing': 'Preparar o encontro',
     'organizerCyclePhaseAtRisk': 'Encontro em risco',
     'organizerCyclePhaseCupImpossible': 'Encontro em risco',
-    'organizerCycleAtRiskTitle': 'Não há jogadores suficientes',
+    'organizerCycleAtRiskTitle': 'Não há participantes suficientes',
     'organizerCycleAtRiskBody':
         'O encontro não reúne as confirmações necessárias para jogar.',
     'organizerCycleAtRiskAction':
         'Remarca a data ou cancela o encontro.',
     'organizerCycleAtRiskReschedule': 'Remarcar',
     'organizerCycleAtRiskCancel': 'Cancelar encontro',
-    'convocatoriaCupImpossibleTitle': 'Não há jogadores suficientes',
+    'convocatoriaCupImpossibleTitle': 'Não há participantes suficientes',
     'convocatoriaCupImpossibleBody':
         'O encontro não reúne as confirmações necessárias para jogar.',
     'organizerCyclePhaseNeedsResolution': 'Resolver encontro',
@@ -3488,7 +3552,7 @@ class TranslationMaps {
     'organizerCycleConfirmedLine':
         '{confirmed} confirmados · {pending} pendentes',
     'organizerCycleRosterFull': '{confirmed}/{max} confirmados',
-    'organizerCyclePlayersNeeded': 'Faltam {count} jogadores',
+    'organizerCyclePlayersNeeded': 'Faltam {count} participantes',
     'organizerCycleReadyTonight': 'Tudo pronto para hoje à noite',
     'organizerCycleNeedConfirmations':
         'Só faltam {count} confirmações',
@@ -3505,7 +3569,7 @@ class TranslationMaps {
     'organizerCycleUnresolvedCancel': 'Cancelar',
     'organizerCycleCancelConfirmTitle': 'Cancelar este encontro?',
     'organizerCycleCancelConfirmBody':
-        'O encontro não aconteceu. Os jogadores deixarão de ver o convite.',
+        'O encontro não aconteceu. Os participantes deixarão de ver o convite.',
     'organizerCycleCancelConfirmAction': 'Sim, cancelar encontro',
     'organizerCycleCancelSuccessSnack': 'Encontro cancelado',
     'organizerCycleCancelConsequence1':
@@ -3521,24 +3585,24 @@ class TranslationMaps {
     'organizerCycleCollectingTitle': 'Pendente de cobrança',
     'organizerCycleCollectingSingleTitle': '{emoji} {date}',
     'organizerCycleCollectingOpenMatches': '{count} encontros abertas',
-    'organizerCycleCollectingOnePlayerPending': '1 jogador pendente',
-    'organizerCycleCollectingPlayersPending': '{count} jogadores pendentes',
+    'organizerCycleCollectingOnePlayerPending': '1 participante pendente',
+    'organizerCycleCollectingPlayersPending': '{count} participantes pendentes',
     'organizerCycleCollectingAmountPending': '{amount} a cobrar',
     'organizerCycleCollectingToCollect': 'a cobrar',
     'organizerCycleCollectingOneDebtor': '{name} deve {amount}',
-    'organizerCycleCollectingManyDebtors': '{count} jogadores com dívida',
+    'organizerCycleCollectingManyDebtors': '{count} participantes com dívida',
     'organizerCycleCollectingGroupSummary':
-        '{count} jogadores com dívida · {countMatches} encontros abertos',
-    'organizerCycleCollectingSomeoneOwes': 'Há jogadores com dívida',
+        '{count} participantes com dívida · {countMatches} encontros abertos',
+    'organizerCycleCollectingSomeoneOwes': 'Há participantes com dívida',
     'organizerCycleCollectingOpenMatchesHint':
         'Cobranças abertas em {count} encontros',
     'organizerCycleCollectingReviewMatch': 'Revisar encontro',
     'organizerCycleCollectingNextReview': 'Próxima a revisar',
     'organizerCycleCollectingMatchGenerated': 'Total gerado',
     'organizerCycleReviewMatchCta': 'Revisar encontro',
-    'organizerCycleCollectingPlayers': '{count} jogadores',
+    'organizerCycleCollectingPlayers': '{count} participantes',
     'organizerCycleCollectingOutstanding':
-        '{total} gerados · {count} jogadores',
+        '{total} gerados · {count} participantes',
     'organizerCycleCollectingMultiTitle': '{count} encontros a cobrar',
     'organizerCycleCollectingMultiSubtitle':
         'Comece pela de {date}',
@@ -3556,7 +3620,7 @@ class TranslationMaps {
     'organizerCycleAllPaidMatchRef': 'Encontro de {date} · {place}',
     'organizerCycleAllPaidMatchDate': 'Encontro de {date}',
     'matchStatusConfirmedShort': 'Encontro confirmado',
-    'matchStatusWaitingShort': 'Faltam jogadores',
+    'matchStatusWaitingShort': 'Faltam participantes',
     'matchStatusEvaluatingShort': 'Decisão pendente',
     'matchStatusCupImpossibleShort': 'Encontro em risco',
     'matchStatusRescheduledShort': 'Encontro remarcada',
@@ -3564,14 +3628,14 @@ class TranslationMaps {
     'matchStatusPlayedShort': 'Encontro registrado',
     'matchStatusConfirmedTitle': 'Encontro confirmado',
     'matchStatusConfirmedBody':
-        '{confirmed} de {max} jogadores confirmados. Tudo pronto!',
-    'matchStatusWaitingTitle': 'Faltam jogadores',
+        '{confirmed} de {max} participantes confirmados. Tudo pronto!',
+    'matchStatusWaitingTitle': 'Faltam participantes',
     'matchStatusWaitingBody':
-        'Faltam {missing} jogador(es) para confirmar.',
+        'Faltam {missing} participante(s) para confirmar.',
     'matchStatusEvaluatingTitle': 'Decisão pendente',
     'matchStatusEvaluatingBody':
         'Faltam confirmações e o encontro está próxima.',
-    'matchStatusCupImpossibleTitle': 'Não há jogadores suficientes',
+    'matchStatusCupImpossibleTitle': 'Não há participantes suficientes',
     'matchStatusCupImpossibleBody':
         'O encontro não reúne as confirmações necessárias para jogar.',
     'matchStatusRescheduledTitle': 'Encontro remarcada',
@@ -3602,7 +3666,7 @@ class TranslationMaps {
     'reprogramSuccessSnack':
         'Encontro remarcada · {push} push · {whatsapp} WhatsApp',
     'remindPendingNoneSnack': 'Não há convites pendentes para lembrar',
-    'remindPendingSuccessSnack': 'Lembrete enviado a {count} jogadores',
+    'remindPendingSuccessSnack': 'Lembrete enviado a {count} participantes',
     'homeSportMode': 'Esporte principal: {sport}',
     'configScreenTitle': 'Configurações',
     'configOpenBackupSubtitle': 'Sincronização na nuvem e exportar PDF',
@@ -3668,7 +3732,7 @@ class TranslationMaps {
     'homeMatchMenuTitle': 'O que você quer fazer?',
     'homeOrganizeConvocatoria': 'Organizar convite',
     'homeOrganizeConvocatoriaSubtitle':
-        'Confirmar jogadores antes do encontro (sem cobranças)',
+        'Confirmar participantes antes do encontro (sem cobranças)',
     'homeRegisterPlayedMatch': 'Registrar encontro realizado',
     'homeRegisterPlayedMatchSubtitle': 'Cobranças, participantes e pagamentos',
     'homeActiveConvocatorias': 'Convites ativos',
@@ -3712,11 +3776,11 @@ class TranslationMaps {
     'homeNobodyOwes': 'Ninguém deve. Todos em dia.',
     'homeManualPaymentsHelpTitle': 'Pagamentos manuais',
     'homeManualPaymentsHelpBody':
-        'Registre aqui pagamentos em dinheiro ou fora do app.\n\nO usual é o jogador declarar o pagamento e enviar comprovante em Meus cobros; você valida em Pagamentos a validar.',
-    'homeDebtorsSummary': '{count} jogador(es) · Total {amount}',
-    'homeViewAllDebtors': 'Ver jogadores ({count})',
+        'Registre aqui pagamentos em dinheiro ou fora do app.\n\nO usual é o participante declarar o pagamento e enviar comprovante em Meus cobros; você valida em Pagamentos a validar.',
+    'homeDebtorsSummary': '{count} participante(s) · Total {amount}',
+    'homeViewAllDebtors': 'Ver participantes ({count})',
     'homePlanillaCompactHint':
-        'Registre pagamentos na ficha de cada jogador.',
+        'Registre pagamentos na ficha de cada participante.',
     'homePayFull': 'Pagamento total',
     'homePartialPayment': 'Abono',
     'homePartialAmountLabel': 'Valor do abono',
@@ -3725,15 +3789,15 @@ class TranslationMaps {
     'homeRegisterPartialPayment': 'Registrar abono',
     'homeClearSelection': 'Cancelar seleção',
     'homeRegisterFullPaymentCount': 'Registrar pagamento total ({count})',
-    'homePlayerSheetTitle': 'Ficha do jogador',
-    'homePlayerSheetSubtitle': 'Toque em um jogador para ver histórico e saldo',
-    'homeViewPlayerProfile': 'Ver ficha de um jogador',
-    'homeSelectedPlayers': '{count} jogador(es) selecionado(s)',
+    'homePlayerSheetTitle': 'Ficha do participante',
+    'homePlayerSheetSubtitle': 'Toque em um participante para ver histórico e saldo',
+    'homeViewPlayerProfile': 'Ver ficha de um participante',
+    'homeSelectedPlayers': '{count} participante(s) selecionado(s)',
     'homeSelectedAllUpToDate': 'Os selecionados já estão em dia.',
     'homePlayerBalanceLine': '{name} · Saldo {amount}',
     'homeOwesSuffix': 'deve {amount}',
     'homeBatchPaymentNote':
-        'Será registrado o pagamento total de cada jogador ({amount} no total).',
+        'Será registrado o pagamento total de cada participante ({amount} no total).',
     'errorAmountGreaterThanZero': 'Informe um valor maior que 0',
     'paymentConceptWithCredit': 'Abono com saldo a favor',
     'paymentConceptFull': 'Pagamento total',
@@ -3756,6 +3820,9 @@ class TranslationMaps {
     'breakdownToTransfer': 'A transferir',
     'breakdownCreditResult': 'Saldo a favor',
     'cobroStatusReceiptReview': 'Comprovante em revisão',
+    'cobroStatusReceiptSent': 'Comprovante enviado',
+    'cobroStatusReceiptRejected': 'Comprovante rejeitado',
+    'cobroStatusReceiptApproved': 'Comprovante aprovado',
     'paymentPendingApprovalTitle': 'Pagamento pendente de aprovação',
     'paymentPendingApprovalBody':
         'Você já declarou um pagamento ou abono e o organizador ainda não validou. '
@@ -3774,11 +3841,12 @@ class TranslationMaps {
     'snackDebtCleared': 'Dívida quitada · {name}',
     'snackPartialPayment': 'Abono {amount} · Resta {remaining} · {name}',
     'snackFullPaymentMultiple':
-        'Pagamento total registrado para {count} jogadores',
+        'Pagamento total registrado para {count} participantes',
     'matchesPlayedCount': '{count} encontros',
     'homePlayerRowSubtitle': '{count} encontros · Toque para abrir ficha',
     'homeConvocatoriaConfirmedLine': '{confirmed}/{max} confirmados',
     'homeConvocatoriaPendingShort': '{count} pendentes',
+    'homeNextConvocatoriaBadge': 'Próxima',
     'statusOwes': 'Pendente',
     'statusCredit': 'A favor',
     'statusUpToDate': 'Em dia',
@@ -3798,7 +3866,7 @@ class TranslationMaps {
     'configBankDataTitle': 'Dados bancários (para relatórios PDF)',
     'configPaymentInfoTitle': 'Como me pagar',
     'configPaymentInfoHint':
-        'Texto livre para transferências (PIX, alias, conta, IBAN…). Vai em avisos e WhatsApp, não no PDF.',
+        'Texto livre para transferências (PIX, alias, conta, IBAN…). Os participantes veem isso ao abrir a cobrança do seu grupo.',
     'configPaymentNameLabel': 'Em nome de',
     'configPaymentNameHint': 'Ex. Francisco Parra',
     'configPaymentDetailLabel': 'Dado para transferir',
@@ -3818,9 +3886,9 @@ class TranslationMaps {
         'É assim que o organizador e o grupo verão você nos convites.',
     'nameLabel': 'Nome',
     'emailLabel': 'E-mail (opcional)',
-    'playerNameRequired': 'Digite o nome do jogador',
+    'playerNameRequired': 'Digite o nome do participante',
     'playerDuplicateContact':
-        'Já existe um jogador com esse e-mail ou WhatsApp.',
+        'Já existe um participante com esse e-mail ou WhatsApp.',
     'emailFormatInvalid': 'E-mail inválido',
     'sendDebtWhatsApp': 'Enviar cobrança por WhatsApp',
     'contactWhatsAppTooltip': 'Contactar por WhatsApp',
@@ -3835,7 +3903,7 @@ class TranslationMaps {
     'sendConvocatoriaWhatsApp': 'Enviar convocação',
     'sendChargeWhatsAppBulk': 'Enviar cobrança por WhatsApp ({count})',
     'sendChargeWhatsAppBulkHint':
-        'Abre um chat por jogador. Repita para o restante.',
+        'Abre um chat por participante. Repita para o restante.',
     'whatsappOpening': 'Abrindo WhatsApp…',
     'whatsappOpenFailed': 'Não foi possível abrir o WhatsApp',
     'whatsappNoNumber':
@@ -3942,6 +4010,7 @@ class TranslationMaps {
     'playerStatAttendancePride': 'presença',
     'playerStatRecentMatches': 'últimos 90 dias',
     'playerStatConfirmedPride': 'confirmações',
+    'playerStatResponsePride': 'resposta',
     'playerStatOnTimePride': 'pagamentos em dia',
     'playerRecentMatchesTitle': 'Últimos encontros',
     'playerActivityTitle': 'Sua atividade',
@@ -3992,7 +4061,7 @@ class TranslationMaps {
     'playerHeroNextMatch': 'Próximo encontro',
     'playerHeroTapToReply': 'Toque para responder',
     'playerHeroConfirmRescheduled': 'Confirmar nova data',
-    'playerHeroCuposLine': 'Até {max} jogadores',
+    'playerHeroCuposLine': 'Até {max} participantes',
     'playerPerformanceTitle': 'Seu desempenho',
     'playerSummaryTitle': 'Resumo',
     'playerStatInvites': 'A responder',
@@ -4045,7 +4114,7 @@ class TranslationMaps {
         'Tem outro grupo que ainda usa WhatsApp?',
     'organizerNudgeAction': 'Saiba mais',
     'payBtn': 'Pagar',
-    'playerDefaultName': 'Jogador',
+    'playerDefaultName': 'Participante',
     'playerInvitedTitle': 'Você foi convocado',
     'playerInvitedSubtitle': '{count} encontro(s) aguardam sua resposta',
     'playerUpcomingTitle': 'Próximos encontros',
@@ -4075,6 +4144,16 @@ class TranslationMaps {
         'Seu pagamento será aplicado automaticamente às encontros pendentes',
     'cobrosViewCharge': 'Ver cobrança',
     'cobrosViewDetail': 'Ver detalhe',
+    'cobrosMatchBreakdownTitle': 'Detalhe do encontro',
+    'cobrosAccountSummaryTitle': 'Resumo da sua conta',
+    'paymentInfoLoading': 'Carregando dados de pagamento…',
+    'paymentInfoMissingOrganizer':
+        'Este organizador ainda não publicou como pagar. Pergunte no WhatsApp ou veja o aviso da cobrança.',
+    'paymentInfoPayToOrganizer': 'Como pagar ao organizador',
+    'paymentInfoPayToNamed': 'Como pagar a {name}',
+    'paymentInfoPayee': 'Em nome de: {name}',
+    'paymentInfoCopied': 'Dados de pagamento copiados',
+    'copyPaymentInfoTooltip': 'Copiar dados de pagamento',
     'cobrosViewChargeTitle': 'Detalhe do encontro',
     'cobrosGoToPay': 'Ir para pagar',
     'cobrosPayDialogTitle': 'Confirmar pagamento total',
@@ -4099,7 +4178,7 @@ class TranslationMaps {
     'viewChargesAndPay': 'Ver cobros e pagar',
     'myCharges': 'Meus cobros',
     'organizerPlayerUpToDate':
-        'Como jogador você está em dia. Pague aqui se for incluído em um encontro.',
+        'Como participante você está em dia. Pague aqui se for incluído em um encontro.',
     'viewMyChargesTab': 'Ir para meus cobros',
     'playerAllQuietTitle': 'Tudo tranquilo por enquanto',
     'playerAllQuietBody':
@@ -4154,7 +4233,7 @@ class TranslationMaps {
     'historyPastConvocatoriasSubtitle':
         'Passou a data do encontro · registre cobranças ou exclua',
     'historyMatchesCountTitle': '{count} encontros',
-    'historyPendingChargesSubtitle': '{count} jogador(es) com cobrança pendente',
+    'historyPendingChargesSubtitle': '{count} participante(s) com cobrança pendente',
     'historyAllChargesPaid': 'Todas as cobranças em dia ✓',
     'historyTapMatchHelp':
         'Toque em um encontro para ver detalhes. '
@@ -4174,7 +4253,7 @@ class TranslationMaps {
         'Aparecem quem paga em dia sem inadimplências pendentes.',
     'rankingNoWorstTitle': 'Ninguém na lista negra!',
     'rankingNoWorstSubtitle':
-        'Não há jogadores com inadimplências ou pagamentos atrasados.',
+        'Não há participantes com inadimplências ou pagamentos atrasados.',
     'convocatoriaConfirmedLine': 'Confirmado · {date} · {time}',
     'convocatoriaConfirmedCount':
         '{confirmed}/{max} confirmados · {invited} convidados',
@@ -4183,7 +4262,7 @@ class TranslationMaps {
     'deleteMatchMessageWithVenue':
         'Você vai excluir o encontro de {date} em {venue}.',
     'matchDeleted': 'Encontro excluído',
-    'matchPlayersCount': '{count} jogadores',
+    'matchPlayersCount': '{count} participantes',
     'matchAllPaid': 'Todos pagaram',
     'matchUnpaidCount': '{count} sem pagar',
     'rankingBestStat': '{onTime} pagamentos em dia · {percent}%',
@@ -4192,12 +4271,12 @@ class TranslationMaps {
     'backupLocalTitle': 'Backup local e relatórios',
     'backupSupabaseTitle': 'Sincronização ativa',
     'backupSupabaseBody':
-        'Jogadores, encontros, cobranças e saldos ficam na nuvem e '
+        'Participantes, encontros, cobranças e saldos ficam na nuvem e '
         'atualizam sozinhos. Não é um backup manual: é sua base de dados online.',
     'backupSupabaseWhatStores':
         'Inclui convites, pagamentos validados e saldos. '
-        'Comprovantes de pagamento só ficam guardados enquanto você revisa; '
-        'ao aprovar ou rejeitar são apagados para não ocupar armazenamento.',
+        'Comprovantes (pagamentos e gastos) ficam na nuvem por até 14 dias '
+        'após o envio; depois são apagados automaticamente.',
     'backupExportImportTitle': 'Exportar / Importar',
     'backupOfflineHint':
         'Modo offline: faça cópia de segurança manualmente antes de trocar de telemóvel.',
@@ -4234,9 +4313,9 @@ class TranslationMaps {
     'asistenciasStatPending': 'Pendentes',
     'asistenciasStatDeclined': 'Não vão',
     'asistenciasStatInvited': 'Convidados',
-    'asistenciasStartersTitle': 'Titulares ({count})',
-    'asistenciasSubsTitle': 'Reservas ({count})',
-    'asistenciasSubsEmpty': 'Sem reservas na espera',
+    'asistenciasStartersTitle': 'Convidados ({count})',
+    'asistenciasSubsTitle': 'Lista de espera ({count})',
+    'asistenciasSubsEmpty': 'Ninguém na lista de espera',
     'asistenciasDeclinedTitle': 'Não vão ({count})',
     'asistenciasSeeAllStarters': 'Ver todos os titulares',
     'asistenciasSeeAllSubs': 'Ver todas as reservas',
@@ -4252,38 +4331,42 @@ class TranslationMaps {
     'asistenciasManualSnackDeclined': '{name} · Não vai',
     'asistenciasManualSnackPending': '{name} · Pendente',
     'asistenciasRemindPending': 'Lembrar pendentes',
-    'asistenciasEditDetails': 'Editar dados do encontro',
+    'asistenciasEditDetails': 'Editar participantes',
     'organizeAutoConfirmedSnack':
         'Vagas completas: encontro confirmado automaticamente',
     'organizePromotedFromWaitlist':
-        '{count} jogador(es) promovido(s) da lista de espera',
-    'organizeMaxStartersError': 'Máximo {max} titulares (vagas do encontro)',
+        '{count} participante(s) promovido(s) da lista de espera',
+    'organizeMaxStartersError':
+        'Máximo {max} participantes (vagas do encontro)',
     'organizeSlotsFullError':
         'Vagas cheias ({max}/{max}). Marque alguém como "Não vai" para liberar uma vaga.',
     'organizeSelectStarterOrSub':
-        'Selecione pelo menos um titular ou suplente',
+        'Selecione pelo menos um participante',
     'organizeNominateStartersError':
-        'Você deve indicar {max} titulares (vagas do encontro). Atualmente: {current}.',
-    'organizeMaxStartersShort': 'Máximo {max} titulares',
+        'Você deve selecionar {max} participantes (vagas do encontro). Atualmente: {current}.',
+    'organizeMaxStartersShort': 'Máximo {max} participantes',
     'organizeStartersNoProfileError':
-        'Há titulares sem perfil no Supabase. Verifique se têm e-mail em Jogadores.',
+        'Há participantes sem perfil no Supabase. Verifique se têm e-mail em Participantes.',
     'organizeExitWithoutSavingTitle': 'Sair sem salvar?',
+    'organizeExitConfirmTitle': 'Sair?',
     'organizeExitStatesSavedBody':
-        'As mudanças de status são salvas ao sair.',
+        'Se você adicionou ou removeu pessoas da lista e ainda não salvou, '
+        'essas mudanças serão perdidas.',
     'organizeExitDraftBody':
         'Você pode salvar um rascunho e retomá-lo no Início.',
     'organizeKeepEditing': 'Continuar editando',
     'organizeExitWithoutSaving': 'Sair sem salvar',
+    'organizeExitConfirmAction': 'Sair',
     'organizeSaveDraft': 'Salvar rascunho',
     'organizeMatchAlreadyConfirmed': 'O encontro já está confirmada',
     'organizeInviteAlreadySent': 'O convite já foi enviado',
-    'organizeSelectAtLeastOneStarter': 'Selecione pelo menos um titular',
+    'organizeSelectAtLeastOneStarter': 'Selecione pelo menos um participante',
     'organizeInviteSentSnack': 'Convite enviado',
     'organizeSendFailed': 'Não foi possível enviar: {error}',
     'organizeNoConfirmedTitle': 'Sem confirmados',
     'organizeNoConfirmedBody':
         'Ninguém está marcado como confirmado. '
-        'Registrar cobranças mesmo assim selecionando jogadores manualmente?',
+        'Registrar cobranças mesmo assim selecionando participantes manualmente?',
     'organizeDeleteInviteTitle': 'Excluir convite',
     'organizeDeleteInviteMessage':
         'Você vai excluir este convite por completo.',
@@ -4293,22 +4376,26 @@ class TranslationMaps {
         'Não ficará registro deste encontro no app.',
     'organizeDeleteInviteConsequence3':
         'Esta ação é permanente e não pode ser desfeita.',
+    'organizeDeleteRedirectCancelBody':
+        'Há {count} pessoa(s) confirmada(s). Não é possível excluir em silêncio: o encontro será cancelado e elas serão avisadas.',
+    'organizeDeleteRedirectCancelConsequence1':
+        'Os participantes confirmados receberão aviso de cancelamento.',
     'organizeLoadFailed': 'Não foi possível carregar o convite',
     'organizeHelpConfirmed':
         'O grupo já está confirmado. Quando o encontro for realizado, '
         'use "Ir cobrar" para registrar os pagamentos.',
     'organizeHelpTracking':
-        'Jogadores com app respondem pelo Kloovi em tempo real. '
+        'Participantes com app respondem pelo Kloovi em tempo real. '
         'Para quem não tem app, envie o convite por WhatsApp '
         'ou registre a resposta tocando o status.',
     'organizePastDateBanner':
         'A data do encontro já passou. Registre as cobranças de quem '
         'compareceu ou exclua o convite se não aconteceu.',
     'organizeHelpDraft':
-        'Preencha os dados, escolha titulares e suplentes '
+        'Preencha os dados, escolha quem convidar '
         'e toque em "Enviar convite". Eles receberão push.',
     'organizeConfirmedBar':
-        'Confirmado · {confirmed}/{max} jogadores',
+        'Confirmado · {confirmed}/{max} participantes',
     'organizeTrackingBar':
         'Acompanhamento ativo · {confirmed}/{max} confirmados · {pending} pendentes',
     'organizeAutoConfirmInProgress':
@@ -4324,9 +4411,9 @@ class TranslationMaps {
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmados · {pending} pendentes · {waiting} em espera',
     'organizeSummarySlotsFull':
-        'Vagas cheias · {starters} titulares',
+        'Vagas cheias · {starters} convidados',
     'organizeSummarySlotsAvailable':
-        '{available} vaga(s) livre(s) · {starters} titulares · {subs} suplentes',
+        '{available} vaga(s) livre(s) · {starters} convidados · {subs} em espera',
     'organizeRecentVenues': 'Locais recentes',
     'organizeMaxSlotsLabel': 'Vagas máximas',
     'organizeResponseDeadlineLabel': 'Prazo para confirmar',
@@ -4345,34 +4432,40 @@ class TranslationMaps {
         'A data do encontro deve ser no futuro',
     'organizeHoursCount': '{n} hora(s)',
     'organizeAddRegularPlayersFirst': 'Adicione participantes habituais primeiro',
-    'organizeStartersTitle': 'Titulares (máx. {max})',
+    'organizeStartersTitle': 'Quem você quer convidar?',
     'organizeAutoSelect': 'Auto',
     'organizeClearSelection': 'Limpar',
+    'organizeSearchHint': 'Buscar pessoa',
     'organizeStartersHintTracking':
         'Com app: respondem sozinhos. Sem app: toque o status para registrar.',
     'organizeStartersHintDraft':
-        'Marque titulares antes de enviar o convite.',
+        'Selecione até {max} pessoas que receberão este convite. '
+        'Se marcar mais, elas vão para a lista de espera.',
     'organizeWhatsAppNoAppTitle': 'Convite por WhatsApp',
     'organizeWhatsAppNoAppSubtitle':
-        '{count} jogador(es) sem app · {withWhatsApp} com WhatsApp',
+        '{count} participante(s) sem app · {withWhatsApp} com WhatsApp',
     'organizeWhatsAppNoAppHint':
-        'Envie a mensagem de convite a cada jogador sem app. '
+        'Envie a mensagem de convite a cada participante sem app. '
         'Depois registre a resposta tocando o status na lista.',
-    'organizeWhatsAppNoAppButton': 'WhatsApp · jogadores sem app',
+    'organizeWhatsAppNoAppButton': 'WhatsApp · participantes sem app',
     'organizeWhatsAppNoAppPlayerStatus': 'Status: {status}',
     'organizeStatusRespondInApp': 'Responde pelo app',
     'organizeWaitlistTitle': 'Lista de espera (ordem de prioridade)',
     'organizeWaitlistHint':
-        'Defina quem entra primeiro se liberar uma vaga. '
+        'Vazia até você marcar mais pessoas na lista acima. '
         'Arraste para mudar a prioridade (1 = primeiro).',
     'organizeWaitlistHintTracking':
         'Você pode reordenar a prioridade até a hora do encontro.',
+    'organizeWaitlistNeedFullSlots':
+        'Complete as vagas do convite para montar a lista de espera.',
     'organizeWaitlistEmpty':
-        'Adicione suplentes pelos botões acima. Você define a ordem.',
+        'Ninguém na espera. Com as vagas cheias, marque mais pessoas acima '
+        'para adicioná-las aqui.',
+    'organizeWaitlistBadge': 'Na espera',
     'organizeWaitlistRemove': 'Remover da lista de espera',
     'organizeWaitlistAddedSnack': '{name} adicionado à lista de espera',
     'organizeWaitlistPriority': 'Prioridade {n}',
-    'organizeSelectStartersAndSubs': 'Selecione titulares e/ou suplentes',
+    'organizeSelectStartersAndSubs': 'Selecione quem você quer convidar',
     'statusConfirmed': 'Confirmado',
     'statusDeclined': 'Não vai',
     'statusNoResponse': 'Sem resposta',
@@ -4500,11 +4593,11 @@ class TranslationMaps {
     'editMatchTitle': 'Editar encontro',
     'newMatchTitle': 'Novo encontro',
     'collaborativeModeHint':
-        'Modo colaborativo: cada jogador vê seu valor no app e envia comprovante. '
+        'Modo colaborativo: cada participante vê seu valor no app e envia comprovante. '
         'Você valida o pagamento no detalhe do encontro.',
     'addPlayersFirst': 'Primeiro adicione participantes habituais',
     'goToPlayers': 'Ir para Participantes',
-    'matchConfirmedLine': 'Encontro confirmado · {players}',
+    'matchConfirmedLine': 'Encontro confirmado · {participants}',
     'onePlayer': '1 participante',
     'chargeStepsHint': '1) Participantes → 2) Despesas e pagamentos',
     'editingExistingMatch': 'Editando encontro existente',
@@ -4518,20 +4611,20 @@ class TranslationMaps {
     'matchExpensesSubtitle': 'Quanto custou e como se divide',
     'enterExpensesHere': 'Informe as despesas aqui',
     'enterExpensesHint':
-        'Quadra, bolas ou outros. Dividem-se entre os jogadores '
+        'Quadra, bolas ou outros. Dividem-se entre os participantes '
         'marcados no passo 2.',
-    'onePlayerSplitsExpenses': '1 jogador divide as despesas do grupo',
-    'nPlayersSplitExpenses': '{count} jogadores dividem as despesas do grupo',
+    'onePlayerSplitsExpenses': '1 participante divide as despesas do grupo',
+    'nPlayersSplitExpenses': '{count} participantes dividem as despesas do grupo',
     'forWholeGroup': 'Para todo o grupo',
     'allAttendeesPaySame': 'Todos os presentes pagam o mesmo',
     'courtAndBallsPerPerson':
         'Quadra {court} c/u · Bolas {balls} c/u',
-    'perPersonWithCount': '{amount} c/u · {count} jogadores',
+    'perPersonWithCount': '{amount} c/u · {count} participantes',
     'enterAttendeesToCalcPerPerson': 'Informe presentes para calcular c/u',
-    'participantsInStep2': 'Selecione jogadores no passo 2',
+    'participantsInStep2': 'Selecione participantes no passo 2',
     'playersNoneSelected': 'Nenhum selecionado · {total} na lista',
     'playersSelectedCount': '{count} de {total} selecionados',
-    'playersSearchHint': 'Buscar jogador',
+    'playersSearchHint': 'Buscar participante',
     'playersClearSelection': 'Limpar',
     'playersSelectFiltered': 'Selecionar {count}',
     'playersSelectFilteredHint': 'Marque os resultados do filtro',
@@ -4545,17 +4638,17 @@ class TranslationMaps {
     'playersCollapseList': 'Ocultar lista',
     'stepNumber': 'Passo {n}',
     'individualChargeTip':
-        'Um jogador pagou algo só para ele? Use '
+        'Um participante pagou algo só para ele? Use '
         '"Cobrança extra" na linha dele acima (raquete, multa, etc.).',
     'totalAmountLabel': 'Valor total',
     'perPersonParticipants': '{amount} c/u · {count} participam',
     'whoParticipated': 'Quem participou? ({count})',
     'all': 'Todos',
     'none': 'Nenhum',
-    'confirmedPlayersTitle': 'Jogadores confirmados',
-    'playersAndPaymentsTitle': 'Jogadores e pagamentos',
+    'confirmedPlayersTitle': 'Participantes confirmados',
+    'playersAndPaymentsTitle': 'Participantes e pagamentos',
     'playersCloudSubtitle':
-        'Os pagamentos são geridos pelos jogadores no app',
+        'Os pagamentos são geridos pelos participantes no app',
     'playersOrganizingSubtitle':
         'Confirmados prontos — indique quanto cada um pagou',
     'playersLocalSubtitle': 'Marque quem compareceu e quanto pagou',
@@ -4597,7 +4690,7 @@ class TranslationMaps {
         '{name}: toque em "Confirmar abono" antes de salvar',
     'errorSaveExtraChargeFirst':
         '{name}: toque em "Salvar cobrança" na cobrança extra pendente',
-    'errorMarkAtLeastOnePlayer': 'Marque pelo menos um jogador presente',
+    'errorMarkAtLeastOnePlayer': 'Marque pelo menos um participante presente',
     'errorSharedExpenseName': 'Escreva o nome da despesa compartilhada',
     'errorMarkParticipants': 'Marque quem participou em "{label}"',
     'errorSaving': 'Erro ao salvar: {error}',
@@ -4610,7 +4703,7 @@ class TranslationMaps {
     'saveMatch': 'Salvar encontro',
     'confirmSaveMatchTitle': 'Salvar encontro?',
     'confirmSaveMatchBody':
-        'Revise se despesas e jogadores estão corretos antes de confirmar.',
+        'Revise se despesas e participantes estão corretos antes de confirmar.',
     'confirmSaveChargesBody':
         'Revise cobranças e participantes antes de registrar o encontro.',
     'finalSummaryTitle': 'Resumo final',
@@ -4654,7 +4747,7 @@ class TranslationMaps {
     'snackPartialWithCredit': 'Abono {amount} · Saldo a favor: {credit}',
     'snackDebtClearedShort': 'Dívida quitada',
     'snackPartialRemainingShort': 'Abono {amount} · Resta {remaining}',
-    'playerNoEmail': 'Este jogador não tem email cadastrado',
+    'playerNoEmail': 'Este participante não tem email cadastrado',
     'pushSentTo': 'Notificação push enviada para {name}',
     'pushSendFailed': 'Não foi possível enviar: {error}',
     'playerSheetLoadFailed': 'Não foi possível carregar a ficha',
@@ -4763,7 +4856,7 @@ class TranslationMaps {
     'noMatchesRegistered': 'Sem encontros registrados',
     'pdfLabel': 'PDF',
     'paidVerb': 'Pagou',
-    'matchListSubtitle': '{players} jogadores · {amount}{unpaid}',
+    'matchListSubtitle': '{participants} participantes · {amount}{unpaid}',
     'matchUnpaidSuffix': ' · {count} sem pagar',
     'paymentsToValidateTitle': 'Pagamentos a validar',
     'paymentsToValidateSubtitle':
@@ -4780,7 +4873,7 @@ class TranslationMaps {
         'Conciliar o pagamento de {amount} de {name}?',
     'rejectReceiptMessage':
         'Rejeitar o comprovante de {name}? Poderá enviar um novo.',
-    'thisPlayer': 'este jogador',
+    'thisPlayer': 'este participante',
     'yesReconcile': 'Sim, conciliar',
     'yesReject': 'Sim, rejeitar',
     'partialReceivedUpdated': 'Abono recebido · saldo atualizado',
@@ -4799,7 +4892,7 @@ class TranslationMaps {
         'Você ficará marcado como confirmado para o encontro de {date}.',
     'respondDeclineBodyConvocate':
         'O organizador verá que você não pode ir e poderá convocar '
-        'outro jogador.',
+        'outro participante.',
     'attendanceConfirmedSnack': 'Presença confirmada',
     'responseSentOrganizer': 'Resposta enviada ao organizador',
     'pendingConvocatoria': 'Convite pendente',
@@ -4846,12 +4939,12 @@ class TranslationMaps {
     'matchDetailHelpTip':
         'Quem tem Kloovi (Android) vê a cobrança no app e pode receber um aviso push. '
         'No iPhone ou sem o app, copie a mensagem ou envie um PDF pelo WhatsApp/e-mail.',
-    'playersChargesTitle': 'Jogadores e cobranças',
+    'playersChargesTitle': 'Participantes e cobranças',
     'playersChargesSubtitle': 'Status e detalhe de cada um',
     'shareOutsideAppTitle': 'Compartilhar fora do app',
     'shareOutsideAppSubtitle': 'iPhone ou outros sem Kloovi',
     'shareOutsideAppHint':
-        'Use “Copiar mensagem” em cada jogador ou gere o PDF do encontro para enviar pelo WhatsApp ou e-mail.',
+        'Use “Copiar mensagem” em cada participante ou gere o PDF do encontro para enviar pelo WhatsApp ou e-mail.',
     'notifyInAppTooltip': 'Avisar no app',
     'copyChargeMessageTooltip': 'Copiar mensagem (WhatsApp / iPhone)',
     'chargeMessageCopied': 'Mensagem copiada · cole no WhatsApp ou e-mail',
@@ -4859,24 +4952,27 @@ class TranslationMaps {
         'Sem perfil no app. Copie a mensagem ou envie o PDF.',
     'noAppShort': 'Sem app',
     'remindDebtorsWithApp': 'Avisar {count} com app',
-    'matchRemindersSent': 'Avisamos {count} jogador(es) no app',
-    'matchSummaryAllPaid': 'Todos em dia ({count} jogadores)',
+    'matchRemindersSent': 'Avisamos {count} participante(s) no app',
+    'matchSummaryAllPaid': 'Todos em dia ({count} participantes)',
     'matchSummaryPending':
         '{pending} de {total} pendentes · {amount}',
     'generalReportTitle': 'Relatório geral',
-    'generalReportSubtitle': 'Todos os jogadores em um único PDF',
+    'generalReportSubtitle': 'Todos os participantes em um único PDF',
     'generatingPdf': 'Gerando PDF...',
     'generateMatchPdf': 'Gerar PDF do encontro',
     'individualReportsTitle': 'Relatórios individuais',
     'individualReportsSubtitle': 'Envie um a um para mais privacidade',
     'chargeBreakdownTitle': 'Detalhamento de cobranças',
-    'chargeBreakdownSubtitle': 'Detalhe por jogador',
+    'chargeBreakdownSubtitle': 'Detalhe por participante',
     'paidOk': 'Pago OK',
     'partialOwesShort': 'Parcial - deve {amount}',
     'individualPdfTooltip': 'PDF individual',
     'creditedAmountLabel': 'Saldo a favor {amount}',
     'accountCreditAfterMatchNote':
         '{amount} a favor na conta (será descontado no próximo encontro)',
+    'matchDetailAccountCredit': 'Conta: saldo a favor {amount}',
+    'matchDetailAccountDebt': 'Conta: pendente {amount}',
+    'matchDetailAccountSettled': 'Conta: em dia',
     'paidShort': 'Pago',
     'paidPartialAmount': 'Abonado {amount}',
     'pendingStatus': 'Pendente',
@@ -4895,7 +4991,7 @@ class TranslationMaps {
     'sendRemindersTitle': 'Enviar lembretes',
     'sendRemindersBody':
         'Serão enviadas {count} notificação(ões) push '
-        'para jogadores com o app instalado.\n\n'
+        'para participantes com o app instalado.\n\n'
         'Quem não tiver Android pode receber a mensagem copiada manualmente.',
     'sendBtn': 'Enviar',
     'remindersSentSummary':
@@ -4907,9 +5003,9 @@ class TranslationMaps {
     'reminderSentTo':
         'Pronto: já avisamos {name}. Ele receberá um alerta no app.',
     'messageCopied': 'Mensagem copiada · cole no WhatsApp ou email',
-    'debtorsSummaryLine': '{count} jogadores · Total {amount}',
+    'debtorsSummaryLine': '{count} participantes · Total {amount}',
     'reminderPushHint':
-        'Push para jogadores com o app. '
+        'Push para participantes com o app. '
         'Sem Android/iPhone: use "Copiar mensagem" e envie manualmente.',
     'owesNoAppLine': 'Deve {amount} · Sem app',
     'copyMessageTooltip': 'Copiar mensagem manual',
@@ -4920,10 +5016,10 @@ class TranslationMaps {
     'matchDateLine': 'Encontro {date}',
     'sendReportsHelpTip':
         'PDF geral = encontro completa. '
-        'PDF ao lado de cada jogador = relatório privado.',
+        'PDF ao lado de cada participante = relatório privado.',
     'generating': 'Gerando...',
     'generalPdf': 'PDF geral',
-    'tapPdfPerPlayer': 'Toque em PDF ao lado de cada jogador:',
+    'tapPdfPerPlayer': 'Toque em PDF ao lado de cada participante:',
     'paidCheck': 'PAGO ✓',
     'partialOwesLine': 'Parcial {paid} · Deve {remaining}',
     'owesColon': 'Deve: {amount}',
@@ -4937,34 +5033,34 @@ class TranslationMaps {
     'convocatoriaNotFoundSnack':
         'Não encontramos sua convocação. Atualize o início ou fale com o organizador.',
     'noUnpaidPlayersDeadline':
-        'Nenhum jogador inadimplente atende ao prazo',
-    'unpaidPlayersTitle': 'Jogadores inadimplentes',
+        'Nenhum participante inadimplente atende ao prazo',
+    'unpaidPlayersTitle': 'Participantes inadimplentes',
     'debtOlderThanDay': 'Dívida há mais de {days} dia',
     'debtOlderThanDays': 'Dívida há mais de {days} dias',
     'debtChartAllUpToDate': 'Todos em dia!',
-    'debtChartOnePlayerUpToDate': '{count} jogador sem dívida pendente',
-    'debtChartPlayersUpToDate': '{count} jogadores sem dívida pendente',
+    'debtChartOnePlayerUpToDate': '{count} participante sem dívida pendente',
+    'debtChartPlayersUpToDate': '{count} participantes sem dívida pendente',
     'debtChartToCollect': 'A receber',
-    'debtChartOneDebtorLine': '1 jogador · Total {amount}',
-    'debtChartDebtorsLine': '{count} jogadores · Total {amount}',
+    'debtChartOneDebtorLine': '1 participante · Total {amount}',
+    'debtChartDebtorsLine': '{count} participantes · Total {amount}',
     'debtChartRemindPush': 'Lembrar por push',
     'debtChartShowLess': 'Ver menos',
     'debtChartShowMore': 'Ver mais {count}',
     'notifChannelRemindersName': 'Lembretes de cobrança',
     'notifChannelRemindersDesc':
-        'Avisos de jogadores com pagamentos pendentes',
+        'Avisos de participantes com pagamentos pendentes',
     'notifChannelConvocatoriaName': 'Convocações',
     'notifChannelConvocatoriaDesc':
         'Convites para encontros',
-    'notifDailyBody': 'Verifique se há jogadores com pagamentos pendentes',
-    'notifOnePlayerUnpaidTitle': '1 jogador não pagou',
-    'notifNPlayersUnpaidTitle': '{count} jogadores não pagaram',
+    'notifDailyBody': 'Verifique se há participantes com pagamentos pendentes',
+    'notifOnePlayerUnpaidTitle': '1 participante não pagou',
+    'notifNPlayersUnpaidTitle': '{count} participantes não pagaram',
     'notifOnePlayerUnpaidBody':
         '{name} está há mais de {days} dias sem pagar. Toque para enviar lembrete.',
     'notifOnePlayerUnpaidBodyOneDay':
         '{name} está há mais de 1 dia sem pagar. Toque para enviar lembrete.',
     'notifNPlayersUnpaidBody':
-        'Há {count} jogadores com dívida há mais de {days} dias. Toque para enviar lembretes.',
+        'Há {count} participantes com dívida há mais de {days} dias. Toque para enviar lembretes.',
     'notifTestTitle': 'Lembrete de teste',
     'notifTestBody':
         'As notificações estão ativas. Toque para abrir lembretes.',
@@ -5026,8 +5122,8 @@ class TranslationMaps {
     'openVenueMapError': 'Não foi possível abrir o mapa',
     'notifPromocionBodyInApp':
         '📍 {venue} · {date} · Responda em {hours} h no app',
-    'notifOrganizerConfirmTitle': '✅ Confirmação de jogador',
-    'notifOrganizerDeclineTitle': '❌ Jogador não pode ir',
+    'notifOrganizerConfirmTitle': '✅ Confirmação de participante',
+    'notifOrganizerDeclineTitle': '❌ Participante não pode ir',
     'notifOrganizerConfirmBody':
         '{name} confirmou presença no encontro de {date}.',
     'notifOrganizerDeclineBody':

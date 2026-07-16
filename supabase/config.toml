@@ -1,0 +1,3 @@
+# Minimal project config for Edge Function JWT settings.
+[functions.purge-comprobantes]
+verify_jwt = false

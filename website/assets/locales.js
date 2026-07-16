@@ -130,7 +130,7 @@ window.KLOOVI_LOCALES = {
       <p>El sitio web puede utilizar cookies o almacenamiento local estrictamente necesarios para su funcionamiento (por ejemplo, recordar el idioma seleccionado). No usamos el sitio como intermediario de pagos.</p>
 
       <h2>10. Conservación y eliminación de cuenta</h2>
-      <p>Conservamos datos mientras mantengas la cuenta y sea necesario para el servicio. Puedes eliminar tu cuenta desde la aplicación (si la función está disponible) o solicitándolo por correo a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. Atenderemos la solicitud en un plazo razonable, sin perjuicio de retenciones legales o de seguridad mínimas.</p>
+      <p>Conservamos datos mientras mantengas la cuenta y sea necesario para el servicio. Los comprobantes fotográficos (pagos y gastos) se eliminan automáticamente de nuestro almacenamiento a los 14 días desde la subida. Puedes eliminar tu cuenta desde la aplicación (si la función está disponible) o solicitándolo por correo a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. Atenderemos la solicitud en un plazo razonable, sin perjuicio de retenciones legales o de seguridad mínimas.</p>
 
       <h2>11. Seguridad</h2>
       <p>Aplicamos medidas técnicas y organizativas razonables (control de acceso, transmisión cifrada en tránsito con HTTPS). Ningún sistema es 100% infalible.</p>
@@ -334,7 +334,7 @@ window.KLOOVI_LOCALES = {
       <p>The website may use cookies or local storage strictly necessary for operation (for example, remembering the selected language). The website is not a payment intermediary.</p>
 
       <h2>10. Retention and account deletion</h2>
-      <p>We keep data while your account exists and as needed for the service. You may delete your account from the app (if that feature is available) or by emailing <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. We will handle requests within a reasonable time, subject to minimal legal or security retention where required.</p>
+      <p>We keep data while your account exists and as needed for the service. Photo receipts (payments and expenses) are deleted automatically from our storage 14 days after upload. You may delete your account from the app (if that feature is available) or by emailing <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. We will handle requests within a reasonable time, subject to minimal legal or security retention where required.</p>
 
       <h2>11. Security</h2>
       <p>We apply reasonable technical and organizational measures (access control, HTTPS in transit). No system is 100% secure.</p>
@@ -535,7 +535,7 @@ window.KLOOVI_LOCALES = {
       <p>O site pode usar cookies ou armazenamento local estritamente necessários (por exemplo, lembrar o idioma). O site não é intermediário de pagamentos.</p>
 
       <h2>10. Conservação e exclusão de conta</h2>
-      <p>Mantemos dados enquanto a conta existir. Você pode excluir sua conta no aplicativo (se a função estiver disponível) ou solicitando por e-mail a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
+      <p>Mantemos dados enquanto a conta existir. Comprovantes fotográficos (pagamentos e gastos) são apagados automaticamente do nosso armazenamento 14 dias após o envio. Você pode excluir sua conta no aplicativo (se a função estiver disponível) ou solicitando por e-mail a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
 
       <h2>11. Segurança</h2>
       <p>Aplicamos medidas razoáveis (controle de acesso, HTTPS). Nenhum sistema é 100% seguro.</p>

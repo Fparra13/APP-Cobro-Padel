@@ -28,16 +28,24 @@ class SupabaseStorageService {
     return _imageMimeByExt[ext] ?? 'image/jpeg';
   }
 
+  /// Sube al bucket [comprobantes].
+  ///
+  /// [subfolder] opcional, p. ej. `gastos` o `gastos/42` →
+  /// `{userId}/gastos/42/{ts}.jpg`.
   Future<String> uploadComprobante({
     required String userId,
     required File file,
     String? nombreArchivo,
+    String? subfolder,
   }) async {
     final client = SupabaseHelpers.client;
     final ext = p.extension(file.path).isEmpty ? '.jpg' : p.extension(file.path);
     final name = nombreArchivo ??
         '${DateTime.now().millisecondsSinceEpoch}$ext';
-    final path = '$userId/$name';
+    final folder = (subfolder == null || subfolder.isEmpty)
+        ? userId
+        : '$userId/${subfolder.replaceAll(RegExp(r'^/+|/+$'), '')}';
+    final path = '$folder/$name';
     final contentType = _contentTypeForPath(name);
 
     await client.storage.from(bucket).upload(

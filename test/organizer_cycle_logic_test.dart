@@ -30,12 +30,14 @@ DetallePartido _detalle({
 PartidoCompleto _partido(
   List<DetallePartido> detalles, {
   Map<String, double> saldos = const {},
+  Map<String, double> cuentas = const {},
 }) {
   final fecha = DateTime(2026, 7, 3, 21, 9);
   return PartidoCompleto(
     partido: Partido(fecha: fecha, createdAt: fecha),
     detalles: detalles,
     saldoAnteriorPorJugador: saldos,
+    saldoCuentaPorJugador: cuentas,
   );
 }
 
@@ -71,6 +73,55 @@ void main() {
       isTrue,
     );
     expect(pendienteOrganizadorDetalle(d, saldoAnteriorPartido: -5000), 5000);
+  });
+
+  test('cuenta a favor anula cobro pendiente del detalle (SSOT)', () {
+    final d = _detalle(
+      total: 6500,
+      montoPagado: 0,
+      pagado: false,
+      jugadorSupabaseId: 'diego',
+    );
+    expect(
+      detalleCobroOrganizadorPendiente(
+        d,
+        saldoAnteriorPartido: 0,
+        saldoAcumuladoCuenta: -1000,
+      ),
+      isFalse,
+    );
+    expect(
+      detalleCobroOrganizadorPendiente(
+        d,
+        saldoAnteriorPartido: 0,
+        saldoAcumuladoCuenta: 5000,
+      ),
+      isTrue,
+    );
+  });
+
+  test('historial no cuenta sin pagar si la cuenta está a favor', () {
+    final pc = _partido(
+      [
+        _detalle(
+          total: 6500,
+          montoPagado: 0,
+          pagado: false,
+          jugadorSupabaseId: 'diego',
+        ),
+        _detalle(
+          total: 6500,
+          montoPagado: 6500,
+          pagado: true,
+          jugadorSupabaseId: 'otro',
+        ),
+      ],
+      saldos: {'diego': 0, 'otro': 0},
+      cuentas: {'diego': -1000, 'otro': 0},
+    );
+    expect(pc.contarAsistentesConDeudaNeta(), 0);
+    expect(cobrosOrganizadorPendientes(pc), isEmpty);
+    expect(jugadoresPendientesUnicos([pc]), 0);
   });
 
   test('partido cerrado cuando todos los asistentes pagaron neto', () {

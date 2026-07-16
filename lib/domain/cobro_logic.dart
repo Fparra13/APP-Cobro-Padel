@@ -379,6 +379,42 @@ class CobroLogic {
         montoPagado: montoPagado,
       );
 
+  /// Pendiente a cubrir en FIFO de abonos sobre un detalle.
+  ///
+  /// Si [saldoAnterior] es crédito (&lt; 0), reduce el cargo de ESTE partido.
+  /// Si es deuda (&gt; 0), esa deuda ya vive en partidos más antiguos: aquí solo
+  /// cuenta el hueco del cargo (`total − monto_pagado`). Así no se cobra dos
+  /// veces la misma deuda al liquidar de antiguo → reciente.
+  static double pendienteFifoDetalle({
+    required double saldoAnterior,
+    required double cargoPartido,
+    required double montoPagadoEnPartido,
+  }) {
+    if (saldoAnterior < -0.005) {
+      return obtenerPendientePartido(
+        saldoAnteriorAlPartido: saldoAnterior,
+        cargoPartido: cargoPartido,
+        montoPagadoEnPartido: montoPagadoEnPartido,
+      );
+    }
+    final gap =
+        roundMoney(cargoPartido - montoPagadoEnPartido).toDouble();
+    return gap > 0.005 ? gap : 0;
+  }
+
+  /// Detalle cubierto para marcar `pagado` tras FIFO (no re-exige deuda anterior).
+  static bool partidoCubiertoFifo({
+    required double saldoAnterior,
+    required double cargoPartido,
+    required double montoPagadoEnPartido,
+  }) =>
+      pendienteFifoDetalle(
+        saldoAnterior: saldoAnterior,
+        cargoPartido: cargoPartido,
+        montoPagadoEnPartido: montoPagadoEnPartido,
+      ) <=
+      0.005;
+
   /// @deprecated Suma bruta (ignora crédito). Usar [obtenerPendienteJugador].
   @Deprecated('Usar obtenerPendienteJugador(saldoAcumulado: ...)')
   static double totalPendientePartidosImpagos({

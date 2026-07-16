@@ -8,6 +8,7 @@ import '../domain/cobro_logic.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/datos_pago_organizador.dart';
 import '../models/desglose_jugador.dart';
+import '../models/detalle_partido.dart';
 import '../models/jugador.dart';
 import '../repositories/partido_repository.dart';
 import '../services/mensaje_cobro_service.dart';
@@ -18,6 +19,7 @@ import '../services/whatsapp_share_service.dart';
 import '../utils/formatters.dart';
 import '../utils/single_action.dart';
 import 'ayuda_tip.dart';
+import 'comprobante_historico_chip.dart';
 import 'comprobante_pago_tile.dart';
 import 'desglose_cobro_panel.dart';
 import 'jugador_app_badge.dart';
@@ -126,7 +128,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
   PdfService get pdfService => widget.pdfService;
 
   List<DesgloseJugador> get _deudores =>
-      desglose.where((d) => d.pendientePartido > 0.005).toList();
+      desglose.where((d) => d.tieneCobroPendienteOrganizador).toList();
 
   Jugador? _jugadorDe(DesgloseJugador d) =>
       d.jugadorKeyId.isEmpty ? null : _jugadoresPorId[d.jugadorKeyId];
@@ -190,7 +192,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
   }
 
   double get _totalPendiente =>
-      _deudores.fold(0.0, (s, d) => s + d.pendientePartido);
+      _deudores.fold(0.0, (s, d) => s + d.pendienteOrganizador);
 
   void _mostrarFeedback(String msg, {bool error = false}) {
     if (!mounted) return;
@@ -292,7 +294,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
     }
 
     final nombre = d.nombre;
-    final saldo = d.pendientePartido;
+    final saldo = d.pendienteOrganizador;
 
     await runOnce('push-$key', () async {
       setState(() => _enviandoPushKey = key);
@@ -381,7 +383,7 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
           }
           await _recordatorio.enviarIndividual(
             jugador: jugador,
-            saldo: d.pendientePartido,
+            saldo: d.pendienteOrganizador,
           );
           ok++;
         } catch (_) {
@@ -587,18 +589,26 @@ class _PartidoDetalleSheetState extends State<PartidoDetalleSheet> {
                         final key = d.jugadorKeyId.isNotEmpty
                             ? d.jugadorKeyId
                             : d.nombre;
+                        DetallePartido? detalleCobro;
+                        for (final det in completo.detalles) {
+                          if (det.jugadorKeyId == d.jugadorKeyId) {
+                            detalleCobro = det;
+                            break;
+                          }
+                        }
                         return _JugadorCobroCard(
                           desglose: d,
                           jugador: _jugadorDe(d),
+                          detalleCobro: detalleCobro,
                           generandoPdf: _generandoPdfKey == key,
                           enviandoPush: _enviandoPushKey == d.jugadorKeyId,
                           enviandoWhatsApp:
                               _enviandoWhatsAppKey == d.jugadorKeyId,
-                          onAvisarApp: d.pendientePartido > 0.005 &&
+                          onAvisarApp: d.tieneCobroPendienteOrganizador &&
                                   (_jugadorDe(d)?.tieneMatchPayApp ?? false)
                               ? () => _avisarEnApp(d)
                               : null,
-                          onEnviarWhatsApp: d.pendientePartido > 0.005 &&
+                          onEnviarWhatsApp: d.tieneCobroPendienteOrganizador &&
                                   (_jugadorDe(d) != null &&
                                       !(_jugadorDe(d)!.tieneMatchPayApp))
                               ? () => _enviarCobroWhatsApp(d)
@@ -825,6 +835,7 @@ class _SeccionTitulo extends StatelessWidget {
 class _JugadorCobroCard extends StatelessWidget {
   final DesgloseJugador desglose;
   final Jugador? jugador;
+  final DetallePartido? detalleCobro;
   final bool generandoPdf;
   final bool enviandoPush;
   final bool enviandoWhatsApp;
@@ -836,6 +847,7 @@ class _JugadorCobroCard extends StatelessWidget {
   const _JugadorCobroCard({
     required this.desglose,
     this.jugador,
+    this.detalleCobro,
     required this.generandoPdf,
     required this.enviandoPush,
     required this.enviandoWhatsApp,
@@ -846,18 +858,21 @@ class _JugadorCobroCard extends StatelessWidget {
   });
 
   String? _notaCreditoCuenta(BuildContext context) {
-    if (!desglose.pagadoEnPartido || desglose.generaSaldoAFavorPartido) {
-      return null;
-    }
     final credito = desglose.creditoCuenta > 0.005
         ? desglose.creditoCuenta
         : (jugador != null
-            // Fallback: saldo de la cuenta con este org (roster / getJugador+org).
             ? CobroLogic.obtenerCreditoJugador(
                 saldoAcumulado: jugador!.saldoAcumulado,
               )
             : 0.0);
     if (credito <= 0.005) return null;
+    // Si ya se muestra como resultado a favor en el estado, no repetir.
+    if (desglose.alDiaOrganizador && desglose.creditoCuenta > 0.005) {
+      return null;
+    }
+    if (!desglose.pagadoEnPartido && !desglose.alDiaOrganizador) {
+      return null;
+    }
     return context.tr(
       'accountCreditAfterMatchNote',
       params: {'amount': formatMoney(credito)},
@@ -865,6 +880,27 @@ class _JugadorCobroCard extends StatelessWidget {
   }
 
   String _estado(BuildContext context) {
+    if (desglose.saldoAcumuladoCuenta != null) {
+      if (desglose.creditoCuenta > 0.005) {
+        return context.tr(
+          'creditedAmountLabel',
+          params: {'amount': formatMoney(desglose.creditoCuenta)},
+        );
+      }
+      if (desglose.alDiaOrganizador) {
+        return context.tr('paidOk');
+      }
+      if (desglose.montoPagado > 0.005) {
+        return context.tr(
+          'partialOwesShort',
+          params: {'amount': formatMoney(desglose.pendienteOrganizador)},
+        );
+      }
+      return context.tr(
+        'owesAmountLabel',
+        params: {'amount': formatMoney(desglose.pendienteOrganizador)},
+      );
+    }
     if (desglose.pagadoEnPartido) {
       return desglose.generaSaldoAFavorPartido
           ? context.tr(
@@ -889,9 +925,9 @@ class _JugadorCobroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final debe = desglose.pendientePartido > 0.005;
+    final debe = desglose.tieneCobroPendienteOrganizador;
     final notaCredito = _notaCreditoCuenta(context);
-    final estadoColor = desglose.pagadoEnPartido
+    final estadoColor = desglose.alDiaOrganizador
         ? Colors.green.shade800
         : Colors.red.shade700;
 
@@ -944,12 +980,14 @@ class _JugadorCobroCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (detalleCobro != null)
+                        ComprobanteHistoricoChip(detalle: detalleCobro!),
                     ],
                   ),
                 ),
                 if (debe)
                   Text(
-                    formatMoney(desglose.pendientePartido),
+                    formatMoney(desglose.pendienteOrganizador),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -963,8 +1001,14 @@ class _JugadorCobroCard extends StatelessWidget {
               desglose: desglose,
               compact: true,
               showLineasPartido: true,
-              soloPartidoActual: false,
+              // Solo el cargo de ESTE encuentro: la deuda anterior se liquida
+              // en los partidos más viejos (FIFO), no se vuelve a sumar aquí.
+              soloPartidoActual: true,
             ),
+            if (desglose.saldoAcumuladoCuenta != null) ...[
+              const SizedBox(height: 8),
+              _CuentaSaldoLinea(desglose: desglose),
+            ],
             const SizedBox(height: 10),
             Row(
               children: [
@@ -1016,6 +1060,53 @@ class _JugadorCobroCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CuentaSaldoLinea extends StatelessWidget {
+  final DesgloseJugador desglose;
+
+  const _CuentaSaldoLinea({required this.desglose});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final credito = desglose.creditoCuenta;
+    final deuda = desglose.pendienteCuenta;
+    final String texto;
+    final Color color;
+    if (credito > 0.005) {
+      texto = l10n.tr(
+        'matchDetailAccountCredit',
+        params: {'amount': formatMoney(credito)},
+      );
+      color = Colors.green.shade800;
+    } else if (deuda > 0.005) {
+      texto = l10n.tr(
+        'matchDetailAccountDebt',
+        params: {'amount': formatMoney(deuda)},
+      );
+      color = Colors.orange.shade900;
+    } else {
+      texto = l10n.tr('matchDetailAccountSettled');
+      color = Colors.green.shade800;
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        texto,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: color,
         ),
       ),
     );

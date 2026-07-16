@@ -21,6 +21,9 @@ class PartidoCompleto {
   final Map<int, List<AsignacionCostoVariable>> asignacionesPorCosto;
   /// Saldo anterior del jugador al registrar este partido (UUID o id local).
   final Map<String, double> saldoAnteriorPorJugador;
+  /// Saldo vivo de la cuenta jugador↔organizador (`organizador_jugadores`).
+  /// SSOT de “debe / a favor”; si falta, el conteo usa solo neto del partido.
+  final Map<String, double> saldoCuentaPorJugador;
 
   const PartidoCompleto({
     required this.partido,
@@ -28,6 +31,7 @@ class PartidoCompleto {
     this.costosVariables = const [],
     this.asignacionesPorCosto = const {},
     this.saldoAnteriorPorJugador = const {},
+    this.saldoCuentaPorJugador = const {},
   });
 
   double saldoAnteriorCobro(DetallePartido d) {
@@ -44,13 +48,29 @@ class PartidoCompleto {
     return saldoAnteriorPorJugador[key];
   }
 
+  /// Saldo vivo de cuenta; null si no se cargó.
+  double? saldoCuentaCobro(DetallePartido d) {
+    final key = d.jugadorKeyId;
+    if (key.isEmpty || !saldoCuentaPorJugador.containsKey(key)) {
+      return null;
+    }
+    return saldoCuentaPorJugador[key];
+  }
+
   int contarAsistentesConDeudaNeta() {
     var n = 0;
     for (final d in detalles) {
       if (!d.asistio) continue;
       final snap = snapshotSaldoCobro(d);
       if (snap == null) continue;
-      if (d.tieneDeudaNeto(snapshotSaldoAnterior: snap)) n++;
+      if (!d.tieneDeudaNeto(snapshotSaldoAnterior: snap)) continue;
+      // SSOT cuenta: al día o a favor → no cuenta como cobro pendiente.
+      final cuenta = saldoCuentaCobro(d);
+      if (cuenta != null &&
+          CobroLogic.obtenerPendienteJugador(saldoAcumulado: cuenta) <= 0.005) {
+        continue;
+      }
+      n++;
     }
     return n;
   }
@@ -625,12 +645,27 @@ class PartidoRepository {
       );
     }
 
+    final detalles = detalleRows.map(DetallePartido.fromMap).toList();
+
+    final saldoCuentaPorJugador = <String, double>{};
+    for (final d in detalles) {
+      final key = d.jugadorKeyId;
+      if (key.isEmpty) continue;
+      final jid = int.tryParse(key);
+      if (jid == null) continue;
+      final j = await _jugadorRepo.getById(jid);
+      if (j != null) {
+        saldoCuentaPorJugador[key] = j.saldoAcumulado;
+      }
+    }
+
     return PartidoCompleto(
       partido: Partido.fromMap(partidoRows.first),
-      detalles: detalleRows.map(DetallePartido.fromMap).toList(),
+      detalles: detalles,
       costosVariables: costos,
       asignacionesPorCosto: asignaciones,
       saldoAnteriorPorJugador: saldoPorJugador,
+      saldoCuentaPorJugador: saldoCuentaPorJugador,
     );
   }
 

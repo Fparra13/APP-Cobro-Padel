@@ -18,6 +18,14 @@ class DatosPagoOrganizador {
   bool get tieneDatos =>
       titularTrim.isNotEmpty || detalleTrim.isNotEmpty;
 
+  factory DatosPagoOrganizador.fromMap(Map<String, dynamic> map) {
+    return DatosPagoOrganizador(
+      titular: (map['pago_titular'] ?? map['titular'] ?? '').toString(),
+      detalle: (map['pago_detalle'] ?? map['detalle'] ?? '').toString(),
+      nota: (map['pago_nota'] ?? map['nota'] ?? '').toString(),
+    );
+  }
+
   /// Compone el detalle a partir de campos legacy (banco / cuenta / RUT).
   static String detalleDesdeLegacy({
     String banco = '',

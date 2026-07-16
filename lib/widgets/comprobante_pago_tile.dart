@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../l10n/matchpay_strings.dart';
 import '../services/comprobante_service.dart';
 
-/// Adjuntar o ver foto de comprobante de pago.
+/// Adjuntar o ver foto de comprobante (gasto local/cloud o pago).
 class ComprobantePagoTile extends StatefulWidget {
   final String? comprobantePath;
   final ValueChanged<String?> onChanged;
@@ -41,7 +41,7 @@ class _ComprobantePagoTileState extends State<ComprobantePagoTile> {
   }
 
   Future<void> _quitar() async {
-    await ComprobanteService.instance.delete(widget.comprobantePath);
+    await ComprobanteService.instance.deleteAny(widget.comprobantePath);
     widget.onChanged(null);
   }
 
@@ -49,10 +49,12 @@ class _ComprobantePagoTileState extends State<ComprobantePagoTile> {
   Widget build(BuildContext context) {
     if (widget.readOnly) {
       if (widget.comprobantePath == null) return const SizedBox.shrink();
-      return FutureBuilder<File?>(
-        future: ComprobanteService.instance.resolveFile(widget.comprobantePath),
+      return FutureBuilder<({File? file, String? networkUrl})>(
+        future: ComprobanteService.instance
+            .resolveForDisplay(widget.comprobantePath),
         builder: (context, snap) => _buildPreview(
-          file: snap.data,
+          file: snap.data?.file,
+          networkUrl: snap.data?.networkUrl,
           showActions: false,
         ),
       );
@@ -77,16 +79,48 @@ class _ComprobantePagoTileState extends State<ComprobantePagoTile> {
       );
     }
 
-    return FutureBuilder<File?>(
-      future: ComprobanteService.instance.resolveFile(widget.comprobantePath),
+    return FutureBuilder<({File? file, String? networkUrl})>(
+      future:
+          ComprobanteService.instance.resolveForDisplay(widget.comprobantePath),
       builder: (context, snap) => _buildPreview(
-        file: snap.data,
+        file: snap.data?.file,
+        networkUrl: snap.data?.networkUrl,
         showActions: true,
       ),
     );
   }
 
-  Widget _buildPreview({File? file, required bool showActions}) {
+  Widget _buildPreview({
+    File? file,
+    String? networkUrl,
+    required bool showActions,
+  }) {
+    final size = widget.compact ? 48.0 : 56.0;
+    Widget thumb;
+    if (file != null) {
+      thumb = Image.file(file, width: size, height: size, fit: BoxFit.cover);
+    } else if (networkUrl != null) {
+      thumb = Image.network(
+        networkUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => Container(
+          width: size,
+          height: size,
+          color: Colors.grey.shade200,
+          child: const Icon(Icons.image_not_supported, size: 20),
+        ),
+      );
+    } else {
+      thumb = Container(
+        width: size,
+        height: size,
+        color: Colors.grey.shade200,
+        child: const Icon(Icons.image_not_supported, size: 20),
+      );
+    }
+
     return Row(
       children: [
         GestureDetector(
@@ -96,19 +130,7 @@ class _ComprobantePagoTileState extends State<ComprobantePagoTile> {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: file != null
-                ? Image.file(
-                    file,
-                    width: widget.compact ? 48 : 56,
-                    height: widget.compact ? 48 : 56,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    width: widget.compact ? 48 : 56,
-                    height: widget.compact ? 48 : 56,
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.image_not_supported, size: 20),
-                  ),
+            child: thumb,
           ),
         ),
         const SizedBox(width: 8),
@@ -148,7 +170,10 @@ class _ComprobantePagoTileState extends State<ComprobantePagoTile> {
                       onPressed: _quitar,
                       child: Text(
                         context.tr('removeBtn'),
-                        style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red.shade700,
+                        ),
                       ),
                     ),
                   ],

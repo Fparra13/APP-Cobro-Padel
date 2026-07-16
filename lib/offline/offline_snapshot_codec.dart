@@ -1,4 +1,5 @@
 import '../core/sport_type.dart';
+import '../models/comprobante_estado.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/cobros_resumen.dart';
 import '../models/costo_variable.dart';
@@ -87,6 +88,7 @@ Map<String, dynamic> detallePartidoToJson(DetallePartido d) => {
       'monto_pagado': d.montoPagado,
       'comprobante_url': d.comprobanteUrl,
       'comprobante_validado': d.comprobanteValidado,
+      'comprobante_estado': d.comprobanteEstado?.dbValue,
       'monto_pago_declarado': d.montoPagoDeclarado,
       'pago_es_abono': d.pagoEsAbono,
       'nombre_jugador': d.nombreJugador,
@@ -110,6 +112,9 @@ DetallePartido detallePartidoFromJson(Map<String, dynamic> json) =>
       montoPagado: (json['monto_pagado'] as num?)?.toDouble() ?? 0,
       comprobanteUrl: json['comprobante_url'] as String?,
       comprobanteValidado: json['comprobante_validado'] as bool?,
+      comprobanteEstado: ComprobanteEstado.fromDb(
+        json['comprobante_estado'] as String?,
+      ),
       montoPagoDeclarado: (json['monto_pago_declarado'] as num?)?.toDouble(),
       pagoEsAbono: json['pago_es_abono'] as bool?,
       nombreJugador: json['nombre_jugador'] as String?,
@@ -213,6 +218,7 @@ Map<String, dynamic> partidoCompletoToJson(PartidoCompleto p) => {
         ),
       ),
       'saldoAnteriorPorJugador': p.saldoAnteriorPorJugador,
+      'saldoCuentaPorJugador': p.saldoCuentaPorJugador,
     };
 
 PartidoCompleto partidoCompletoFromJson(Map<String, dynamic> json) {
@@ -226,6 +232,7 @@ PartidoCompleto partidoCompletoFromJson(Map<String, dynamic> json) {
     asignaciones[costoId] = list;
   }
   final saldoRaw = json['saldoAnteriorPorJugador'] as Map? ?? const {};
+  final cuentaRaw = json['saldoCuentaPorJugador'] as Map? ?? const {};
   return PartidoCompleto(
     partido: partidoFromSnapshotJson(
       Map<String, dynamic>.from(json['partido'] as Map),
@@ -238,6 +245,9 @@ PartidoCompleto partidoCompletoFromJson(Map<String, dynamic> json) {
         .toList(),
     asignacionesPorCosto: asignaciones,
     saldoAnteriorPorJugador: saldoRaw.map(
+      (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
+    ),
+    saldoCuentaPorJugador: cuentaRaw.map(
       (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
     ),
   );
