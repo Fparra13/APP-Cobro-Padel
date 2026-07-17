@@ -28,6 +28,7 @@ import '../widgets/cobro_ver_detalle_sheet.dart';
 import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/mis_invitaciones_panel.dart';
+import '../widgets/convocatoria_respuesta_obligatoria_card.dart';
 import '../widgets/offline_no_data_panel.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/kloovi_brand.dart';
@@ -37,6 +38,7 @@ import '../services/convocatoria_lista_espera_service.dart';
 import '../services/notification_service.dart';
 import '../domain/deuda_explicacion.dart';
 import '../domain/estado_partido_publico.dart';
+import '../domain/player_invite_response.dart';
 import '../models/saldo_historico.dart';
 import '../offline/player_loader.dart';
 import '../offline/offline_snapshot_store.dart';
@@ -79,6 +81,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   double _totalDeudaHome = 0;
   Jugador? _perfil;
   EstadisticasJugador? _misStats;
+  MisInvitacionesResumen _invitacionesResumen = MisInvitacionesResumen.empty;
   bool _loading = true;
   bool _primeraCarga = true;
   bool _showOrganizerNudge = false;
@@ -222,6 +225,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
             _totalDeudaHome = 0;
             _perfil = null;
             _misStats = null;
+            _invitacionesResumen = MisInvitacionesResumen.empty;
             _heroConvocatoriaCompleta = null;
             _showOrganizerNudge = false;
             _organizerPendingCount = 0;
@@ -280,6 +284,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
           totalDeudaDesdeCuentas(data.cuentasSaldo);
       _perfil = data.perfil;
       _misStats = data.misStats;
+      _invitacionesResumen = data.invitacionesResumen;
       _showOrganizerNudge = showNudge;
       _offlineEmpty = false;
       _error = null;
@@ -846,15 +851,26 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                         if (hero != null) ...[
                           AnimatedSwitcher(
                             duration: const Duration(milliseconds: 280),
-                            child: _HeroMatchCard(
-                              key: ValueKey(
-                                'hero-${hero.entry.partidoId}',
-                              ),
-                              convocatoria: hero,
-                              convocatoriaCompleta: _heroConvocatoriaCompleta,
-                              needsResponse: hero.requiereRespuesta,
-                              onTap: () => _openConvocatoria(hero),
-                            ),
+                            child: hero.requiereRespuesta
+                                ? ConvocatoriaRespuestaObligatoriaCard(
+                                    key: ValueKey(
+                                      'invite-${hero.entry.partidoId}',
+                                    ),
+                                    convocatoria: hero,
+                                    readOnly: readOnly,
+                                    onReadOnlyTap: _showOfflineWriteBlocked,
+                                    onRespondido: () => _load(),
+                                  )
+                                : _HeroMatchCard(
+                                    key: ValueKey(
+                                      'hero-${hero.entry.partidoId}',
+                                    ),
+                                    convocatoria: hero,
+                                    convocatoriaCompleta:
+                                        _heroConvocatoriaCompleta,
+                                    needsResponse: false,
+                                    onTap: () => _openConvocatoria(hero),
+                                  ),
                           ),
                           const SizedBox(height: 12),
                           if (!esAdmin)
@@ -953,9 +969,9 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                         ],
                         _StatsStrip(
                           stats: _misStats,
+                          invitaciones: _invitacionesResumen,
                           participacionPct: _participacionPct,
-                          invitesConfirmadas: _invitesConfirmadas,
-                          invitesRecibidas: _invitesRecibidas,
+                          invitesRecibidasVigentes: _invitesRecibidas,
                           semanasJugando: _semanasJugando,
                           showPlaceholders: !_hasActivityData,
                         ),
@@ -1510,17 +1526,17 @@ class _SecondaryMatchCard extends StatelessWidget {
 
 class _StatsStrip extends StatelessWidget {
   final EstadisticasJugador? stats;
+  final MisInvitacionesResumen invitaciones;
   final double participacionPct;
-  final int invitesConfirmadas;
-  final int invitesRecibidas;
+  final int invitesRecibidasVigentes;
   final int semanasJugando;
   final bool showPlaceholders;
 
   const _StatsStrip({
     required this.stats,
+    required this.invitaciones,
     required this.participacionPct,
-    required this.invitesConfirmadas,
-    required this.invitesRecibidas,
+    required this.invitesRecibidasVigentes,
     required this.semanasJugando,
     this.showPlaceholders = false,
   });
@@ -1530,9 +1546,29 @@ class _StatsStrip extends StatelessWidget {
     final l10n = context.l10n;
 
     final partidos = stats?.partidosJugados ?? 0;
-    final fromStats = stats?.convocatoriasConfirmadas ?? 0;
-    final confirmaciones =
-        fromStats >= invitesConfirmadas ? fromStats : invitesConfirmadas;
+    final secondary = resolvePrideSecondaryMetric(
+      invitaciones: invitaciones,
+      semanasJugando: semanasJugando,
+    );
+
+    final (String secondaryEmoji, String secondaryValue, String secondaryLabel) =
+        switch (secondary.kind) {
+      PlayerPrideSecondaryKind.respuesta => (
+          '🤝',
+          '${secondary.porcentaje}%',
+          l10n.tr('playerStatResponsePride'),
+        ),
+      PlayerPrideSecondaryKind.racha => (
+          '🔥',
+          '${secondary.semanas}',
+          l10n.tr('playerStatWeeksPride'),
+        ),
+      PlayerPrideSecondaryKind.vacio => (
+          '🤝',
+          '—',
+          l10n.tr('playerStatResponsePride'),
+        ),
+    };
 
     // Siempre las 3 fichas principales (también en 0) para que el jugador
     // vea qué mide la app; no ocultar métricas solo porque valen cero.
@@ -1543,9 +1579,9 @@ class _StatsStrip extends StatelessWidget {
         l10n.tr('playerStatMatchesPride'),
       ),
       (
-        '✅',
-        '$confirmaciones',
-        l10n.tr('playerStatConfirmedPride'),
+        secondaryEmoji,
+        secondaryValue,
+        secondaryLabel,
       ),
       if (partidos > 0 && stats != null)
         (
@@ -1553,7 +1589,7 @@ class _StatsStrip extends StatelessWidget {
           '${stats!.porcentajePagoAlDia.toStringAsFixed(0)}%',
           l10n.tr('playerStatOnTimePride'),
         )
-      else if (invitesRecibidas > 0)
+      else if (invitesRecibidasVigentes > 0)
         (
           '🤝',
           '${participacionPct.toStringAsFixed(0)}%',
@@ -1567,19 +1603,11 @@ class _StatsStrip extends StatelessWidget {
         ),
     ];
 
-    if (items.length < 3 && semanasJugando >= 2) {
-      items.add((
-        '🔥',
-        '$semanasJugando',
-        l10n.tr('playerStatWeeksPride'),
-      ));
-    }
-
     final visible = items.take(3).toList();
     final muted = showPlaceholders &&
         partidos == 0 &&
-        confirmaciones == 0 &&
-        invitesRecibidas == 0;
+        invitaciones.recibidas == 0 &&
+        semanasJugando < 2;
 
     return SizedBox(
       height: 116,

@@ -66,8 +66,13 @@ class MatchPayPreferencesPanel extends StatelessWidget {
                 ),
               )
               .toList(),
-          onChanged: (code) {
-            if (code != null) settings.setCountry(code);
+          onChanged: (code) async {
+            if (code == null) return;
+            final before = settings.locale.languageCode;
+            await settings.setCountry(code);
+            if (settings.locale.languageCode != before) {
+              await NotificationService.instance.syncSchedule();
+            }
           },
         ),
         const SizedBox(height: 20),
@@ -103,6 +108,7 @@ class MatchPayPreferencesPanel extends StatelessWidget {
           Text(l10n.currencyLabel, style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
+            key: ValueKey('currency-$currencyCode'),
             initialValue: currencyCode,
             isExpanded: true,
             decoration: const InputDecoration(border: OutlineInputBorder()),

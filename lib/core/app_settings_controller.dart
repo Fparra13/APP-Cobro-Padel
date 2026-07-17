@@ -9,6 +9,7 @@ import 'country_sport_catalog.dart';
 import 'currency_config.dart';
 import 'sport_theme.dart';
 import 'sport_type.dart';
+import '../utils/formatters.dart';
 
 /// Vista activa en la app (no cambia el rol de pago en Supabase).
 enum AppUiMode {
@@ -105,9 +106,23 @@ class AppSettingsController extends ChangeNotifier {
     }
     _uiMode = AppUiMode.fromStorage(prefs.getString(_keyUiMode));
     _loaded = true;
+    _applyMoneyFormat();
     notifyListeners();
     await syncLocaleToProfile();
     await syncSportToProfile();
+  }
+
+  /// Aplica símbolo/locale/decimales al formateador global de montos.
+  void _applyMoneyFormat() {
+    final currency = CurrencyConfig.optionFor(_currencyCode);
+    MoneyFormatConfig.locale = currency.locale;
+    MoneyFormatConfig.symbol = currency.symbol;
+    MoneyFormatConfig.decimalDigits = currency.decimalDigits;
+    final loc = _locale;
+    MoneyFormatConfig.dateLocale =
+        loc.countryCode != null && loc.countryCode!.isNotEmpty
+            ? '${loc.languageCode}_${loc.countryCode}'
+            : loc.languageCode;
   }
 
   /// Alinea el modo de UI con el rol real del perfil (solo organizadores alternan).
@@ -314,6 +329,7 @@ class AppSettingsController extends ChangeNotifier {
       return;
     }
     _locale = next;
+    _applyMoneyFormat();
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyLocale, _localeTag(next));
@@ -323,6 +339,7 @@ class AppSettingsController extends ChangeNotifier {
   Future<void> setCurrency(String code) async {
     if (_currencyCode == code) return;
     _currencyCode = code;
+    _applyMoneyFormat();
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyCurrency, code);
@@ -332,9 +349,26 @@ class AppSettingsController extends ChangeNotifier {
     final normalized = CountrySportCatalog.optionFor(code).code;
     if (_countryCode == normalized) return;
     _countryCode = normalized;
+
+    final defaults = CountrySportCatalog.defaultsFor(normalized);
+    var localeChanged = false;
+    if (defaults != null) {
+      final nextLocale = normalizePickerLocale(defaults.locale);
+      localeChanged = _locale.languageCode != nextLocale.languageCode ||
+          _locale.countryCode != nextLocale.countryCode;
+      _locale = nextLocale;
+      _currencyCode = defaults.currencyCode;
+      _applyMoneyFormat();
+    }
+
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_keyCountry, normalized);
+    if (defaults != null) {
+      await prefs.setString(_keyLocale, _localeTag(_locale));
+      await prefs.setString(_keyCurrency, _currencyCode);
+      if (localeChanged) await syncLocaleToProfile();
+    }
   }
 
   /// Tema temporal para un partido con deporte distinto al global.

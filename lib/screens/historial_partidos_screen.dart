@@ -25,6 +25,7 @@ import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/friendly_error_panel.dart';
 import '../widgets/partido_detalle_sheet.dart';
 import '../utils/nav_shell_layout.dart';
+import '../widgets/event_date_block.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/offline_no_data_panel.dart';
 import '../widgets/shimmer_loading.dart';
@@ -270,6 +271,20 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
           PartidoLifecycle.situacionOrganizador(c) !=
           ConvocatoriaOrganizadorSituacion.preparando,
     );
+    final now = DateTime.now();
+    ConvocatoriaCompleta? masCercana;
+    for (final c in _convocatorias) {
+      final situacion = PartidoLifecycle.situacionOrganizador(c);
+      if (situacion != ConvocatoriaOrganizadorSituacion.preparando) continue;
+      if (c.partido.fecha.isBefore(now.subtract(const Duration(hours: 6)))) {
+        continue;
+      }
+      if (masCercana == null ||
+          c.partido.fecha.isBefore(masCercana.partido.fecha)) {
+        masCercana = c;
+      }
+    }
+    final idMasCercana = masCercana?.partido.id;
 
     return RefreshIndicator(
       color: palette.primary,
@@ -283,16 +298,12 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
               count: _convocatorias.length,
               accent: hayConvocatoriasVencidas,
             ),
-            const SizedBox(height: 10),
-            _buildStatsHeader(
+            const SizedBox(height: 8),
+            _buildSectionHint(
               icon: hayConvocatoriasVencidas
                   ? Icons.event_busy_rounded
-                  : Icons.campaign_rounded,
-              titulo: l10n.tr(
-                'historyActiveConvocatoriasTitle',
-                params: {'count': '${_convocatorias.length}'},
-              ),
-              subtitulo: l10n.tr(
+                  : Icons.info_outline_rounded,
+              texto: l10n.tr(
                 hayConvocatoriasVencidas
                     ? 'historyPastConvocatoriasSubtitle'
                     : 'historyActiveConvocatoriasSubtitle',
@@ -301,10 +312,11 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
                   ? MatchPayTokens.accentUrgent
                   : MatchPayTokens.accentCredit,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             ..._convocatorias.map(
               (c) => _ConvocatoriaCard(
                 convocatoria: c,
+                destacada: c.partido.id == idMasCercana,
                 onTap: () => _abrirConvocatoria(c),
               ),
             ),
@@ -315,14 +327,12 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
               title: l10n.tr('tabMatches'),
               count: _partidos.length,
             ),
-            const SizedBox(height: 10),
-            _buildStatsHeader(
-              icon: Icons.history_rounded,
-              titulo: l10n.tr(
-                'historyMatchesCountTitle',
-                params: {'count': '${_partidos.length}'},
-              ),
-              subtitulo: pendientesTotal > 0
+            const SizedBox(height: 8),
+            _buildSectionHint(
+              icon: pendientesTotal > 0
+                  ? Icons.warning_amber_rounded
+                  : Icons.verified_rounded,
+              texto: pendientesTotal > 0
                   ? l10n.tr(
                       'historyPendingChargesSubtitle',
                       params: {'count': '$pendientesTotal'},
@@ -332,7 +342,7 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
                   ? MatchPayTokens.accentUrgent
                   : MatchPayTokens.accentSuccess,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             AyudaTip(texto: l10n.tr('historyTapMatchHelp')),
             const SizedBox(height: 10),
             ..._partidos.map(
@@ -478,33 +488,31 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
     if (mounted) _load();
   }
 
-  Widget _buildStatsHeader({
+  /// Hint de sección: no usa card blanca para no parecer un ítem de lista.
+  Widget _buildSectionHint({
     required IconData icon,
-    required String titulo,
-    required String subtitulo,
+    required String texto,
     required Color accent,
   }) {
-    return MatchPaySurfaceCard(
-      padding: const EdgeInsets.all(14),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.22)),
+      ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
-            ),
-            child: Icon(icon, color: accent, size: 24),
-          ),
-          const SizedBox(width: 12),
+          Icon(icon, size: 18, color: accent),
+          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(titulo, style: MatchPayTokens.titleSmallStyle()),
-                Text(subtitulo, style: MatchPayTokens.bodySmallStyle()),
-              ],
+            child: Text(
+              texto,
+              style: MatchPayTokens.bodySmallStyle(
+                color: MatchPayTokens.inkSecondary,
+              ),
             ),
           ),
         ],
@@ -562,137 +570,184 @@ class _EmptyTab extends StatelessWidget {
 
 class _ConvocatoriaCard extends StatelessWidget {
   final ConvocatoriaCompleta convocatoria;
+  final bool destacada;
   final VoidCallback onTap;
 
   const _ConvocatoriaCard({
     required this.convocatoria,
     required this.onTap,
+    this.destacada = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final p = convocatoria.partido;
-    final fecha = formatFecha(p.fecha);
+    final fecha = formatFechaLegibleCorta(p.fecha);
     final hora = formatHora(p.fecha);
+    final recinto = p.recinto?.isNotEmpty ?? false
+        ? p.recinto!
+        : l10n.tr('noVenue');
     final situacion = PartidoLifecycle.situacionOrganizador(convocatoria);
     final sinResolver =
         situacion == ConvocatoriaOrganizadorSituacion.sinResolver;
     final listoGastos =
         situacion == ConvocatoriaOrganizadorSituacion.listoParaGastos;
-    final accent = sinResolver
+    final dayColor = sinResolver
         ? MatchPayTokens.accentUrgent
         : listoGastos
             ? MatchPayTokens.accentCredit
-            : convocatoria.partido.esConfirmado
-                ? MatchPayTokens.accentSuccess
-                : MatchPayTokens.accentCredit;
-    final iconData = sinResolver
-        ? Icons.help_outline_rounded
-        : listoGastos
-            ? Icons.receipt_long_rounded
-            : convocatoria.partido.esConfirmado
-                ? Icons.check_circle_rounded
-                : Icons.campaign_rounded;
+            : destacada
+                ? const Color(0xFF0F766E)
+                : convocatoria.partido.esConfirmado
+                    ? MatchPayTokens.accentSuccess
+                    : MatchPayTokens.ink;
+    final accent = dayColor;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: MatchPaySurfaceCard(
-        padding: const EdgeInsets.all(14),
-        onTap: onTap,
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
-              ),
-              child: Icon(iconData, color: accent, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SportChargeChip(sport: p.sportType),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          convocatoria.partido.esConfirmado
-                              ? l10n.tr(
-                                  'convocatoriaConfirmedLine',
-                                  params: {'date': fecha, 'time': hora},
-                                )
-                              : '$fecha · $hora',
-                          style: MatchPayTokens.titleSmallStyle(),
-                        ),
-                      ),
-                      if (sinResolver)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: MatchPayTokens.accentUrgentBg,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: MatchPayTokens.accentUrgentBorder
-                                  .withValues(alpha: 0.6),
-                            ),
-                          ),
-                          child: Text(
-                            l10n.tr('convocatoriaUnresolvedBadge'),
-                            style: MatchPayTokens.sectionLabelStyle(
-                              color: MatchPayTokens.accentUrgent,
-                            ).copyWith(fontSize: 10, letterSpacing: 0),
-                          ),
-                        )
-                      else if (listoGastos)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: MatchPayTokens.accentCreditBg,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            l10n.tr('convocatoriaPastDateBadge'),
-                            style: MatchPayTokens.sectionLabelStyle(
-                              color: MatchPayTokens.accentCredit,
-                            ).copyWith(fontSize: 10, letterSpacing: 0),
-                          ),
-                        ),
-                    ],
-                  ),
-                  Text(
-                    p.recinto?.isNotEmpty ?? false
-                        ? p.recinto!
-                        : l10n.tr('noVenue'),
-                    style: MatchPayTokens.bodySmallStyle(),
-                  ),
-                  Text(
-                    l10n.tr(
-                      'convocatoriaConfirmedCount',
-                      params: {
-                        'confirmed': '${convocatoria.confirmados}',
-                        'max': '${p.cuposMax}',
-                        'invited': '${convocatoria.invitados}',
-                      },
-                    ),
-                    style: MatchPayTokens.titleSmallStyle(color: accent)
-                        .copyWith(fontSize: 13),
+      child: DecoratedBox(
+        decoration: destacada
+            ? BoxDecoration(
+                borderRadius:
+                    BorderRadius.circular(MatchPayTokens.radiusCard),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0F766E).withValues(alpha: 0.18),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ],
+              )
+            : const BoxDecoration(),
+        child: MatchPaySurfaceCard(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          onTap: onTap,
+          elevated: true,
+          urgent: sinResolver,
+          borderColor: destacada
+              ? const Color(0xFF0F766E).withValues(alpha: 0.45)
+              : null,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              EventDateBlock(
+                fecha: p.fecha,
+                dayColor: dayColor,
+                monthColor: destacada
+                    ? const Color(0xFF0F766E)
+                    : MatchPayTokens.inkMuted,
               ),
-            ),
-            Icon(Icons.chevron_right_rounded, color: accent),
-          ],
+              const SizedBox(width: 4),
+              Container(
+                width: 1,
+                height: 52,
+                color: destacada
+                    ? const Color(0xFF0F766E).withValues(alpha: 0.35)
+                    : MatchPayTokens.borderSubtle,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SportChargeChip(sport: p.sportType),
+                    const SizedBox(height: 6),
+                    Text(
+                      fecha,
+                      style: MatchPayTokens.titleSmallStyle(
+                        color: destacada
+                            ? const Color(0xFF0F766E)
+                            : MatchPayTokens.ink,
+                      ),
+                    ),
+                    Text(
+                      '$hora · $recinto',
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.inkSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            l10n.tr(
+                              'convocatoriaConfirmedCount',
+                              params: {
+                                'confirmed': '${convocatoria.confirmados}',
+                                'max': '${p.cuposMax}',
+                                'invited': '${convocatoria.invitados}',
+                              },
+                            ),
+                            style:
+                                MatchPayTokens.titleSmallStyle(color: accent)
+                                    .copyWith(fontSize: 13),
+                          ),
+                        ),
+                        if (destacada)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFCCFBF1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              l10n.tr('homeNextConvocatoriaBadge'),
+                              style: MatchPayTokens.sectionLabelStyle(
+                                color: const Color(0xFF0F766E),
+                              ).copyWith(fontSize: 10, letterSpacing: 0),
+                            ),
+                          )
+                        else if (sinResolver)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: MatchPayTokens.accentUrgentBg,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: MatchPayTokens.accentUrgentBorder
+                                    .withValues(alpha: 0.6),
+                              ),
+                            ),
+                            child: Text(
+                              l10n.tr('convocatoriaUnresolvedBadge'),
+                              style: MatchPayTokens.sectionLabelStyle(
+                                color: MatchPayTokens.accentUrgent,
+                              ).copyWith(fontSize: 10, letterSpacing: 0),
+                            ),
+                          )
+                        else if (listoGastos)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: MatchPayTokens.accentCreditBg,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              l10n.tr('convocatoriaPastDateBadge'),
+                              style: MatchPayTokens.sectionLabelStyle(
+                                color: MatchPayTokens.accentCredit,
+                              ).copyWith(fontSize: 10, letterSpacing: 0),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: MatchPayTokens.inkMuted),
+            ],
+          ),
         ),
       ),
     );
@@ -718,6 +773,8 @@ class _PartidoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final fecha = formatFechaLegibleCorta(completo.partido.fecha);
+    final hora = formatHora(completo.partido.fecha);
+    final recinto = completo.partido.recinto?.trim();
     final asistentes = completo.detalles.where((d) => d.asistio).length;
     final pendientes = completo.contarAsistentesConDeudaNeta();
     final todosPagaron = pendientes == 0;
@@ -728,8 +785,9 @@ class _PartidoCard extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: MatchPaySurfaceCard(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         urgent: !todosPagaron,
+        elevated: true,
         onTap: () async {
           await PartidoDetalleSheet.show(
             context,
@@ -749,19 +807,19 @@ class _PartidoCard extends StatelessWidget {
             onEliminar: readOnly
                 ? null
                 : () async {
-                    final fecha = formatFecha(completo.partido.fecha);
-                    final recinto = completo.partido.recinto?.trim();
+                    final fechaElim = formatFecha(completo.partido.fecha);
+                    final venue = completo.partido.recinto?.trim();
                     final ok = await confirmarEliminarPartido(
                       context,
                       titulo: l10n.tr('deleteMatchTitle'),
-                      mensaje: recinto != null && recinto.isNotEmpty
+                      mensaje: venue != null && venue.isNotEmpty
                           ? l10n.tr(
                               'deleteMatchMessageWithVenue',
-                              params: {'date': fecha, 'venue': recinto},
+                              params: {'date': fechaElim, 'venue': venue},
                             )
                           : l10n.tr(
                               'deleteMatchMessage',
-                              params: {'date': fecha},
+                              params: {'date': fechaElim},
                             ),
                     );
                     if (!ok || !context.mounted) return;
@@ -777,24 +835,20 @@ class _PartidoCard extends StatelessWidget {
           onChanged();
         },
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                color: estadoColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
-                border: Border.all(color: estadoColor.withValues(alpha: 0.35)),
-              ),
-              child: Icon(
-                todosPagaron
-                    ? Icons.check_circle_rounded
-                    : Icons.pending_actions_rounded,
-                color: estadoColor,
-                size: 28,
-              ),
+            EventDateBlock(
+              fecha: completo.partido.fecha,
+              dayColor: estadoColor,
+              monthColor: estadoColor.withValues(alpha: 0.75),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 4),
+            Container(
+              width: 1,
+              height: 52,
+              color: MatchPayTokens.borderSubtle,
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -802,27 +856,15 @@ class _PartidoCard extends StatelessWidget {
                   SportChargeChip(sport: completo.partido.sportType),
                   const SizedBox(height: 6),
                   Text(fecha, style: MatchPayTokens.titleSmallStyle()),
-                  if (completo.partido.recinto != null &&
-                      completo.partido.recinto!.trim().isNotEmpty)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 14,
-                          color: MatchPayTokens.accentSuccess,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            completo.partido.recinto!.trim(),
-                            style: MatchPayTokens.bodySmallStyle(
-                              color: MatchPayTokens.accentSuccess,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                  Text(
+                    recinto != null && recinto.isNotEmpty
+                        ? '$hora · $recinto'
+                        : hora,
+                    style: MatchPayTokens.bodySmallStyle(
+                      color: MatchPayTokens.inkSecondary,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,

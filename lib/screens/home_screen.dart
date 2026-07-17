@@ -39,6 +39,7 @@ import '../l10n/matchpay_strings.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
 import '../widgets/friendly_error_panel.dart';
+import '../widgets/event_date_block.dart';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int tabIndex)? onNavigateTab;
@@ -100,6 +101,21 @@ class _HomeScreenState extends State<HomeScreen> {
     final snapshotStore = userId != null
         ? OfflineSnapshotStore(userId: userId)
         : null;
+
+    // Stale-while-revalidate: pintar cache ya y refrescar en vivo.
+    if (!silent &&
+        _primeraCarga &&
+        _loading &&
+        snapshotStore != null) {
+      try {
+        final snap = await snapshotStore.read(organizerHomeSnapshotKey);
+        if (snap != null && mounted) {
+          final cached = OrganizerHomeData.fromJson(snap.payload);
+          _applyOrganizerHomeData(cached);
+          setState(() => _loading = false);
+        }
+      } catch (_) {}
+    }
 
     try {
       final result = await loadOrganizerHome(
@@ -631,6 +647,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildConvocatoriasActivas(List<ConvocatoriaCompleta> convocatorias) {
     final l10n = context.l10n;
+    final now = DateTime.now();
+    // Destaca la próxima por fecha (la más cercana desde ahora).
+    ConvocatoriaCompleta? masCercana;
+    for (final c in convocatorias) {
+      final situacion = PartidoLifecycle.situacionOrganizador(c);
+      if (situacion != ConvocatoriaOrganizadorSituacion.preparando) continue;
+      if (c.partido.fecha.isBefore(now.subtract(const Duration(hours: 6)))) {
+        continue;
+      }
+      if (masCercana == null ||
+          c.partido.fecha.isBefore(masCercana.partido.fecha)) {
+        masCercana = c;
+      }
+    }
+    final idMasCercana = masCercana?.partido.id;
+
     final sinResolver = convocatorias
         .where(
           (c) =>
@@ -679,6 +711,7 @@ class _HomeScreenState extends State<HomeScreen> {
               (c) => _ConvocatoriaTile(
                 convocatoria: c,
                 situacion: situacion,
+                destacada: c.partido.id == idMasCercana,
                 onTap: () => _openOrganizerPartido(c.partido.id),
               ),
             ),
@@ -697,6 +730,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 convocatoria: c,
                 confirmado: true,
                 situacion: situacion,
+                destacada: c.partido.id == idMasCercana,
                 onTap: () => _openOrganizerPartido(c.partido.id),
               ),
             ),
@@ -797,6 +831,7 @@ class _ConvocatoriaGrupo extends StatelessWidget {
 class _ConvocatoriaTile extends StatelessWidget {
   final ConvocatoriaCompleta convocatoria;
   final bool confirmado;
+  final bool destacada;
   final ConvocatoriaOrganizadorSituacion situacion;
   final VoidCallback onTap;
 
@@ -805,6 +840,7 @@ class _ConvocatoriaTile extends StatelessWidget {
     required this.onTap,
     required this.situacion,
     this.confirmado = false,
+    this.destacada = false,
   });
 
   @override
@@ -831,132 +867,167 @@ class _ConvocatoriaTile extends StatelessWidget {
         ? PartidoEstadoPublicoView.resolve(c)
         : null;
 
-    final iconBg = sinResolver
-        ? MatchPayTokens.accentUrgentBorder.withValues(alpha: 0.35)
-        : listoGastos
-            ? MatchPayTokens.accentCredit.withValues(alpha: 0.15)
-            : confirmado
-                ? MatchPayTokens.accentSuccess.withValues(alpha: 0.15)
-                : MatchPayTokens.accentCredit.withValues(alpha: 0.12);
-    final iconColor = sinResolver
+    final dayColor = sinResolver
         ? MatchPayTokens.accentUrgent
         : listoGastos
             ? MatchPayTokens.accentCredit
-            : confirmado
-                ? MatchPayTokens.accentSuccess
-                : MatchPayTokens.accentCredit;
-    final iconData = sinResolver
-        ? Icons.help_outline_rounded
-        : listoGastos
-            ? Icons.receipt_long_rounded
-            : confirmado
-                ? Icons.check_circle_rounded
-                : Icons.campaign_rounded;
+            : destacada
+                ? const Color(0xFF0F766E)
+                : confirmado
+                    ? MatchPayTokens.accentSuccess
+                    : MatchPayTokens.ink;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: MatchPaySurfaceCard(
-        onTap: onTap,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        urgent: sinResolver,
-        elevated: true,
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(iconData, color: iconColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    fecha,
-                    style: MatchPayTokens.titleSmallStyle(),
-                  ),
-                  Text(
-                    '$hora · $recinto',
-                    style: MatchPayTokens.bodySmallStyle(
-                      color: MatchPayTokens.inkSecondary,
-                    ),
-                  ),
-                  if (estadoPublico != null) ...[
-                    const SizedBox(height: 6),
-                    PartidoEstadoPublicoBadge(
-                      view: estadoPublico,
-                      compact: true,
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  ConvocatoriaAvatarStrip(
-                    titulares: c.titulares,
-                    cuposMax: c.partido.cuposMax,
-                    size: 24,
-                    overlap: 18,
-                    maxVisible: 4,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '$confirmadosLine$pendientesLine',
-                          style: MatchPayTokens.bodySmallStyle(),
-                        ),
-                      ),
-                      if (sinResolver)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: MatchPayTokens.accentUrgentBg,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: MatchPayTokens.accentUrgentBorder
-                                  .withValues(alpha: 0.6),
-                            ),
-                          ),
-                          child: Text(
-                            l10n.tr('convocatoriaUnresolvedBadge'),
-                            style: MatchPayTokens.sectionLabelStyle(
-                              color: MatchPayTokens.accentUrgent,
-                            ).copyWith(fontSize: 10, letterSpacing: 0),
-                          ),
-                        )
-                      else if (listoGastos)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: MatchPayTokens.accentCreditBg,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            l10n.tr('convocatoriaPastDateBadge'),
-                            style: MatchPayTokens.sectionLabelStyle(
-                              color: MatchPayTokens.accentCredit,
-                            ).copyWith(fontSize: 10, letterSpacing: 0),
-                          ),
-                        ),
-                    ],
+      child: DecoratedBox(
+        decoration: destacada
+            ? BoxDecoration(
+                borderRadius:
+                    BorderRadius.circular(MatchPayTokens.radiusCard),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF0F766E).withValues(alpha: 0.18),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ],
+              )
+            : const BoxDecoration(),
+        child: MatchPaySurfaceCard(
+          onTap: onTap,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          urgent: sinResolver,
+          elevated: true,
+          borderColor: destacada
+              ? const Color(0xFF0F766E).withValues(alpha: 0.45)
+              : null,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              EventDateBlock(
+                fecha: c.partido.fecha,
+                dayColor: dayColor,
+                monthColor: destacada
+                    ? const Color(0xFF0F766E)
+                    : MatchPayTokens.inkMuted,
               ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: MatchPayTokens.inkMuted,
-            ),
-          ],
+              const SizedBox(width: 4),
+              Container(
+                width: 1,
+                height: 52,
+                color: destacada
+                    ? const Color(0xFF0F766E).withValues(alpha: 0.35)
+                    : MatchPayTokens.borderSubtle,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fecha,
+                      style: MatchPayTokens.titleSmallStyle(
+                        color: destacada
+                            ? const Color(0xFF0F766E)
+                            : MatchPayTokens.ink,
+                      ),
+                    ),
+                    Text(
+                      '$hora · $recinto',
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.inkSecondary,
+                      ),
+                    ),
+                    if (estadoPublico != null) ...[
+                      const SizedBox(height: 6),
+                      PartidoEstadoPublicoBadge(
+                        view: estadoPublico,
+                        compact: true,
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    ConvocatoriaAvatarStrip(
+                      titulares: c.titulares,
+                      cuposMax: c.partido.cuposMax,
+                      size: 24,
+                      overlap: 18,
+                      maxVisible: 4,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '$confirmadosLine$pendientesLine',
+                            style: MatchPayTokens.bodySmallStyle(),
+                          ),
+                        ),
+                        if (destacada)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFCCFBF1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              l10n.tr('homeNextConvocatoriaBadge'),
+                              style: MatchPayTokens.sectionLabelStyle(
+                                color: const Color(0xFF0F766E),
+                              ).copyWith(fontSize: 10, letterSpacing: 0),
+                            ),
+                          )
+                        else if (sinResolver)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: MatchPayTokens.accentUrgentBg,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: MatchPayTokens.accentUrgentBorder
+                                    .withValues(alpha: 0.6),
+                              ),
+                            ),
+                            child: Text(
+                              l10n.tr('convocatoriaUnresolvedBadge'),
+                              style: MatchPayTokens.sectionLabelStyle(
+                                color: MatchPayTokens.accentUrgent,
+                              ).copyWith(fontSize: 10, letterSpacing: 0),
+                            ),
+                          )
+                        else if (listoGastos)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: MatchPayTokens.accentCreditBg,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              l10n.tr('convocatoriaPastDateBadge'),
+                              style: MatchPayTokens.sectionLabelStyle(
+                                color: MatchPayTokens.accentCredit,
+                              ).copyWith(fontSize: 10, letterSpacing: 0),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: MatchPayTokens.inkMuted,
+              ),
+            ],
+          ),
         ),
       ),
     );

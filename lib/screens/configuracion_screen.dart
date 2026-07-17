@@ -74,6 +74,27 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
         _pagoDetalleCtrl.text = pago.detalle;
         _pagoNotaCtrl.text = pago.nota;
 
+        final uidOrg = AuthService.instance.currentUser?.id;
+        if (uidOrg != null && AppRepositories.isReady && mounted) {
+          final repos = context.repos;
+          try {
+            final remote = await repos.getDatosPagoOrganizador(uidOrg);
+            if (!mounted) return;
+            if (remote != null && remote.pago.tieneDatos) {
+              _titularCtrl.text = remote.pago.titular;
+              _pagoDetalleCtrl.text = remote.pago.detalle;
+              _pagoNotaCtrl.text = remote.pago.nota;
+            } else if (pago.tieneDatos) {
+              // Primera vez: sube lo que había en el teléfono.
+              await repos.guardarDatosPagoOrganizador(
+                titular: pago.titular,
+                detalle: pago.detalle,
+                nota: pago.nota,
+              );
+            }
+          } catch (_) {}
+        }
+
         _recordatorioActivo = await _prefs.recordatorioActivo;
         _recordatorioDias = await _prefs.recordatorioDias;
         final hora = await _prefs.recordatorioHora;
@@ -126,11 +147,26 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   }
 
   Future<void> _saveBancarios() async {
+    final titular = _titularCtrl.text.trim();
+    final detalle = _pagoDetalleCtrl.text.trim();
+    final nota = _pagoNotaCtrl.text.trim();
     await _prefs.saveDatosPago(
-      titular: _titularCtrl.text.trim(),
-      detalle: _pagoDetalleCtrl.text.trim(),
-      nota: _pagoNotaCtrl.text.trim(),
+      titular: titular,
+      detalle: detalle,
+      nota: nota,
     );
+    try {
+      if (AppRepositories.isReady && mounted) {
+        final repos = context.repos;
+        await repos.guardarDatosPagoOrganizador(
+          titular: titular,
+          detalle: detalle,
+          nota: nota,
+        );
+      }
+    } catch (_) {
+      // Prefs locales ya guardados; el sync remoto puede reintentarse.
+    }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.tr('configPaymentInfoSaved'))),

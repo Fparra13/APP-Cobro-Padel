@@ -191,6 +191,15 @@ String formatFechaCorta(DateTime fecha) =>
 String formatHora(DateTime fecha) =>
     DateFormat('HH:mm', _activeDateLocale).format(fecha);
 
+/// Mes abreviado en mayúsculas para bloque de fecha (ej. "JUL", "APR").
+String formatMesAbrev(DateTime fecha) =>
+    DateFormat('MMM', _activeDateLocale).format(fecha).toUpperCase()
+        .replaceAll('.', '');
+
+/// Día del mes como número (ej. "17").
+String formatDiaNumero(DateTime fecha) =>
+    DateFormat('d', _activeDateLocale).format(fecha);
+
 String formatFechaHora(DateTime fecha) =>
     DateFormat('dd/MM/yyyy HH:mm', _activeDateLocale).format(fecha);
 
@@ -291,6 +300,51 @@ String formatTiempoRelativo(DateTime fecha) {
     );
   }
   return formatDiaCorto(fecha);
+}
+
+/// Countdown legible hasta el plazo de respuesta (`tiempo_limite`).
+String formatPlazoRestante(Duration remaining) {
+  if (remaining <= Duration.zero) {
+    return _relativeLocalePhrase(es: '0 min', en: '0 min', pt: '0 min');
+  }
+  if (remaining < const Duration(hours: 1)) {
+    final m = remaining.inMinutes.clamp(1, 59);
+    return _relativeLocalePhrase(
+      es: '$m min',
+      en: '$m min',
+      pt: '$m min',
+    );
+  }
+  if (remaining < const Duration(hours: 24)) {
+    final h = remaining.inHours;
+    final m = remaining.inMinutes % 60;
+    if (m > 0) {
+      return _relativeLocalePhrase(
+        es: '$h h $m min',
+        en: '${h}h ${m}m',
+        pt: '$h h $m min',
+      );
+    }
+    return _relativeLocalePhrase(
+      es: '$h h',
+      en: '${h}h',
+      pt: '$h h',
+    );
+  }
+  final d = remaining.inDays;
+  final h = remaining.inHours % 24;
+  if (h > 0) {
+    return _relativeLocalePhrase(
+      es: '$d d $h h',
+      en: '${d}d ${h}h',
+      pt: '$d d $h h',
+    );
+  }
+  return _relativeLocalePhrase(
+    es: '$d días',
+    en: '$d days',
+    pt: '$d dias',
+  );
 }
 
 /// Tiempo hasta [fecha] (ej. "3 horas", "mañana").

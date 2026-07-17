@@ -7,6 +7,7 @@ import '../models/detalle_partido.dart';
 import '../services/supabase_storage_service.dart';
 import '../utils/formatters.dart';
 import '../utils/single_action.dart';
+import 'comprobante_historico_chip.dart';
 import 'matchpay_ui.dart';
 
 /// Pagos enviados por jugadores pendientes de conciliación (organizador).
@@ -165,8 +166,14 @@ class _PagoPorValidarCardState extends State<PagoPorValidarCard> {
       widget.onReadOnlyTap?.call();
       return;
     }
-    final url = detalle.comprobanteUrl;
-    if (url == null) return;
+    final url = detalle.comprobanteUrl?.trim();
+    if (url == null || url.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.tr('receiptImageNotFound'))),
+      );
+      return;
+    }
     await runOnce('ver-comprobante-${detalle.id}', () async {
       try {
         final signed = await SupabaseStorageService.instance.signedUrl(url);
@@ -310,6 +317,17 @@ class _PagoPorValidarCardState extends State<PagoPorValidarCard> {
               color: MatchPayTokens.accentUrgent,
             ),
           ),
+          if ((d.comprobanteUrl ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _ComprobantePreviewThumb(
+              storagePath: d.comprobanteUrl!,
+              onTap: _busy ? null : _verComprobante,
+            ),
+          ],
+          if (d.id != null) ...[
+            const SizedBox(height: 4),
+            ComprobanteHistoricoChip(detalle: d),
+          ],
           const SizedBox(height: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -388,7 +406,10 @@ class _ComprobanteValidacionDialog extends StatelessWidget {
                     child: Center(child: CircularProgressIndicator()),
                   );
                 },
-                errorBuilder: (context, error, stackTrace) => SelectableText(signedUrl),
+                errorBuilder: (context, error, stackTrace) => Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(context.tr('receiptImageNotFound')),
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -422,6 +443,70 @@ class _ComprobanteValidacionDialog extends StatelessWidget {
           child: Text(context.tr('close')),
         ),
       ],
+    );
+  }
+}
+
+/// Miniatura del comprobante en la cola de validación del organizador.
+class _ComprobantePreviewThumb extends StatelessWidget {
+  final String storagePath;
+  final VoidCallback? onTap;
+
+  const _ComprobantePreviewThumb({
+    required this.storagePath,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: SupabaseStorageService.instance.signedUrl(storagePath),
+      builder: (context, snap) {
+        final child = snap.hasData
+            ? Image.network(
+                snap.data!,
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _placeholder(context),
+              )
+            : snap.hasError
+                ? _placeholder(context)
+                : const SizedBox(
+                    height: 140,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+
+        return Material(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(height: 140, width: double.infinity, child: child),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _placeholder(BuildContext context) {
+    return SizedBox(
+      height: 140,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.image_not_supported_outlined, color: Colors.grey.shade600),
+            const SizedBox(height: 6),
+            Text(
+              context.tr('receiptImageNotFound'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

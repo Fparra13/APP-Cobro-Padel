@@ -57,12 +57,25 @@ class SupabaseStorageService {
     return path;
   }
 
+  /// Path relativo en el bucket (`{uuid}/…jpg`). Si llega una URL completa, extrae el path.
+  static String normalizeComprobantePath(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return trimmed;
+    if (!trimmed.contains('://')) {
+      return trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+    }
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null) return trimmed;
+    final segments = uri.pathSegments;
+    final idx = segments.indexOf(bucket);
+    if (idx < 0 || idx + 1 >= segments.length) return trimmed;
+    return segments.sublist(idx + 1).join('/');
+  }
+
   Future<String> signedUrl(String storagePath) async {
     final client = SupabaseHelpers.client;
-    return client.storage.from(bucket).createSignedUrl(
-          storagePath,
-          3600,
-        );
+    final path = normalizeComprobantePath(storagePath);
+    return client.storage.from(bucket).createSignedUrl(path, 3600);
   }
 
   Future<void> deleteIfExists(String? storagePath) async {

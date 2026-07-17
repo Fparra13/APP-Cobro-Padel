@@ -69,8 +69,8 @@ class PdfService {
           pw.Text(
             _pdf(
               conDeuda > 0
-                  ? '$conDeuda jugador${conDeuda == 1 ? '' : 'es'} con deuda - Total ${_fmt(totalDeuda)}'
-                  : 'Todos los jugadores estan al dia',
+                  ? '$conDeuda participante${conDeuda == 1 ? '' : 's'} con deuda - Total ${_fmt(totalDeuda)}'
+                  : 'Todos los participantes estan al dia',
             ),
             style: pw.TextStyle(
               fontSize: 12,
@@ -79,13 +79,13 @@ class PdfService {
           ),
           pw.SizedBox(height: 16),
           pw.Text(
-            _pdf('Saldo acumulado por jugador'),
+            _pdf('Saldo acumulado por participante'),
             style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13),
           ),
           pw.SizedBox(height: 8),
           pw.TableHelper.fromTextArray(
             headers: [
-              _pdf('Jugador'),
+              _pdf('Participante'),
               _pdf('Saldo pendiente'),
               _pdf('Estado'),
             ],
@@ -156,11 +156,11 @@ class PdfService {
           ..._resumenGastosPartido(completo, desglose.length),
           pw.SizedBox(height: 18),
           if (ordenados.isNotEmpty) ...[
-            _tituloSeccion('Resumen por jugador'),
+            _tituloSeccion('Resumen por participante'),
             pw.SizedBox(height: 8),
             _tablaResumenJugadores(ordenados),
             pw.SizedBox(height: 20),
-            _tituloSeccion('Detalle por jugador'),
+            _tituloSeccion('Detalle por participante'),
             pw.SizedBox(height: 4),
             pw.Text(
               _pdf(
@@ -177,7 +177,7 @@ class PdfService {
               ),
             ),
           ] else
-            pw.Text(_pdf('Sin jugadores asistentes en este encuentro')),
+            pw.Text(_pdf('Sin participantes asistentes en este encuentro')),
           if (hayDeudores) ...[
             pw.SizedBox(height: 16),
             pw.Text(
@@ -542,7 +542,7 @@ class PdfService {
         _pdf(cv.concepto),
         _fmt(cv.montoTotal),
         nAsignados > 0
-            ? 'Asignado a $nAsignados jugador${nAsignados == 1 ? '' : 'es'}'
+            ? 'Asignado a $nAsignados participante${nAsignados == 1 ? '' : 's'}'
             : 'Sin asignar',
       ]);
     }
@@ -564,7 +564,7 @@ class PdfService {
       pw.Text(
         _pdf(
           nAsistentes > 0
-              ? '$nAsistentes jugador${nAsistentes == 1 ? '' : 'es'} asistieron. '
+              ? '$nAsistentes participante${nAsistentes == 1 ? '' : 's'} asistieron. '
                   'Cancha y pelotas se reparten en partes iguales.'
               : 'Sin asistentes registrados.',
         ),
@@ -596,7 +596,7 @@ class PdfService {
   pw.Widget _tablaResumenJugadores(List<DesgloseJugador> jugadores) {
     return pw.TableHelper.fromTextArray(
       headers: [
-        'Jugador',
+        'Participante',
         'Encuentro',
         'Deuda ant.',
         'Abono',

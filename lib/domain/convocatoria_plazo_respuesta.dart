@@ -1,10 +1,12 @@
-import '../utils/formatters.dart';
-
-/// Plazo de respuesta a convocatoria acotado a la fecha del partido.
+/// Plazo de respuesta a convocatoria.
+///
+/// El organizador elige cuántas horas tienen los jugadores para responder
+/// desde el envío (`now + horas`). Las opciones del selector no pueden
+/// superar la hora del encuentro (no tiene sentido confirmar después).
 class ConvocatoriaPlazoRespuesta {
   ConvocatoriaPlazoRespuesta._();
 
-  /// Partido en ≤24 h: plazos cortos acotados al cierre.
+  /// Partido en ≤24 h: plazos cortos.
   static const opcionesUrgentes = [1, 2, 4, 6, 8, 12];
 
   /// Partido en >24 h: plazos amplios (sin 1–2 h).
@@ -12,15 +14,6 @@ class ConvocatoriaPlazoRespuesta {
 
   /// A partir de aquí se usan plazos extendidos.
   static const umbralPartidoLejanoHoras = 24;
-
-  /// Los jugadores deben confirmar como máximo 6 h antes del partido.
-  static const ventanaCierre = Duration(hours: 6);
-
-  /// Margen mínimo si se convoca dentro de las 6 h finales.
-  static const margenMinimoAntesPartido = Duration(hours: 1);
-
-  static DateTime topeMaximoConfirmacion(DateTime fechaPartido) =>
-      fechaPartido.subtract(ventanaCierre);
 
   /// Horas completas (redondeo hacia arriba) hasta el partido.
   static int horasHastaPartido(DateTime fechaPartido, [DateTime? reference]) {
@@ -32,31 +25,24 @@ class ConvocatoriaPlazoRespuesta {
   static bool partidoLejano(DateTime fechaPartido, [DateTime? reference]) =>
       horasHastaPartido(fechaPartido, reference) > umbralPartidoLejanoHoras;
 
+  /// @deprecated Sin ventana de cierre; se mantiene por compatibilidad.
   static bool dentroVentanaCierre(
     DateTime fechaPartido, [
     DateTime? reference,
-  ]) {
-    final now = reference ?? DateTime.now();
-    return now.isAfter(topeMaximoConfirmacion(fechaPartido));
-  }
+  ]) =>
+      false;
 
-  /// Máximo de horas seleccionables respetando cierre 6 h antes.
+  /// Máximo de horas enteras que caben antes de la hora del partido.
   static int horasPlazoMaximasSeleccionables(
     DateTime fechaPartido, [
     DateTime? reference,
   ]) {
     final now = reference ?? DateTime.now();
-    final tope = topeMaximoConfirmacion(fechaPartido);
-
-    if (now.isAfter(tope)) {
-      final horasHasta = horasHastaPartido(fechaPartido, now);
-      if (horasHasta <= 1) return 1;
-      return horasHasta.clamp(1, 2);
-    }
-
-    final maxH = tope.difference(now).inMinutes ~/ 60;
-    if (maxH >= 1) return maxH.clamp(1, 24);
-    return 1;
+    final mins = fechaPartido.difference(now).inMinutes;
+    if (mins <= 0) return 1;
+    final maxH = mins ~/ 60;
+    if (maxH < 1) return 1;
+    return maxH.clamp(1, 24);
   }
 
   /// Opciones según cuánto falta para el partido.
@@ -76,7 +62,7 @@ class ConvocatoriaPlazoRespuesta {
     final opts = base.where((h) => h <= maxHoras).toList();
     if (opts.isNotEmpty) return opts;
 
-    // Entre presets: usar el máximo real (p. ej. 17 h → opción 17 en urgente).
+    // Entre presets: usar el máximo real (p. ej. 3 h → opción 3).
     if (!partidoLejano(fechaPartido, now) && maxHoras > 1) {
       return [maxHoras.clamp(1, 24)];
     }
@@ -108,27 +94,18 @@ class ConvocatoriaPlazoRespuesta {
     return opts.last;
   }
 
-  /// `now + horas`, sin pasar 6 h antes del partido.
+  /// `now + horas`, sin pasar la hora del partido.
   static DateTime calcularTiempoLimite({
     required DateTime enviadoEn,
     required int horasLimite,
     required DateTime fechaPartido,
   }) {
     final porHoras = enviadoEn.add(Duration(hours: horasLimite));
-    final tope = topeMaximoConfirmacion(fechaPartido);
-    final piso = fechaPartido.subtract(margenMinimoAntesPartido);
-
-    if (!enviadoEn.isAfter(tope)) {
-      if (porHoras.isAfter(tope)) return tope;
-      return porHoras;
-    }
-
-    final candidato = porHoras.isBefore(piso) ? porHoras : piso;
-    if (candidato.isAfter(enviadoEn)) return candidato;
-    final urgente = enviadoEn.add(const Duration(hours: 1));
-    return urgente.isBefore(piso) ? urgente : piso;
+    if (porHoras.isAfter(fechaPartido)) return fechaPartido;
+    return porHoras;
   }
 
+  /// True si `now + horas` pasaría la hora del encuentro.
   static bool plazoRecortadoPorPartido({
     required int horasLimite,
     required DateTime fechaPartido,
@@ -136,7 +113,6 @@ class ConvocatoriaPlazoRespuesta {
   }) {
     final envio = enviadoEn ?? DateTime.now();
     final porHoras = envio.add(Duration(hours: horasLimite));
-    final tope = topeMaximoConfirmacion(fechaPartido);
-    return porHoras.isAfter(tope);
+    return porHoras.isAfter(fechaPartido);
   }
 }

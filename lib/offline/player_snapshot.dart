@@ -5,6 +5,7 @@ import '../models/cuenta_saldo.dart';
 import '../models/detalle_partido.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/saldo_historico.dart';
+import '../domain/player_invite_response.dart';
 import 'offline_snapshot_codec.dart';
 
 /// Clave de snapshot para [PlayerHomeScreen].
@@ -25,6 +26,8 @@ class PlayerHomeData {
   final List<CuentaSaldo> cuentasSaldo;
   /// Total home = suma deudas > 0 (sin netear). Null en snapshots viejos.
   final double? totalDeudaHome;
+  /// Resumen histórico de respuesta a invitaciones. Vacío en snapshots viejos.
+  final MisInvitacionesResumen invitacionesResumen;
 
   const PlayerHomeData({
     required this.convocatorias,
@@ -36,6 +39,7 @@ class PlayerHomeData {
     required this.saldosPorPartido,
     this.cuentasSaldo = const [],
     this.totalDeudaHome,
+    this.invitacionesResumen = MisInvitacionesResumen.empty,
   });
 
   Map<String, dynamic> toJson() => {
@@ -52,10 +56,19 @@ class PlayerHomeData {
         ),
         'cuentasSaldo': cuentasSaldo.map(cuentaSaldoToJson).toList(),
         'totalDeudaHome': totalDeudaHome,
+        'invitacionesResumen': {
+          'recibidas': invitacionesResumen.recibidas,
+          'respondidas': invitacionesResumen.respondidas,
+          'confirmadas': invitacionesResumen.confirmadas,
+        },
       };
 
   factory PlayerHomeData.fromJson(Map<String, dynamic> json) {
     final saldosRaw = json['saldosPorPartido'] as Map? ?? const {};
+    final invRaw = json['invitacionesResumen'];
+    final invMap = invRaw is Map
+        ? Map<String, dynamic>.from(invRaw)
+        : const <String, dynamic>{};
     return PlayerHomeData(
       convocatorias: (json['convocatorias'] as List? ?? const [])
           .map((e) => miConvocatoriaFromJson(Map<String, dynamic>.from(e)))
@@ -87,6 +100,11 @@ class PlayerHomeData {
           .map((e) => cuentaSaldoFromJson(Map<String, dynamic>.from(e)))
           .toList(),
       totalDeudaHome: (json['totalDeudaHome'] as num?)?.toDouble(),
+      invitacionesResumen: MisInvitacionesResumen(
+        recibidas: (invMap['recibidas'] as num?)?.toInt() ?? 0,
+        respondidas: (invMap['respondidas'] as num?)?.toInt() ?? 0,
+        confirmadas: (invMap['confirmadas'] as num?)?.toInt() ?? 0,
+      ),
     );
   }
 }

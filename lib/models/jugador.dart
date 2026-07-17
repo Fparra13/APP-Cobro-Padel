@@ -76,9 +76,11 @@ class Jugador {
     String? telefono,
     String? fotoPath,
     String? fotoUrl,
+    String? fcmToken,
     bool clearFoto = false,
     bool clearTelefono = false,
     bool clearEmail = false,
+    bool clearFcmToken = false,
     DateTime? createdAt,
   }) {
     return Jugador(
@@ -91,6 +93,7 @@ class Jugador {
       telefono: clearTelefono ? null : (telefono ?? this.telefono),
       fotoPath: clearFoto ? null : (fotoPath ?? this.fotoPath),
       fotoUrl: clearFoto ? null : (fotoUrl ?? this.fotoUrl),
+      fcmToken: clearFcmToken ? null : (fcmToken ?? this.fcmToken),
       createdAt: createdAt ?? this.createdAt,
     );
   }

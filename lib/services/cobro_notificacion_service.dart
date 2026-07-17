@@ -67,7 +67,17 @@ class CobroNotificacionService {
         if (d.jugadorSupabaseId != null) d.jugadorSupabaseId!: d,
     };
 
-    final pago = await _prefs.datosPago;
+    final pagoLocal = await _prefs.datosPago;
+    var pago = pagoLocal;
+    final orgId = AuthService.instance.currentUser?.id;
+    if (orgId != null && AppRepositories.isReady) {
+      try {
+        final remote = await repos.getDatosPagoOrganizador(orgId);
+        if (remote != null && remote.pago.tieneDatos) {
+          pago = remote.pago;
+        }
+      } catch (_) {}
+    }
     final fechaTxt = formatDiaCompleto(completo.partido.fecha);
     final uid = AuthService.instance.currentUser?.id;
 
@@ -219,13 +229,15 @@ class CobroNotificacionService {
   }) async {
     final esSelf = uid != null && uid == targetId;
     if (esSelf) {
+      // Misma sesión: solo notificación del sistema (sin SnackBar negro duplicado
+      // ni FCM que vuelva a disparar otra local en foreground).
       await NotificationService.instance.showCobroPartido(
         partidoId: partidoId,
         titulo: titulo,
         cuerpo: cuerpo,
         detalle: detalleTexto,
       );
-      NotificationService.instance.showInAppSnack(cuerpo);
+      return true;
     }
 
     await PushNotificationService.instance.enviar(
@@ -371,7 +383,6 @@ class CobroNotificacionService {
           titulo: titulo,
           cuerpo: cuerpo,
         );
-        NotificationService.instance.showInAppSnack(cuerpo);
         return;
       }
 

@@ -49,8 +49,12 @@ class MensajeCobroService {
 
     if (desglose.saldoFavorAplicado > 0 && desglose.netoAPagarPartido <= 0) {
       lineas.add('✅ Encuentro cubierto con saldo a favor');
-    } else if (desglose.pagadoEnPartido) {
-      if (desglose.generaSaldoAFavorPartido) {
+    } else if (desglose.alDiaOrganizador) {
+      if (desglose.creditoCuenta > 0.005) {
+        lineas.add(
+          '✅ Al día — Saldo a favor: ${formatMoney(desglose.creditoCuenta)}',
+        );
+      } else if (desglose.generaSaldoAFavorPartido) {
         lineas.add(
           '✅ Al día — Saldo a favor: ${formatMoney(-desglose.saldoRestantePartido)}',
         );
@@ -64,7 +68,7 @@ class MensajeCobroService {
         lineas.add('💵 Pagaste: ${formatMoney(desglose.montoPagado)}');
       }
       lineas.add(
-        '💰 Total pendiente: *${formatMoney(desglose.pendientePartido)}*',
+        '💰 Total pendiente: *${formatMoney(desglose.pendienteOrganizador)}*',
       );
     }
 
@@ -72,7 +76,7 @@ class MensajeCobroService {
 
     lineas.add('');
     lineas.addAll(
-      desglose.pagadoEnPartido
+      desglose.alDiaOrganizador
           ? _lineasCierreAlDia(partido.sportType)
           : _lineasCierrePendiente(partido.sportType),
     );

@@ -271,7 +271,7 @@ class JugadorRepositoryRemote {
   }) async {
     final trimmedName = nombre.trim();
     if (trimmedName.isEmpty) {
-      throw Exception('El jugador debe tener un nombre');
+      throw Exception('El participante debe tener un nombre');
     }
 
     final mailRaw = email?.trim().toLowerCase();
@@ -415,14 +415,15 @@ class JugadorRepositoryRemote {
   }
 
   /// Recalcula saldos de varias cuentas del organizador autenticado.
+  /// Incluye al propio organizador si también asistió (fila de saldo dual).
   Future<void> recalcularSaldosBatch(
     List<String> jugadorIds, {
     String? organizadorId,
   }) async {
+    final orgId = organizadorId ?? SupabaseHelpers.currentUserId;
     final ids = jugadorIds.where((id) => id.isNotEmpty).toSet().toList();
     if (ids.isEmpty) return;
     await SupabaseHelpers.write('Recalcular saldos cuentas batch', () async {
-      final orgId = organizadorId ?? SupabaseHelpers.currentUserId;
       if (orgId == null) {
         throw Exception('recalcularSaldosBatch: sin organizador autenticado');
       }

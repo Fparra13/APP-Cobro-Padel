@@ -135,4 +135,48 @@ void main() {
 
     expect(ConvocatoriaCupoLogic.cupoImposible(conv, ref), isFalse);
   });
+
+  test('lista de espera solo visible con cupos completos o gente en espera', () {
+    expect(
+      ConvocatoriaCupoLogic.mostrarListaEspera(
+        seleccionados: 3,
+        cuposMax: 4,
+        enEspera: 0,
+      ),
+      isFalse,
+    );
+    expect(
+      ConvocatoriaCupoLogic.mostrarListaEspera(
+        seleccionados: 4,
+        cuposMax: 4,
+        enEspera: 0,
+      ),
+      isTrue,
+    );
+    expect(
+      ConvocatoriaCupoLogic.mostrarListaEspera(
+        seleccionados: 2,
+        cuposMax: 4,
+        enEspera: 1,
+      ),
+      isTrue,
+    );
+  });
+
+  test('marcar de más con cupos llenos va a lista de espera', () {
+    expect(
+      ConvocatoriaCupoLogic.destinoSeleccionBorrador(
+        invitadosActuales: 3,
+        cuposMax: 4,
+      ),
+      'invitado',
+    );
+    expect(
+      ConvocatoriaCupoLogic.destinoSeleccionBorrador(
+        invitadosActuales: 4,
+        cuposMax: 4,
+      ),
+      'espera',
+    );
+  });
 }

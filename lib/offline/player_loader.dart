@@ -8,6 +8,7 @@ import '../models/cuenta_saldo.dart';
 import '../models/mi_convocatoria.dart';
 import '../models/saldo_historico.dart';
 import '../domain/player_home_stats.dart';
+import '../domain/player_invite_response.dart';
 import '../widgets/desglose_cobro_panel.dart' show ordenarDeudasPorFecha;
 import 'offline_screen_loader.dart';
 import 'offline_snapshot_store.dart';
@@ -68,7 +69,7 @@ Future<PlayerHomeData> _fetchPlayerHome(AppRepositories repos) async {
       repos.getSaldosByJugador(uid)
     else
       Future<List<SaldoHistorico>>.value([]),
-    repos.countMisConfirmaciones(),
+    repos.getMisResumenInvitaciones(),
     repos.listarMisCuentasSaldo(),
     repos.getMiTotalDeudaHome(),
   ]);
@@ -86,7 +87,7 @@ Future<PlayerHomeData> _fetchPlayerHome(AppRepositories repos) async {
   final deudas = ordenarDeudasPorFecha(results[1] as List<DetallePartido>);
   final perfil = results[2] as Jugador?;
   final partidosJugados = results[3] as List<DetallePartido>;
-  final confirmacionesHistoricas = results[5] as int;
+  final invitacionesResumen = results[5] as MisInvitacionesResumen;
   final cuentasSaldo = results[6] as List<CuentaSaldo>;
   final totalDeudaHome = results[7] as double;
   final partidoIds = {
@@ -105,7 +106,7 @@ Future<PlayerHomeData> _fetchPlayerHome(AppRepositories repos) async {
     perfil: perfil,
     partidosJugados: partidosJugados,
     convocatorias: convocatorias,
-    confirmacionesHistoricas: confirmacionesHistoricas,
+    confirmacionesHistoricas: invitacionesResumen.confirmadas,
     totalDeudaHome: totalDeudaHome,
   );
   if (mine == null && uid != null) {
@@ -127,6 +128,7 @@ Future<PlayerHomeData> _fetchPlayerHome(AppRepositories repos) async {
     saldosPorPartido: saldosPorPartido,
     cuentasSaldo: cuentasSaldo,
     totalDeudaHome: totalDeudaHome,
+    invitacionesResumen: invitacionesResumen,
   );
 }
 
@@ -146,7 +148,7 @@ Future<PlayerJugadorFichaData> _fetchPlayerJugadorFicha(
   final jugador = data[0] as Jugador?;
   if (jugador == null) {
     throw Exception(
-      'Jugador no encontrado (id: $jugadorKey). '
+      'Participante no encontrado (id: $jugadorKey). '
       'Puede estar bloqueado por RLS en Supabase.',
     );
   }

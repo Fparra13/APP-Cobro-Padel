@@ -95,6 +95,14 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
   bool get _cuposLlenos => _confirmados >= _cuposMax;
 
+  /// La lista de espera solo se arma cuando los cupos están completos
+  /// (o ya hay gente en espera cargada desde el servidor).
+  bool get _mostrarListaEspera => ConvocatoriaCupoLogic.mostrarListaEspera(
+        seleccionados: _titulares.length,
+        cuposMax: _cuposMax,
+        enEspera: _listaEspera.length,
+      );
+
   bool get _cupoImposible {
     final completa = _convocatoriaCompleta;
     if (completa == null || !_modoSeguimiento) return false;
@@ -194,31 +202,25 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   List<Jugador> _jugadoresTitularesEnPantalla() {
-    final base = _formularioBloqueado
-        ? _titulares.map(_jugadorPorId).whereType<Jugador>()
-        : _habituales.where((j) => j.keyId.isNotEmpty);
-    final ordered = sortJugadoresByPriority(
+    final puedeSeleccionar =
+        !_formularioBloqueado || _puedeEditarListaEspera;
+    final base = puedeSeleccionar
+        ? _habituales.where((j) => j.keyId.isNotEmpty)
+        : _titulares.map(_jugadorPorId).whereType<Jugador>();
+    final ordered = sortJugadoresParaConvocatoria(
       jugadores: base,
+      invitadosIds: _titulares,
+      esperaIds: _listaEspera,
       priorityIds: _prioridadJugadorIds,
-      selectedIds: _titulares.toSet(),
     );
     return filterJugadoresByName(ordered, _jugadoresBusquedaCtrl.text);
   }
 
-  List<Jugador> get _habitualesParaListaEspera => filterJugadoresByName(
-        sortJugadoresByPriority(
-          jugadores: _habituales.where((j) {
-            final id = j.keyId;
-            return id.isNotEmpty && !_esTitular(id) && !_esSuplente(id);
-          }),
-          priorityIds: _prioridadJugadorIds,
-        ),
-        _jugadoresBusquedaCtrl.text,
-      );
-
   bool _esTitular(String id) => _titulares.contains(id);
 
   bool _esSuplente(String id) => _listaEspera.contains(id);
+
+  bool _estaSeleccionado(String id) => _esTitular(id) || _esSuplente(id);
 
   int get _cuposMax {
     final n = int.tryParse(_cuposCtrl.text.trim());
@@ -324,6 +326,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         _notasCtrl.text = conv.partido.notas ?? '';
         _cuposCtrl.text = conv.partido.cuposMax.toString();
         _horasLimite = conv.partido.horasLimiteRespuesta;
+        // Ajusta a opciones válidas para la fecha (evita crash del dropdown
+        // si el partido quedó lejano y el plazo guardado era 1–2 h).
+        _ajustarPlazoTrasCambioFecha();
         _partidoConfirmado = conv.partido.esConfirmado;
         _convocatoriaExpiradaAlCargar =
             PartidoLifecycle.convocatoriaExpirada(conv.partido);
@@ -372,14 +377,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         var titularesCount = 0;
         for (final j in ordenados) {
           if (j.keyId.isEmpty) continue;
-          if (titularesCount < _cuposMax) {
-            _titulares.add(j.keyId);
-            _estados[j.keyId] = EstadoConfirmacion.invitado;
-            titularesCount++;
-          } else {
-            _listaEspera.add(j.keyId);
-            _estados[j.keyId] = EstadoConfirmacion.invitado;
-          }
+          if (titularesCount >= _cuposMax) break;
+          _titulares.add(j.keyId);
+          _estados[j.keyId] = EstadoConfirmacion.invitado;
+          titularesCount++;
         }
         if (ultimoRecinto.isNotEmpty) {
           for (final r in recintosGuardados) {
@@ -557,6 +558,20 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     if (!_dirty) setState(() => _dirty = true);
   }
 
+  void _onCuposChanged(String _) {
+    setState(() {
+      _dirty = true;
+      final max = _cuposMax;
+      // Al bajar cupos, deselecciona el excedente (no va a espera solo:
+      // la espera se arma marcando personas de más a propósito).
+      while (_titulares.length > max) {
+        final id = _titulares.removeLast();
+        _listaEspera.remove(id);
+        _estados.remove(id);
+      }
+    });
+  }
+
   Future<void> _persistirEstadoJugador(String jugadorId) async {
     if (_partidoId == null) return;
     await context.repos.actualizarConfirmacion(
@@ -589,25 +604,41 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
   void _toggleTitular(String id, bool? value) {
     setState(() {
-      if (value == true) {
-        if (_titulares.length >= _cuposMax) {
-          _mostrarError(
-            context.l10n.tr(
-              'organizeMaxStartersError',
-              params: {'max': '$_cuposMax'},
-            ),
-          );
-          return;
+      if (_formularioBloqueado) {
+        // Tras enviar: los invitados quedan fijos; solo se puede
+        // agregar/quitar gente de la lista de espera.
+        if (_esTitular(id)) return;
+        if (value == true) {
+          if (!_listaEspera.contains(id)) _listaEspera.add(id);
+          _estados.putIfAbsent(id, () => EstadoConfirmacion.invitado);
+        } else {
+          _listaEspera.remove(id);
+          _estados.remove(id);
         }
-        _listaEspera.remove(id);
-        if (!_titulares.contains(id)) _titulares.add(id);
+        _dirty = true;
+      } else if (value == true) {
+        if (_esTitular(id) || _esSuplente(id)) return;
+        if (_titulares.length < _cuposMax) {
+          _listaEspera.remove(id);
+          _titulares.add(id);
+        } else {
+          // Cupos de invitación llenos → pasa a lista de espera.
+          if (!_listaEspera.contains(id)) _listaEspera.add(id);
+        }
         _estados.putIfAbsent(id, () => EstadoConfirmacion.invitado);
+        _dirty = true;
       } else {
         _titulares.remove(id);
+        _listaEspera.remove(id);
         _estados.remove(id);
+        _dirty = true;
       }
-      _dirty = true;
     });
+    if (_formularioBloqueado &&
+        _partidoId != null &&
+        _convocatoriaEnviada) {
+      unawaited(_guardar(silencioso: true, actualizarGuardando: false));
+    }
   }
 
   void _moverEspera(int oldIndex, int newIndex) {
@@ -632,35 +663,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       if (mounted) setState(() => _dirty = false);
     } catch (e) {
       if (mounted) _mostrarError(context.userError(e));
-    }
-  }
-
-  Future<void> _agregarAListaEspera(Jugador jugador) async {
-    final id = jugador.keyId;
-    if (id.isEmpty || _esTitular(id) || _esSuplente(id)) return;
-
-    setState(() {
-      _listaEspera.add(id);
-      _estados[id] = EstadoConfirmacion.invitado;
-      _dirty = true;
-    });
-
-    if (_partidoId == null) return;
-
-    if (_convocatoriaEnviada) {
-      await _guardar(silencioso: true, actualizarGuardando: false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              context.l10n.tr(
-                'organizeWaitlistAddedSnack',
-                params: {'name': jugador.nombre},
-              ),
-            ),
-          ),
-        );
-      }
     }
   }
 
@@ -741,7 +743,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
     setState(() {
       _estados[id] = siguiente;
-      _dirty = true;
     });
 
     if (_partidoId != null) {
@@ -752,6 +753,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       } else {
         await _autoConfirmarSiCompleto();
       }
+    } else {
+      _marcarDirty();
     }
   }
 
@@ -885,6 +888,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
       if (!silencioso && mounted) {
         setState(() => _dirty = false);
+      } else if (silencioso && mounted && _dirty) {
+        // Auto-guardado en seguimiento: no dejar dirty colgado.
+        setState(() => _dirty = false);
       }
       return true;
     } catch (e) {
@@ -900,12 +906,17 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   Future<bool> _confirmarSalidaSinGuardar() async {
     if (!_dirty) return true;
 
+    final enviada = _convocatoriaEnviada;
     final action = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.tr('organizeExitWithoutSavingTitle')),
+        title: Text(
+          enviada
+              ? ctx.l10n.tr('organizeExitConfirmTitle')
+              : ctx.l10n.tr('organizeExitWithoutSavingTitle'),
+        ),
         content: Text(
-          _convocatoriaEnviada
+          enviada
               ? ctx.l10n.tr('organizeExitStatesSavedBody')
               : ctx.l10n.tr('organizeExitDraftBody'),
         ),
@@ -916,9 +927,13 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'descartar'),
-            child: Text(ctx.l10n.tr('organizeExitWithoutSaving')),
+            child: Text(
+              enviada
+                  ? ctx.l10n.tr('organizeExitConfirmAction')
+                  : ctx.l10n.tr('organizeExitWithoutSaving'),
+            ),
           ),
-          if (!_convocatoriaEnviada)
+          if (!enviada)
             FilledButton(
               onPressed: () => Navigator.pop(ctx, 'borrador'),
               child: Text(ctx.l10n.tr('organizeSaveDraft')),
@@ -1211,8 +1226,14 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
             ),
           if (_partidoId != null)
             IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: context.l10n.tr('deleteTooltip'),
+              icon: Icon(
+                _confirmados > 0
+                    ? Icons.event_busy_outlined
+                    : Icons.delete_outline,
+              ),
+              tooltip: _confirmados > 0
+                  ? context.l10n.tr('organizerCycleAtRiskCancel')
+                  : context.l10n.tr('deleteTooltip'),
               onPressed: _eliminarConvocatoria,
             ),
         ],
@@ -1241,9 +1262,17 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             onPressed: _eliminarConvocatoria,
-                            icon: const Icon(Icons.delete_outline_rounded),
+                            icon: Icon(
+                              _confirmados > 0
+                                  ? Icons.event_busy_outlined
+                                  : Icons.delete_outline_rounded,
+                            ),
                             label: Text(
-                              context.l10n.tr('organizerCycleDeleteConvocatoria'),
+                              context.l10n.tr(
+                                _confirmados > 0
+                                    ? 'organizerCycleAtRiskCancel'
+                                    : 'organizerCycleDeleteConvocatoria',
+                              ),
                             ),
                           ),
                         ),
@@ -1979,7 +2008,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
             TextField(
               controller: _cuposCtrl,
               readOnly: _formularioBloqueado,
-              onChanged: _formularioBloqueado ? null : (_) => _marcarDirty(),
+              onChanged: _formularioBloqueado ? null : _onCuposChanged,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: InputDecoration(
@@ -1988,40 +2017,59 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              value: _opcionesPlazo.contains(_horasLimite)
-                  ? _horasLimite
-                  : _opcionesPlazo.last,
-              decoration: InputDecoration(
-                labelText: context.l10n.tr('organizeResponseDeadlineLabel'),
-                prefixIcon: const Icon(Icons.timer_outlined),
-                helperText: _fechaPartido == null
-                    ? context.l10n.tr('organizeResponseDeadlineNeedDate')
-                    : _buildPlazoHelperText(),
-                helperMaxLines: 2,
-              ),
-              items: _opcionesPlazo
-                  .map(
-                    (h) => DropdownMenuItem(
-                      value: h,
-                      child: Text(
-                        context.l10n.tr(
-                          'organizeHoursCount',
-                          params: {'n': '$h'},
+            Builder(
+              builder: (context) {
+                final opciones = _opcionesPlazo;
+                assert(opciones.isNotEmpty);
+                final valor = opciones.contains(_horasLimite)
+                    ? _horasLimite
+                    : opciones.last;
+                if (valor != _horasLimite) {
+                  // Sync diferido: evita value fuera de items (assert Flutter).
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    if (_horasLimite != valor) {
+                      setState(() => _horasLimite = valor);
+                    }
+                  });
+                }
+                return DropdownButtonFormField<int>(
+                  key: ValueKey('plazo-${opciones.join('-')}'),
+                  value: valor,
+                  decoration: InputDecoration(
+                    labelText:
+                        context.l10n.tr('organizeResponseDeadlineLabel'),
+                    prefixIcon: const Icon(Icons.timer_outlined),
+                    helperText: _fechaPartido == null
+                        ? context.l10n
+                            .tr('organizeResponseDeadlineNeedDate')
+                        : _buildPlazoHelperText(),
+                    helperMaxLines: 2,
+                  ),
+                  items: opciones
+                      .map(
+                        (h) => DropdownMenuItem(
+                          value: h,
+                          child: Text(
+                            context.l10n.tr(
+                              'organizeHoursCount',
+                              params: {'n': '$h'},
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: _formularioBloqueado || _fechaPartido == null
-                  ? null
-                  : (v) {
-                      if (v == null) return;
-                      setState(() {
-                        _horasLimite = v;
-                        _dirty = true;
-                      });
-                    },
+                      )
+                      .toList(),
+                  onChanged: _formularioBloqueado || _fechaPartido == null
+                      ? null
+                      : (v) {
+                          if (v == null) return;
+                          setState(() {
+                            _horasLimite = v;
+                            _dirty = true;
+                          });
+                        },
+                );
+              },
             ),
             const SizedBox(height: 12),
             TextField(
@@ -2078,10 +2126,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      context.l10n.tr(
-                        'organizeStartersTitle',
-                        params: {'max': '$_cuposMax'},
-                      ),
+                      context.l10n.tr('organizeStartersTitle'),
                       style: MatchPayTokens.titleSmallStyle().copyWith(
                         fontSize: 15,
                       ),
@@ -2100,7 +2145,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 Text(
                   _modoSeguimiento
                       ? context.l10n.tr('organizeStartersHintTracking')
-                      : context.l10n.tr('organizeStartersHintDraft'),
+                      : context.l10n.tr(
+                          'organizeStartersHintDraft',
+                          params: {'max': '$_cuposMax'},
+                        ),
                   style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 12),
                 ),
                 const SizedBox(height: 8),
@@ -2108,7 +2156,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   controller: _jugadoresBusquedaCtrl,
                   enabled: !_formularioBloqueado || _modoSeguimiento,
                   decoration: InputDecoration(
-                    hintText: context.l10n.tr('playersSearchHint'),
+                    hintText: context.l10n.tr('organizeSearchHint'),
                     prefixIcon: const Icon(Icons.search, size: 20),
                     suffixIcon: _jugadoresBusquedaCtrl.text.trim().isEmpty
                         ? null
@@ -2129,14 +2177,17 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 const SizedBox(height: 8),
                 ..._jugadoresTitularesEnPantalla().map((j) {
                   final id = j.keyId;
-                  final esTitular =
-                      _formularioBloqueado ? true : _esTitular(id);
+                  final seleccionado = _formularioBloqueado && !_puedeEditarListaEspera
+                      ? _esTitular(id)
+                      : _estaSeleccionado(id);
+                  final enEspera = _esSuplente(id);
+                  final esInvitado = _esTitular(id);
                   final estado = _estados[id] ?? EstadoConfirmacion.invitado;
+                  final puedeToggle =
+                      !_formularioBloqueado || _puedeEditarListaEspera;
                   return CheckboxListTile(
-                    value: esTitular,
-                    onChanged: _formularioBloqueado
-                        ? null
-                        : (v) => _toggleTitular(id, v),
+                    value: seleccionado,
+                    onChanged: puedeToggle ? (v) => _toggleTitular(id, v) : null,
                     title: Row(
                       children: [
                         Expanded(
@@ -2145,11 +2196,23 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (enEspera) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            context.l10n.tr('organizeWaitlistBadge'),
+                            style: MatchPayTokens.bodySmallStyle(
+                              color: const Color(0xFF7C3AED),
+                            ).copyWith(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                         const SizedBox(width: 8),
                         JugadorAppBadge(jugador: j, compact: true),
                       ],
                     ),
-                    secondary: esTitular
+                    secondary: esInvitado
                         ? _EstadoChip(
                             estado: estado,
                             onTap: _puedeEditarEstados && !j.tieneMatchPayApp
@@ -2167,139 +2230,114 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
             ),
         ),
         const SizedBox(height: 12),
-        MatchPaySurfaceCard(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                context.l10n.tr('organizeWaitlistTitle'),
-                style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                context.l10n.tr('organizeWaitlistHint'),
-                style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 12),
-              ),
-              if (_puedeEditarListaEspera && !_formularioBloqueado) ...[
-                const SizedBox(height: 6),
+        if (_mostrarListaEspera)
+          MatchPaySurfaceCard(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  context.l10n.tr('organizeWaitlistHintTracking'),
-                  style: MatchPayTokens.bodySmallStyle(
-                    color: MatchPayTokens.accentCredit,
-                  ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+                  context.l10n.tr('organizeWaitlistTitle'),
+                  style:
+                      MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
                 ),
-              ],
-              const SizedBox(height: 8),
-              if (!_formularioBloqueado && _habitualesParaListaEspera.isNotEmpty)
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _habitualesParaListaEspera.map((j) {
-                    return ActionChip(
-                      avatar: const Icon(Icons.person_add_alt_1, size: 18),
-                      label: Text(j.nombre),
-                      onPressed: () => _agregarAListaEspera(j),
-                    );
-                  }).toList(),
+                const SizedBox(height: 4),
+                Text(
+                  context.l10n.tr('organizeWaitlistHint'),
+                  style:
+                      MatchPayTokens.bodySmallStyle().copyWith(fontSize: 12),
                 ),
-              if (_formularioBloqueado &&
-                  _puedeEditarListaEspera &&
-                  _habitualesParaListaEspera.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _habitualesParaListaEspera.map((j) {
-                    return ActionChip(
-                      avatar: const Icon(Icons.person_add_alt_1, size: 18),
-                      label: Text(j.nombre),
-                      onPressed: () => _agregarAListaEspera(j),
-                    );
-                  }).toList(),
-                ),
-              ],
-              if (_listaEspera.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text(
-                    context.l10n.tr('organizeWaitlistEmpty'),
+                if (_puedeEditarListaEspera) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    context.l10n.tr('organizeWaitlistHintTracking'),
                     style: MatchPayTokens.bodySmallStyle(
-                      color: MatchPayTokens.inkMuted,
-                    ),
+                      color: MatchPayTokens.accentCredit,
+                    ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
-                )
-              else ...[
-                const SizedBox(height: 8),
-                ReorderableListView(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  onReorder: (!_formularioBloqueado || _puedeEditarListaEspera)
-                      ? _moverEspera
-                      : (_, __) {},
-                  children: [
-                    for (var i = 0; i < _listaEspera.length; i++)
-                      ListTile(
-                        key: ValueKey(_listaEspera[i]),
-                        leading: CircleAvatar(
-                          radius: 14,
-                          backgroundColor:
-                              const Color(0xFF7C3AED).withValues(alpha: 0.15),
-                          child: Text(
-                            '${i + 1}',
-                            style: const TextStyle(
-                              color: Color(0xFF7C3AED),
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
+                ],
+                if (_listaEspera.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      context.l10n.tr('organizeWaitlistEmpty'),
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.inkMuted,
+                      ),
+                    ),
+                  )
+                else ...[
+                  const SizedBox(height: 8),
+                  ReorderableListView(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    onReorder:
+                        (!_formularioBloqueado || _puedeEditarListaEspera)
+                            ? _moverEspera
+                            : (_, __) {},
+                    children: [
+                      for (var i = 0; i < _listaEspera.length; i++)
+                        ListTile(
+                          key: ValueKey(_listaEspera[i]),
+                          leading: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: const Color(0xFF7C3AED)
+                                .withValues(alpha: 0.15),
+                            child: Text(
+                              '${i + 1}',
+                              style: const TextStyle(
+                                color: Color(0xFF7C3AED),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                        ),
-                        title: Text(_nombreJugador(_listaEspera[i])),
-                        subtitle: Text(
-                          context.l10n.tr(
-                            'organizeWaitlistPriority',
-                            params: {'n': '${i + 1}'},
+                          title: Text(_nombreJugador(_listaEspera[i])),
+                          subtitle: Text(
+                            context.l10n.tr(
+                              'organizeWaitlistPriority',
+                              params: {'n': '${i + 1}'},
+                            ),
+                            style: MatchPayTokens.bodySmallStyle(
+                              color: const Color(0xFF7C3AED),
+                            ).copyWith(fontSize: 12),
                           ),
-                          style: MatchPayTokens.bodySmallStyle(
-                            color: const Color(0xFF7C3AED),
-                          ).copyWith(fontSize: 12),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (!_formularioBloqueado ||
-                                _puedeEditarListaEspera)
-                              IconButton(
-                                icon: Icon(
-                                  Icons.remove_circle_outline,
-                                  color: Colors.red.shade400,
-                                  size: 22,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!_formularioBloqueado ||
+                                  _puedeEditarListaEspera)
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.remove_circle_outline,
+                                    color: Colors.red.shade400,
+                                    size: 22,
+                                  ),
+                                  tooltip: context.l10n
+                                      .tr('organizeWaitlistRemove'),
+                                  onPressed: () =>
+                                      _quitarDeListaEspera(_listaEspera[i]),
                                 ),
-                                tooltip: context.l10n
-                                    .tr('organizeWaitlistRemove'),
-                                onPressed: () =>
-                                    _quitarDeListaEspera(_listaEspera[i]),
-                              ),
-                            const Icon(Icons.drag_handle),
-                          ],
+                              const Icon(Icons.drag_handle),
+                            ],
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-              ],
-                if (sinSeleccion)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      context.l10n.tr('organizeSelectStartersAndSubs'),
-                      style: MatchPayTokens.bodySmallStyle(
-                        color: MatchPayTokens.accentUrgent,
-                      ).copyWith(fontWeight: FontWeight.w600),
-                    ),
+                    ],
                   ),
+                ],
               ],
             ),
-        ),
+          ),
+        if (sinSeleccion)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              context.l10n.tr('organizeSelectStartersAndSubs'),
+              style: MatchPayTokens.bodySmallStyle(
+                color: MatchPayTokens.accentUrgent,
+              ).copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
       ],
     );
   }

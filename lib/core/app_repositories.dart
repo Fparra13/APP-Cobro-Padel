@@ -11,6 +11,7 @@ import '../models/cobros_resumen.dart';
 import '../models/deuda_partido_anterior.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
+import '../models/comprobante_pago.dart';
 import '../models/estadisticas_jugador.dart';
 import '../models/estado_partido.dart';
 import '../models/gasto_por_concepto.dart';
@@ -21,6 +22,7 @@ import '../models/partido.dart';
 import '../models/recinto.dart';
 import '../models/saldo_historico.dart';
 import '../models/codigo_grupo.dart';
+import '../models/datos_pago_organizador.dart';
 import '../repositories/backup_repository.dart';
 import '../repositories/codigo_grupo_repository_remote.dart';
 import '../repositories/convocatoria_repository.dart';
@@ -31,6 +33,7 @@ import '../repositories/jugador_repository_remote.dart';
 import '../repositories/partido_repository.dart';
 import '../repositories/partido_repository_remote.dart';
 import '../domain/organizer_cycle_logic.dart';
+import '../domain/player_invite_response.dart';
 import '../repositories/ranking_repository.dart';
 import '../repositories/recinto_repository_remote.dart';
 import '../repositories/repository_types.dart';
@@ -325,6 +328,30 @@ class AppRepositories {
     }
     final resumenes = await _partidoLocal.getResumenJugadores();
     return cobrosResumenDesdeResumenes(resumenes);
+  }
+
+  /// Datos de transferencia del organizador (visible a jugadores de su grupo).
+  Future<({DatosPagoOrganizador pago, String organizadorNombre})?>
+      getDatosPagoOrganizador(String organizadorId) {
+    if (useRemote) {
+      return _partidoRemote.getDatosPagoOrganizador(organizadorId);
+    }
+    return Future.value(null);
+  }
+
+  Future<void> guardarDatosPagoOrganizador({
+    required String titular,
+    required String detalle,
+    required String nota,
+  }) {
+    if (useRemote) {
+      return _partidoRemote.guardarDatosPagoOrganizador(
+        titular: titular,
+        detalle: detalle,
+        nota: nota,
+      );
+    }
+    return Future.value();
   }
 
   /// Reparación manual fuera del flujo normal. No invocar al abrir fichas.
@@ -858,6 +885,14 @@ class AppRepositories {
     return 0;
   }
 
+  /// Resumen histórico de invitaciones (respuesta / confirmadas).
+  Future<MisInvitacionesResumen> getMisResumenInvitaciones() async {
+    if (useRemote) {
+      return _convocatoriaRemote.getMisResumenInvitaciones();
+    }
+    return MisInvitacionesResumen.empty;
+  }
+
   Future<List<MiConvocatoria>> getCancelacionesJugador() async {
     await relinkConvocatoriasPorEmail();
     if (useRemote) {
@@ -928,6 +963,13 @@ class AppRepositories {
   Future<List<DetallePartido>> getPagosPorValidar() async {
     if (useRemote) return _partidoRemote.getPagosPorValidar();
     return Future.value([]);
+  }
+
+  Future<List<ComprobantePago>> getComprobantesPagoByDetalle(int detalleId) {
+    if (useRemote) {
+      return _partidoRemote.getComprobantesPagoByDetalle(detalleId);
+    }
+    return Future.value(const []);
   }
 
   Future<DesgloseJugador?> getMiDesglosePartido(int partidoId) {

@@ -213,6 +213,7 @@ class MatchPaySurfaceCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final bool elevated;
   final bool urgent;
+  final Color? borderColor;
   final VoidCallback? onTap;
 
   const MatchPaySurfaceCard({
@@ -221,11 +222,15 @@ class MatchPaySurfaceCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.elevated = false,
     this.urgent = false,
+    this.borderColor,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final resolvedBorder = urgent
+        ? MatchPayTokens.accentUrgentBorder
+        : borderColor ?? MatchPayTokens.borderSubtle;
     final content = Container(
       width: double.infinity,
       padding: padding,
@@ -233,10 +238,8 @@ class MatchPaySurfaceCard extends StatelessWidget {
         color: MatchPayTokens.surfaceCard,
         borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
         border: Border.all(
-          color: urgent
-              ? MatchPayTokens.accentUrgentBorder
-              : MatchPayTokens.borderSubtle,
-          width: urgent ? 1.5 : 1,
+          color: resolvedBorder,
+          width: urgent || borderColor != null ? 1.5 : 1,
         ),
         boxShadow: MatchPayTokens.shadowCard(elevated: elevated || urgent),
       ),

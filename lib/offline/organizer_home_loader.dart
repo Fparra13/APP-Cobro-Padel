@@ -124,51 +124,57 @@ Future<T> _safeEmpty<T>(Future<T> Function() run, T fallback) async {
 
 Future<OrganizerHomeData> _fetchFromRepos(AppRepositories repos) async {
   try {
-    // Cada bloque es independiente: un fallo (ledger incompleto, RPC, etc.)
-    // no tumba todo el Inicio del organizador.
-    final resumenes = await _safeEmpty(
-      () => repos.getResumenJugadores(reconciliar: false),
-      <ResumenJugador>[],
-    );
-    final convocatorias = await _safeEmpty(
-      () => repos.getConvocatoriasActivas(),
-      <ConvocatoriaCompleta>[],
-    );
-    final misInvitaciones = await _safeEmpty(
-      () => MisInvitacionesPanel.cargarPendientes(repos),
-      <MiConvocatoria>[],
-    );
-    final pagosPorValidar = repos.isCloud
-        ? await _safeEmpty(
-            () => repos.getPagosPorValidar(),
-            <DetallePartido>[],
-          )
-        : <DetallePartido>[];
-    final misDeudas = repos.isCloud
-        ? await _safeEmpty(
-            () => repos.getMisDeudasPendientes(),
-            <DetallePartido>[],
-          )
-        : <DetallePartido>[];
+    // Parallel como el home del jugador: el waterfall serial sumaba ~4s.
+    // Cada bloque sigue aislado con _safeEmpty para no tumbar el Inicio.
+    final results = await Future.wait([
+      _safeEmpty(
+        () => repos.getResumenJugadores(reconciliar: false),
+        <ResumenJugador>[],
+      ),
+      _safeEmpty(
+        () => repos.getConvocatoriasActivas(),
+        <ConvocatoriaCompleta>[],
+      ),
+      _safeEmpty(
+        () => MisInvitacionesPanel.cargarPendientes(repos),
+        <MiConvocatoria>[],
+      ),
+      repos.isCloud
+          ? _safeEmpty(
+              () => repos.getPagosPorValidar(),
+              <DetallePartido>[],
+            )
+          : Future.value(<DetallePartido>[]),
+      repos.isCloud
+          ? _safeEmpty(
+              () => repos.getMisDeudasPendientes(),
+              <DetallePartido>[],
+            )
+          : Future.value(<DetallePartido>[]),
+      _safeEmpty(
+        () => repos.getPartidosJugadosRecientesResumen(limit: 8),
+        <PartidoCompleto>[],
+      ),
+    ]);
 
-    var partidos = <PartidoCompleto>[];
+    final resumenes = results[0] as List<ResumenJugador>;
+    final convocatorias = results[1] as List<ConvocatoriaCompleta>;
+    final misInvitaciones = results[2] as List<MiConvocatoria>;
+    final pagosPorValidar = results[3] as List<DetallePartido>;
+    final misDeudas = results[4] as List<DetallePartido>;
+    final partidos = results[5] as List<PartidoCompleto>;
+
     var desglose = <DesgloseJugador>[];
-    try {
-      partidos = await repos.getPartidosJugadosRecientesResumen(limit: 8);
-      final id = partidos.isEmpty ? null : partidos.first.partido.id;
-      if (id != null) {
-        desglose = await _safeEmpty(
-          () => repos.getDesglose(
-            id,
-            reconciliar: false,
-            repararCuenta: false,
-          ),
-          <DesgloseJugador>[],
-        );
-      }
-    } catch (_) {
-      partidos = [];
-      desglose = [];
+    final id = partidos.isEmpty ? null : partidos.first.partido.id;
+    if (id != null) {
+      desglose = await _safeEmpty(
+        () => repos.getDesglose(
+          id,
+          reconciliar: false,
+          repararCuenta: false,
+        ),
+        <DesgloseJugador>[],
+      );
     }
 
     return OrganizerHomeData(

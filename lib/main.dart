@@ -64,6 +64,7 @@ void main() {
     await initializeDateFormatting('es', null);
     await initializeDateFormatting('es_CL', null);
     await initializeDateFormatting('en', null);
+    await initializeDateFormatting('pt', null);
     await initializeDateFormatting('pt_BR', null);
     await SupabaseConfig.initialize();
     final settings = AppSettingsController();
@@ -104,7 +105,12 @@ void _syncMoneyFormat(AppSettingsController settings) {
   MoneyFormatConfig.locale = currency.locale;
   MoneyFormatConfig.symbol = currency.symbol;
   MoneyFormatConfig.decimalDigits = currency.decimalDigits;
-  MoneyFormatConfig.dateLocale = settings.locale.languageCode;
+  // Fecha: usar locale completo cuando existe (pt_BR, es_CL); si no, languageCode.
+  final loc = settings.locale;
+  MoneyFormatConfig.dateLocale = loc.countryCode != null &&
+          loc.countryCode!.isNotEmpty
+      ? '${loc.languageCode}_${loc.countryCode}'
+      : loc.languageCode;
 }
 
 class MatchPayApp extends StatelessWidget {
@@ -505,7 +511,7 @@ class _OrganizerShellState extends State<OrganizerShell>
     final l10n = context.l10n;
     final palette = context.sportPalette;
     final settings = context.watchSettings();
-    final cacheKey = settings.locale.languageCode;
+    final cacheKey = '${settings.locale.languageCode}|${settings.currencyCode}';
     // Evita pantalla en blanco si el índice quedó fuera de rango
     // (p. ej. tras reducir pestañas con hot reload).
     final maxIndex = _screenBuilders.length - 1;
@@ -716,7 +722,7 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final settings = context.watchSettings();
-    final cacheKey = settings.locale.languageCode;
+    final cacheKey = '${settings.locale.languageCode}|${settings.currencyCode}';
     final palette = context.sportPalette;
     final maxIndex = _screenBuilders.length - 1;
     if (_index > maxIndex) {

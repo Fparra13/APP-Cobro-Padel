@@ -1000,9 +1000,9 @@ class TranslationMaps {
     'organizeResponseDeadlineLabel': 'Tiempo límite para confirmar',
     'organizeResponseDeadlineNeedDate':
         'Primero elige la fecha del encuentro para calcular el plazo.',
-    'organizeResponseDeadlineHint': 'Confirmar antes del {deadline}.',
+    'organizeResponseDeadlineHint': 'Hasta el {deadline}.',
     'organizeResponseDeadlineCapped':
-        'Plazo ajustado · máx. 6 h antes ({deadline}).',
+        'Tope: hora del encuentro · hasta el {deadline}.',
     'organizePickMatchWhenTitle': '¿Cuándo es el encuentro?',
     'organizePickMatchWhenSubtitle':
         'Elige fecha y hora antes de enviar la convocatoria.',
@@ -1070,6 +1070,12 @@ class TranslationMaps {
     'respondMatchSportLine': 'Encuentro de {sport}',
     'respondDeadlineLabel': 'Plazo',
     'respondBeforeDeadline': 'Responde antes de {deadline}',
+    'inviteRespondEyebrow': 'Responde tu convocatoria',
+    'inviteRespondCountdown': 'Quedan {time}',
+    'inviteRespondCountdownUrgent': 'Queda menos de 1 h',
+    'inviteRespondDeadline': 'Confirma antes de {deadline}',
+    'inviteRespondGoing': 'Voy',
+    'inviteRespondCantGo': 'No puedo',
     'respondWaitlistBody':
         'Estás en lista de espera. Si entras como titular, '
         'recibirás una notificación para confirmar.',
@@ -1611,6 +1617,7 @@ class TranslationMaps {
     'pickSourceGallery': 'Galería',
     'pickSourceCamera': 'Cámara',
     'receiptImageNotFound': 'No se encontró la imagen del comprobante',
+    'receiptsHistoryCount': '{count} comprobantes',
     'convocatoriaNotFoundSnack':
         'No encontramos tu convocatoria. Actualiza el inicio o contacta al organizador.',
     'noUnpaidPlayersDeadline':
@@ -1665,9 +1672,9 @@ class TranslationMaps {
     'notifRecordatorioManualTitle': 'Confirma tu asistencia',
     'notifRecordatorioManualBody':
         '{emoji} {sport} · {venue} · {date} · El organizador te recuerda confirmar.',
-    'notifDeadlineMissedTitle': 'Plazo vencido',
+    'notifDeadlineMissedTitle': 'Perdiste tu cupo',
     'notifDeadlineMissedBody':
-        'No alcanzaste a responder y se liberó tu cupo del encuentro de {sport} · {date}. Si aún puedes ir, avisa al organizador.',
+        'No confirmaste a tiempo para {sport} · {date} en {venue}. Tu cupo ya fue liberado.',
     'venueRequiredError': 'Indica el recinto (es obligatorio)',
     'venueMapsRequiredError':
         'El recinto debe tener un link de Google Maps para evitar confusiones.',
@@ -2707,9 +2714,9 @@ class TranslationMaps {
     'organizeResponseDeadlineLabel': 'Response deadline',
     'organizeResponseDeadlineNeedDate':
         'Pick the session date first to calculate the deadline.',
-    'organizeResponseDeadlineHint': 'Confirm by {deadline}.',
+    'organizeResponseDeadlineHint': 'Until {deadline}.',
     'organizeResponseDeadlineCapped':
-        'Adjusted · max 6 h before session ({deadline}).',
+        'Cap: session time · until {deadline}.',
     'organizePickMatchWhenTitle': 'When is the session?',
     'organizePickMatchWhenSubtitle':
         'Pick date and time before sending the invite.',
@@ -2776,6 +2783,12 @@ class TranslationMaps {
     'respondMatchSportLine': '{sport} session',
     'respondDeadlineLabel': 'Deadline',
     'respondBeforeDeadline': 'Respond before {deadline}',
+    'inviteRespondEyebrow': 'Respond to your invite',
+    'inviteRespondCountdown': '{time} left',
+    'inviteRespondCountdownUrgent': 'Less than 1 h left',
+    'inviteRespondDeadline': 'Confirm before {deadline}',
+    'inviteRespondGoing': "I'm in",
+    'inviteRespondCantGo': "Can't go",
     'respondWaitlistBody':
         'You are on the waitlist. If you become a starter, '
         'you will receive a notification to confirm.',
@@ -3315,6 +3328,7 @@ class TranslationMaps {
     'pickSourceGallery': 'Gallery',
     'pickSourceCamera': 'Camera',
     'receiptImageNotFound': 'Receipt image not found',
+    'receiptsHistoryCount': '{count} receipts',
     'convocatoriaNotFoundSnack':
         'We could not find your invitation. Refresh home or contact the organizer.',
     'noUnpaidPlayersDeadline': 'No unpaid participants meet the deadline',
@@ -3357,7 +3371,7 @@ class TranslationMaps {
         '📍 {venue} · {date} · Reply within {hours} h in the app',
     'notifDeadlineReminderTitle': 'Time is running out',
     'notifDeadlineReminderBody':
-        'You have less than 1 h to confirm the {sport} session · {date} at {venue}.',
+        'You have less than 1 hour left to confirm the {sport} session · {date} at {venue}.',
     'notifReprogramadoTitle': 'Session rescheduled',
     'notifReprogramadoBody':
         '{emoji} {sport} · {venue} · New date: {date}',
@@ -3367,9 +3381,9 @@ class TranslationMaps {
     'notifRecordatorioManualTitle': 'Confirm your attendance',
     'notifRecordatorioManualBody':
         '{emoji} {sport} · {venue} · {date} · The organizer is reminding you to confirm.',
-    'notifDeadlineMissedTitle': 'Deadline passed',
+    'notifDeadlineMissedTitle': 'You lost your spot',
     'notifDeadlineMissedBody':
-        'You did not reply in time and your spot for the {sport} session · {date} was released. If you can still go, tell the organizer.',
+        "You didn't confirm in time for {sport} · {date} at {venue}. Your spot has been released.",
     'venueRequiredError': 'Enter the venue (required)',
     'venueMapsRequiredError':
         'The venue must have a Google Maps link to avoid confusion.',
@@ -4139,7 +4153,7 @@ class TranslationMaps {
     'cobrosPayAmount': 'Pagar {amount}',
     'cobrosAbonoOther': 'Declarar outro valor',
     'cobrosAbonoShort': 'Outro valor',
-    'cobrosPayTotalBtn': 'Pagar total',
+    'cobrosPayTotalBtn': 'Pagar o total',
     'cobrosAutoApplyHint':
         'Seu pagamento será aplicado automaticamente às encontros pendentes',
     'cobrosViewCharge': 'Ver cobrança',
@@ -4199,7 +4213,7 @@ class TranslationMaps {
         'Não foi possível vincular o pagamento. Abra Meus cobros e tente de novo.',
     'convocatoriaOpenUnavailable':
         'Não foi possível abrir a convocatória. Atualize e tente de novo.',
-    'payFullTitle': 'Pagar total',
+    'payFullTitle': 'Pagar o total',
     'payFullDialogBody':
         'Você declarará um pagamento de {amount}.\n\n'
         'Depois deverá enviar o comprovante da transferência (obrigatório).',
@@ -4419,9 +4433,9 @@ class TranslationMaps {
     'organizeResponseDeadlineLabel': 'Prazo para confirmar',
     'organizeResponseDeadlineNeedDate':
         'Escolha primeiro a data do encontro para calcular o prazo.',
-    'organizeResponseDeadlineHint': 'Confirmar até {deadline}.',
+    'organizeResponseDeadlineHint': 'Até {deadline}.',
     'organizeResponseDeadlineCapped':
-        'Prazo ajustado · máx. 6 h antes ({deadline}).',
+        'Limite: hora do encontro · até {deadline}.',
     'organizePickMatchWhenTitle': 'Quando é o encontro?',
     'organizePickMatchWhenSubtitle':
         'Escolha data e hora antes de enviar a convocatória.',
@@ -4489,6 +4503,12 @@ class TranslationMaps {
     'respondMatchSportLine': 'Encontro de {sport}',
     'respondDeadlineLabel': 'Prazo',
     'respondBeforeDeadline': 'Responda antes de {deadline}',
+    'inviteRespondEyebrow': 'Responda à convocatória',
+    'inviteRespondCountdown': 'Restam {time}',
+    'inviteRespondCountdownUrgent': 'Resta menos de 1 h',
+    'inviteRespondDeadline': 'Confirme antes de {deadline}',
+    'inviteRespondGoing': 'Vou',
+    'inviteRespondCantGo': 'Não posso',
     'respondWaitlistBody':
         'Você está na lista de espera. Se entrar como titular, '
         'receberá uma notificação para confirmar.',
@@ -5030,6 +5050,7 @@ class TranslationMaps {
     'pickSourceGallery': 'Galeria',
     'pickSourceCamera': 'Câmera',
     'receiptImageNotFound': 'Imagem do comprovante não encontrada',
+    'receiptsHistoryCount': '{count} comprovantes',
     'convocatoriaNotFoundSnack':
         'Não encontramos sua convocação. Atualize o início ou fale com o organizador.',
     'noUnpaidPlayersDeadline':
@@ -5084,9 +5105,9 @@ class TranslationMaps {
     'notifRecordatorioManualTitle': 'Confirme sua presença',
     'notifRecordatorioManualBody':
         '{emoji} {sport} · {venue} · {date} · O organizador lembra você de confirmar.',
-    'notifDeadlineMissedTitle': 'Prazo encerrado',
+    'notifDeadlineMissedTitle': 'Você perdeu sua vaga',
     'notifDeadlineMissedBody':
-        'Você não respondeu a tempo e sua vaga no encontro de {sport} · {date} foi liberada. Se ainda puder ir, avise o organizador.',
+        'Você não confirmou a tempo para {sport} · {date} em {venue}. Sua vaga já foi liberada.',
     'venueRequiredError': 'Informe o local (obrigatório)',
     'venueMapsRequiredError':
         'O local deve ter um link do Google Maps para evitar confusão.',

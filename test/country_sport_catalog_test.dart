@@ -45,6 +45,22 @@ void main() {
     );
   });
 
+  test('defaultsFor país aplica idioma y moneda típicos', () {
+    final br = CountrySportCatalog.defaultsFor('BR');
+    expect(br?.locale.languageCode, 'pt');
+    expect(br?.currencyCode, 'BRL');
+
+    final cl = CountrySportCatalog.defaultsFor('CL');
+    expect(cl?.locale.languageCode, 'es');
+    expect(cl?.currencyCode, 'CLP');
+
+    final us = CountrySportCatalog.defaultsFor('US');
+    expect(us?.locale.languageCode, 'en');
+    expect(us?.currencyCode, 'USD');
+
+    expect(CountrySportCatalog.defaultsFor('OTHER'), isNull);
+  });
+
   test('no oculta deportes: catálogo completo sigue disponible', () {
     final featured = CountrySportCatalog.featuredFor('BR').toSet();
     expect(SportType.values.length, greaterThan(featured.length));

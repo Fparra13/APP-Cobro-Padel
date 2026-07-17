@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../domain/convocatoria_plazo_respuesta.dart';
 import '../domain/cobro_logic.dart';
+import '../domain/player_invite_response.dart';
 import '../core/sport_type.dart';
 import '../core/supabase_helpers.dart';
 import '../core/supabase_parse.dart';
@@ -116,7 +117,7 @@ class ConvocatoriaRepositoryRemote {
         ? Jugador.fromSupabaseMap(profileMap)
         : Jugador(
             supabaseId: map['jugador_id']?.toString(),
-            nombre: 'Jugador',
+            nombre: 'Participante',
             createdAt: DateTime.now(),
           );
     return ConvocatoriaJugadorEntry.fromSupabaseRow(map, jugador, partidoId);
@@ -160,7 +161,7 @@ class ConvocatoriaRepositoryRemote {
           final row = Map<String, dynamic>.from(item as Map);
           final jugador = Jugador(
             supabaseId: row['jugador_id']?.toString(),
-            nombre: row['nombre'] as String? ?? 'Jugador',
+            nombre: row['nombre'] as String? ?? 'Participante',
             fotoUrl: row['foto_url'] as String?,
             createdAt: DateTime.now(),
           );
@@ -768,18 +769,28 @@ class ConvocatoriaRepositoryRemote {
 
   /// Total histórico de confirmaciones del jugador (incluye partidos ya jugados).
   Future<int> countMisConfirmaciones() async {
-    return SupabaseHelpers.guard('Mis confirmaciones', () async {
+    final resumen = await getMisResumenInvitaciones();
+    return resumen.confirmadas;
+  }
+
+  /// Invitaciones titular: recibidas / respondidas / confirmadas (histórico).
+  Future<MisInvitacionesResumen> getMisResumenInvitaciones() async {
+    return SupabaseHelpers.guard('Mis invitaciones resumen', () async {
       final uid = SupabaseHelpers.currentUserId;
-      if (uid == null) return 0;
+      if (uid == null) return MisInvitacionesResumen.empty;
 
       final rows = await _client
           .from('convocatoria_jugadores')
-          .select('id')
+          .select('estado_confirmacion')
           .eq('jugador_id', uid)
-          .eq('estado_confirmacion', EstadoConfirmacion.confirmado.dbValue)
           .eq('es_suplente', false);
 
-      return (rows as List).length;
+      return resumenDesdeEstadosConfirmacion(
+        (rows as List).map((r) {
+          final map = Map<String, dynamic>.from(r as Map);
+          return map['estado_confirmacion'] as String? ?? 'invitado';
+        }),
+      );
     });
   }
 
@@ -996,7 +1007,7 @@ class ConvocatoriaRepositoryRemote {
         final nombre = SupabaseParse.toStringOrNull(
               Map<String, dynamic>.from(profile ?? {})['nombre'],
             ) ??
-            'Jugador';
+            'Participante';
         await _notificaciones.notificarRespuestaOrganizador(
           partidoId: partidoId,
           confirmo: confirmo,

@@ -36,4 +36,21 @@ void main() {
     expect(parts.priority.single.nombre, 'Bruno');
     expect(parts.rest.single.nombre, 'Ana');
   });
+
+  test('convocatoria: invitados, luego espera, luego resto A-Z', () {
+    final ana = j('Ana', id: 1);
+    final bruno = j('Bruno', id: 2);
+    final carla = j('Carla', id: 3);
+    final diego = j('Diego', id: 4);
+    final sorted = sortJugadoresParaConvocatoria(
+      jugadores: [ana, bruno, carla, diego],
+      invitadosIds: [bruno.keyId, ana.keyId],
+      esperaIds: [diego.keyId],
+      priorityIds: {carla.keyId},
+    );
+    expect(
+      sorted.map((x) => x.nombre),
+      ['Bruno', 'Ana', 'Diego', 'Carla'],
+    );
+  });
 }

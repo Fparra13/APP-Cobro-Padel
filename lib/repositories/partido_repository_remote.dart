@@ -7,6 +7,7 @@ import '../core/supabase_helpers.dart';
 import '../core/supabase_parse.dart';
 import '../core/sport_type.dart';
 import '../models/comprobante_estado.dart';
+import '../models/comprobante_pago.dart';
 import '../models/costo_variable.dart';
 import '../models/cobros_resumen.dart';
 import '../models/desglose_jugador.dart';
@@ -2375,9 +2376,9 @@ class PartidoRepositoryRemote {
       final prev = await _client
           .from('detalles_partido')
           .select(
-            'partido_id, jugador_id, total, pagado, comprobante_url, '
-            'comprobante_validado, monto_pago_declarado, '
-            'profiles:jugador_id(nombre)',
+            'partido_id, jugador_id, total, pagado, monto_pagado, comprobante_url, '
+            'comprobante_validado, comprobante_estado, monto_pago_declarado, '
+            'profiles:jugador_id(nombre), partidos(organizador_id)',
           )
           .eq('id', detalleId)
           .eq('jugador_id', uid)
@@ -2393,6 +2394,12 @@ class PartidoRepositoryRemote {
       }
 
       final partidoId = (prevMap['partido_id'] as num).toInt();
+      final partidoEmbed = SupabaseParse.mapEmbed(prevMap['partidos']);
+      final organizadorId =
+          SupabaseParse.toStringOrNull(partidoEmbed?['organizador_id']);
+      if (organizadorId == null || organizadorId.isEmpty) {
+        throw Exception('Partido sin organizador');
+      }
       final total = SupabaseParse.toDouble(prevMap['total']);
       final montoPagadoEnPartido =
           SupabaseParse.toDouble(prevMap['monto_pagado']);
@@ -2419,13 +2426,27 @@ class PartidoRepositoryRemote {
         throw Exception('Este cobro ya está pagado');
       }
 
+      final monto = roundMoney(montoDeclarado).toDouble();
+
       await _client.from('detalles_partido').update({
         'comprobante_url': storagePath,
         'comprobante_validado': false,
         'comprobante_estado': ComprobanteEstado.enRevision.dbValue,
-        'monto_pago_declarado': roundMoney(montoDeclarado).toDouble(),
+        'monto_pago_declarado': monto,
         'pago_es_abono': esAbono,
       }).eq('id', detalleId).eq('jugador_id', uid);
+
+      // Historial: cada abono conserva su foto (no se pisa).
+      await _client.from('comprobantes_pago').insert({
+        'detalle_id': detalleId,
+        'partido_id': partidoId,
+        'jugador_id': uid,
+        'organizador_id': organizadorId,
+        'storage_path': storagePath,
+        'monto_declarado': monto,
+        'es_abono': esAbono,
+        'estado': ComprobanteEstado.enRevision.dbValue,
+      });
 
       final map = Map<String, dynamic>.from(prev);
       final profile = SupabaseParse.mapEmbed(map['profiles']);
@@ -2435,7 +2456,7 @@ class PartidoRepositoryRemote {
         detalleId: detalleId,
         partidoId: partidoId,
         jugadorNombre: nombre,
-        monto: roundMoney(montoDeclarado).toDouble(),
+        monto: monto,
         esAbono: esAbono,
       );
     });
@@ -2648,6 +2669,25 @@ class PartidoRepositoryRemote {
         return fb.compareTo(fa);
       });
       return list;
+    });
+  }
+
+  /// Historial de fotos de pago/abono de un detalle (no se pisan entre sí).
+  Future<List<ComprobantePago>> getComprobantesPagoByDetalle(int detalleId) {
+    return SupabaseHelpers.guard('Historial comprobantes', () async {
+      final rows = await _client
+          .from('comprobantes_pago')
+          .select()
+          .eq('detalle_id', detalleId)
+          .order('created_at', ascending: false);
+      return (rows as List)
+          .map(
+            (row) => ComprobantePago.fromSupabaseMap(
+              Map<String, dynamic>.from(row),
+            ),
+          )
+          .where((c) => c.storagePath.trim().isNotEmpty)
+          .toList();
     });
   }
 

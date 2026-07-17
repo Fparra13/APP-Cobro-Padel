@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class LazyIndexedStack extends StatefulWidget {
   final int index;
   final List<Widget Function()> itemBuilders;
-  /// Si cambia (p. ej. idioma), se invalida la caché de pestañas.
+  /// Si cambia (p. ej. idioma o moneda), se invalida la caché de pestañas.
   final Object? cacheKey;
 
   const LazyIndexedStack({

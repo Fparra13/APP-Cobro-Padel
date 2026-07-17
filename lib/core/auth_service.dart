@@ -331,7 +331,7 @@ class AuthService {
     if (code == 'unexpected_failure' ||
         msg.toLowerCase().contains('database error saving new user')) {
       return 'No se pudo crear tu cuenta con este email. '
-          'Si el organizador ya te registró en la lista de jugadores, '
+          'Si el organizador ya te registró en la lista de participantes, '
           'pide que ejecute la actualización SQL 016 en Supabase e intenta de nuevo. '
           'Si persiste, prueba con el mismo email en unos minutos.';
     }

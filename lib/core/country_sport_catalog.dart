@@ -108,6 +108,35 @@ class CountrySportCatalog {
     );
   }
 
+  /// Idioma + moneda típicos al elegir un país en preferencias.
+  /// `null` = no forzar (p. ej. «Otro país»).
+  static ({Locale locale, String currencyCode})? defaultsFor(String? countryCode) {
+    switch (optionFor(countryCode).code) {
+      case 'CL':
+        return (locale: const Locale('es', 'CL'), currencyCode: 'CLP');
+      case 'AR':
+        return (locale: const Locale('es', 'CL'), currencyCode: 'ARS');
+      case 'UY':
+        return (locale: const Locale('es', 'CL'), currencyCode: 'UYU');
+      case 'BR':
+        return (locale: const Locale('pt', 'BR'), currencyCode: 'BRL');
+      case 'MX':
+        return (locale: const Locale('es', 'CL'), currencyCode: 'MXN');
+      case 'CO':
+        return (locale: const Locale('es', 'CL'), currencyCode: 'COP');
+      case 'PE':
+        return (locale: const Locale('es', 'CL'), currencyCode: 'PEN');
+      case 'US':
+        return (locale: const Locale('en'), currencyCode: 'USD');
+      case 'ES':
+        return (locale: const Locale('es', 'CL'), currencyCode: 'EUR');
+      case 'GB':
+        return (locale: const Locale('en'), currencyCode: 'GBP');
+      default:
+        return null;
+    }
+  }
+
   /// Infere país desde locale / moneda (primer arranque).
   static String resolveFromLocale(Locale locale, {String? currencyCode}) {
     final country = locale.countryCode?.toUpperCase();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'network_errors.dart';
 import 'offline_snapshot_store.dart';
 
@@ -27,11 +29,13 @@ Future<OfflineScreenLoadResult<T>> loadWithOfflineSnapshot<T>({
 }) async {
   try {
     final data = await fetch();
-    // Un fallo al cachear no debe tumbar la pantalla si el fetch ya OK.
+    // No bloquear el primer paint con I/O de disco.
     if (snapshotStore != null) {
-      try {
-        await snapshotStore.save(snapshotKey, encode(data));
-      } catch (_) {}
+      unawaited(() async {
+        try {
+          await snapshotStore.save(snapshotKey, encode(data));
+        } catch (_) {}
+      }());
     }
     return OfflineScreenLoadResult(
       source: OfflineScreenLoadSource.live,
