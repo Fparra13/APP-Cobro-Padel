@@ -32,8 +32,15 @@ class SupabaseConfig {
     );
   }
 
+  /// Scheme de deep links de la app (magic link + invitaciones).
+  static const deepLinkScheme = 'kloovi';
+
   /// URL de redirect para magic link (registrar también en Supabase Dashboard).
-  static const authRedirectUrl = 'matchpay://login-callback';
+  static const authRedirectUrl = '$deepLinkScheme://login-callback';
+
+  /// Deep link de invitación a una convocatoria (`kloovi://invite/{partidoId}`).
+  static String inviteDeepLink(int partidoId) =>
+      '$deepLinkScheme://invite/$partidoId';
 
   /// Client ID tipo **Web** de Google Cloud (obligatorio para ID token / Supabase).
   /// `--dart-define=GOOGLE_WEB_CLIENT_ID=....apps.googleusercontent.com`

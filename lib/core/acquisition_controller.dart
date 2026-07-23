@@ -4,6 +4,9 @@ import 'package:app_links/app_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'supabase_config.dart';
+import '../utils/app_log.dart';
+
 /// Intención del usuario al entrar a Kloovi (no confundir con [profiles.role]).
 enum MatchPayAcquisitionIntent {
   /// Cold start: aún no eligió camino (mostrar pantalla de adquisición).
@@ -63,7 +66,7 @@ class AcquisitionController extends ChangeNotifier {
       }
       _appLinks.uriLinkStream.listen(_applyInviteUri);
     } catch (e) {
-      debugPrint('AcquisitionController: app links $e');
+      appLog('AcquisitionController: app links $e');
     }
 
     _loaded = true;
@@ -82,7 +85,7 @@ class AcquisitionController extends ChangeNotifier {
   }
 
   static int? _parseInvitePartidoId(Uri uri) {
-    if (uri.scheme != 'matchpay') return null;
+    if (uri.scheme != SupabaseConfig.deepLinkScheme) return null;
     if (uri.host != 'invite') return null;
 
     if (uri.pathSegments.isNotEmpty) {

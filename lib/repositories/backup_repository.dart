@@ -17,7 +17,7 @@ class BackupRepository {
 
     final exportDir = await _getExportDirectory();
     final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-    final destPath = p.join(exportDir.path, 'matchpay_$timestamp.db');
+    final destPath = p.join(exportDir.path, 'kloovi_$timestamp.db');
 
     await File(sourcePath).copy(destPath);
     return destPath;
@@ -40,7 +40,7 @@ class BackupRepository {
 
     final exportDir = await _getExportDirectory();
     final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-    final destPath = p.join(exportDir.path, 'matchpay_$timestamp.json');
+    final destPath = p.join(exportDir.path, 'kloovi_$timestamp.json');
 
     await File(destPath).writeAsString(
       const JsonEncoder.withIndent('  ').convert(data),
