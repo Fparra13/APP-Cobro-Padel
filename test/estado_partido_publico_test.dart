@@ -162,8 +162,8 @@ void main() {
 
   test('jugador con convocatoria reprogramada pendiente → reprogramado', () {
     final partido = _partido(
-      fecha: DateTime(2026, 7, 12, 20),
-      reprogramadoEn: DateTime(2026, 7, 8, 10),
+      fecha: DateTime.now().add(const Duration(days: 5)),
+      reprogramadoEn: DateTime.now().subtract(const Duration(days: 1)),
     );
     final conv = MiConvocatoria(
       partido: partido,

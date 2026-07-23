@@ -21,6 +21,7 @@ import '../services/convocatoria_lista_espera_service.dart';
 import '../services/convocatoria_notificacion_service.dart';
 import '../services/preferences_service.dart';
 import '../services/supabase_realtime_service.dart';
+import '../utils/app_log.dart';
 import '../utils/formatters.dart';
 import '../utils/jugador_name_filter.dart';
 import '../utils/convocatoria_organizador_actions.dart';
@@ -235,6 +236,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       if (!mounted) return;
       _load().then((_) {
         if (mounted) _suscribirRealtime();
+      }).catchError((Object e) {
+        appLog('OrganizarPartidoScreen._load failed');
       });
     });
   }
@@ -1069,12 +1072,15 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     }
 
     if (!mounted) return;
-    await Navigator.pushNamed(
+    final registered = await Navigator.pushNamed(
       context,
       '/registrar-partido',
       arguments: _partidoId,
     );
-    if (mounted) Navigator.pop(context, true);
+    // Solo cerrar organizar si el cobro se guardó (true). Atrás/cancelar no cierra.
+    if (mounted && registered == true) {
+      Navigator.pop(context, true);
+    }
   }
 
   Future<void> _eliminarConvocatoria() async {

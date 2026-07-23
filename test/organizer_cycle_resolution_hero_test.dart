@@ -127,7 +127,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('RESOLVER ENCUENTRO'), findsOneWidget);
-      expect(find.text('Marcar como jugado'), findsOneWidget);
+      expect(find.text('Marcar como realizado'), findsOneWidget);
       expect(find.text('Reprogramar'), findsOneWidget);
       expect(find.text('Cancelar'), findsOneWidget);
     });
@@ -184,7 +184,7 @@ void main() {
       expect(calledId, 55);
     });
 
-    testWidgets('Marcar como jugado dispara callback', (tester) async {
+    testWidgets('Marcar como realizado dispara callback', (tester) async {
       var marked = false;
       final conv = _convocatoriaSinResolver();
 
@@ -202,7 +202,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Marcar como jugado'));
+      await tester.tap(find.text('Marcar como realizado'));
       await tester.pump();
 
       expect(marked, isTrue);
@@ -235,7 +235,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Marcar como jugado'), findsOneWidget);
+      expect(find.text('Marcar como realizado'), findsOneWidget);
       expect(find.text('Reprogramar'), findsNothing);
       expect(find.text('Cancelar'), findsNothing);
     });

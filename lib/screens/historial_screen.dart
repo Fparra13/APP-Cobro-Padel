@@ -230,6 +230,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
     final montoCtrl = TextEditingController();
     var pagoTotal = true;
 
+    try {
     final confirmado = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -393,6 +394,9 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 );
       _mostrarSnack(msg);
       _load();
+    }
+    } finally {
+      montoCtrl.dispose();
     }
   }
 

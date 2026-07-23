@@ -45,12 +45,15 @@ class ResponderConvocatoriaScreen extends StatefulWidget {
 class _ResponderConvocatoriaScreenState
     extends State<ResponderConvocatoriaScreen> {
   bool _enviando = false;
+  bool _loading = true;
+  bool _loadFailed = false;
   MiConvocatoria? _data;
 
   @override
   void initState() {
     super.initState();
     _data = widget.convocatoria;
+    _loading = widget.convocatoria == null && widget.entry == null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _load();
     });
@@ -62,11 +65,19 @@ class _ResponderConvocatoriaScreenState
           ? AppRepositories.I
           : context.repos;
       final fresh = await repos.getMiConvocatoria(widget.partidoId);
-      if (mounted) setState(() => _data = fresh ?? _data ?? widget.convocatoria);
+      if (!mounted) return;
+      setState(() {
+        _data = fresh ?? _data ?? widget.convocatoria;
+        _loadFailed = _data == null && widget.entry == null;
+        _loading = false;
+      });
     } catch (_) {
-      if (mounted) {
-        setState(() => _data = _data ?? widget.convocatoria);
-      }
+      if (!mounted) return;
+      setState(() {
+        _data = _data ?? widget.convocatoria;
+        _loadFailed = _data == null && widget.entry == null;
+        _loading = false;
+      });
     }
   }
 
@@ -206,9 +217,35 @@ class _ResponderConvocatoriaScreenState
     return Scaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
       appBar: AppBar(title: Text(context.l10n.tr('convocatoriaTitle'))),
-      body: data == null && entry == null
+      body: _loading && data == null && entry == null
           ? const Center(child: CircularProgressIndicator())
-          : Column(
+          : _loadFailed
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          context.l10n.tr('convocatoriaLoadError'),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: () {
+                            setState(() {
+                              _loading = true;
+                              _loadFailed = false;
+                            });
+                            _load();
+                          },
+                          child: Text(context.l10n.tr('retry')),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Column(
               children: [
                 Expanded(
                   child: ListView(

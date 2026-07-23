@@ -757,7 +757,14 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   Map<String, double> get _montoPagadoMap {
     final map = <String, double>{};
     for (final id in _asistentes) {
-      final j = _habituales.firstWhere((x) => x.keyId == id);
+      Jugador? j;
+      for (final x in _habituales) {
+        if (x.keyId == id) {
+          j = x;
+          break;
+        }
+      }
+      if (j == null) continue;
       map[id] = _pagoDe(id).montoEfectivo(_netoAPagarPartido(j));
     }
     return map;
@@ -802,7 +809,17 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     }
 
     for (final id in _asistentes) {
-      final j = _habituales.firstWhere((x) => x.keyId == id);
+      Jugador? j;
+      for (final x in _habituales) {
+        if (x.keyId == id) {
+          j = x;
+          break;
+        }
+      }
+      if (j == null) {
+        _showError(l10n.tr('errorMarkAtLeastOnePlayer'));
+        return;
+      }
       final pago = _pagoDe(id);
       final total = _netoAPagarPartido(j);
       if (pago.tipo == TipoPago.parcial && total > 0) {

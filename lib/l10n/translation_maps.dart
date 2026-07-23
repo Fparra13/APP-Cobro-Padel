@@ -235,6 +235,8 @@ class TranslationMaps {
     'organizerCycleDeleteConvocatoria': 'Eliminar convocatoria',
     'convocatoriaLoadUnavailable':
         'No se pudo cargar esta convocatoria. Puedes eliminarla si ya no la necesitas.',
+    'convocatoriaLoadError':
+        'No pudimos cargar esta convocatoria. Revisa tu conexión e inténtalo de nuevo.',
     'reprogramPickDateTitle': 'Nueva fecha del encuentro',
     'reprogramPickTimeTitle': 'Nueva hora del encuentro',
     'reprogramConfirmTitle': '¿Reprogramar y avisar?',
@@ -2007,6 +2009,8 @@ class TranslationMaps {
     'organizerCycleDeleteConvocatoria': 'Delete invite',
     'convocatoriaLoadUnavailable':
         'Could not load this invite. You can delete it if you no longer need it.',
+    'convocatoriaLoadError':
+        'We couldn\'t load this invitation. Check your connection and try again.',
     'reprogramPickDateTitle': 'New session date',
     'reprogramPickTimeTitle': 'New session time',
     'reprogramConfirmTitle': 'Reschedule and notify?',
@@ -3762,6 +3766,8 @@ class TranslationMaps {
     'organizerCycleDeleteConvocatoria': 'Excluir convite',
     'convocatoriaLoadUnavailable':
         'Não foi possível carregar este convite. Você pode excluí-lo se não precisar mais.',
+    'convocatoriaLoadError':
+        'Não foi possível carregar este convite. Verifique a conexão e tente novamente.',
     'reprogramPickDateTitle': 'Nova data do encontro',
     'reprogramPickTimeTitle': 'Novo horário do encontro',
     'reprogramConfirmTitle': 'Remarcar e avisar?',
