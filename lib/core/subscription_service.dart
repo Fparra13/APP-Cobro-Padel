@@ -92,8 +92,7 @@ class SubscriptionService extends ChangeNotifier {
   }
 
   Future<bool> restorePurchases() async {
-    // Placeholder: integrar in_app_purchase / RevenueCat aquí.
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    // Sin Play Billing: no hay compras que restaurar.
     return isPro;
   }
 }

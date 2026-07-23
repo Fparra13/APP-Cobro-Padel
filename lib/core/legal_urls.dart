@@ -7,4 +7,7 @@ class LegalUrls {
 
   /// Política de privacidad vigente.
   static const privacyPolicy = 'https://www.kloovi.app/privacy';
+
+  /// Términos de servicio vigentes.
+  static const termsOfService = 'https://www.kloovi.app/terms';
 }

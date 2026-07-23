@@ -368,6 +368,8 @@ class AuthService {
       }
     }
     await _client?.auth.signOut();
+    _clearCachedProfile();
+    SubscriptionService.instance.clearProfileEntitlements();
     if (uid != null) {
       await OfflineSnapshotStore.clearForUser(uid);
     }

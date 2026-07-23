@@ -63,6 +63,7 @@ class MatchPayStrings {
   String get paywallRestore => tr('paywallRestore');
   String get paywallFreeTitle => tr('paywallFreeTitle');
   String get paywallProTitle => tr('paywallProTitle');
+  String get termsOfService => tr('termsOfService');
   String get freeFeatureDebts => tr('freeFeatureDebts');
   String get freeFeatureReceipts => tr('freeFeatureReceipts');
   String get proFeatureCreate => tr('proFeatureCreate');
