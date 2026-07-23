@@ -42,6 +42,7 @@ import '../repositories/repository_types.dart';
 import '../repositories/saldo_repository.dart';
 import '../repositories/saldo_repository_remote.dart';
 import '../repositories/stats_ranking_remote.dart';
+import '../utils/app_log.dart';
 
 int _localId(String key) => int.parse(key);
 
@@ -148,7 +149,7 @@ class AppRepositories {
     try {
       return active;
     } on AppRepositoriesUnavailable catch (e) {
-      debugPrint('AppRepositories.tryActive: $e');
+      appLog('AppRepositories.tryActive: $e');
       return null;
     }
   }
@@ -357,7 +358,6 @@ class AppRepositories {
     }
     return Future.value();
   }
-
 
   Future<CobroRecordatorioPrefs> getCobroRecordatorioPrefs() {
     if (useRemote) return _cobroRecordatorioRemote.getPrefs();

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_config.dart';
+import '../utils/app_log.dart';
 
 /// Partidos cancelados cuyo popup in-app el jugador ya cerró.
 ///
@@ -52,7 +53,7 @@ class CancelacionVistaService {
         params: {'p_partido_id': partidoId},
       );
     } catch (e) {
-      debugPrint('CancelacionVistaService.marcarVista remote: $e');
+      appLog('CancelacionVistaService.marcarVista remote: $e');
     }
   }
 }

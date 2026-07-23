@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/app_log.dart';
 
 /// Handlers oficiales de Crashlytics (FlutterError + PlatformDispatcher + Zone).
 ///
@@ -36,7 +37,7 @@ class CrashlyticsBootstrap {
   /// Errores asíncronos fuera del framework (callback de [runZonedGuarded]).
   static void recordZoneError(Object error, StackTrace stack) {
     if (Firebase.apps.isEmpty) {
-      debugPrint('Uncaught zone error: $error\n$stack');
+      appLog('Uncaught zone error: $error\n$stack');
       return;
     }
     unawaited(

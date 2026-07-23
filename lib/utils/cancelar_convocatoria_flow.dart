@@ -6,6 +6,7 @@ import '../core/app_repositories.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/convocatoria_jugador.dart';
 import '../services/convocatoria_comunicacion_service.dart';
+import '../utils/app_log.dart';
 
 /// Cancela un partido en convocatoria y avisa a titulares en juego
 /// (confirmados + invitados con plazo vigente). No reservas ni rechazados.
@@ -36,7 +37,7 @@ class CancelarConvocatoriaFlow {
           try {
             await ConvocatoriaComunicacionService().avisarCancelacion(conv);
           } catch (e) {
-            debugPrint('Avisos cancelación en background: $e');
+            appLog('Avisos cancelación en background: $e');
           }
         }());
       }

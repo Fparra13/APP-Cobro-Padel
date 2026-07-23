@@ -13,6 +13,7 @@ import '../models/mi_convocatoria.dart';
 import '../models/partido.dart';
 import '../services/convocatoria_notificacion_service.dart';
 import 'partido_repository_remote.dart';
+import '../utils/app_log.dart';
 
 /// Convocatorias contra Supabase.
 class ConvocatoriaRepositoryRemote {
@@ -1015,7 +1016,7 @@ class ConvocatoriaRepositoryRemote {
           fechaPartido: conv?.partido.fecha,
         );
       } catch (e) {
-        debugPrint('Notificación respuesta organizador: $e');
+        appLog('Notificación respuesta organizador: $e');
       }
     });
   }

@@ -12,6 +12,7 @@ import '../services/preferences_service.dart';
 import '../services/notification_locale.dart';
 import '../services/push_notification_service.dart';
 import '../utils/formatters.dart';
+import '../utils/app_log.dart';
 
 class RecordatorioResultado {
   final int enviados;
@@ -187,7 +188,7 @@ class RecordatorioService {
           );
           return _EnvioRecordatorio.ok;
         } catch (e) {
-          debugPrint('Recordatorio ${r.jugador.nombre}: $e');
+          appLog('Recordatorio falló para un jugador');
           if (e.toString().contains('no tiene perfil')) {
             return _EnvioRecordatorio.sinApp;
           }

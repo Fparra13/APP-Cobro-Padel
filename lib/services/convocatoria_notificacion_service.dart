@@ -11,6 +11,7 @@ import '../services/notification_locale.dart';
 import '../services/notification_service.dart';
 import '../services/push_notification_service.dart';
 import '../utils/formatters.dart';
+import '../utils/app_log.dart';
 
 /// Notificaciones de convocatoria: push FCM (otros teléfonos) + local (mismo dispositivo).
 class ConvocatoriaNotificacionService {
@@ -246,7 +247,7 @@ class ConvocatoriaNotificacionService {
           );
           enviados += remoteIds.length;
         } catch (e) {
-          debugPrint('Push batch ($pushType): $e');
+          appLog('Push batch ($pushType): $e');
         }
       }
     }
@@ -368,7 +369,7 @@ class ConvocatoriaNotificacionService {
         },
       );
     } catch (e) {
-      debugPrint('Push convocatoria plazo: $e');
+      appLog('Push convocatoria plazo: $e');
     }
   }
 
@@ -437,7 +438,7 @@ class ConvocatoriaNotificacionService {
         },
       );
     } catch (e) {
-      debugPrint('Push respuesta organizador: $e');
+      appLog('Push respuesta organizador: $e');
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../utils/app_log.dart';
 
 /// Evita ejecutar la misma acción async más de una vez a la vez.
 class SingleActionGuard {
@@ -15,7 +16,7 @@ class SingleActionGuard {
     try {
       return await action();
     } catch (e, st) {
-      debugPrint('SingleActionGuard($key): $e\n$st');
+      appLog('SingleActionGuard($key): $e\n$st');
       rethrow;
     } finally {
       _locks.remove(key);
