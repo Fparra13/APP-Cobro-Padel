@@ -34,23 +34,33 @@ class JugadorFotoService {
     return null;
   }
 
-  Future<File?> resolveCachedNetworkAvatar(String url) async {
-    final trimmed = url.trim();
-    if (trimmed.isEmpty || !trimmed.startsWith('http')) return null;
+  Future<File?> resolveCachedNetworkAvatar(
+    String url, {
+    String? cacheKey,
+  }) async {
+    final key = (cacheKey ?? url).trim();
+    if (key.isEmpty) return null;
     final docs = await getApplicationDocumentsDirectory();
     final file = File(
-      p.join(docs.path, urlCacheSubdir, '${trimmed.hashCode.abs()}.img'),
+      p.join(docs.path, urlCacheSubdir, '${key.hashCode.abs()}.img'),
     );
     if (await file.exists()) return file;
     return null;
   }
 
   /// Descarga y guarda en disco para uso offline. Falla en silencio sin red.
-  Future<File?> cacheNetworkAvatar(String url) async {
+  ///
+  /// [cacheKey] estable (p. ej. path de storage) evita invalidar caché cuando
+  /// la URL firmada rota cada hora.
+  Future<File?> cacheNetworkAvatar(
+    String url, {
+    String? cacheKey,
+  }) async {
     final trimmed = url.trim();
     if (trimmed.isEmpty || !trimmed.startsWith('http')) return null;
 
-    final cached = await resolveCachedNetworkAvatar(trimmed);
+    final key = (cacheKey ?? trimmed).trim();
+    final cached = await resolveCachedNetworkAvatar(trimmed, cacheKey: key);
     if (cached != null) return cached;
 
     final client = HttpClient();
@@ -70,7 +80,7 @@ class JugadorFotoService {
         await dir.create(recursive: true);
       }
       final file = File(
-        p.join(dir.path, '${trimmed.hashCode.abs()}.img'),
+        p.join(dir.path, '${key.hashCode.abs()}.img'),
       );
       await file.writeAsBytes(bytes, flush: true);
       return file;

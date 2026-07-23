@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_helpers.dart';
+import '../utils/app_log.dart';
 
 /// Subida de archivos a Supabase Storage (comprobantes de pago / avatares).
 class SupabaseStorageService {
@@ -83,11 +84,13 @@ class SupabaseStorageService {
     try {
       await SupabaseHelpers.client.storage.from(bucket).remove([storagePath]);
     } catch (e) {
-      debugPrint('Storage delete comprobante falló ($storagePath): $e');
+      appLog('Storage delete comprobante falló ($storagePath): $e');
     }
   }
 
-  /// Sube foto de perfil y devuelve URL pública.
+  /// Sube foto de perfil y devuelve path en el bucket (`{jugadorId}/{ts}.ext`).
+  ///
+  /// El bucket `avatars` es privado: la UI resuelve URL firmada vía [signedAvatarUrl].
   Future<String> uploadAvatar({
     required String jugadorId,
     required File file,
@@ -103,26 +106,43 @@ class SupabaseStorageService {
           fileOptions: FileOptions(upsert: true, contentType: contentType),
         );
 
-    return client.storage.from(avatarsBucket).getPublicUrl(storagePath);
+    return storagePath;
   }
 
-  Future<void> deleteAvatarPublicUrl(String? publicUrl) async {
-    if (publicUrl == null || publicUrl.isEmpty) return;
-    final path = _storagePathFromPublicUrl(publicUrl);
-    if (path == null) return;
-    try {
-      await SupabaseHelpers.client.storage.from(avatarsBucket).remove([path]);
-    } catch (e) {
-      debugPrint('Storage delete avatar falló ($path): $e');
+  /// Path relativo en `avatars`. Acepta path crudo o URL legacy `/object/public/avatars/...`.
+  static String? normalizeAvatarPath(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    if (!trimmed.contains('://')) {
+      return trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
     }
-  }
-
-  String? _storagePathFromPublicUrl(String publicUrl) {
-    final uri = Uri.tryParse(publicUrl);
+    final uri = Uri.tryParse(trimmed);
     if (uri == null) return null;
     final segments = uri.pathSegments;
     final idx = segments.indexOf(avatarsBucket);
     if (idx < 0 || idx + 1 >= segments.length) return null;
     return segments.sublist(idx + 1).join('/');
+  }
+
+  Future<String> signedAvatarUrl(String raw, {int expiresIn = 3600}) async {
+    final path = normalizeAvatarPath(raw);
+    if (path == null || path.isEmpty) {
+      throw ArgumentError('Avatar path vacío');
+    }
+    return SupabaseHelpers.client.storage
+        .from(avatarsBucket)
+        .createSignedUrl(path, expiresIn);
+  }
+
+  Future<void> deleteAvatarPublicUrl(String? publicUrl) async {
+    if (publicUrl == null || publicUrl.isEmpty) return;
+    final path = normalizeAvatarPath(publicUrl);
+    if (path == null) return;
+    try {
+      await SupabaseHelpers.client.storage.from(avatarsBucket).remove([path]);
+    } catch (e) {
+      appLog('Storage delete avatar falló ($path): $e');
+    }
   }
 }

@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../core/supabase_config.dart';
 import '../services/jugador_foto_service.dart';
+import '../services/supabase_storage_service.dart';
 
 class JugadorAvatar extends StatefulWidget {
   final String nombre;
@@ -76,9 +78,6 @@ class _JugadorAvatarState extends State<JugadorAvatar> {
     final localPath = await JugadorFotoService.instance.resolveFile(widget.fotoPath);
     if (generation != _loadGeneration || !mounted) return;
 
-    final url = widget.fotoUrl?.trim();
-    final hasUrl = url != null && url.isNotEmpty && url.startsWith('http');
-
     if (localPath != null) {
       setState(() {
         _localFile = localPath;
@@ -87,10 +86,32 @@ class _JugadorAvatarState extends State<JugadorAvatar> {
       return;
     }
 
+    final raw = widget.fotoUrl?.trim();
+    final avatarPath = SupabaseStorageService.normalizeAvatarPath(raw);
+    final cacheKey = avatarPath ?? raw;
+
+    String? resolvedUrl;
+    if (raw != null && raw.isNotEmpty) {
+      if (avatarPath != null && SupabaseConfig.isConfigured) {
+        try {
+          resolvedUrl =
+              await SupabaseStorageService.instance.signedAvatarUrl(raw);
+        } catch (_) {
+          resolvedUrl = null;
+        }
+      } else if (raw.startsWith('http')) {
+        // URL externa / legacy sin path avatars reconocible.
+        resolvedUrl = raw;
+      }
+    }
+    if (generation != _loadGeneration || !mounted) return;
+
+    final hasUrl = resolvedUrl != null && resolvedUrl.isNotEmpty;
+
     File? cachedNetwork;
-    if (hasUrl) {
-      cachedNetwork =
-          await JugadorFotoService.instance.resolveCachedNetworkAvatar(url);
+    if (hasUrl && cacheKey != null && cacheKey.isNotEmpty) {
+      cachedNetwork = await JugadorFotoService.instance
+          .resolveCachedNetworkAvatar(resolvedUrl, cacheKey: cacheKey);
     }
     if (generation != _loadGeneration || !mounted) return;
 
@@ -104,13 +125,15 @@ class _JugadorAvatarState extends State<JugadorAvatar> {
 
     setState(() {
       _localFile = null;
-      _networkUrl = hasUrl ? url : null;
+      _networkUrl = hasUrl ? resolvedUrl : null;
     });
 
     if (!hasUrl) return;
 
     unawaited(
-      JugadorFotoService.instance.cacheNetworkAvatar(url).then((file) {
+      JugadorFotoService.instance
+          .cacheNetworkAvatar(resolvedUrl, cacheKey: cacheKey)
+          .then((file) {
         if (generation != _loadGeneration || !mounted || file == null) return;
         setState(() {
           _localFile = file;
