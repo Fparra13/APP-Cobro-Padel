@@ -15,6 +15,7 @@ import '../services/jugador_foto_service.dart';
 import '../services/recordatorio_service.dart';
 import '../services/whatsapp_share_service.dart';
 import '../utils/formatters.dart';
+import '../utils/jugador_name_filter.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
 import '../utils/single_action.dart';
@@ -36,7 +37,10 @@ class JugadoresScreen extends StatefulWidget {
 }
 
 class _JugadoresScreenState extends State<JugadoresScreen> {
+  static const _searchMinCount = 10;
+
   final _fotoService = JugadorFotoService.instance;
+  final _busquedaCtrl = TextEditingController();
   List<Jugador> _jugadores = [];
   bool _loading = true;
   bool _offlineEmpty = false;
@@ -54,9 +58,15 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
   @override
   void dispose() {
     _reloadDebounce?.cancel();
+    _busquedaCtrl.dispose();
     AppRepositories.dataRevision.removeListener(_onDataChanged);
     super.dispose();
   }
+
+  bool get _showSearch => _jugadores.length >= _searchMinCount;
+
+  List<Jugador> get _jugadoresVisibles =>
+      filterJugadoresByName(_jugadores, _busquedaCtrl.text);
 
   void _onDataChanged() {
     if (!mounted) return;
@@ -146,6 +156,7 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
         TextEditingController(text: jugador?.contactWhatsApp ?? '');
     final activo = ValueNotifier(jugador?.activo ?? true);
 
+    try {
     final saved = await showDialog<bool>(
       context: context,
       useRootNavigator: true,
@@ -331,11 +342,19 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
             action: SnackBarAction(
               label: context.l10n.tr('close'),
               textColor: Colors.white,
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
             ),
           ),
         );
       }
+    }
+    } finally {
+      nombreCtrl.dispose();
+      emailCtrl.dispose();
+      whatsappCtrl.dispose();
+      activo.dispose();
     }
   }
 
@@ -432,6 +451,8 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
     final readOnly = context.watch<OfflineStatusController>().isReadOnly;
     final activos = _jugadores.where((j) => j.activo).length;
     final conDeuda = _jugadores.where((j) => j.saldoAcumulado > 0).length;
+    final visibles = _jugadoresVisibles;
+    final buscando = _showSearch && _busquedaCtrl.text.trim().isNotEmpty;
 
     return ShellTabScaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
@@ -490,8 +511,24 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
                                 _buildResumen(activos, conDeuda),
                                 const SizedBox(height: 16),
                                 AyudaTip(texto: l10n.tr('playersHelpTip')),
+                                if (_showSearch) ...[
+                                  const SizedBox(height: 16),
+                                  _buildSearchField(l10n),
+                                ],
                                 const SizedBox(height: 16),
-                                ..._jugadores.map(_buildJugadorCard),
+                                if (buscando && visibles.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 24,
+                                    ),
+                                    child: Text(
+                                      l10n.tr('playersSearchEmpty'),
+                                      textAlign: TextAlign.center,
+                                      style: MatchPayTokens.bodySmallStyle(),
+                                    ),
+                                  )
+                                else
+                                  ...visibles.map(_buildJugadorCard),
                               ],
                             ),
                     ),
@@ -503,6 +540,31 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
               icon: const Icon(Icons.person_add_rounded),
               label: Text(l10n.tr('newPlayer')),
             ),
+    );
+  }
+
+  Widget _buildSearchField(MatchPayStrings l10n) {
+    return TextField(
+      controller: _busquedaCtrl,
+      decoration: InputDecoration(
+        hintText: l10n.tr('playersSearchHint'),
+        prefixIcon: const Icon(Icons.search, size: 20),
+        suffixIcon: _busquedaCtrl.text.trim().isEmpty
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.clear, size: 18),
+                onPressed: () {
+                  _busquedaCtrl.clear();
+                  setState(() {});
+                },
+              ),
+        isDense: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      textInputAction: TextInputAction.search,
+      onChanged: (_) => setState(() {}),
     );
   }
 

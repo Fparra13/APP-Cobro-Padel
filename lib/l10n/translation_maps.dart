@@ -563,6 +563,7 @@ class TranslationMaps {
         '¿Eliminar a {name}? Esta acción no se puede deshacer.',
     'playersHelpTip':
         'Los habituales ⭐ aparecen al crear un encuentro. Agrega email para push.',
+    'playersSearchEmpty': 'Ningún participante coincide con la búsqueda',
     'playersEmptyTitle': 'Sin participantes aún',
     'playersEmptySubtitle':
         'Comparte tu código de grupo o agrega participantes manualmente.',
@@ -574,7 +575,12 @@ class TranslationMaps {
     'groupCodeShare': 'Compartir',
     'groupCodeCopied': 'Código copiado',
     'groupCodeShareMessage':
-        'Únete a mi grupo en Kloovi con este código: {code}',
+        '∞ Te invito a mi grupo en Kloovi\n'
+        '\n'
+        '*Código: {code}*\n'
+        '\n'
+        '1) Abre {url}\n'
+        '2) Únete con el código',
     'groupCodeRegen': 'Generar nuevo',
     'groupCodeRegenTitle': '¿Generar un código nuevo?',
     'groupCodeRegenBody':
@@ -2333,6 +2339,7 @@ class TranslationMaps {
     'deletePlayerMessage': 'Delete {name}? This cannot be undone.',
     'playersHelpTip':
         'Regulars ⭐ appear when creating a session. Add email for push notifications.',
+    'playersSearchEmpty': 'No participants match your search',
     'playersEmptyTitle': 'No participants yet',
     'playersEmptySubtitle':
         'Share your group code or add participants manually.',
@@ -2344,7 +2351,12 @@ class TranslationMaps {
     'groupCodeShare': 'Share',
     'groupCodeCopied': 'Code copied',
     'groupCodeShareMessage':
-        'Join my group on Kloovi with this code: {code}',
+        '∞ Join my group on Kloovi\n'
+        '\n'
+        '*Code: {code}*\n'
+        '\n'
+        '1) Open {url}\n'
+        '2) Join with the code',
     'groupCodeRegen': 'Generate new',
     'groupCodeRegenTitle': 'Generate a new code?',
     'groupCodeRegenBody':
@@ -4100,6 +4112,7 @@ class TranslationMaps {
     'deletePlayerMessage': 'Excluir {name}? Esta ação não pode ser desfeita.',
     'playersHelpTip':
         'Habituais ⭐ aparecem ao criar um encontro. Adicione e-mail para push.',
+    'playersSearchEmpty': 'Nenhum participante corresponde à busca',
     'playersEmptyTitle': 'Sem participantes ainda',
     'playersEmptySubtitle':
         'Compartilhe seu código de grupo ou adicione participantes manualmente.',
@@ -4111,7 +4124,12 @@ class TranslationMaps {
     'groupCodeShare': 'Compartilhar',
     'groupCodeCopied': 'Código copiado',
     'groupCodeShareMessage':
-        'Entre no meu grupo no Kloovi com este código: {code}',
+        '∞ Te convido para o meu grupo no Kloovi\n'
+        '\n'
+        '*Código: {code}*\n'
+        '\n'
+        '1) Abra {url}\n'
+        '2) Entre com o código',
     'groupCodeRegen': 'Gerar novo',
     'groupCodeRegenTitle': 'Gerar um código novo?',
     'groupCodeRegenBody':

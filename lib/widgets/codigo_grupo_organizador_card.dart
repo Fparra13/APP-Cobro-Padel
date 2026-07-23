@@ -3,12 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../core/app_repositories.dart';
+import '../core/legal_urls.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
 import '../utils/matchpay_context.dart';
 import 'matchpay_ui.dart';
 
-/// Card para que el organizador vea, copie, comparta y regenere su código.
+/// Card compacta: código de grupo + copiar / compartir / regenerar.
 class CodigoGrupoOrganizadorCard extends StatefulWidget {
   const CodigoGrupoOrganizadorCard({super.key});
 
@@ -66,7 +67,13 @@ class _CodigoGrupoOrganizadorCardState extends State<CodigoGrupoOrganizadorCard>
     final l10n = context.l10n;
     await SharePlus.instance.share(
       ShareParams(
-        text: l10n.tr('groupCodeShareMessage', params: {'code': code}),
+        text: l10n.tr(
+          'groupCodeShareMessage',
+          params: {
+            'code': code,
+            'url': LegalUrls.website,
+          },
+        ),
       ),
     );
   }
@@ -116,37 +123,59 @@ class _CodigoGrupoOrganizadorCardState extends State<CodigoGrupoOrganizadorCard>
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final palette = context.sportPalette;
+    final canAct = _codigo != null && !_busy && !_loading;
 
     return MatchPaySurfaceCard(
       elevated: true,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.qr_code_2_rounded, color: palette.primaryDark),
-              const SizedBox(width: 10),
+              Icon(
+                Icons.qr_code_2_rounded,
+                size: 20,
+                color: palette.primaryDark,
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   l10n.tr('groupCodeTitle'),
-                  style: MatchPayTokens.titleSmallStyle(),
+                  style: MatchPayTokens.titleSmallStyle().copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               if (_busy || _loading)
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else
+                TextButton(
+                  onPressed: _regenerar,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    l10n.tr('groupCodeRegen'),
+                    style: MatchPayTokens.bodySmallStyle(
+                      color: palette.primaryDark,
+                    ).copyWith(fontWeight: FontWeight.w600),
+                  ),
                 ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            l10n.tr('groupCodeSubtitle'),
-            style: MatchPayTokens.bodySmallStyle(),
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 8),
           if (_error != null)
             Text(
               _error!,
@@ -155,48 +184,49 @@ class _CodigoGrupoOrganizadorCardState extends State<CodigoGrupoOrganizadorCard>
               ),
             )
           else
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: palette.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: palette.primary.withValues(alpha: 0.25),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: palette.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: palette.primary.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: Text(
+                      _codigo ?? '—',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 3,
+                        color: palette.primaryDark,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: Text(
-                _codigo ?? '—',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 4,
-                  fontFeatures: [FontFeature.tabularFigures()],
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: l10n.tr('groupCodeCopy'),
+                  onPressed: canAct ? _copiar : null,
+                  icon: const Icon(Icons.copy_rounded, size: 20),
+                  visualDensity: VisualDensity.compact,
                 ),
-              ),
+                IconButton(
+                  tooltip: l10n.tr('groupCodeShare'),
+                  onPressed: canAct ? _compartir : null,
+                  icon: const Icon(Icons.share_rounded, size: 20),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
             ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: _codigo == null || _busy ? null : _copiar,
-                icon: const Icon(Icons.copy_rounded, size: 18),
-                label: Text(l10n.tr('groupCodeCopy')),
-              ),
-              OutlinedButton.icon(
-                onPressed: _codigo == null || _busy ? null : _compartir,
-                icon: const Icon(Icons.share_rounded, size: 18),
-                label: Text(l10n.tr('groupCodeShare')),
-              ),
-              TextButton(
-                onPressed: _busy || _loading ? null : _regenerar,
-                child: Text(l10n.tr('groupCodeRegen')),
-              ),
-            ],
-          ),
         ],
       ),
     );

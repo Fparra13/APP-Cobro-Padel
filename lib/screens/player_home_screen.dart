@@ -663,6 +663,10 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     final l10n = context.l10n;
     final palette = context.sportPalette;
     final esAdmin = AuthService.instance.isOrganizer;
+    final tieneGrupoActivo = _cuentasSaldo.any((c) => c.activo);
+    // Home: unirse solo si aún no pertenece a ningún grupo.
+    // (Más grupos: desde Configuración.)
+    final mostrarUnirseGrupo = !esAdmin && !tieneGrupoActivo;
     final hero = _heroConvocatoria;
     // Home: solo suma deudas > 0 (nunca perfil.saldoAcumulado / neteo).
     final deudaTotal = _totalDeudaHome > 0.005
@@ -873,7 +877,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                                   ),
                           ),
                           const SizedBox(height: 12),
-                          if (!esAdmin)
+                          if (mostrarUnirseGrupo)
                             Align(
                               alignment: Alignment.centerLeft,
                               child: TextButton.icon(
@@ -887,13 +891,14 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           _HeroEmptyCard(
                             key: const ValueKey('hero-empty'),
                             onOpenCobros: widget.onOpenMisCobros,
-                            onJoinGroup: esAdmin ? null : _unirseAGrupo,
+                            onJoinGroup:
+                                mostrarUnirseGrupo ? _unirseAGrupo : null,
                             forOrganizerPlayer: esAdmin,
                           ),
                           const SizedBox(height: 12),
                           _PlayerUpToDateStrip(proximoPartido: null),
                           const SizedBox(height: 20),
-                        ] else if (!esAdmin) ...[
+                        ] else if (mostrarUnirseGrupo) ...[
                           Align(
                             alignment: Alignment.centerLeft,
                             child: OutlinedButton.icon(
@@ -1294,12 +1299,13 @@ class _HeroEmptyCard extends StatelessWidget {
     final l10n = context.l10n;
     final palette = context.sportPalette;
     final showJoin = onJoinGroup != null && !forOrganizerPlayer;
-    final title = forOrganizerPlayer
-        ? l10n.tr('playerHeroAllGood')
-        : l10n.tr('playerHeroWaitingInvite');
-    final subtitle = forOrganizerPlayer
-        ? l10n.tr('playerHeroAllGoodSub')
-        : l10n.tr('playerHeroWaitingInviteSub');
+    // Sin CTA de unirse = ya tiene grupo (o es org): no decir "Únete a un grupo".
+    final title = showJoin
+        ? l10n.tr('playerHeroWaitingInvite')
+        : l10n.tr('playerHeroAllGood');
+    final subtitle = showJoin
+        ? l10n.tr('playerHeroWaitingInviteSub')
+        : l10n.tr('playerHeroAllGoodSub');
 
     return Material(
       color: Colors.transparent,
