@@ -2648,7 +2648,9 @@ class PartidoRepositoryRemote {
     return SupabaseHelpers.guard('Pagos por validar', () async {
       final rows = await _client
           .from('detalles_partido')
-          .select('*, partidos(fecha, recinto), profiles:jugador_id(nombre)')
+          .select(
+            '*, partidos(fecha, recinto, sport_type), profiles:jugador_id(nombre)',
+          )
           .eq('comprobante_estado', ComprobanteEstado.enRevision.dbValue);
 
       final list = (rows as List).map((row) {
@@ -2660,6 +2662,9 @@ class PartidoRepositoryRemote {
           nombreJugador: SupabaseParse.toStringOrNull(profile?['nombre']),
           fechaPartido: SupabaseParse.toDateTime(partidoEmbed?['fecha']),
           recintoPartido: SupabaseParse.toStringOrNull(partidoEmbed?['recinto']),
+          sportType: SportType.fromDb(
+            SupabaseParse.toStringOrNull(partidoEmbed?['sport_type']),
+          ),
         );
       }).where((d) => d.comprobantePendienteValidacion).toList();
 

@@ -6,8 +6,8 @@ import '../l10n/matchpay_strings.dart';
 import '../models/detalle_partido.dart';
 import '../services/supabase_storage_service.dart';
 import '../utils/formatters.dart';
+import '../utils/matchpay_context.dart';
 import '../utils/single_action.dart';
-import 'comprobante_historico_chip.dart';
 import 'matchpay_ui.dart';
 
 /// Pagos enviados por jugadores pendientes de conciliación (organizador).
@@ -148,13 +148,18 @@ class _PagoPorValidarCardState extends State<PagoPorValidarCard> {
   DetallePartido get detalle => widget.detalle;
 
   String _contextoPartido(BuildContext context) {
-    if (detalle.fechaPartido != null) {
-      final recinto = detalle.recintoPartido?.trim();
-      if (recinto != null && recinto.isNotEmpty) {
-        return '${formatDiaCompleto(detalle.fechaPartido!)} · $recinto';
-      }
-      return formatDiaCompleto(detalle.fechaPartido!);
-    }
+    final lang = context.readSettings().locale.languageCode;
+    final sport = detalle.sportType;
+    final sportLabel = sport == null
+        ? null
+        : '${sport.emoji} ${sport.labelForLang(lang)}';
+    final recinto = detalle.recintoPartido?.trim();
+    final parts = <String>[
+      if (sportLabel != null && sportLabel.isNotEmpty) sportLabel,
+      if (detalle.fechaPartido != null) formatDiaCompleto(detalle.fechaPartido!),
+      if (recinto != null && recinto.isNotEmpty) recinto,
+    ];
+    if (parts.isNotEmpty) return parts.join(' · ');
     return context.tr(
       'matchNumber',
       params: {'id': '${detalle.partidoId}'},
@@ -301,6 +306,8 @@ class _PagoPorValidarCardState extends State<PagoPorValidarCard> {
           Text(
             _contextoPartido(context),
             style: MatchPayTokens.bodySmallStyle(),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 6),
           Text(
@@ -318,26 +325,44 @@ class _PagoPorValidarCardState extends State<PagoPorValidarCard> {
             ),
           ),
           if ((d.comprobanteUrl ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _ComprobantePreviewThumb(
-              storagePath: d.comprobanteUrl!,
-              onTap: _busy ? null : _verComprobante,
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(
+                  Icons.receipt_long,
+                  size: 16,
+                  color: MatchPayTokens.accentUrgent,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.tr('cobrosHeroReceiptReview'),
+                    style: MatchPayTokens.bodySmallStyle(
+                      color: MatchPayTokens.accentUrgent,
+                    ).copyWith(fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _verComprobante,
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: Text(context.tr('viewBtn')),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
             ),
           ],
-          if (d.id != null) ...[
-            const SizedBox(height: 4),
-            ComprobanteHistoricoChip(detalle: d),
-          ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              OutlinedButton.icon(
-                onPressed: _busy ? null : _verComprobante,
-                icon: const Icon(Icons.image_outlined, size: 20),
-                label: Text(context.tr('viewReceipt')),
-              ),
-              const SizedBox(height: 8),
               FilledButton.icon(
                 onPressed: _busy
                     ? null
@@ -443,70 +468,6 @@ class _ComprobanteValidacionDialog extends StatelessWidget {
           child: Text(context.tr('close')),
         ),
       ],
-    );
-  }
-}
-
-/// Miniatura del comprobante en la cola de validación del organizador.
-class _ComprobantePreviewThumb extends StatelessWidget {
-  final String storagePath;
-  final VoidCallback? onTap;
-
-  const _ComprobantePreviewThumb({
-    required this.storagePath,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<String>(
-      future: SupabaseStorageService.instance.signedUrl(storagePath),
-      builder: (context, snap) {
-        final child = snap.hasData
-            ? Image.network(
-                snap.data!,
-                height: 140,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _placeholder(context),
-              )
-            : snap.hasError
-                ? _placeholder(context)
-                : const SizedBox(
-                    height: 140,
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-
-        return Material(
-          color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(12),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: SizedBox(height: 140, width: double.infinity, child: child),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _placeholder(BuildContext context) {
-    return SizedBox(
-      height: 140,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.image_not_supported_outlined, color: Colors.grey.shade600),
-            const SizedBox(height: 6),
-            Text(
-              context.tr('receiptImageNotFound'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
