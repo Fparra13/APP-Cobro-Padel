@@ -20,6 +20,7 @@ import '../models/estado_partido.dart';
 import '../services/calculation_service.dart';
 import '../services/comprobante_service.dart';
 import '../services/preferences_service.dart';
+import '../utils/cobro_recordatorio_flow.dart';
 import '../utils/formatters.dart';
 import '../utils/jugador_name_filter.dart';
 import '../utils/matchpay_context.dart';
@@ -882,6 +883,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             ),
           )
           .toList();
+      int? partidoIdRecordatorios;
       if (_esOrganizando && widget.partidoId != null) {
         await repos.completarPartidoOrganizado(
           partidoId: widget.partidoId!,
@@ -890,6 +892,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           montoPagadoPorJugador: _montoPagadoMap,
           costosVariables: costos,
         );
+        partidoIdRecordatorios = widget.partidoId;
       } else if (widget.isEditing) {
         await repos.actualizarPartido(
           partidoId: widget.partidoId!,
@@ -899,7 +902,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           costosVariables: costos,
         );
       } else {
-        await repos.guardarPartido(
+        partidoIdRecordatorios = await repos.guardarPartido(
           partido: partido,
           jugadoresAsistentes: _asistentes.toList(),
           montoPagadoPorJugador: _montoPagadoMap,
@@ -907,20 +910,26 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         );
       }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _esOrganizando
-                  ? l10n.tr('matchRegisteredWithCharges')
-                  : widget.isEditing
-                      ? l10n.tr('matchUpdated')
-                      : l10n.tr('matchSaved'),
-            ),
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _esOrganizando
+                ? l10n.tr('matchRegisteredWithCharges')
+                : widget.isEditing
+                    ? l10n.tr('matchUpdated')
+                    : l10n.tr('matchSaved'),
           ),
+        ),
+      );
+      if (partidoIdRecordatorios != null) {
+        await CobroRecordatorioPartidoFlow.preguntarTrasRegistrarCobros(
+          context,
+          partidoId: partidoIdRecordatorios,
         );
-        if (mounted) Navigator.pop(context);
       }
+      if (!mounted) return;
+      Navigator.pop(context, true);
     } catch (e) {
       _showError(context.userError(e));
     } finally {

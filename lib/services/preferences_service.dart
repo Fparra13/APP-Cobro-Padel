@@ -15,6 +15,7 @@ class PreferencesService {
   static const _keyRecordatorioHora = 'recordatorio_hora';
   static const _keyRecordatorioMinuto = 'recordatorio_minuto';
   static const _keyRecordatorioUltimaFecha = 'recordatorio_ultima_fecha';
+  static const _keyRecordatorioMigrated = 'recordatorio_cobro_migrated_v1';
 
   Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
 
@@ -92,6 +93,23 @@ class PreferencesService {
   Future<void> saveRecordatorioUltimaFecha(String fechaIso) async {
     final prefs = await _prefs;
     await prefs.setString(_keyRecordatorioUltimaFecha, fechaIso);
+  }
+
+  Future<bool> get recordatorioMigrated async =>
+      (await _prefs).getBool(_keyRecordatorioMigrated) ?? false;
+
+  Future<void> markRecordatorioMigrated() async {
+    final prefs = await _prefs;
+    await prefs.setBool(_keyRecordatorioMigrated, true);
+  }
+
+  Future<void> clearRecordatorioLocal() async {
+    final prefs = await _prefs;
+    await prefs.remove(_keyRecordatorioActivo);
+    await prefs.remove(_keyRecordatorioDias);
+    await prefs.remove(_keyRecordatorioHora);
+    await prefs.remove(_keyRecordatorioMinuto);
+    await prefs.remove(_keyRecordatorioUltimaFecha);
   }
 
   Future<void> saveDatosPago({

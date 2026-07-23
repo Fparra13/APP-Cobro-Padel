@@ -83,6 +83,7 @@ void main() {
       navKey: _navigatorKey,
       messengerKey: _scaffoldMessengerKey,
     );
+    // Cancela alarm diario local legacy (recordatorios de cobro = servidor).
     await NotificationService.instance.syncSchedule();
     _syncMoneyFormat(settings);
     await SubscriptionService.instance.load();
@@ -467,7 +468,6 @@ class _OrganizerShellState extends State<OrganizerShell>
     final plugin = NotificationService.instance;
     await plugin.requestPermissions();
     await plugin.syncSchedule();
-    await plugin.checkAndNotifyIfNeeded();
     await _refreshMisCobrosCount();
 
     final launch = await plugin.getLaunchDetails();
@@ -499,8 +499,6 @@ class _OrganizerShellState extends State<OrganizerShell>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      NotificationService.instance.syncSchedule();
-      NotificationService.instance.checkAndNotifyIfNeeded();
       AppRepositories.notifyDataChanged();
       unawaited(_refreshMisCobrosCount());
     }

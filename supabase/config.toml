@@ -2,5 +2,8 @@
 [functions.purge-comprobantes]
 verify_jwt = false
 
+[functions.process-cobro-reminders]
+verify_jwt = false
+
 [functions.delete-account]
 verify_jwt = true

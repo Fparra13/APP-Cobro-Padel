@@ -5,7 +5,6 @@ import '../core/app_settings_controller.dart';
 import '../core/country_sport_catalog.dart';
 import '../core/currency_config.dart';
 import '../l10n/matchpay_strings.dart';
-import '../services/notification_service.dart';
 import 'sport_chip_picker.dart';
 
 /// Panel de preferencias MatchPay.
@@ -68,11 +67,7 @@ class MatchPayPreferencesPanel extends StatelessWidget {
               .toList(),
           onChanged: (code) async {
             if (code == null) return;
-            final before = settings.locale.languageCode;
             await settings.setCountry(code);
-            if (settings.locale.languageCode != before) {
-              await NotificationService.instance.syncSchedule();
-            }
           },
         ),
         const SizedBox(height: 20),
@@ -99,7 +94,6 @@ class MatchPayPreferencesPanel extends StatelessWidget {
           onChanged: (next) async {
             if (next != null) {
               await settings.setLocale(next);
-              await NotificationService.instance.syncSchedule();
             }
           },
         ),

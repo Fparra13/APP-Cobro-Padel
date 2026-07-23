@@ -183,8 +183,9 @@ class NotificationService {
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (android != null) {
+      // Solo notificaciones. No pedir alarmas exactas: los recordatorios de
+      // cobro son server-driven (Supabase + FCM) y no usan AlarmManager.
       granted = await android.requestNotificationsPermission() ?? false;
-      await android.requestExactAlarmsPermission();
     }
 
     final ios = _plugin.resolvePlatformSpecificImplementation<
@@ -234,95 +235,14 @@ class NotificationService {
     );
   }
 
+  /// Cancela el alarm diario local (recordatorios de cobro pasan al servidor).
   Future<void> syncSchedule() async {
     if (!_initialized) return;
-
-    final activo = await _prefs.recordatorioActivo;
-    if (!activo) {
-      await _plugin.cancel(idDiaria);
-      return;
-    }
-
-    final hora = await _prefs.recordatorioHora;
-    final minuto = await _prefs.recordatorioMinuto;
-    final appName = await _tr('appName');
-
-    await _plugin.zonedSchedule(
-      idDiaria,
-      appName,
-      await _tr('notifDailyBody'),
-      _proximaHora(hora, minuto),
-      await _details(),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-      payload: payloadRecordatorio,
-    );
+    await _plugin.cancel(idDiaria);
   }
 
-  tz.TZDateTime _proximaHora(int hora, int minuto) {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      hora,
-      minuto,
-    );
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
-    }
-    return scheduled;
-  }
-
-  /// Revisa deudores vencidos y muestra notificación (máx. 1 por día).
-  Future<void> checkAndNotifyIfNeeded({bool force = false}) async {
-    if (!_initialized) return;
-
-    final repos = _repos;
-    if (repos == null) return;
-
-    final activo = await _prefs.recordatorioActivo;
-    if (!activo && !force) return;
-
-    final dias = await _prefs.recordatorioDias;
-    final deudores = await repos.getDeudoresVencidos(dias);
-    if (deudores.isEmpty) return;
-
-    if (!force) {
-      final hoy = DateTime.now().toIso8601String().substring(0, 10);
-      final ultima = await _prefs.recordatorioUltimaFecha;
-      if (ultima == hoy) return;
-      await _prefs.saveRecordatorioUltimaFecha(hoy);
-    }
-
-    final n = deudores.length;
-    final titulo = n == 1
-        ? await _tr('notifOnePlayerUnpaidTitle')
-        : await _tr('notifNPlayersUnpaidTitle', params: {'count': '$n'});
-    final cuerpo = n == 1
-        ? await _tr(
-            dias == 1
-                ? 'notifOnePlayerUnpaidBodyOneDay'
-                : 'notifOnePlayerUnpaidBody',
-            params: {
-              'name': deudores.first.jugador.nombre,
-              'days': '$dias',
-            },
-          )
-        : await _tr(
-            'notifNPlayersUnpaidBody',
-            params: {'count': '$n', 'days': '$dias'},
-          );
-
-    await _plugin.show(
-      idDeudores,
-      titulo,
-      cuerpo,
-      await _details(),
-      payload: payloadRecordatorio,
-    );
-  }
+  /// No-op: los recordatorios automáticos de cobro los decide Supabase + FCM.
+  Future<void> checkAndNotifyIfNeeded({bool force = false}) async {}
 
   Future<void> showTestNotification() async {
     await _plugin.show(

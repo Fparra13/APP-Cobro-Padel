@@ -8,9 +8,11 @@ import '../core/crashlytics_bootstrap.dart';
 import '../core/firebase_config.dart';
 import '../core/legal_urls.dart';
 import '../models/jugador.dart';
+import '../models/cobro_recordatorio_prefs.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../services/notification_service.dart';
 import '../services/preferences_service.dart';
+import '../utils/cobro_recordatorio_flow.dart';
 import '../widgets/app_mode_switch_panel.dart';
 import '../widgets/codigo_grupo_organizador_card.dart';
 import '../widgets/jugador_avatar.dart';
@@ -41,12 +43,12 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   bool _loading = true;
   bool _isOrganizer = false;
   bool _recordatorioActivo = false;
-  int _recordatorioDias = 3;
+  int _recordatorioDiasPrimer = 3;
+  int _recordatorioFrecuencia = 7;
   TimeOfDay _recordatorioHora = const TimeOfDay(hour: 10, minute: 0);
+  String _recordatorioTimezone = 'America/Santiago';
   bool? _permisosOk;
   Jugador? _perfil;
-
-  static const _opcionesDias = [1, 2, 3, 5, 7, 10, 14, 21, 30];
 
   @override
   void initState() {
@@ -95,11 +97,18 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           } catch (_) {}
         }
 
-        _recordatorioActivo = await _prefs.recordatorioActivo;
-        _recordatorioDias = await _prefs.recordatorioDias;
-        final hora = await _prefs.recordatorioHora;
-        final minuto = await _prefs.recordatorioMinuto;
-        _recordatorioHora = TimeOfDay(hour: hora, minute: minuto);
+        final prefsRemote =
+            await CobroRecordatorioPrefsLoader.loadAndMigrateIfNeeded();
+        _recordatorioActivo = prefsRemote.activo;
+        _recordatorioDiasPrimer =
+            CobroRecordatorioPrefs.normalizePrimer(prefsRemote.diasPrimer);
+        _recordatorioFrecuencia =
+            CobroRecordatorioPrefs.normalizeFrecuencia(prefsRemote.frecuenciaDias);
+        _recordatorioHora = TimeOfDay(
+          hour: prefsRemote.horaLocal.hour,
+          minute: prefsRemote.horaLocal.minute,
+        );
+        _recordatorioTimezone = prefsRemote.timezone;
       }
 
       _permisosOk = await NotificationService.instance.arePermissionsGranted();
@@ -175,19 +184,35 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   }
 
   Future<void> _saveRecordatorio() async {
-    await _prefs.saveRecordatorio(
+    if (!AppRepositories.isReady) return;
+    final tz = await CobroRecordatorioPrefsLoader.deviceTimezone();
+    final prefs = CobroRecordatorioPrefs(
       activo: _recordatorioActivo,
-      dias: _recordatorioDias,
-      hora: _recordatorioHora.hour,
-      minuto: _recordatorioHora.minute,
+      diasPrimer: _recordatorioDiasPrimer,
+      frecuenciaDias: _recordatorioFrecuencia,
+      horaLocal: TimeOfDayLike(
+        hour: _recordatorioHora.hour,
+        minute: _recordatorioHora.minute,
+      ),
+      timezone: tz,
+      exists: true,
     );
-    await NotificationService.instance.syncSchedule();
-    if (_recordatorioActivo) {
-      await NotificationService.instance.checkAndNotifyIfNeeded();
-    }
-    if (mounted) {
+    try {
+      final saved = await AppRepositories.I.upsertCobroRecordatorioPrefs(prefs);
+      if (!mounted) return;
+      setState(() {
+        _recordatorioTimezone = saved.timezone;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.l10n.tr('configRemindersSaved'))),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(dataActionErrorMessage(context.l10n, e)),
+          backgroundColor: Colors.red.shade700,
+        ),
       );
     }
   }
@@ -723,38 +748,83 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           const SizedBox(height: 8),
           InputDecorator(
             decoration: InputDecoration(
-              labelText: l10n.tr('configNotifyAfter'),
+              labelText: l10n.tr('configFirstReminder'),
               border: const OutlineInputBorder(),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<int>(
                 isExpanded: true,
-                value: _opcionesDias.contains(_recordatorioDias)
-                    ? _recordatorioDias
-                    : 3,
-                items: _opcionesDias
+                value: CobroRecordatorioPrefs.normalizePrimer(
+                  _recordatorioDiasPrimer,
+                ),
+                items: CobroRecordatorioPrefs.primerOpciones
                     .map(
                       (d) => DropdownMenuItem(
                         value: d,
                         child: Text(
-                          l10n.tr('configDaysUnpaid', params: {'days': '$d'}),
+                          l10n.tr(
+                            d == 1
+                                ? 'configDaysAfterOne'
+                                : 'configDaysAfter',
+                            params: {'days': '$d'},
+                          ),
                         ),
                       ),
                     )
                     .toList(),
                 onChanged: (d) async {
                   if (d == null) return;
-                  setState(() => _recordatorioDias = d);
+                  setState(() => _recordatorioDiasPrimer = d);
                   await _saveRecordatorio();
                 },
               ),
             ),
           ),
           const SizedBox(height: 12),
+          InputDecorator(
+            decoration: InputDecoration(
+              labelText: l10n.tr('configReminderFrequency'),
+              border: const OutlineInputBorder(),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                isExpanded: true,
+                value: CobroRecordatorioPrefs.normalizeFrecuencia(
+                  _recordatorioFrecuencia,
+                ),
+                items: CobroRecordatorioPrefs.frecuenciaOpciones
+                    .map(
+                      (d) => DropdownMenuItem(
+                        value: d,
+                        child: Text(
+                          l10n.tr(
+                            'configFrequencyEveryDays',
+                            params: {'days': '$d'},
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (d) async {
+                  if (d == null) return;
+                  setState(() => _recordatorioFrecuencia = d);
+                  await _saveRecordatorio();
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            l10n.tr('configRemindersHelpExample'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 12),
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(l10n.tr('configDailyReminderTime')),
-            subtitle: Text(_recordatorioHora.format(context)),
+            subtitle: Text(
+              '${_recordatorioHora.format(context)} · $_recordatorioTimezone',
+            ),
             trailing: const Icon(Icons.schedule),
             onTap: _elegirHora,
           ),
@@ -764,7 +834,6 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           spacing: 8,
           runSpacing: 8,
           children: [
-            // Solo pedir permisos si aún faltan; si ya están OK, basta Probar.
             if (_permisosOk != true)
               OutlinedButton.icon(
                 onPressed: _solicitarPermisos,

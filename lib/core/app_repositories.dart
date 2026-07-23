@@ -23,8 +23,10 @@ import '../models/recinto.dart';
 import '../models/saldo_historico.dart';
 import '../models/codigo_grupo.dart';
 import '../models/datos_pago_organizador.dart';
+import '../models/cobro_recordatorio_prefs.dart';
 import '../repositories/backup_repository.dart';
 import '../repositories/codigo_grupo_repository_remote.dart';
+import '../repositories/cobro_recordatorio_prefs_repository_remote.dart';
 import '../repositories/convocatoria_repository.dart';
 import '../repositories/convocatoria_repository_remote.dart';
 import '../repositories/estadisticas_repository.dart';
@@ -119,6 +121,8 @@ class AppRepositories {
   final RecintoRepositoryRemote _recintoRemote = RecintoRepositoryRemote();
   final CodigoGrupoRepositoryRemote _codigoGrupoRemote =
       CodigoGrupoRepositoryRemote();
+  final CobroRecordatorioPrefsRepositoryRemote _cobroRecordatorioRemote =
+      CobroRecordatorioPrefsRepositoryRemote();
 
   static AppRepositories get I {
     assert(_instance != null, 'AppRepositories no inicializado');
@@ -352,6 +356,41 @@ class AppRepositories {
       );
     }
     return Future.value();
+  }
+
+
+  Future<CobroRecordatorioPrefs> getCobroRecordatorioPrefs() {
+    if (useRemote) return _cobroRecordatorioRemote.getPrefs();
+    return Future.value(CobroRecordatorioPrefs.defaults);
+  }
+
+  Future<CobroRecordatorioPrefs> upsertCobroRecordatorioPrefs(
+    CobroRecordatorioPrefs prefs,
+  ) {
+    if (useRemote) return _cobroRecordatorioRemote.upsertPrefs(prefs);
+    return Future.value(prefs);
+  }
+
+  Future<GenerarRecordatoriosPartidoResult> generarRecordatoriosPartido({
+    required int partidoId,
+    required bool generar,
+  }) {
+    if (useRemote) {
+      return _cobroRecordatorioRemote.generarParaPartido(
+        partidoId: partidoId,
+        generar: generar,
+      );
+    }
+    return Future.value(
+      GenerarRecordatoriosPartidoResult(
+        ok: false,
+        generar: generar,
+        creados: 0,
+        omitidos: 0,
+        prefsActivo: false,
+        mensaje: 'offline',
+      ),
+    );
   }
 
   /// Reparación manual fuera del flujo normal. No invocar al abrir fichas.
