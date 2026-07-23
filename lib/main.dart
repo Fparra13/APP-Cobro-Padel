@@ -157,8 +157,6 @@ class MatchPayApp extends StatelessWidget {
       ),
       routes: {
         '/jugadores': (_) => const JugadoresScreen(),
-        '/nuevo-partido': (_) => const NuevoPartidoScreen(),
-        '/organizar-partido': (_) => const OrganizarPartidoScreen(),
         '/partidos': (_) => const HistorialPartidosScreen(),
         '/configuracion': (_) => const ConfiguracionScreen(),
         '/backup': (_) => const BackupScreen(),
@@ -188,6 +186,8 @@ class MatchPayApp extends StatelessWidget {
             builder: (_) => NuevoPartidoScreen(partidoId: id),
           );
         }
+        // Crear encuentro/partido solo vía FeatureGate (abrirOrganizarPartido /
+        // abrirNuevoPartidoJugado). No exponer rutas sin gate.
         return null;
       },
     );

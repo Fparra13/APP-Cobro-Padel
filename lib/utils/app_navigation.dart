@@ -168,7 +168,7 @@ Future<bool?> abrirOrganizarPartido(
     final allowed = await FeatureGate.requirePro(
       context,
       feature: ProFeature.createMatch,
-      message: 'Crear convocatorias requiere Kloovi Pro.',
+      message: context.l10n.tr('proRequiredCreateMatch'),
     );
     if (!allowed || !context.mounted) return null;
   }
@@ -187,7 +187,7 @@ Future<bool?> abrirNuevoPartidoJugado(BuildContext context) async {
   final allowed = await FeatureGate.requirePro(
     context,
     feature: ProFeature.createMatch,
-    message: 'Registrar encuentros requiere Kloovi Pro.',
+    message: context.l10n.tr('proRequiredRegisterMatch'),
   );
   if (!allowed || !context.mounted) return null;
   return Navigator.of(context, rootNavigator: true).push<bool>(
