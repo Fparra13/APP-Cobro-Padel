@@ -69,7 +69,7 @@ class PdfService {
           pw.Text(
             _pdf(
               conDeuda > 0
-                  ? '$conDeuda participante${conDeuda == 1 ? '' : 's'} con deuda - Total ${_fmt(totalDeuda)}'
+                  ? '$conDeuda participante${conDeuda == 1 ? '' : 's'} con pendiente - Total ${_fmt(totalDeuda)}'
                   : 'Todos los participantes estan al dia',
             ),
             style: pw.TextStyle(
@@ -93,7 +93,7 @@ class PdfService {
                 .map((r) => [
                       _pdf(r.jugador.nombre),
                       _fmt(r.saldoActual),
-                      _pdf(r.saldoActual > 0 ? 'Debe' : 'Al dia'),
+                      _pdf(r.saldoActual > 0 ? 'Pendiente' : 'Al dia'),
                     ])
                 .toList(),
             headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
@@ -164,8 +164,8 @@ class PdfService {
             pw.SizedBox(height: 4),
             pw.Text(
               _pdf(
-                'Cada bloque muestra: items del encuentro, deuda anterior, '
-                'total a pagar, abono y saldo pendiente.',
+                'Cada bloque muestra: items del encuentro, pendiente anterior, '
+                'total a aportar, aporte parcial y saldo pendiente.',
               ),
               style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700),
             ),
@@ -182,7 +182,7 @@ class PdfService {
             pw.SizedBox(height: 16),
             pw.Text(
               _pdf(
-                'Datos de pago: se envian por aviso en la app o WhatsApp '
+                'Datos para aportar: se envian por aviso en la app o WhatsApp '
                 '(no se incluyen en este informe).',
               ),
               style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
@@ -232,7 +232,7 @@ class PdfService {
               pw.SizedBox(height: 16),
               pw.Text(
                 _pdf(
-                  'Datos de pago: revisa el aviso en la app o el mensaje '
+                  'Datos para aportar: revisa el aviso en la app o el mensaje '
                   'del organizador.',
                 ),
                 style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600),
@@ -339,7 +339,7 @@ class PdfService {
       widgets.add(pw.SizedBox(height: 6));
       if (d.saldoAnterior > 0) {
         widgets.add(
-          _filaTotal('Deuda anterior', d.saldoAnterior, color: PdfColors.orange800),
+          _filaTotal('Pendiente anterior', d.saldoAnterior, color: PdfColors.orange800),
         );
         if (deudasAnteriores.isNotEmpty) {
           for (final deuda in deudasAnteriores) {
@@ -386,7 +386,7 @@ class PdfService {
 
     final totalAPagar = d.totalDebido > 0 ? d.totalDebido : 0.0;
     widgets.add(
-      _filaTotal('Total a pagar', totalAPagar, bold: true),
+      _filaTotal('Total a aportar', totalAPagar, bold: true),
     );
     if (d.totalDebido <= 0 && d.saldoAnterior < 0) {
       widgets.add(
@@ -402,7 +402,7 @@ class PdfService {
 
     if (d.montoPagado > 0) {
       widgets.add(
-        _filaTotal('Abono / pago', -d.montoPagado, color: PdfColors.green800),
+        _filaTotal('Aporte registrado', -d.montoPagado, color: PdfColors.green800),
       );
     }
 
@@ -448,7 +448,7 @@ class PdfService {
       _estadoJugadorPdf(DesgloseJugador d) {
     if (d.saldoRestante > 0) {
       return (
-        etiqueta: d.pagoParcial ? 'Abono parcial' : 'Debe',
+        etiqueta: d.pagoParcial ? 'Aporte parcial' : 'Pendiente',
         tituloResultado: 'PENDIENTE',
         montoResultado: _fmt(d.saldoRestante),
         color: PdfColors.red800,
@@ -465,7 +465,7 @@ class PdfService {
     return (
       etiqueta: 'Al dia',
       tituloResultado: 'AL DIA',
-      montoResultado: d.montoPagado > 0 ? 'Pagado ${_fmt(d.montoPagado)}' : 'Sin deuda',
+      montoResultado: d.montoPagado > 0 ? 'Registrado ${_fmt(d.montoPagado)}' : 'Sin pendiente',
       color: PdfColors.green800,
     );
   }
@@ -598,8 +598,8 @@ class PdfService {
       headers: [
         'Participante',
         'Encuentro',
-        'Deuda ant.',
-        'Abono',
+        'Pend. ant.',
+        'Aporte',
         'Pendiente',
         'Estado',
       ],
@@ -678,7 +678,7 @@ class PdfService {
   pw.Widget _tablaItems(List<({String concepto, double monto})> lineas) {
     if (lineas.isEmpty) {
       return pw.Text(
-        _pdf('Sin items de cobro registrados'),
+        _pdf('Sin items de aporte registrados'),
         style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
       );
     }

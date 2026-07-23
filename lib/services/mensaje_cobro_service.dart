@@ -43,7 +43,7 @@ class MensajeCobroService {
 
     if (desglose.saldoAnterior > 0.005) {
       lineas.add(
-        '• Deuda anterior: ${formatMoney(desglose.saldoAnterior)}',
+        '• Pendiente anterior: ${formatMoney(desglose.saldoAnterior)}',
       );
     }
 
@@ -59,20 +59,20 @@ class MensajeCobroService {
           '✅ Al día — Saldo a favor: ${formatMoney(-desglose.saldoRestantePartido)}',
         );
       } else if (desglose.montoPagado > 0) {
-        lineas.add('💵 Pagaste: ${formatMoney(desglose.montoPagado)}');
+        lineas.add('Aportaste: ${formatMoney(desglose.montoPagado)}');
       } else {
         lineas.add('✅ Encuentro al día');
       }
     } else {
       if (desglose.montoPagado > 0) {
-        lineas.add('💵 Pagaste: ${formatMoney(desglose.montoPagado)}');
+        lineas.add('Aportaste: ${formatMoney(desglose.montoPagado)}');
       }
       lineas.add(
-        '💰 Total pendiente: *${formatMoney(desglose.pendienteOrganizador)}*',
+        'Total pendiente: *${formatMoney(desglose.pendienteOrganizador)}*',
       );
     }
 
-    lineas.addAll(pago.toMessageLines(title: 'Cómo pagarme'));
+    lineas.addAll(pago.toMessageLines(title: 'Datos para aportar'));
 
     lineas.add('');
     lineas.addAll(
@@ -115,7 +115,7 @@ class MensajeCobroService {
       }
     }
 
-    lineas.addAll(pago.toMessageLines(title: 'Cómo pagarme'));
+    lineas.addAll(pago.toMessageLines(title: 'Datos para aportar'));
 
     lineas
       ..add('')
@@ -129,7 +129,7 @@ class MensajeCobroService {
   static List<String> _lineasCierrePendiente(SportType sport) {
     final emoji = SportThemeConfig.paletteFor(sport).emoji;
     return [
-      'Cuando puedas nos transfieres y quedamos al día 🙌',
+      'Cuando puedas aporta fuera de Kloovi y quedamos al día 🙌',
       '¡Nos vemos pronto! $emoji🔥',
     ];
   }

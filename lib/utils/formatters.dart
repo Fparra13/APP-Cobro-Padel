@@ -402,7 +402,7 @@ String formatNombreSaludo(String nombre) {
 
 /// Etiqueta legible del saldo acumulado del jugador.
 String etiquetaSaldo(double saldo) {
-  if (saldo > 0) return 'Debe ${formatMoney(saldo)}';
+  if (saldo > 0) return 'Pendiente ${formatMoney(saldo)}';
   if (saldo < 0) return 'Saldo a favor: ${formatMoney(-saldo)}';
   return 'Al día';
 }

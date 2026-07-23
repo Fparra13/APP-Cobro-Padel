@@ -20,7 +20,7 @@ void main() {
       nota: 'Sube el comprobante',
     );
     final lines = pago.toMessageLines();
-    expect(lines.join('\n'), contains('Cómo pagarme'));
+    expect(lines.join('\n'), contains('Datos para aportar'));
     expect(lines.join('\n'), contains('A nombre de: Fran'));
     expect(lines.join('\n'), contains('PIX fran@mail.com'));
     expect(lines.join('\n'), contains('Sube el comprobante'));

@@ -32,13 +32,31 @@ class PaymentConceptL10n {
     'Deuda acumulada': 'historicalAccumulatedDebt',
     'Accumulated debt': 'historicalAccumulatedDebt',
     'Dívida acumulada': 'historicalAccumulatedDebt',
+    'Pendiente acumulado': 'historicalAccumulatedDebt',
+    'Accumulated pending': 'historicalAccumulatedDebt',
+    'Pendência acumulada': 'historicalAccumulatedDebt',
+    'Cobro de encuentro': 'historicalAccumulatedDebt',
+    'Aporte del encuentro': 'historicalAccumulatedDebt',
     // Conceptos de encuentro (antes “Partido …”) guardados en historial.
     'Partido pagado': 'historicalMatchPaid',
+    'Encuentro pagado': 'historicalMatchPaid',
+    'Session paid': 'historicalMatchPaid',
+    'Encontro pago': 'historicalMatchPaid',
+    'Encuentro al día': 'historicalMatchPaid',
+    'Gathering settled': 'historicalMatchPaid',
+    'Encontro em dia': 'historicalMatchPaid',
     'Partido cubierto con saldo a favor': 'historicalMatchCoveredByCredit',
+    'Pago parcial': 'historicalPartialPayment',
+    'Partial payment': 'historicalPartialPayment',
+    'Pagamento parcial': 'historicalPartialPayment',
+    'Aporte parcial': 'historicalPartialPayment',
+    'Partial contribution': 'historicalPartialPayment',
+    'Contribuição parcial': 'historicalPartialPayment',
     'Pago validado por organizador': 'historicalPaymentValidatedOrganizer',
     'Payment validated by organizer': 'historicalPaymentValidatedOrganizer',
     'Pagamento validado pelo organizador':
         'historicalPaymentValidatedOrganizer',
+    'Aporte validado por organizador': 'historicalPaymentValidatedOrganizer',
     'Abono validado por organizador': 'historicalPartialValidatedOrganizer',
     'Partial payment validated by organizer':
         'historicalPartialValidatedOrganizer',
@@ -47,6 +65,7 @@ class PaymentConceptL10n {
     'Abono manual': 'historicalManualPayment',
     'Manual payment': 'historicalManualPayment',
     'Pagamento manual': 'historicalManualPayment',
+    'Pago registrado manualmente': 'historicalManualPayment',
   };
 
   static String translate(String stored, String languageCode) {

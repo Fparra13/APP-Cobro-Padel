@@ -41,7 +41,7 @@ class DatosPagoOrganizador {
   }
 
   /// Líneas para WhatsApp / detalle de push (no para PDF).
-  List<String> toMessageLines({String title = 'Cómo pagarme'}) {
+  List<String> toMessageLines({String title = 'Datos para aportar'}) {
     if (!tieneDatos) return const [];
     final lineas = <String>[
       '',

@@ -92,10 +92,10 @@ class CobroLogic {
     final concepto = pagado
         ? (montoPagado == 0 && favorAplicado > 0
             ? 'Encuentro cubierto con saldo a favor'
-            : 'Encuentro pagado')
+            : 'Encuentro al día')
         : montoPagado > 0
-            ? 'Pago parcial'
-            : 'Deuda acumulada';
+            ? 'Aporte parcial'
+            : 'Pendiente acumulado';
     return EstadoPagoPartidoResult(
       montoPagado: montoPagado,
       pagado: pagado,
@@ -461,5 +461,5 @@ class CobroLogic {
   }
 
   static String conceptoValidacionOrganizador({required bool esAbono}) =>
-      esAbono ? 'Abono validado por organizador' : 'Pago validado por organizador';
+      esAbono ? 'Abono validado por organizador' : 'Aporte validado por organizador';
 }
