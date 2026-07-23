@@ -782,6 +782,54 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     );
   }
 
+
+  Future<void> _eliminarCuenta() async {
+    final l10n = context.l10n;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.tr('deleteAccountConfirmTitle')),
+        content: Text(l10n.tr('deleteAccountConfirmBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l10n.tr('deleteAccountConfirmAction')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await AuthService.instance.deleteAccount();
+      AppRepositories.clear();
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.tr('deleteAccountSuccess'))),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.tr('deleteAccountError'))),
+      );
+    }
+  }
+
   Future<void> _abrirPoliticaPrivacidad() async {
     final uri = Uri.parse(LegalUrls.privacyPolicy);
     await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -811,6 +859,18 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           trailing: const Icon(Icons.open_in_new, size: 18),
           onTap: _abrirPoliticaPrivacidad,
         ),
+
+        if (AuthService.instance.isLoggedIn)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.delete_forever_outlined, color: Colors.red.shade700),
+            title: Text(
+              l10n.tr('deleteAccount'),
+              style: TextStyle(color: Colors.red.shade700),
+            ),
+            subtitle: Text(l10n.tr('deleteAccountSubtitle')),
+            onTap: _eliminarCuenta,
+          ),
       ],
     );
   }

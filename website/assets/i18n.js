@@ -46,6 +46,10 @@
       document.title = dict.metaTitleTerms;
       const meta = document.querySelector('meta[name="description"]');
       if (meta) meta.setAttribute("content", dict.metaDescTerms);
+    } else if (page === "delete-account") {
+      document.title = dict.metaTitleDeleteAccount;
+      const meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute("content", dict.metaDescDeleteAccount);
     }
 
     document.querySelectorAll("[data-i18n]").forEach((el) => {

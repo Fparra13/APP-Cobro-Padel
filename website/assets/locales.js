@@ -51,6 +51,45 @@ window.KLOOVI_LOCALES = {
     navTerms: "Términos",
     navHome: "Inicio",
     navContact: "Contacto",
+    metaTitleDeleteAccount: "Eliminar cuenta — Kloovi",
+    metaDescDeleteAccount:
+      "Pasos para eliminar tu cuenta Kloovi y qué datos se borran o se conservan.",
+    deleteAccountH1: "Eliminar cuenta — Kloovi",
+    deleteAccountMeta:
+      "Cómo borrar tu cuenta y datos asociados en la app Kloovi (kloovi.app)",
+    deleteAccountHtml: `
+      <p>Esta página explica cómo los usuarios de la aplicación móvil <strong>Kloovi</strong> (desarrollador / marca: Kloovi · <a href="https://www.kloovi.app">kloovi.app</a>) pueden solicitar la eliminación de su cuenta y de los datos asociados.</p>
+
+      <h2>1. Eliminar la cuenta desde la app (recomendado)</h2>
+      <ol>
+        <li>Abre la aplicación <strong>Kloovi</strong> e inicia sesión.</li>
+        <li>Ve a <strong>Configuración</strong>.</li>
+        <li>Elige la opción para <strong>eliminar / borrar cuenta</strong> y confirma.</li>
+      </ol>
+      <p>Eso inicia el borrado de la cuenta y de los datos personales asociados al servicio, según se describe abajo.</p>
+
+      <h2>2. Solicitar eliminación por correo</h2>
+      <p>Si no puedes usar la app, escribe a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a> desde el correo de tu cuenta, con asunto “Eliminar cuenta Kloovi”. Atenderemos la solicitud en un plazo razonable.</p>
+
+      <h2>3. Qué datos se eliminan</h2>
+      <ul>
+        <li>Cuenta de autenticación y perfil (nombre, email, foto de perfil, preferencias vinculadas a la cuenta).</li>
+        <li>Datos de participación en grupos/encuentros asociados a tu usuario (convocatorias, registros administrativos de aportes vinculados a ti), en la medida en que no deban conservarse por obligación legal o seguridad mínima.</li>
+        <li>Tokens de notificaciones push vinculados a tus dispositivos.</li>
+      </ul>
+
+      <h2>4. Qué puede conservarse un tiempo limitado</h2>
+      <ul>
+        <li><strong>Comprobantes fotográficos</strong> (evidencias de aportes/gastos subidas a la nube): se eliminan automáticamente del almacenamiento a los <strong>14 días</strong> desde la subida (también si la cuenta sigue activa).</li>
+        <li>Registros técnicos mínimos (p. ej. logs de seguridad o backups) solo el tiempo estrictamente necesario, si la ley o la seguridad lo exigen.</li>
+        <li>Información que otros usuarios del grupo hayan guardado de forma legítima fuera de tu cuenta (p. ej. un organizador que exportó un informe) no está bajo nuestro control una vez exportada.</li>
+      </ul>
+
+      <h2>5. Eliminar algunos datos sin borrar la cuenta</h2>
+      <p>Puedes solicitar acceso, rectificación o borrado parcial escribiendo a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. Los comprobantes en la nube también caducan solos a los 14 días.</p>
+
+      <p>Más detalle: <a href="/privacy">Política de Privacidad</a>.</p>
+    `,
     privacyHtml: `
       <div class="notice">
         <strong>Kloovi no es una app financiera</strong>
@@ -256,6 +295,45 @@ window.KLOOVI_LOCALES = {
     navTerms: "Terms",
     navHome: "Home",
     navContact: "Contact",
+    metaTitleDeleteAccount: "Delete account — Kloovi",
+    metaDescDeleteAccount:
+      "How to delete your Kloovi account and what data is removed or retained.",
+    deleteAccountH1: "Delete account — Kloovi",
+    deleteAccountMeta:
+      "How to delete your account and associated data in the Kloovi app (kloovi.app)",
+    deleteAccountHtml: `
+      <p>This page explains how users of the <strong>Kloovi</strong> mobile app (developer / brand: Kloovi · <a href="https://www.kloovi.app">kloovi.app</a>) can request deletion of their account and associated data.</p>
+
+      <h2>1. Delete the account in the app (recommended)</h2>
+      <ol>
+        <li>Open the <strong>Kloovi</strong> app and sign in.</li>
+        <li>Go to <strong>Settings</strong>.</li>
+        <li>Choose <strong>delete account</strong> and confirm.</li>
+      </ol>
+      <p>This starts deletion of your account and personal data linked to the service, as described below.</p>
+
+      <h2>2. Request deletion by email</h2>
+      <p>If you cannot use the app, email <a href="mailto:hello@kloovi.app">hello@kloovi.app</a> from your account address with subject “Delete Kloovi account”. We will handle the request within a reasonable time.</p>
+
+      <h2>3. Data that is deleted</h2>
+      <ul>
+        <li>Authentication account and profile (name, email, profile photo, account preferences).</li>
+        <li>Participation data in groups/gatherings tied to your user (invites, administrative contribution records linked to you), except where minimal legal or security retention applies.</li>
+        <li>Push notification tokens for your devices.</li>
+      </ul>
+
+      <h2>4. Data that may be kept for a limited time</h2>
+      <ul>
+        <li><strong>Photo receipts</strong> (contribution/expense evidence in cloud storage): deleted automatically <strong>14 days</strong> after upload (also while the account remains active).</li>
+        <li>Minimal technical records (e.g. security logs or backups) only as long as strictly required by law or security.</li>
+        <li>Information other group users legitimately kept outside your account (e.g. an organizer who exported a report) is outside our control once exported.</li>
+      </ul>
+
+      <h2>5. Delete some data without deleting the account</h2>
+      <p>You may request access, correction, or partial deletion by emailing <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. Cloud receipts also expire automatically after 14 days.</p>
+
+      <p>More detail: <a href="/privacy">Privacy Policy</a>.</p>
+    `,
     privacyHtml: `
       <div class="notice">
         <strong>Kloovi is not a financial app</strong>
@@ -459,6 +537,45 @@ window.KLOOVI_LOCALES = {
     navTerms: "Termos",
     navHome: "Início",
     navContact: "Contato",
+    metaTitleDeleteAccount: "Excluir conta — Kloovi",
+    metaDescDeleteAccount:
+      "Como excluir sua conta Kloovi e quais dados são removidos ou mantidos.",
+    deleteAccountH1: "Excluir conta — Kloovi",
+    deleteAccountMeta:
+      "Como apagar sua conta e dados associados no app Kloovi (kloovi.app)",
+    deleteAccountHtml: `
+      <p>Esta página explica como os usuários do aplicativo móvel <strong>Kloovi</strong> (desenvolvedor / marca: Kloovi · <a href="https://www.kloovi.app">kloovi.app</a>) podem solicitar a exclusão da conta e dos dados associados.</p>
+
+      <h2>1. Excluir a conta no app (recomendado)</h2>
+      <ol>
+        <li>Abra o app <strong>Kloovi</strong> e entre na conta.</li>
+        <li>Vá em <strong>Configurações</strong>.</li>
+        <li>Escolha <strong>excluir conta</strong> e confirme.</li>
+      </ol>
+      <p>Isso inicia a exclusão da conta e dos dados pessoais vinculados ao serviço, conforme abaixo.</p>
+
+      <h2>2. Solicitar exclusão por e-mail</h2>
+      <p>Se não puder usar o app, escreva para <a href="mailto:hello@kloovi.app">hello@kloovi.app</a> a partir do e-mail da conta, com o assunto “Excluir conta Kloovi”. Atenderemos em prazo razoável.</p>
+
+      <h2>3. Dados que são excluídos</h2>
+      <ul>
+        <li>Conta de autenticação e perfil (nome, e-mail, foto de perfil, preferências da conta).</li>
+        <li>Dados de participação em grupos/encontros vinculados ao usuário (convocatórias, registros administrativos de contribuições), salvo retenção legal ou de segurança mínima.</li>
+        <li>Tokens de notificações push dos seus dispositivos.</li>
+      </ul>
+
+      <h2>4. Dados que podem ser mantidos por tempo limitado</h2>
+      <ul>
+        <li><strong>Comprovantes fotográficos</strong> (evidências de contribuições/gastos na nuvem): excluídos automaticamente <strong>14 dias</strong> após o upload (também com a conta ativa).</li>
+        <li>Registros técnicos mínimos (p. ex. logs de segurança ou backups) apenas pelo tempo estritamente necessário.</li>
+        <li>Informações que outros usuários do grupo tenham guardado legítimamente fora da sua conta (p. ex. relatório exportado) ficam fora do nosso controle após a exportação.</li>
+      </ul>
+
+      <h2>5. Excluir alguns dados sem apagar a conta</h2>
+      <p>Você pode solicitar acesso, correção ou exclusão parcial em <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. Os comprovantes na nuvem também expiram sozinhos em 14 dias.</p>
+
+      <p>Mais detalhes: <a href="/privacy">Política de Privacidade</a>.</p>
+    `,
     privacyHtml: `
       <div class="notice">
         <strong>Kloovi não é um app financeiro</strong>

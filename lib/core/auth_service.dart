@@ -372,4 +372,37 @@ class AuthService {
       await OfflineSnapshotStore.clearForUser(uid);
     }
   }
+
+  void _clearCachedProfile() {
+    _profileRole = null;
+    _accesoIlimitado = false;
+    _profileEmail = null;
+  }
+
+  /// Elimina la cuenta del usuario autenticado (Edge Function + Auth Admin).
+  Future<void> deleteAccount() async {
+    final client = _client;
+    final uid = currentUser?.id;
+    if (client == null || uid == null) {
+      throw Exception('Sesión requerida');
+    }
+
+    final response = await client.functions.invoke('delete-account');
+    if (response.status != 200) {
+      throw Exception(
+        'delete_account_failed:${response.status}:${response.data}',
+      );
+    }
+
+    await SubscriptionService.instance.setProActive(false);
+    _clearCachedProfile();
+    SubscriptionService.instance.clearProfileEntitlements();
+    await OfflineSnapshotStore.clearForUser(uid);
+
+    try {
+      await client.auth.signOut();
+    } catch (_) {
+      // La sesión puede quedar inválida tras borrar el usuario Auth.
+    }
+  }
 }
