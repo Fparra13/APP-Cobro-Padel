@@ -258,6 +258,10 @@ class TranslationMaps {
     'loginSubtitleGoogle': 'Entra con Google o con tu correo',
     'loginContinueGoogle': 'Continuar con Google',
     'loginOrEmail': 'o con email',
+    'loginGoogleNoSession':
+        'Google respondió, pero no se creó sesión. Revisa Google en Supabase (Client ID Web + Secret) y vuelve a intentar.',
+    'loginGoogleInstantClose':
+        'Google cerró el login al instante. Suele faltar el SHA-1 de esta APK en Firebase/Google Cloud, o tu cuenta no está en usuarios de prueba OAuth.',
     'loginShowEmail': 'Usar correo (enlace mágico)',
     'loginHideEmail': 'Ocultar correo',
     'loginSupabaseNotConfigured':
@@ -2063,6 +2067,10 @@ class TranslationMaps {
     'loginSubtitleGoogle': 'Sign in with Google or your email',
     'loginContinueGoogle': 'Continue with Google',
     'loginOrEmail': 'or with email',
+    'loginGoogleNoSession':
+        'Google responded but no session was created. Check Google in Supabase (Web Client ID + Secret) and try again.',
+    'loginGoogleInstantClose':
+        'Google closed the sign-in instantly. This APK\'s SHA-1 is often missing in Firebase/Google Cloud, or your account is not on the OAuth test users list.',
     'loginShowEmail': 'Use email (magic link)',
     'loginHideEmail': 'Hide email',
     'loginSupabaseNotConfigured':
@@ -3851,6 +3859,10 @@ class TranslationMaps {
     'loginSubtitleGoogle': 'Entre com o Google ou com seu e-mail',
     'loginContinueGoogle': 'Continuar com o Google',
     'loginOrEmail': 'ou com e-mail',
+    'loginGoogleNoSession':
+        'O Google respondeu, mas a sessão não foi criada. Verifique o Google no Supabase (Client ID Web + Secret) e tente de novo.',
+    'loginGoogleInstantClose':
+        'O Google fechou o login na hora. Costuma faltar o SHA-1 deste APK no Firebase/Google Cloud, ou sua conta não está nos usuários de teste OAuth.',
     'loginShowEmail': 'Usar e-mail (link mágico)',
     'loginHideEmail': 'Ocultar e-mail',
     'loginSupabaseNotConfigured':

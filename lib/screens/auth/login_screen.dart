@@ -168,10 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // AuthGate / auth listener navega al shell.
       if (!mounted) return;
       if (_auth.currentUser == null) {
-        _mostrarError(
-          'Google respondió, pero no se creó sesión. Revisa Google en Supabase '
-          '(Client ID Web + Secret) y vuelve a intentar.',
-        );
+        _mostrarError(_l10n.tr('loginGoogleNoSession'));
       }
     } on GoogleSignInCancelledException {
       if (!mounted) return;
@@ -179,11 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
           DateTime.now().difference(startedAt).inMilliseconds;
       // Cierre instantáneo casi nunca es “cancelé a propósito”: suele ser SHA/OAuth.
       if (elapsedMs < 2500) {
-        _mostrarError(
-          'Google cerró el login al instante. Suele faltar el SHA-1 de esta APK '
-          'en Firebase/Google Cloud, o tu cuenta no está en usuarios de prueba '
-          'de la pantalla de consentimiento OAuth.',
-        );
+        _mostrarError(_l10n.tr('loginGoogleInstantClose'));
       }
     } catch (e, st) {
       debugPrint('LoginScreen._entrarConGoogle: $e\n$st');

@@ -690,8 +690,17 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
   }
 
   Future<void> _cambiarFotoPerfil() async {
-    final perfil = _perfil;
-    if (perfil == null) return;
+    final uid = AuthService.instance.currentUser?.id;
+    if (uid == null) return;
+    final perfil = _perfil ??
+        Jugador(
+          supabaseId: uid,
+          nombre: _nombrePerfilCtrl.text.trim().isNotEmpty
+              ? _nombrePerfilCtrl.text.trim()
+              : (AuthService.instance.currentUser?.email ?? 'Usuario'),
+          email: AuthService.instance.currentUser?.email,
+          createdAt: DateTime.now(),
+        );
     await editarFotoPerfil(
       context,
       jugador: perfil,
@@ -732,7 +741,9 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           child: Column(
             children: [
               InkWell(
-                onTap: _perfil == null ? null : _cambiarFotoPerfil,
+                onTap: AuthService.instance.currentUser == null
+                    ? null
+                    : _cambiarFotoPerfil,
                 borderRadius: BorderRadius.circular(40),
                 child: Stack(
                   children: [
@@ -765,7 +776,9 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
               ),
               const SizedBox(height: 8),
               TextButton.icon(
-                onPressed: _perfil == null ? null : _cambiarFotoPerfil,
+                onPressed: AuthService.instance.currentUser == null
+                    ? null
+                    : _cambiarFotoPerfil,
                 icon: const Icon(Icons.photo_camera_outlined, size: 18),
                 label: Text(l10n.tr('configChangePhoto')),
               ),
