@@ -1,3 +1,4 @@
+import '../core/legal_urls.dart';
 import '../models/convocatoria_jugador.dart';
 import '../utils/formatters.dart';
 
@@ -17,7 +18,7 @@ class ConvocatoriaMessageService {
         : nombreOrganizador.trim();
 
     final buffer = StringBuffer()
-      ..writeln('$organizador te invitó a un encuentro de $sportLabel.')
+      ..writeln('∞ $organizador te invitó a un encuentro de $sportLabel.')
       ..writeln()
       ..writeln('📅 $fecha · $hora');
 
@@ -32,7 +33,10 @@ class ConvocatoriaMessageService {
       ..writeln()
       ..writeln('Responde en este chat:')
       ..writeln('✅ Confirmar - [tu nombre]')
-      ..writeln('❌ No asistir - [tu nombre]');
+      ..writeln('❌ No asistir - [tu nombre]')
+      ..writeln()
+      ..writeln('O descarga Kloovi y responde en la app:')
+      ..writeln(LegalUrls.website);
 
     if (p.notas?.trim().isNotEmpty ?? false) {
       buffer
