@@ -2,7 +2,7 @@
 
 El login principal es **Continuar con Google**. El magic link sigue como alternativa (“Usar correo”).
 
-Package Android: `com.matchpay.app` · iOS bundle: `com.matchpay.app`
+Package Android: `com.kloovi.app` · iOS bundle: `com.kloovi.app`
 
 ## 1. Google Cloud Console
 
@@ -20,7 +20,7 @@ Crea **tres** clients (mínimo Web + Android):
 ### B) Android
 
 - Tipo: **Android**
-- Package name: `com.matchpay.app`
+- Package name: `com.kloovi.app`
 - SHA-1 (debug) — `flutter run` / debug:
 
 ```text
@@ -33,13 +33,13 @@ E1:48:CD:88:00:D3:34:91:31:34:58:C8:5B:AF:A9:1D:AB:48:89:DA
 04:59:63:56:49:14:BE:DA:90:7C:C8:97:97:FB:33:14:77:B9:18:0A
 ```
 
-Ambos deben estar en Firebase → Project settings → app `com.matchpay.app` → **Add fingerprint**.
+Ambos deben estar en Firebase → Project settings → app `com.kloovi.app` → **Add fingerprint**.
 Sin el de release, la APK instalada a mano abre login Google y **no entra** (a veces sin mensaje).
 
 ### C) iOS (si compilas iPhone)
 
 - Tipo: **iOS**
-- Bundle ID: `com.matchpay.app`
+- Bundle ID: `com.kloovi.app`
 - Anota el Client ID → `GOOGLE_IOS_CLIENT_ID`
 - En `ios/Runner/Info.plist`, añade un URL scheme con el **Reversed Client ID**
   (aparece en el detalle del client iOS / en `GoogleService-Info.plist`).
@@ -53,7 +53,7 @@ Sin el de release, la APK instalada a mano abre login Google y **no entra** (a v
 - **Client Secret**: el secret del client Web
 - En iOS nativo: marca **Skip nonce check** si lo pide la doc de Supabase
 
-No hace falta redirect `matchpay://` para Google nativo (sí sigue haciendo falta para magic link).
+No hace falta redirect `kloovi://` para Google nativo (sí sigue haciendo falta para magic link).
 
 ## 3. Compilar la app
 

@@ -7,16 +7,16 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VERSION="${1:-1.0.0}"
-BUILD_NUMBER="${2:-100}"
+BUILD_NUMBER="${2:-1}"
 
 APK_DIR="build/app/outputs/flutter-apk"
 AAB_DIR="build/app/outputs/bundle/release"
-OUT_APK="matchpayv${VERSION}.apk"
-OUT_AAB="matchpayv${VERSION}.aab"
+OUT_APK="klooviv${VERSION}.apk"
+OUT_AAB="klooviv${VERSION}.aab"
 
 DART_DEFINES=(
   --dart-define=FIREBASE_API_KEY=AIzaSyCkgdPZrbDVJmvnmjx5WfVe4NUUGyiujiw
-  --dart-define=FIREBASE_APP_ID=1:1018372483361:android:465e4bd9e25e99b2ca7660
+  --dart-define=FIREBASE_APP_ID=1:1018372483361:android:1327a7f02a8a578aca7660
   --dart-define=FIREBASE_MESSAGING_SENDER_ID=1018372483361
   --dart-define=FIREBASE_PROJECT_ID=padel-cobro
   --dart-define=GOOGLE_WEB_CLIENT_ID=1018372483361-j3kffsnkj7esf244evoqp0d6492j6jlb.apps.googleusercontent.com

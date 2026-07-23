@@ -14,7 +14,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.matchpay.app"
+    namespace = "com.kloovi.app"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -25,7 +25,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.matchpay.app"
+        applicationId = "com.kloovi.app"
         minSdk = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutter.versionCode
@@ -45,11 +45,13 @@ android {
 
     buildTypes {
         release {
-            signingConfig = if (keystorePropertiesFile.exists()) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
+            if (!keystorePropertiesFile.exists()) {
+                throw GradleException(
+                    "Falta android/key.properties. El build release requiere el upload keystore " +
+                        "(storeFile, storePassword, keyAlias, keyPassword).",
+                )
             }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

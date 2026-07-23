@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -9,6 +10,10 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Evita declarar AD_ID si algún SDK de Firebase lo fusiona (no usamos Ads/Analytics). -->
+    <uses-permission
+        android:name="com.google.android.gms.permission.AD_ID"
+        tools:node="remove" />
     <application
         android:label="Kloovi"
         android:requestLegacyExternalStorage="true"
@@ -41,7 +46,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="matchpay"
+                    android:scheme="kloovi"
                     android:host="login-callback" />
             </intent-filter>
             <!-- Deep link: invitación a convocatoria -->
@@ -50,7 +55,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="matchpay"
+                    android:scheme="kloovi"
                     android:host="invite"
                     android:pathPrefix="/" />
             </intent-filter>
@@ -62,7 +67,7 @@
             android:value="2" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="convocatorias" />
+            android:value="kloovi_convocatorias_v2" />
         <receiver
             android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
