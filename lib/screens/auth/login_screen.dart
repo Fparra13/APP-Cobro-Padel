@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_settings_controller.dart';
 import '../../core/auth_service.dart';
+import '../../core/legal_urls.dart';
 import '../../core/matchpay_design_tokens.dart';
 import '../../core/sport_theme.dart';
 import '../../core/supabase_config.dart';
@@ -252,6 +254,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             if (!_linkEnviado) ...[
                               if (googleListo) ...[
                                 _buildGoogleButton(l10n, ocupado),
+                                const SizedBox(height: 12),
+                                _LoginLegalLinks(l10n: l10n),
                                 const SizedBox(height: 16),
                                 _OrDivider(label: l10n.tr('loginOrEmail')),
                                 const SizedBox(height: 8),
@@ -273,6 +277,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ],
                               ] else ...[
                                 _buildFormFields(l10n, palette, puedeEnviar),
+                                const SizedBox(height: 12),
+                                _LoginLegalLinks(l10n: l10n),
                               ],
                             ] else ...[
                               _buildLinkSentPanel(l10n, palette),
@@ -506,6 +512,56 @@ class _OrDivider extends StatelessWidget {
         ),
         line,
       ],
+    );
+  }
+}
+
+class _LoginLegalLinks extends StatelessWidget {
+  final MatchPayStrings l10n;
+
+  const _LoginLegalLinks({required this.l10n});
+
+  Future<void> _open(String url) async {
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = MatchPayTokens.bodySmallStyle(
+      color: MatchPayTokens.inkSecondary,
+    ).copyWith(height: 1.35, fontSize: 12);
+    final linkStyle = baseStyle.copyWith(
+      color: MatchPayTokens.ink,
+      decoration: TextDecoration.underline,
+      fontWeight: FontWeight.w600,
+    );
+
+    return Text.rich(
+      TextSpan(
+        style: baseStyle,
+        children: [
+          TextSpan(text: '${l10n.tr('loginLegalPrefix')} '),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: GestureDetector(
+              onTap: () => _open(LegalUrls.termsOfService),
+              child: Text(l10n.tr('termsOfService'), style: linkStyle),
+            ),
+          ),
+          TextSpan(text: ' ${l10n.tr('loginLegalAnd')} '),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.baseline,
+            baseline: TextBaseline.alphabetic,
+            child: GestureDetector(
+              onTap: () => _open(LegalUrls.privacyPolicy),
+              child: Text(l10n.tr('privacyPolicy'), style: linkStyle),
+            ),
+          ),
+          const TextSpan(text: '.'),
+        ],
+      ),
+      textAlign: TextAlign.center,
     );
   }
 }

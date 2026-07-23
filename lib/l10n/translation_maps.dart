@@ -262,6 +262,8 @@ class TranslationMaps {
         'Google respondió, pero no se creó sesión. Revisa Google en Supabase (Client ID Web + Secret) y vuelve a intentar.',
     'loginGoogleInstantClose':
         'Google cerró el login al instante. Suele faltar el SHA-1 de esta APK en Firebase/Google Cloud, o tu cuenta no está en usuarios de prueba OAuth.',
+    'loginLegalPrefix': 'Al continuar aceptas nuestros',
+    'loginLegalAnd': 'y',
     'loginShowEmail': 'Usar correo (enlace mágico)',
     'loginHideEmail': 'Ocultar correo',
     'loginSupabaseNotConfigured':
@@ -1240,6 +1242,8 @@ class TranslationMaps {
     'proFeatureCreate': 'Crear encuentros y convocatorias',
     'proFeatureAutomate': 'Automatizar cobros y recordatorios',
     'proFeatureStats': 'Estadísticas y reportes',
+    'legalNonFinancialNote':
+        'Kloovi no recibe, retiene ni procesa dinero. Solo ayuda a organizar encuentros y registrar aportes del grupo.',
     'deleteAccount': 'Eliminar cuenta',
     'deleteAccountSubtitle': 'Borra tu acceso y datos asociados de forma permanente.',
     'deleteAccountConfirmTitle': '¿Eliminar tu cuenta?',
@@ -2071,6 +2075,8 @@ class TranslationMaps {
         'Google responded but no session was created. Check Google in Supabase (Web Client ID + Secret) and try again.',
     'loginGoogleInstantClose':
         'Google closed the sign-in instantly. This APK\'s SHA-1 is often missing in Firebase/Google Cloud, or your account is not on the OAuth test users list.',
+    'loginLegalPrefix': 'By continuing you accept our',
+    'loginLegalAnd': 'and',
     'loginShowEmail': 'Use email (magic link)',
     'loginHideEmail': 'Hide email',
     'loginSupabaseNotConfigured':
@@ -3034,6 +3040,8 @@ class TranslationMaps {
     'proFeatureCreate': 'Create sessions and invites',
     'proFeatureAutomate': 'Automate charges and reminders',
     'proFeatureStats': 'Stats and reports',
+    'legalNonFinancialNote':
+        'Kloovi does not receive, hold, or process money. It only helps organize gatherings and track group contributions.',
     'deleteAccount': 'Delete account',
     'deleteAccountSubtitle': 'Permanently remove your access and associated data.',
     'deleteAccountConfirmTitle': 'Delete your account?',
@@ -3863,6 +3871,8 @@ class TranslationMaps {
         'O Google respondeu, mas a sessão não foi criada. Verifique o Google no Supabase (Client ID Web + Secret) e tente de novo.',
     'loginGoogleInstantClose':
         'O Google fechou o login na hora. Costuma faltar o SHA-1 deste APK no Firebase/Google Cloud, ou sua conta não está nos usuários de teste OAuth.',
+    'loginLegalPrefix': 'Ao continuar, você aceita nossos',
+    'loginLegalAnd': 'e',
     'loginShowEmail': 'Usar e-mail (link mágico)',
     'loginHideEmail': 'Ocultar e-mail',
     'loginSupabaseNotConfigured':
@@ -4838,6 +4848,8 @@ class TranslationMaps {
     'proFeatureCreate': 'Criar encontros e convites',
     'proFeatureAutomate': 'Automatizar cobranças e lembretes',
     'proFeatureStats': 'Estatísticas e relatórios',
+    'legalNonFinancialNote':
+        'A Kloovi não recebe, retém nem processa dinheiro. Só ajuda a organizar encontros e registrar contribuições do grupo.',
     'deleteAccount': 'Excluir conta',
     'deleteAccountSubtitle': 'Remove permanentemente seu acesso e dados associados.',
     'deleteAccountConfirmTitle': 'Excluir sua conta?',

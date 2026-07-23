@@ -1020,6 +1020,11 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _abrirTerminos() async {
+    final uri = Uri.parse(LegalUrls.termsOfService);
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   Widget _buildSeccionLegal() {
     final l10n = context.l10n;
 
@@ -1037,6 +1042,15 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           ],
         ),
         const SizedBox(height: 8),
+        Text(
+          l10n.tr('legalNonFinancialNote'),
+          style: TextStyle(
+            color: Colors.grey.shade700,
+            fontSize: 13,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.privacy_tip_outlined),
@@ -1044,7 +1058,13 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           trailing: const Icon(Icons.open_in_new, size: 18),
           onTap: _abrirPoliticaPrivacidad,
         ),
-
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.description_outlined),
+          title: Text(l10n.tr('termsOfService')),
+          trailing: const Icon(Icons.open_in_new, size: 18),
+          onTap: _abrirTerminos,
+        ),
         if (AuthService.instance.isLoggedIn)
           ListTile(
             contentPadding: EdgeInsets.zero,
