@@ -79,6 +79,12 @@ class CountrySportCatalog {
       namePt: 'Estados Unidos',
     ),
     MatchPayCountry(
+      code: 'CA',
+      nameEs: 'Canadá',
+      nameEn: 'Canada',
+      namePt: 'Canadá',
+    ),
+    MatchPayCountry(
       code: 'ES',
       nameEs: 'España',
       nameEn: 'Spain',
@@ -128,6 +134,8 @@ class CountrySportCatalog {
         return (locale: const Locale('es', 'CL'), currencyCode: 'PEN');
       case 'US':
         return (locale: const Locale('en'), currencyCode: 'USD');
+      case 'CA':
+        return (locale: const Locale('en', 'CA'), currencyCode: 'CAD');
       case 'ES':
         return (locale: const Locale('es', 'CL'), currencyCode: 'EUR');
       case 'GB':
@@ -160,6 +168,8 @@ class CountrySportCatalog {
         return 'PE';
       case 'USD':
         return 'US';
+      case 'CAD':
+        return 'CA';
       case 'EUR':
         return 'ES';
       case 'GBP':
@@ -274,6 +284,16 @@ class CountrySportCatalog {
       SportType.football,
       SportType.running,
       SportType.beachTennis,
+      SportType.other,
+    ],
+    'CA': [
+      SportType.pickleball,
+      SportType.tennis,
+      SportType.padel,
+      SportType.basketball,
+      SportType.football,
+      SportType.running,
+      SportType.volleyball,
       SportType.other,
     ],
     'ES': [

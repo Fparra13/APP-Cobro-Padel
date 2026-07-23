@@ -79,6 +79,13 @@ class CurrencyConfig {
       decimalDigits: 2,
     ),
     CurrencyOption(
+      code: 'CAD',
+      symbol: 'CA\$',
+      nameEs: 'Dólar canadiense',
+      locale: 'en_CA',
+      decimalDigits: 2,
+    ),
+    CurrencyOption(
       code: 'EUR',
       symbol: '€',
       nameEs: 'Euro',

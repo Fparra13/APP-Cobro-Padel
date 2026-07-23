@@ -202,6 +202,8 @@ class AppSettingsController extends ChangeNotifier {
         return 'BRL';
       case 'US':
         return 'USD';
+      case 'CA':
+        return 'CAD';
       case 'GB':
         return 'GBP';
       case 'ES':

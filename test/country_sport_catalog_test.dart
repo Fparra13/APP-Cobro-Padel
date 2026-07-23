@@ -58,6 +58,10 @@ void main() {
     expect(us?.locale.languageCode, 'en');
     expect(us?.currencyCode, 'USD');
 
+    final ca = CountrySportCatalog.defaultsFor('CA');
+    expect(ca?.locale.languageCode, 'en');
+    expect(ca?.currencyCode, 'CAD');
+
     expect(CountrySportCatalog.defaultsFor('OTHER'), isNull);
   });
 
