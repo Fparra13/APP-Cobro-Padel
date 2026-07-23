@@ -8,6 +8,7 @@ import '../services/fcm_service.dart';
 import '../offline/offline_snapshot_store.dart';
 import 'subscription_service.dart';
 import 'supabase_config.dart';
+import '../utils/app_log.dart';
 
 /// Usuario cerró el sheet de Google sin completar.
 class GoogleSignInCancelledException implements Exception {
@@ -284,7 +285,7 @@ class AuthService {
         await client.from('profiles').update({'nombre': trimmed}).eq('id', uid);
       }
     } catch (e) {
-      debugPrint('AuthService._syncNombreDesdeGoogle: $e');
+      appLog('AuthService._syncNombreDesdeGoogle: $e');
     }
   }
 
@@ -364,7 +365,7 @@ class AuthService {
       try {
         await GoogleSignIn.instance.signOut();
       } catch (e) {
-        debugPrint('AuthService.signOut Google: $e');
+        appLog('AuthService.signOut Google: $e');
       }
     }
     await _client?.auth.signOut();

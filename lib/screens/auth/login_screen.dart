@@ -12,6 +12,7 @@ import '../../core/matchpay_design_tokens.dart';
 import '../../core/sport_theme.dart';
 import '../../core/supabase_config.dart';
 import '../../l10n/matchpay_strings.dart';
+import '../../utils/app_log.dart';
 import '../../widgets/kloovi_brand.dart';
 import '../../widgets/matchpay_ui.dart';
 import '../../widgets/sport_icon.dart';
@@ -148,8 +149,8 @@ class _LoginScreenState extends State<LoginScreen> {
       });
       _mostrarExito(l10n.tr('loginCheckEmailTitle'));
       _iniciarCooldown();
-    } catch (e, st) {
-      debugPrint('LoginScreen._enviarMagicLink: $e\n$st');
+    } catch (e) {
+      appLog('LoginScreen._enviarMagicLink failed');
       if (!mounted) return;
       _mostrarError(_mensajeLogin(e));
     } finally {
@@ -180,8 +181,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (elapsedMs < 2500) {
         _mostrarError(_l10n.tr('loginGoogleInstantClose'));
       }
-    } catch (e, st) {
-      debugPrint('LoginScreen._entrarConGoogle: $e\n$st');
+    } catch (e) {
+      appLog('LoginScreen._entrarConGoogle failed');
       if (!mounted) return;
       _mostrarError(_mensajeLogin(e));
     } finally {

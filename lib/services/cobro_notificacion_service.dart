@@ -17,6 +17,7 @@ import '../services/notification_service.dart';
 import '../services/preferences_service.dart';
 import '../services/push_notification_service.dart';
 import '../utils/formatters.dart';
+import '../utils/app_log.dart';
 
 /// Push de cobros: jugadores reciben detalle; organizador recibe comprobantes.
 class CobroNotificacionService {
@@ -35,14 +36,14 @@ class CobroNotificacionService {
         enviados = await _notificarCobrosPartidoOnce(partidoId);
       }
       if (enviados == 0) {
-        debugPrint('CobroNotificacion: sin notificaciones en $partidoId');
+        appLog('CobroNotificacion: sin notificaciones en $partidoId');
       } else {
-        debugPrint(
+        appLog(
           'CobroNotificacion: $enviados push(es) para partido $partidoId',
         );
       }
     } catch (e, st) {
-      debugPrint('CobroNotificacionService.notificarCobrosPartido: $e\n$st');
+      appLog('CobroNotificacionService.notificarCobrosPartido: $e\n$st');
     }
   }
 
@@ -51,13 +52,13 @@ class CobroNotificacionService {
 
     final repos = AppRepositories.tryActive;
     if (repos == null) {
-      debugPrint('CobroNotificacion: AppRepositories.tryActive es null');
+      appLog('CobroNotificacion: AppRepositories.tryActive es null');
       return 0;
     }
 
     final completo = await repos.getPartidoCompleto(partidoId);
     if (completo == null) {
-      debugPrint('CobroNotificacion: partido $partidoId no encontrado');
+      appLog('CobroNotificacion: partido $partidoId no encontrado');
       return 0;
     }
 
@@ -90,7 +91,7 @@ class CobroNotificacionService {
     }).toList();
 
     if (candidatos.isEmpty) {
-      debugPrint(
+      appLog(
         'CobroNotificacion: sin candidatos con deuda en $partidoId '
         '(detalles=${completo.detalles.length}, desglose=${desglose.length})',
       );
@@ -111,7 +112,7 @@ class CobroNotificacionService {
 
         final targetId = await _resolverIdNotificacion(jugadorId);
         if (targetId.isEmpty) {
-          debugPrint(
+          appLog(
             'CobroNotificacion: sin targetId para jugador $jugadorId',
           );
           return;
@@ -345,7 +346,7 @@ class CobroNotificacionService {
         },
       );
     } catch (e) {
-      debugPrint('CobroNotificacionService.notificarComprobanteOrganizador: $e');
+      appLog('CobroNotificacionService.notificarComprobanteOrganizador: $e');
     }
   }
 
@@ -399,7 +400,7 @@ class CobroNotificacionService {
         },
       );
     } catch (e) {
-      debugPrint('CobroNotificacionService.notificarComprobanteRechazado: $e');
+      appLog('CobroNotificacionService.notificarComprobanteRechazado: $e');
     }
   }
 
