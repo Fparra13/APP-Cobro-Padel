@@ -1763,6 +1763,11 @@ class TranslationMaps {
         '{name} confirmó asistencia al encuentro del {date}.',
     'notifOrganizerDeclineBody':
         '{name} no puede ir al encuentro del {date}.',
+    'notifOrganizerJoinTitle': '👤 Nuevo en tu grupo',
+    'notifOrganizerJoinBody': '{name} se unió a tu grupo con el código.',
+    'notifOrganizerLeaveTitle': 'Participante eliminó su cuenta',
+    'notifOrganizerLeaveBody':
+        '{name} eliminó su cuenta y salió de tu grupo.',
     'notifMatchChargeTitle': '💰 Cobro de encuentro',
     'notifMatchChargeBodySimple':
         '{date} · Debes {amount}. Abre la app para pagar.',
@@ -3520,6 +3525,11 @@ class TranslationMaps {
         '{name} confirmed attendance for the session on {date}.',
     'notifOrganizerDeclineBody':
         '{name} cannot attend the session on {date}.',
+    'notifOrganizerJoinTitle': '👤 New member in your group',
+    'notifOrganizerJoinBody': '{name} joined your group with the code.',
+    'notifOrganizerLeaveTitle': 'Participant deleted their account',
+    'notifOrganizerLeaveBody':
+        '{name} deleted their account and left your group.',
     'notifMatchChargeTitle': '💰 Session charge',
     'notifMatchChargeBodySimple':
         '{date} · You owe {amount}. Open the app to pay.',
@@ -5292,6 +5302,11 @@ class TranslationMaps {
         '{name} confirmou presença no encontro de {date}.',
     'notifOrganizerDeclineBody':
         '{name} não pode ir à encontro de {date}.',
+    'notifOrganizerJoinTitle': '👤 Novo no seu grupo',
+    'notifOrganizerJoinBody': '{name} entrou no seu grupo com o código.',
+    'notifOrganizerLeaveTitle': 'Participante excluiu a conta',
+    'notifOrganizerLeaveBody':
+        '{name} excluiu a conta e saiu do seu grupo.',
     'notifMatchChargeTitle': '💰 Cobrança do encontro',
     'notifMatchChargeBodySimple':
         '{date} · Você deve {amount}. Abra o app para pagar.',

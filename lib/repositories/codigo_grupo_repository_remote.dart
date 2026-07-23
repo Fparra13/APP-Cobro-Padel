@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import '../core/supabase_helpers.dart';
 import '../models/codigo_grupo.dart';
+import '../services/grupo_notificacion_service.dart';
 
 /// Código de grupo del organizador + unirse como jugador.
 class CodigoGrupoRepositoryRemote {
@@ -34,7 +37,13 @@ class CodigoGrupoRepositoryRemote {
         params: {'p_codigo': codigo.trim()},
       );
       if (raw is Map) {
-        return UnirseGrupoResult.fromJson(Map<String, dynamic>.from(raw));
+        final result =
+            UnirseGrupoResult.fromJson(Map<String, dynamic>.from(raw));
+        // Fire-and-forget: no bloquear el flujo de unión.
+        unawaited(
+          GrupoNotificacionService().notificarOrganizadorNuevoMiembro(result),
+        );
+        return result;
       }
       throw Exception('Respuesta inválida al unirse al grupo');
     });

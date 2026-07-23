@@ -366,6 +366,13 @@ class FcmService {
         message.data['body'] ??
         await NotificationLocale.trCurrent('notifGenericNew');
 
+    if (type == 'grupo_join' || type == 'grupo_leave') {
+      await NotificationService.instance.showGrupoOrganizador(
+        titulo: title,
+        cuerpo: body,
+      );
+      return;
+    }
 
     if (partidoId == null) return;
 
@@ -429,6 +436,10 @@ class FcmService {
     final type = message.data['type'];
     final partidoId = int.tryParse(message.data['partido_id'] ?? '');
 
+    if (type == 'grupo_join' || type == 'grupo_leave') {
+      await NotificationService.instance.openJugadores();
+      return;
+    }
 
     if (partidoId == null) return;
 

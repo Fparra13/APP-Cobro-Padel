@@ -45,6 +45,7 @@ class NotificationService {
   static const payloadOrganizadorPartidoPrefix = 'organizador_partido:';
   static const payloadCobroPrefix = 'cobro:';
   static const payloadComprobantePrefix = 'comprobante:';
+  static const payloadJugadores = 'jugadores';
   static const idDeudores = 1001;
   static const idDiaria = 1002;
   static const idConvocatoriaBase = 2000;
@@ -213,7 +214,9 @@ class NotificationService {
       if (id != null) {
         _abrirConvocatoria(id, soloSiPendiente: true);
       }
-
+    } else if (payload == payloadJugadores) {
+      _abrirJugadores();
+    }
   }
 
   Future<bool> requestPermissions() async {
@@ -410,7 +413,25 @@ class NotificationService {
     );
   }
 
+  /// Organizador: alguien se unió o salió del grupo.
+  Future<void> showGrupoOrganizador({
+    required String titulo,
+    required String cuerpo,
+  }) async {
+    if (!_initialized) return;
+    await requestPermissions();
+    await _plugin.show(
+      idConvocatoriaBase + 5500,
+      titulo,
+      cuerpo,
+      await _convocatoriaDetails(),
+      payload: payloadJugadores,
+    );
+  }
 
+  Future<void> openJugadores() async {
+    await _abrirJugadores();
+  }
 
   Future<void> openOrganizerHomePagos() async {
     await _abrirOrganizerHomePagos();
@@ -673,6 +694,14 @@ class NotificationService {
     AppRepositories.notifyDataChanged();
   }
 
+  Future<void> _abrirJugadores() async {
+    final ctx = navigatorKey?.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    Navigator.of(ctx).popUntil((route) => route.isFirst);
+    Navigator.of(ctx).pushNamed('/jugadores');
+    AppRepositories.notifyDataChanged();
+  }
 
   Future<void> _abrirPartidoOrganizador(int partidoId) async {
     final ctx = navigatorKey?.currentContext;
