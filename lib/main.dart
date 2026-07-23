@@ -73,7 +73,8 @@ void main() {
     await acquisition.initialize();
     AuthService.instance.initializeAuthListener(
       onSignedIn: () {
-        FcmService.instance.initialize();
+        unawaited(FcmService.instance.initialize());
+        unawaited(FcmService.instance.touchAppLastSeen());
         unawaited(settings.syncLocaleToProfile());
         offlineRefreshCoordinator.init();
         _navigatorKey.currentState?.popUntil((route) => route.isFirst);
@@ -353,6 +354,7 @@ class _RoleAwareShellState extends State<RoleAwareShell> {
 
     if (!_loadError) {
       unawaited(FcmService.instance.initialize());
+      unawaited(FcmService.instance.touchAppLastSeen());
       runPendingAcquisitionNavigation(context);
     }
   }
@@ -454,6 +456,9 @@ class _OrganizerShellState extends State<OrganizerShell>
     });
     NotificationService.instance.registerOrganizerMisCobrosNavigation(() {
       if (mounted) setState(() => _index = 1);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.flushPendingNavigation();
     });
     AppRepositories.dataRevision.addListener(_onDataChanged);
     _initNotificaciones();
@@ -677,6 +682,9 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     NotificationService.instance.registerPlayerMisCobrosNavigation(() {
       if (mounted) setState(() => _index = 2);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.flushPendingNavigation();
     });
     _initPlayer();
   }

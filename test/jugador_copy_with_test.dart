@@ -30,4 +30,16 @@ void main() {
     expect(cleared.fcmToken, isNull);
     expect(cleared.tieneMatchPayApp, isFalse);
   });
+
+  test('tieneMatchPayApp true with appLastSeenAt even without fcmToken', () {
+    final base = Jugador(
+      supabaseId: 'j-1',
+      nombre: 'Catalina',
+      appLastSeenAt: DateTime.utc(2026, 7, 20),
+      createdAt: DateTime.utc(2026, 1, 1),
+    );
+
+    expect(base.puedeRecibirPush, isFalse);
+    expect(base.tieneMatchPayApp, isTrue);
+  });
 }

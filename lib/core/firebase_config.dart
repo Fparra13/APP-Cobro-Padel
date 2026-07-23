@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/app_log.dart';
 
 /// Configuración Firebase (Core / FCM / Crashlytics).
 ///
@@ -52,18 +53,30 @@ class FirebaseConfig {
     );
   }
 
+  static String? lastInitError;
+
   static Future<bool> ensureInitialized() async {
-    if (!isConfigured) return false;
+    lastInitError = null;
+    if (!isConfigured) {
+      lastInitError = 'not_configured';
+      return false;
+    }
     if (Firebase.apps.isNotEmpty) return true;
     try {
       await Firebase.initializeApp(options: currentPlatform);
       return true;
     } on FirebaseException catch (e) {
-      if (e.code == 'duplicate-app') return true;
-      debugPrint('Firebase init: $e');
+      if (e.code == 'duplicate-app' || Firebase.apps.isNotEmpty) return true;
+      lastInitError = 'firebase:${e.code}:${e.message}';
+      appLog('Firebase init: $lastInitError');
       return false;
     } catch (e) {
-      debugPrint('Firebase init: $e');
+      // Auto-init nativo / carrera: la app puede existir pese al error.
+      if (Firebase.apps.isNotEmpty) return true;
+      final msg = e.toString();
+      if (msg.contains('duplicate-app')) return true;
+      lastInitError = 'init:$e';
+      appLog('Firebase init: $lastInitError');
       return false;
     }
   }

@@ -13,19 +13,32 @@ import '../models/mi_convocatoria.dart';
 import '../screens/mis_cobros_screen.dart';
 import '../screens/organizar_partido_screen.dart';
 import '../screens/responder_convocatoria_screen.dart';
+import '../utils/app_log.dart';
 import '../utils/formatters.dart';
 import '../utils/partido_cancelado_popup_flow.dart';
 import '../widgets/mis_invitaciones_panel.dart';
 import '../widgets/recordatorio_deudores_sheet.dart';
 import 'preferences_service.dart';
 
+/// Intención de navegación diferida hasta que el shell esté listo.
+enum PendingNavigation {
+  misCobros,
+}
+
 /// Notificaciones locales para avisar de jugadores impagos.
 class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
 
-  static const channelId = 'recordatorio_deudores';
-  static const channelConvocatoriaId = 'convocatorias';
+  // v2: IDs nuevos. Android no actualiza importancia de un canal ya creado
+  // (p. ej. auto-creado por FCM en silenciado). Un ID nuevo deja el canal ON
+  // por defecto al aceptar notificaciones.
+  static const channelId = 'kloovi_recordatorios_v2';
+  static const channelConvocatoriaId = 'kloovi_convocatorias_v2';
+  static const _legacyChannelIds = [
+    'recordatorio_deudores',
+    'convocatorias',
+  ];
   static const payloadRecordatorio = 'recordatorio_deudores';
   static const payloadConvocatoriaPrefix = 'convocatoria:';
   static const payloadCancelacionPrefix = 'cancelacion:';
@@ -56,6 +69,7 @@ class NotificationService {
   VoidCallback? onNavigateOrganizerHome;
   VoidCallback? onNavigateOrganizerMisCobros;
   VoidCallback? onNavigatePlayerMisCobros;
+  PendingNavigation? _pendingNavigation;
 
   static const _prefsLaunchPayload = 'notif_launch_payload_handled';
   static const _prefsLaunchAt = 'notif_launch_payload_at';
@@ -70,6 +84,14 @@ class NotificationService {
 
   void registerPlayerMisCobrosNavigation(VoidCallback callback) {
     onNavigatePlayerMisCobros = callback;
+  }
+
+  /// Ejecuta navegación FCM/local pendiente cuando el shell ya montó.
+  void flushPendingNavigation() {
+    if (_pendingNavigation != PendingNavigation.misCobros) return;
+    if (_tryOpenMisCobros()) {
+      _pendingNavigation = null;
+    }
   }
 
   Future<String> _languageCode() => AppSettingsController.readLanguageCode();
@@ -116,31 +138,47 @@ class NotificationService {
       onDidReceiveNotificationResponse: _onNotificationTap,
     );
 
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(
-          AndroidNotificationChannel(
-            channelId,
-            await _tr('notifChannelRemindersName'),
-            description: await _tr('notifChannelRemindersDesc'),
-            importance: Importance.high,
-          ),
-        );
-
-    await _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(
-          AndroidNotificationChannel(
-            channelConvocatoriaId,
-            await _tr('notifChannelConvocatoriaName'),
-            description: await _tr('notifChannelConvocatoriaDesc'),
-            importance: Importance.max,
-          ),
-        );
+    await ensureAndroidChannels();
 
     _initialized = true;
+  }
+
+  /// Crea canales con importancia alta/máxima (activos por defecto).
+  /// Seguro llamar tras conceder permisos o antes de sync FCM.
+  Future<void> ensureAndroidChannels() async {
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (android == null) return;
+
+    for (final legacyId in _legacyChannelIds) {
+      try {
+        await android.deleteNotificationChannel(legacyId);
+      } catch (_) {}
+    }
+
+    await android.createNotificationChannel(
+      AndroidNotificationChannel(
+        channelId,
+        await _tr('notifChannelRemindersName'),
+        description: await _tr('notifChannelRemindersDesc'),
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
+      ),
+    );
+
+    await android.createNotificationChannel(
+      AndroidNotificationChannel(
+        channelConvocatoriaId,
+        await _tr('notifChannelConvocatoriaName'),
+        description: await _tr('notifChannelConvocatoriaDesc'),
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
+      ),
+    );
   }
 
   void _onNotificationTap(NotificationResponse response) {
@@ -148,6 +186,7 @@ class NotificationService {
     if (payload == payloadRecordatorio) {
       _abrirRecordatorioDeudores();
     } else if (payload != null && payload.startsWith(payloadCobroPrefix)) {
+      appLog('FCM_NAV_RECEIVED type=local_cobro');
       _abrirMisCobros();
     } else if (payload != null &&
         payload.startsWith(payloadComprobantePrefix)) {
@@ -174,7 +213,7 @@ class NotificationService {
       if (id != null) {
         _abrirConvocatoria(id, soloSiPendiente: true);
       }
-    }
+
   }
 
   Future<bool> requestPermissions() async {
@@ -197,6 +236,10 @@ class NotificationService {
             sound: true,
           ) ??
           false;
+    }
+
+    if (granted) {
+      await ensureAndroidChannels();
     }
 
     return granted;
@@ -245,11 +288,12 @@ class NotificationService {
   Future<void> checkAndNotifyIfNeeded({bool force = false}) async {}
 
   Future<void> showTestNotification() async {
+    // Misma prioridad/canal que convocatorias (el push remoto usa este canal).
     await _plugin.show(
       idDeudores,
       await _tr('notifTestTitle'),
       await _tr('notifTestBody'),
-      await _details(),
+      await _convocatoriaDetails(),
       payload: payloadRecordatorio,
     );
   }
@@ -366,6 +410,8 @@ class NotificationService {
     );
   }
 
+
+
   Future<void> openOrganizerHomePagos() async {
     await _abrirOrganizerHomePagos();
   }
@@ -473,6 +519,7 @@ class NotificationService {
       await _abrirRecordatorioDeudores();
     } else if (payload.startsWith(payloadCobroPrefix)) {
       await Future<void>.delayed(const Duration(milliseconds: 400));
+      appLog('FCM_NAV_RECEIVED type=local_cobro');
       await _abrirMisCobros();
     } else if (payload.startsWith(payloadComprobantePrefix)) {
       await _abrirOrganizerHomePagos();
@@ -582,23 +629,38 @@ class NotificationService {
   }
 
   Future<void> _abrirMisCobros() async {
-    final goToTab = onNavigateOrganizerMisCobros ?? onNavigatePlayerMisCobros;
-    if (goToTab != null) {
+    if (_tryOpenMisCobros()) return;
+    _pendingNavigation = PendingNavigation.misCobros;
+    appLog('FCM_NAV_PENDING');
+  }
+
+  /// Prefer player tab; nunca el panel de cobros del organizador.
+  /// Si no hay callback de jugador, hace push de [MisCobrosScreen].
+  bool _tryOpenMisCobros() {
+    final playerCb = onNavigatePlayerMisCobros;
+    if (playerCb != null) {
       final ctx = navigatorKey?.currentContext;
       if (ctx != null && ctx.mounted) {
         Navigator.of(ctx).popUntil((route) => route.isFirst);
       }
-      goToTab();
+      playerCb();
       AppRepositories.notifyDataChanged();
-      return;
+      appLog('FCM_NAV_EXECUTED');
+      return true;
     }
 
     final ctx = navigatorKey?.currentContext;
-    if (ctx == null || !ctx.mounted) return;
+    if (ctx == null || !ctx.mounted) {
+      appLog('FCM_NAV_NO_CONTEXT');
+      return false;
+    }
 
-    await Navigator.of(ctx, rootNavigator: true).push(
+    Navigator.of(ctx, rootNavigator: true).push(
       MaterialPageRoute(builder: (_) => const MisCobrosScreen()),
     );
+    AppRepositories.notifyDataChanged();
+    appLog('FCM_NAV_EXECUTED');
+    return true;
   }
 
   Future<void> _abrirOrganizerHomePagos() async {
@@ -610,6 +672,7 @@ class NotificationService {
     onNavigateOrganizerHome?.call();
     AppRepositories.notifyDataChanged();
   }
+
 
   Future<void> _abrirPartidoOrganizador(int partidoId) async {
     final ctx = navigatorKey?.currentContext;

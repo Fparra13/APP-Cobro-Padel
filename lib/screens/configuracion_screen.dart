@@ -10,7 +10,9 @@ import '../core/legal_urls.dart';
 import '../models/jugador.dart';
 import '../models/cobro_recordatorio_prefs.dart';
 import '../core/matchpay_design_tokens.dart';
+import '../services/fcm_service.dart';
 import '../services/notification_service.dart';
+import '../services/push_notification_service.dart';
 import '../services/preferences_service.dart';
 import '../utils/cobro_recordatorio_flow.dart';
 import '../widgets/app_mode_switch_panel.dart';
@@ -242,9 +244,17 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     if (already) {
       if (!mounted) return;
       setState(() => _permisosOk = true);
+      final sync = await FcmService.instance.syncTokenToProfile();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(context.l10n.tr('configNotificationsAlreadyGranted')),
+          content: Text(
+            sync == FcmSyncResult.synced
+                ? context.l10n.tr('configNotificationsAlreadyGranted')
+                : context.l10n.tr('configPushRegisterFailed'),
+          ),
+          backgroundColor:
+              sync == FcmSyncResult.synced ? null : Colors.orange.shade800,
         ),
       );
       return;
@@ -253,29 +263,122 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
     final ok = await NotificationService.instance.requestPermissions();
     if (!mounted) return;
     setState(() => _permisosOk = ok);
+    FcmSyncResult? sync;
+    if (ok) {
+      sync = await FcmService.instance.syncTokenToProfile();
+    }
+    if (!mounted) return;
+    final msg = !ok
+        ? context.l10n.tr('configNotificationsDenied')
+        : sync == FcmSyncResult.synced
+            ? context.l10n.tr('configNotificationsGranted')
+            : context.l10n.tr('configPushRegisterFailed');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          ok
-              ? context.l10n.tr('configNotificationsGranted')
-              : context.l10n.tr('configNotificationsDenied'),
-        ),
+        content: Text(msg),
+        backgroundColor:
+            ok && sync != FcmSyncResult.synced ? Colors.orange.shade800 : null,
       ),
     );
   }
 
   Future<void> _probarNotificacion() async {
     final ok = await NotificationService.instance.requestPermissions();
-    if (!ok && mounted) {
+    final enabled =
+        await NotificationService.instance.arePermissionsGranted();
+    if ((!ok || !enabled) && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(context.l10n.tr('configGrantNotificationFirst')),
+          content: Text(context.l10n.tr('configNotificationsBlocked')),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      setState(() => _permisosOk = false);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _permisosOk = true);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.tr('configPushRegistering'))),
+    );
+
+    // QA: captura initializeApp/getToken en release (appLog no imprime ahí).
+    await FcmService.instance.runQaDiagnostics();
+
+    // Sin forceReinit: no tumbar un Firebase ya OK solo para re-probar.
+    final sync = await FcmService.instance.syncTokenToProfile();
+    // Local: prueba canal/permisos. Remoto: prueba FCM de punta a punta.
+    await NotificationService.instance.showTestNotification();
+    final stillEnabled =
+        await NotificationService.instance.arePermissionsGranted();
+    final uid = AuthService.instance.currentUser?.id;
+    PushSendResult? remote;
+    if (uid != null && uid.isNotEmpty && mounted) {
+      final l10n = context.l10n;
+      remote = await PushNotificationService.instance.enviarPruebaAMiMismo(
+        userId: uid,
+        title: l10n.tr('configPushRemoteTestTitle'),
+        body: l10n.tr('configPushRemoteTestBody'),
+      );
+    }
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    if (!stillEnabled) {
+      setState(() => _permisosOk = false);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.tr('configNotificationsBlocked')),
           backgroundColor: Colors.red.shade700,
         ),
       );
       return;
     }
-    await NotificationService.instance.showTestNotification();
+    if (remote != null && remote.ok) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.tr('configPushRemoteSent')),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+    } else if (sync == FcmSyncResult.synced) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            remote == null
+                ? context.l10n.tr('configPushRegisteredCheckTray')
+                : context.l10n.tr('configPushRemoteFailed'),
+          ),
+          backgroundColor:
+              remote == null ? Colors.green.shade700 : Colors.orange.shade800,
+        ),
+      );
+    } else if (await FcmService.instance.profileHasFcmToken()) {
+      // Token ya en servidor (push puede seguir llegando) aunque el re-sync falle.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            remote != null && !remote.ok
+                ? context.l10n.tr('configPushRemoteFailed')
+                : context.l10n.tr('configPushAlreadyActive'),
+          ),
+          backgroundColor: remote != null && !remote.ok
+              ? Colors.orange.shade800
+              : Colors.green.shade700,
+        ),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.tr('configPushRegisterFailed')),
+          backgroundColor: Colors.orange.shade800,
+        ),
+      );
+    }
   }
 
   Future<void> _elegirHora() async {
@@ -1022,10 +1125,22 @@ class _ConfiguracionScreenState extends State<ConfiguracionScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: _solicitarPermisos,
-          icon: const Icon(Icons.notifications_active),
-          label: Text(l10n.tr('configEnableNotifications')),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            if (_permisosOk != true)
+              OutlinedButton.icon(
+                onPressed: _solicitarPermisos,
+                icon: const Icon(Icons.notifications_active),
+                label: Text(l10n.tr('configEnableNotifications')),
+              ),
+            OutlinedButton.icon(
+              onPressed: _probarNotificacion,
+              icon: const Icon(Icons.notifications_none),
+              label: Text(l10n.tr('test')),
+            ),
+          ],
         ),
       ],
     );

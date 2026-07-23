@@ -440,7 +440,25 @@ class TranslationMaps {
         'Activa las notificaciones en ajustes del teléfono',
     'configNotificationsGranted': 'Permisos de notificación concedidos',
     'configNotificationsAlreadyGranted':
-        'Las notificaciones ya están activadas. Puedes usar Probar para verificar.',
+        'Las notificaciones ya están activadas.',
+    'configPushRegisterFailed':
+        'Permisos OK, pero no se pudo registrar el dispositivo para avisos. Revisa conexión e inténtalo de nuevo.',
+    'configPushRegistering': 'Registrando dispositivo para avisos…',
+    'configPushRegistered':
+        'Dispositivo registrado. Ya puedes recibir avisos push.',
+    'configPushAlreadyActive':
+        'Push ya activo en esta cuenta (token existente).',
+    'configPushRemoteTestTitle': 'Kloovi — prueba push',
+    'configPushRemoteTestBody':
+        'Si ves esto, las notificaciones remotas llegan a este teléfono.',
+    'configPushRemoteSent':
+        'Push remoto enviado. Deberías ver 2 avisos: uno local y uno desde el servidor.',
+    'configPushRemoteFailed':
+        'Registro OK, pero el push remoto falló. Revisa conexión o vuelve a Probar.',
+    'configPushRegisteredCheckTray':
+        'Dispositivo registrado. Debe aparecer también un aviso en la barra de notificaciones; si no, actívalas en Ajustes del teléfono → Apps → Kloovi → Notificaciones.',
+    'configNotificationsBlocked':
+        'Kloovi no puede mostrar notificaciones en este teléfono. Actívalas en Ajustes → Apps → Kloovi → Notificaciones (todas las categorías) y desactiva la optimización de batería para Kloovi.',
     'configNotificationsDenied':
         'Permisos denegados. Actívalos en Ajustes del teléfono.',
     'configGrantNotificationFirst': 'Primero concede permisos de notificación',
@@ -527,8 +545,9 @@ class TranslationMaps {
     'configNotificationsActive': 'Notificaciones activas',
     'configNotificationsDisabled': 'Notificaciones desactivadas',
     'configEnableNotifications': 'Activar notificaciones',
-    'configPlayerNotificationsActiveHint': 'Recibirás avisos de convocatorias',
-    'configPlayerNotificationsInactiveHint': 'Toca el botón para activarlas',
+    'configPlayerNotificationsActiveHint':
+        'Recibirás avisos de convocatorias. Usa Probar para verificar.',
+    'configPlayerNotificationsInactiveHint': 'Toca Activar para habilitarlas',
     'playersScreenTitle': 'Participantes',
     'statsTooltip': 'Estadísticas',
     'newPlayer': 'Nuevo participante',
@@ -2185,7 +2204,25 @@ class TranslationMaps {
         'Enable notifications in phone settings',
     'configNotificationsGranted': 'Notification permissions granted',
     'configNotificationsAlreadyGranted':
-        'Notifications are already on. Use Test to verify they work.',
+        'Notifications are already on.',
+    'configPushRegisterFailed':
+        'Permissions OK, but this device could not be registered for alerts. Check connection and try again.',
+    'configPushRegistering': 'Registering device for alerts…',
+    'configPushRegistered':
+        'Device registered. You can receive push alerts now.',
+    'configPushAlreadyActive':
+        'Push already active on this account (existing token).',
+    'configPushRemoteTestTitle': 'Kloovi — push test',
+    'configPushRemoteTestBody':
+        'If you see this, remote notifications reach this phone.',
+    'configPushRemoteSent':
+        'Remote push sent. You should see 2 alerts: one local and one from the server.',
+    'configPushRemoteFailed':
+        'Device registered, but remote push failed. Check connection or try again.',
+    'configPushRegisteredCheckTray':
+        'Device registered. You should also see an alert in the notification tray; if not, enable them in phone Settings → Apps → Kloovi → Notifications.',
+    'configNotificationsBlocked':
+        'Kloovi cannot show notifications on this phone. Enable them in Settings → Apps → Kloovi → Notifications (all categories) and turn off battery optimization for Kloovi.',
     'configNotificationsDenied':
         'Permissions denied. Enable them in phone Settings.',
     'configGrantNotificationFirst': 'Grant notification permissions first',
@@ -2272,8 +2309,9 @@ class TranslationMaps {
     'configNotificationsActive': 'Notifications enabled',
     'configNotificationsDisabled': 'Notifications disabled',
     'configEnableNotifications': 'Enable notifications',
-    'configPlayerNotificationsActiveHint': 'You will receive session invite alerts',
-    'configPlayerNotificationsInactiveHint': 'Tap the button to enable them',
+    'configPlayerNotificationsActiveHint':
+        'You will receive session invite alerts. Use Test to verify.',
+    'configPlayerNotificationsInactiveHint': 'Tap Enable to turn them on',
     'playersScreenTitle': 'Participants',
     'statsTooltip': 'Statistics',
     'newPlayer': 'New participant',
@@ -3926,7 +3964,25 @@ class TranslationMaps {
         'Ative as notificações nas configurações do telemóvel',
     'configNotificationsGranted': 'Permissões de notificação concedidas',
     'configNotificationsAlreadyGranted':
-        'As notificações já estão ativas. Use Testar para verificar.',
+        'As notificações já estão ativas.',
+    'configPushRegisterFailed':
+        'Permissões OK, mas não foi possível registar o dispositivo para avisos. Verifique a ligação e tente de novo.',
+    'configPushRegistering': 'A registar dispositivo para avisos…',
+    'configPushRegistered':
+        'Dispositivo registado. Já pode receber avisos push.',
+    'configPushAlreadyActive':
+        'Push já ativo nesta conta (token existente).',
+    'configPushRemoteTestTitle': 'Kloovi — teste push',
+    'configPushRemoteTestBody':
+        'Se vires isto, as notificações remotas chegam a este telemóvel.',
+    'configPushRemoteSent':
+        'Push remoto enviado. Deves ver 2 avisos: um local e um do servidor.',
+    'configPushRemoteFailed':
+        'Registo OK, mas o push remoto falhou. Verifica a ligação ou tenta de novo.',
+    'configPushRegisteredCheckTray':
+        'Dispositivo registado. Deve aparecer também um aviso na barra de notificações; se não, ative em Definições → Apps → Kloovi → Notificações.',
+    'configNotificationsBlocked':
+        'Kloovi não consegue mostrar notificações neste telemóvel. Ative em Definições → Apps → Kloovi → Notificações (todas as categorias) e desative a otimização de bateria para Kloovi.',
     'configNotificationsDenied':
         'Permissões negadas. Ative em Configurações do telemóvel.',
     'configGrantNotificationFirst': 'Conceda permissões de notificação primeiro',
@@ -4013,8 +4069,9 @@ class TranslationMaps {
     'configNotificationsActive': 'Notificações ativas',
     'configNotificationsDisabled': 'Notificações desativadas',
     'configEnableNotifications': 'Ativar notificações',
-    'configPlayerNotificationsActiveHint': 'Você receberá avisos de convites',
-    'configPlayerNotificationsInactiveHint': 'Toque no botão para ativar',
+    'configPlayerNotificationsActiveHint':
+        'Você receberá avisos de convites. Use Testar para verificar.',
+    'configPlayerNotificationsInactiveHint': 'Toque em Ativar para habilitar',
     'playersScreenTitle': 'Participantes',
     'statsTooltip': 'Estatísticas',
     'newPlayer': 'Novo participante',
