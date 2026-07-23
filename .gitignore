@@ -53,3 +53,7 @@ app.*.map.json
 /supabase/.temp/
 .vercel
 .env*
+
+# Local operational snapshots (DB/auth dumps, live security exports).
+# Keep outside git history; store privately if needed.
+/backups/
