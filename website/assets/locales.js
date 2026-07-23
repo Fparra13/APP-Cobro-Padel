@@ -11,11 +11,14 @@ window.KLOOVI_LOCALES = {
     metaTitleTerms: "Términos de Servicio — Kloovi",
     metaDescTerms:
       "Términos de uso de Kloovi. No somos una app financiera: no recibimos ni procesamos pagos.",
+    heroTitle: "Menos mensajes. Más deporte.",
     heroLead:
-      "Organiza el encuentro y lleva el registro de aportes del grupo sin drama.",
+      "Organiza encuentros, confirma quién asiste y lleva el control de los aportes. Todo en una sola app.",
+    heroBanner: "/assets/brand/banner-es.png?v=20260719b",
+    heroBannerAlt: "Kloovi — Menos mensajes. Más deporte.",
     ctaHow: "Ver cómo funciona",
     ctaPrivacy: "Política de privacidad",
-    eyebrow: "Organiza · Juega · Conecta",
+    eyebrow: "Organiza · Reúne · Comparte",
     playSoon: "Pronto",
     playBadgeAlt: "Consíguela en Google Play",
     downloadTitle: "Consíguela en Google Play",
@@ -23,21 +26,21 @@ window.KLOOVI_LOCALES = {
       "Estamos preparando la publicación. Mientras, escribe a hello@kloovi.app si quieres ser de los primeros.",
     heroNote:
       "Disponible pronto en Google Play. Kloovi no recibe dinero ni procesa pagos: solo te ayuda a registrar comprobantes y saldos del grupo.",
-    howTitle: "Una app para el grupo, no un banco",
+    howTitle: "Todo lo que necesitas para organizar un encuentro",
     howSub:
-      "Pensada para organizadores y participantes de pádel, yoga u otras actividades: convocatorias, confirmaciones y seguimiento de quién ya aportó.",
+      "Kloovi automatiza la organización de actividades grupales: convocatorias, confirmaciones, cálculo de aportes y seguimiento del grupo, todo desde un solo lugar.",
     point1Title: "Organiza",
     point1Body:
-      "Arma el encuentro, invita al roster y mira quién confirma, quién falta o quién queda como suplente.",
-    point2Title: "Registra aportes",
+      "Crea el encuentro, invita a los participantes y sigue en tiempo real quién confirmó, quién falta o quién queda como suplente.",
+    point2Title: "Calcula y controla",
     point2Body:
-      "Anota quién aportó, guarda comprobantes (fotos) y sigue saldos del grupo dentro de la app.",
-    point3Title: "Sin pasarela de pago",
+      "Registra los gastos del encuentro y Kloovi calcula automáticamente cuánto corresponde aportar a cada participante.",
+    point3Title: "Sigue los aportes",
     point3Body:
-      "Kloovi no cobra a participantes ni recibe transferencias. El dinero se mueve fuera de la app, entre ustedes.",
-    calloutTitle: "Importante para Play Store y usuarios",
+      "Los participantes registran sus aportes y comprobantes, mientras Kloovi actualiza automáticamente el estado de cada uno.",
+    calloutTitle: "¿Cómo funcionan los aportes?",
     calloutBody:
-      "Kloovi <strong>no es una aplicación financiera</strong>. No es billetera, banco, procesador de pagos ni intermediario de dinero. Solo almacena información administrativa y comprobantes que el organizador o el participante cargan para llevar el control del grupo.",
+      "Los aportes se realizan fuera de Kloovi. Cada participante registra su comprobante en la aplicación y el organizador lo revisa para confirmar el aporte. Kloovi solo administra el seguimiento de los aportes; nunca recibe ni procesa dinero.",
     contactTitle: "Contacto",
     contactSub: "¿Dudas de privacidad, cuenta o publicación?",
     footerCopy: "© {year} Kloovi · kloovi.app",
@@ -169,7 +172,7 @@ window.KLOOVI_LOCALES = {
       <p>El sitio web puede utilizar cookies o almacenamiento local estrictamente necesarios para su funcionamiento (por ejemplo, recordar el idioma seleccionado). No usamos el sitio como intermediario de pagos.</p>
 
       <h2>10. Conservación y eliminación de cuenta</h2>
-      <p>Conservamos datos mientras mantengas la cuenta y sea necesario para el servicio. Los comprobantes fotográficos (pagos y gastos) se eliminan automáticamente de nuestro almacenamiento a los 14 días desde la subida. Puedes eliminar tu cuenta desde la aplicación (si la función está disponible) o solicitándolo por correo a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. Atenderemos la solicitud en un plazo razonable, sin perjuicio de retenciones legales o de seguridad mínimas.</p>
+      <p>Conservamos datos mientras mantengas la cuenta y sea necesario para el servicio. Los comprobantes fotográficos (pagos y gastos) se eliminan automáticamente de nuestro almacenamiento a los 14 días desde la subida. Puedes eliminar tu cuenta desde Configuración en la aplicación, o solicitándolo por correo a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. Atenderemos la solicitud en un plazo razonable, sin perjuicio de retenciones legales o de seguridad mínimas.</p>
 
       <h2>11. Seguridad</h2>
       <p>Aplicamos medidas técnicas y organizativas razonables (control de acceso, transmisión cifrada en tránsito con HTTPS). Ningún sistema es 100% infalible.</p>
@@ -218,7 +221,7 @@ window.KLOOVI_LOCALES = {
       <h2>3. Naturaleza del servicio y comprobantes</h2>
       <p>Kloovi proporciona únicamente herramientas para registrar información administrativa entre miembros de un grupo. No verificamos la autenticidad de los comprobantes ni intervenimos en disputas por pagos externos. Cada usuario es responsable de lo que comparte; el organizador decide cómo validarlo.</p>
       <h2>4. Cuentas y eliminación</h2>
-      <p>Información veraz; edad mínima de 13 años o la exigida por tu país, la que sea mayor. Puedes eliminar tu cuenta desde la app (si está disponible) o solicitándolo a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
+      <p>Información veraz; edad mínima de 13 años o la exigida por tu país, la que sea mayor. Puedes eliminar tu cuenta desde Configuración en la app o solicitándolo a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
       <h2>5. Conducta</h2>
       <p>No uses Kloovi para fraude, lavado de dinero, acoso u otras ilegalidades; ni presentes la app como banco o procesador de pagos.</p>
       <h2>6. Contenido del usuario</h2>
@@ -255,11 +258,14 @@ window.KLOOVI_LOCALES = {
     metaTitleTerms: "Terms of Service — Kloovi",
     metaDescTerms:
       "Kloovi terms of use. Not a financial app: we do not receive or process payments.",
+    heroTitle: "Fewer messages. More sport.",
     heroLead:
-      "Organize the gathering and track group contributions without the chaos.",
+      "Organize gatherings, confirm who is in, and track contributions. All in one app.",
+    heroBanner: "/assets/brand/banner-en.png?v=20260719b",
+    heroBannerAlt: "Kloovi — Less messages. More sports.",
     ctaHow: "See how it works",
     ctaPrivacy: "Privacy policy",
-    eyebrow: "Organize · Play · Connect",
+    eyebrow: "Organize · Gather · Share",
     playSoon: "Soon",
     playBadgeAlt: "Get it on Google Play",
     downloadTitle: "Get it on Google Play",
@@ -267,21 +273,21 @@ window.KLOOVI_LOCALES = {
       "We’re preparing the listing. Meanwhile, email hello@kloovi.app if you want early access.",
     heroNote:
       "Coming soon on Google Play. Kloovi does not receive money or process payments—it only helps you record receipts and group balances.",
-    howTitle: "An app for the group, not a bank",
+    howTitle: "Everything you need to organize a gathering",
     howSub:
-      "Built for organizers and participants of padel, yoga, and other activities: summons, confirmations, and tracking who already contributed.",
+      "Kloovi automates group activity organization: invitations, confirmations, contribution calculation, and group tracking—all in one place.",
     point1Title: "Organize",
     point1Body:
-      "Set up the gathering, invite your roster, and see who confirmed, who’s missing, or who’s on the waitlist.",
-    point2Title: "Track contributions",
+      "Create the gathering, invite participants, and follow in real time who confirmed, who’s missing, or who’s on the waitlist.",
+    point2Title: "Calculate and control",
     point2Body:
-      "Log who contributed, store receipt photos, and follow group balances inside the app.",
-    point3Title: "No payment gateway",
+      "Log the gathering’s expenses and Kloovi automatically calculates how much each participant should contribute.",
+    point3Title: "Track contributions",
     point3Body:
-      "Kloovi does not charge participants or receive transfers. Money moves outside the app, between you.",
-    calloutTitle: "Important for Play Store and users",
+      "Participants record their contributions and receipts while Kloovi automatically updates each person’s status.",
+    calloutTitle: "How do contributions work?",
     calloutBody:
-      "Kloovi <strong>is not a financial application</strong>. It is not a wallet, bank, payment processor, or money intermediary. It only stores administrative information and receipts that organizers or participants upload to keep the group organized.",
+      "Contributions happen outside Kloovi. Each participant uploads their receipt in the app, and the organizer reviews it to confirm the contribution. Kloovi only tracks contributions; it never receives or processes money.",
     contactTitle: "Contact",
     contactSub: "Questions about privacy, your account, or publishing?",
     footerCopy: "© {year} Kloovi · kloovi.app",
@@ -412,7 +418,7 @@ window.KLOOVI_LOCALES = {
       <p>The website may use cookies or local storage strictly necessary for operation (for example, remembering the selected language). The website is not a payment intermediary.</p>
 
       <h2>10. Retention and account deletion</h2>
-      <p>We keep data while your account exists and as needed for the service. Photo receipts (payments and expenses) are deleted automatically from our storage 14 days after upload. You may delete your account from the app (if that feature is available) or by emailing <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. We will handle requests within a reasonable time, subject to minimal legal or security retention where required.</p>
+      <p>We keep data while your account exists and as needed for the service. Photo receipts (payments and expenses) are deleted automatically from our storage 14 days after upload. You may delete your account from Settings in the app, or by emailing <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>. We will handle requests within a reasonable time, subject to minimal legal or security retention where required.</p>
 
       <h2>11. Security</h2>
       <p>We apply reasonable technical and organizational measures (access control, HTTPS in transit). No system is 100% secure.</p>
@@ -460,7 +466,7 @@ window.KLOOVI_LOCALES = {
       <h2>3. Nature of the service and receipts</h2>
       <p>Kloovi provides only tools to record administrative information among group members. We do not verify receipt authenticity and do not intervene in disputes about external payments. Each user is responsible for what they share; the organizer decides how to validate it.</p>
       <h2>4. Accounts and deletion</h2>
-      <p>Provide accurate information; be at least 13, or the higher minimum age required in your country. You may delete your account in the app (if available) or by emailing <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
+      <p>Provide accurate information; be at least 13, or the higher minimum age required in your country. You may delete your account in Settings, or by emailing <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
       <h2>5. Acceptable use</h2>
       <p>Do not use Kloovi for fraud, money laundering, harassment, or other illegal activity; do not present the app as a bank or payment processor.</p>
       <h2>6. User content</h2>
@@ -497,11 +503,14 @@ window.KLOOVI_LOCALES = {
     metaTitleTerms: "Termos de Serviço — Kloovi",
     metaDescTerms:
       "Termos de uso da Kloovi. Não somos um app financeiro: não recebemos nem processamos pagamentos.",
+    heroTitle: "Menos mensagens. Mais esporte.",
     heroLead:
-      "Organize o encontro e acompanhe o registro de contribuições do grupo sem estresse.",
-    ctaHow: "Ver como funciona",
+      "Organize encontros, confirme quem vai e controle as contribuições. Tudo em um só app.",
+    heroBanner: "/assets/brand/banner-pt.png?v=20260719b",
+    heroBannerAlt: "Kloovi — Menos mensagens. Mais esporte.",
+    ctaHow: "Veja como funciona",
     ctaPrivacy: "Política de privacidade",
-    eyebrow: "Organiza · Joga · Conecta",
+    eyebrow: "Organize · Reúna · Compartilhe",
     playSoon: "Em breve",
     playBadgeAlt: "Disponível no Google Play",
     downloadTitle: "Disponível no Google Play",
@@ -509,21 +518,21 @@ window.KLOOVI_LOCALES = {
       "Estamos preparando a publicação. Enquanto isso, escreva para hello@kloovi.app se quiser ser dos primeiros.",
     heroNote:
       "Em breve no Google Play. A Kloovi não recebe dinheiro nem processa pagamentos: só ajuda a registrar comprovantes e saldos do grupo.",
-    howTitle: "Um app para o grupo, não um banco",
+    howTitle: "Tudo o que você precisa para organizar um encontro",
     howSub:
-      "Pensada para organizadores e participantes de padel, yoga e outras atividades: convocações, confirmações e quem já contribuiu.",
+      "A Kloovi automatiza a organização de atividades em grupo: convocações, confirmações, cálculo de contribuições e acompanhamento do grupo, tudo em um só lugar.",
     point1Title: "Organize",
     point1Body:
-      "Monte o encontro, convide o roster e veja quem confirmou, quem falta ou quem está na reserva.",
-    point2Title: "Registre contribuições",
+      "Crie o encontro, convide os participantes e acompanhe em tempo real quem confirmou, quem falta ou quem fica na reserva.",
+    point2Title: "Calcule e controle",
     point2Body:
-      "Anote quem contribuiu, guarde comprovantes (fotos) e acompanhe saldos do grupo no app.",
-    point3Title: "Sem gateway de pagamento",
+      "Registre os gastos do encontro e a Kloovi calcula automaticamente quanto cada participante deve contribuir.",
+    point3Title: "Acompanhe as contribuições",
     point3Body:
-      "A Kloovi não cobra participantes nem recebe transferências. O dinheiro circula fora do app, entre vocês.",
-    calloutTitle: "Importante para a Play Store e usuários",
+      "Os participantes registram suas contribuições e comprovantes, enquanto a Kloovi atualiza automaticamente o status de cada um.",
+    calloutTitle: "Como funcionam as contribuições?",
     calloutBody:
-      "A Kloovi <strong>não é um aplicativo financeiro</strong>. Não é carteira, banco, processador de pagamentos nem intermediário de dinheiro. Só armazena informação administrativa e comprovantes que organizador ou participante enviam para controlar o grupo.",
+      "As contribuições acontecem fora da Kloovi. Cada participante registra o comprovante no app e o organizador revisa para confirmar a contribuição. A Kloovi só acompanha as contribuições; nunca recebe nem processa dinheiro.",
     contactTitle: "Contato",
     contactSub: "Dúvidas de privacidade, conta ou publicação?",
     footerCopy: "© {year} Kloovi · kloovi.app",
@@ -652,7 +661,7 @@ window.KLOOVI_LOCALES = {
       <p>O site pode usar cookies ou armazenamento local estritamente necessários (por exemplo, lembrar o idioma). O site não é intermediário de pagamentos.</p>
 
       <h2>10. Conservação e exclusão de conta</h2>
-      <p>Mantemos dados enquanto a conta existir. Comprovantes fotográficos (pagamentos e gastos) são apagados automaticamente do nosso armazenamento 14 dias após o envio. Você pode excluir sua conta no aplicativo (se a função estiver disponível) ou solicitando por e-mail a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
+      <p>Mantemos dados enquanto a conta existir. Comprovantes fotográficos (pagamentos e gastos) são apagados automaticamente do nosso armazenamento 14 dias após o envio. Você pode excluir sua conta em Configuração no aplicativo, ou solicitando por e-mail a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
 
       <h2>11. Segurança</h2>
       <p>Aplicamos medidas razoáveis (controle de acesso, HTTPS). Nenhum sistema é 100% seguro.</p>
@@ -700,7 +709,7 @@ window.KLOOVI_LOCALES = {
       <h2>3. Natureza do serviço e comprovantes</h2>
       <p>A Kloovi fornece apenas ferramentas para registrar informação administrativa. Não verificamos autenticidade de comprovantes nem intervimos em disputas por pagamentos externos. Cada usuário é responsável pelo que compartilha.</p>
       <h2>4. Contas e exclusão</h2>
-      <p>Informações verdadeiras; idade mínima de 13 anos ou a exigida no seu país, a que for maior. Você pode excluir a conta no app (se disponível) ou por e-mail a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
+      <p>Informações verdadeiras; idade mínima de 13 anos ou a exigida no seu país, a que for maior. Você pode excluir a conta em Configuração no app ou por e-mail a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
       <h2>5. Conduta</h2>
       <p>Não use a Kloovi para fraude, lavagem de dinheiro, assédio ou outras ilegalidades; não apresente o app como banco ou processador de pagamentos.</p>
       <h2>6. Conteúdo do usuário</h2>

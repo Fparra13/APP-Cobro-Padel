@@ -72,6 +72,20 @@
       if (typeof value === "string") el.setAttribute("alt", value);
     });
 
+    document.querySelectorAll("[data-i18n-src]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-src");
+      const value = dict[key];
+      if (typeof value === "string" && el.getAttribute("src") !== value) {
+        el.setAttribute("src", value);
+      }
+    });
+
+    document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-aria");
+      const value = dict[key];
+      if (typeof value === "string") el.setAttribute("aria-label", value);
+    });
+
     document.querySelectorAll("[data-i18n-mailto]").forEach((el) => {
       el.setAttribute("href", "mailto:hello@kloovi.app");
       if (!el.getAttribute("data-i18n")) {

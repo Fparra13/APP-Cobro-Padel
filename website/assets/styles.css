@@ -12,8 +12,8 @@
   --radius: 18px;
   --max: 720px;
   --wide: 1080px;
-  --font-display: "Syne", system-ui, sans-serif;
-  --font-body: "Figtree", system-ui, sans-serif;
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-body: "Outfit", system-ui, sans-serif;
 }
 
 *,
@@ -52,13 +52,16 @@ img {
 
 /* —— Shell —— */
 .site-header {
-  position: absolute;
-  inset: 0 0 auto;
+  position: sticky;
+  top: 0;
   z-index: 5;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.25rem clamp(1.25rem, 4vw, 2.5rem);
+  padding: 0.9rem clamp(1.25rem, 4vw, 2.5rem);
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
 }
 
 .brand {
@@ -111,44 +114,60 @@ img {
   color: var(--ink);
 }
 
-/* —— Hero (full-bleed white) —— */
+/* —— Hero: banner completo + hotspots sobre CTAs del arte —— */
 .hero {
   position: relative;
-  min-height: 100svh;
-  display: grid;
-  align-items: end;
   overflow: hidden;
-  background: #ffffff;
+  background: #d7efe8;
+  padding: 0;
 }
 
-.hero::before {
-  display: none;
-}
-
-.hero-inner {
+.hero-stage {
   position: relative;
-  z-index: 1;
-  width: min(100% - 2.5rem, var(--wide));
+  width: 100%;
+  max-width: min(100%, 1280px);
   margin: 0 auto;
-  padding: 7.5rem 0 4.5rem;
+  line-height: 0;
+  animation: rise 0.65s ease both;
 }
 
-.hero-logo {
-  width: clamp(88px, 18vw, 128px);
+.hero-banner {
+  width: 100%;
   height: auto;
-  border-radius: 28px;
-  margin-bottom: 1rem;
-  box-shadow: 0 18px 44px rgba(11, 30, 58, 0.14);
-  animation: rise 0.7s ease both;
-}
-
-.hero-wordmark {
   display: block;
-  width: min(320px, 82vw);
-  height: auto;
-  margin: 0 0 1.15rem;
-  animation: rise 0.7s ease both;
-  animation-delay: 0.05s;
+}
+
+.hero-hotspot {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  border-radius: 12px;
+}
+
+.hero-hotspot-play {
+  left: 2.8%;
+  top: 72%;
+  width: 18.5%;
+  height: 14%;
+}
+
+.hero-hotspot-how {
+  left: 22%;
+  top: 74%;
+  width: 16.5%;
+  height: 12%;
+}
+
+.btn-outline {
+  background: #fff;
+  color: var(--lime-deep);
+  border-color: var(--lime-deep);
+}
+
+.btn-outline:hover {
+  background: rgba(46, 196, 182, 0.12);
+  color: var(--lime-deep);
+  border-color: var(--lime-deep);
 }
 
 .eyebrow {
@@ -179,12 +198,7 @@ img {
 }
 
 .store-badge.soon {
-  cursor: default;
-  opacity: 0.92;
-}
-
-.store-badge.soon:hover {
-  transform: none;
+  opacity: 0.96;
 }
 
 .soon-pill {
@@ -223,26 +237,10 @@ img {
   border-radius: 7px;
 }
 
-.hero h1 {
-  margin: 0 0 0.85rem;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(2.8rem, 8vw, 5.2rem);
-  letter-spacing: -0.045em;
-  line-height: 0.95;
-  max-width: 12ch;
-  color: var(--ink);
-}
-
-.hero h1 em {
-  font-style: normal;
-  color: var(--lime-deep);
-}
-
 .hero-lead {
   margin: 0 0 1.75rem;
-  max-width: 34ch;
-  font-size: clamp(1.05rem, 2.4vw, 1.25rem);
+  max-width: 36ch;
+  font-size: clamp(1.05rem, 2.4vw, 1.2rem);
   color: var(--ink-soft);
 }
 
@@ -312,21 +310,6 @@ img {
   }
 }
 
-.hero-inner > * {
-  animation: rise 0.7s ease both;
-}
-
-.hero-inner > *:nth-child(2) {
-  animation-delay: 0.08s;
-}
-
-.hero-inner > *:nth-child(3) {
-  animation-delay: 0.16s;
-}
-
-.hero-inner > *:nth-child(4) {
-  animation-delay: 0.24s;
-}
 
 /* —— Sections —— */
 .section {
@@ -345,10 +328,12 @@ img {
 }
 
 .section h2 {
-  margin: 0 0 0.65rem;
+  margin: 0 0 0.75rem;
   font-family: var(--font-display);
-  font-size: clamp(1.7rem, 4vw, 2.35rem);
-  letter-spacing: -0.03em;
+  font-weight: 900;
+  font-size: clamp(2.15rem, 5.2vw, 3.1rem);
+  letter-spacing: -0.05em;
+  line-height: 1.05;
   color: var(--ink);
 }
 
@@ -377,9 +362,10 @@ img {
 .point strong {
   display: block;
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-weight: 800;
+  font-size: clamp(1.25rem, 2.5vw, 1.45rem);
   margin-bottom: 0.4rem;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.04em;
   color: var(--ink);
 }
 
@@ -411,8 +397,10 @@ img {
 .legal-hero h1 {
   margin: 0 0 0.5rem;
   font-family: var(--font-display);
-  font-size: clamp(2rem, 5vw, 2.8rem);
-  letter-spacing: -0.035em;
+  font-weight: 900;
+  font-size: clamp(2.1rem, 5vw, 3rem);
+  letter-spacing: -0.05em;
+  line-height: 1.05;
   color: var(--ink);
 }
 
@@ -534,7 +522,7 @@ img {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-inner > * {
+  .hero-stage {
     animation: none;
   }
 
@@ -592,5 +580,9 @@ img {
   .site-header .nav {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .nav a {
+    font-size: 0.88rem;
   }
 }

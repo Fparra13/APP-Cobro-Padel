@@ -9,17 +9,26 @@
       content="Kloovi ayuda a organizar encuentros y registrar aportes del grupo. No es una app financiera: no recibe ni procesa pagos."
     />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="icon" href="/favicon.ico?v=20260714b" sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32.png?v=20260714b" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16.png?v=20260714b" />
-    <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png?v=20260714b" />
+    <meta property="og:title" content="Kloovi — Organiza. Juega. Conecta." />
+    <meta
+      property="og:description"
+      content="Organiza encuentros y registra aportes del grupo. Sin planillas."
+    />
+    <meta property="og:image" content="https://www.kloovi.app/assets/brand/banner-portada.png" />
+    <meta property="og:url" content="https://www.kloovi.app/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://www.kloovi.app/assets/brand/banner-portada.png" />
+    <link rel="icon" href="/favicon.ico?v=20260717a" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/brand/favicon-32.png?v=20260717a" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/brand/favicon-16.png?v=20260717a" />
+    <link rel="apple-touch-icon" href="/assets/brand/apple-touch-icon.png?v=20260717a" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Syne:wght@700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/assets/styles.css" />
+    <link rel="stylesheet" href="/assets/styles.css?v=20260719b" />
   </head>
   <body data-page="home">
     <header class="site-header">
@@ -43,76 +52,61 @@
 
     <main>
       <section class="hero" aria-label="Portada">
-        <div class="hero-inner">
+        <div class="hero-stage">
           <img
-            class="hero-logo"
-            src="/assets/brand/icon.png"
-            width="128"
-            height="128"
-            alt="Kloovi"
+            class="hero-banner"
+            src="/assets/brand/banner-es.png?v=20260719b"
+            width="1024"
+            height="490"
+            alt="Kloovi — Menos mensajes. Más deporte."
+            data-i18n-src="heroBanner"
+            data-i18n-alt="heroBannerAlt"
+            decoding="async"
+            fetchpriority="high"
           />
-          <img
-            class="hero-wordmark"
-            src="/assets/brand/logo-wordmark.png"
-            width="280"
-            height="123"
-            alt="Kloovi — Organiza · Juega · Conecta"
-          />
-          <p class="hero-lead" data-i18n="heroLead">
-            Organiza el encuentro y lleva el registro de aportes del grupo sin drama.
-          </p>
-          <div class="cta-row">
-            <a
-              class="store-badge soon"
-              href="#descargar"
-              id="play-badge"
-              aria-disabled="true"
-            >
-              <img
-                src="/assets/brand/google-play-badge.png"
-                width="180"
-                height="54"
-                alt="Google Play"
-                data-i18n-alt="playBadgeAlt"
-              />
-              <span class="soon-pill" data-i18n="playSoon">Pronto</span>
-            </a>
-            <a class="btn btn-ghost" href="#como" data-i18n="ctaHow">Ver cómo funciona</a>
-          </div>
-          <p class="hero-note" data-i18n="heroNote">
-            Disponible pronto en Google Play. Kloovi no recibe dinero ni procesa pagos: solo te ayuda a registrar comprobantes y saldos del grupo.
-          </p>
+          <a
+            class="hero-hotspot hero-hotspot-play"
+            href="#descargar"
+            data-i18n-aria="playBadgeAlt"
+            aria-label="Google Play"
+          ></a>
+          <a
+            class="hero-hotspot hero-hotspot-how"
+            href="#como"
+            data-i18n-aria="ctaHow"
+            aria-label="Ver cómo funciona"
+          ></a>
         </div>
       </section>
 
       <section class="section" id="como">
         <div class="wrap">
-          <h2 data-i18n="howTitle">Una app para el grupo, no un banco</h2>
+          <h2 data-i18n="howTitle">Todo lo que necesitas para organizar un encuentro</h2>
           <p class="sub" data-i18n="howSub">
-            Pensada para organizadores y jugadores de pádel u otros deportes: convocatorias, confirmaciones y seguimiento de quién ya aportó.
+            Kloovi automatiza la organización de actividades grupales: convocatorias, confirmaciones, cálculo de aportes y seguimiento del grupo, todo desde un solo lugar.
           </p>
           <div class="split">
             <article class="point">
               <strong data-i18n="point1Title">Organiza</strong>
               <p data-i18n="point1Body">
-                Arma el encuentro, invita al roster y mira quién confirma, quién falta o quién queda como suplente.
+                Crea el encuentro, invita a los participantes y sigue en tiempo real quién confirmó, quién falta o quién queda como suplente.
               </p>
             </article>
             <article class="point">
-              <strong data-i18n="point2Title">Registra aportes</strong>
+              <strong data-i18n="point2Title">Calcula y controla</strong>
               <p data-i18n="point2Body">
-                Anota quién aportó, guarda comprobantes (fotos) y sigue saldos del grupo dentro de la app.
+                Registra los gastos del encuentro y Kloovi calcula automáticamente cuánto corresponde aportar a cada participante.
               </p>
             </article>
             <article class="point">
-              <strong data-i18n="point3Title">Sin pasarela de pago</strong>
+              <strong data-i18n="point3Title">Sigue los aportes</strong>
               <p data-i18n="point3Body">
-                Kloovi no cobra a jugadores ni recibe transferencias. El dinero se mueve fuera de la app, entre ustedes.
+                Los participantes registran sus aportes y comprobantes, mientras Kloovi actualiza automáticamente el estado de cada uno.
               </p>
             </article>
           </div>
           <div class="callout">
-            <strong data-i18n="calloutTitle">Importante para Play Store y usuarios</strong>
+            <strong data-i18n="calloutTitle">¿Cómo funcionan los aportes?</strong>
             <span data-i18n-html="calloutBody"></span>
           </div>
         </div>
@@ -161,7 +155,7 @@
         </nav>
       </div>
     </footer>
-    <script src="/assets/locales.js?v=20260715c"></script>
-    <script src="/assets/i18n.js"></script>
+    <script src="/assets/locales.js?v=20260719b"></script>
+    <script src="/assets/i18n.js?v=20260719b"></script>
   </body>
 </html>
