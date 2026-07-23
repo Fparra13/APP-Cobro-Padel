@@ -101,11 +101,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   int get _invitesConfirmadas =>
       _invitacionesTitular.where((c) => c.estaConfirmado).length;
 
-  double get _participacionPct =>
-      _invitesRecibidas == 0
-          ? 0
-          : (_invitesConfirmadas / _invitesRecibidas) * 100;
-
   List<MiConvocatoria> get _pendientes =>
       _todas.where((c) => c.requiereRespuesta).toList();
 
@@ -975,8 +970,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                         _StatsStrip(
                           stats: _misStats,
                           invitaciones: _invitacionesResumen,
-                          participacionPct: _participacionPct,
-                          invitesRecibidasVigentes: _invitesRecibidas,
                           semanasJugando: _semanasJugando,
                           showPlaceholders: !_hasActivityData,
                         ),
@@ -1533,16 +1526,12 @@ class _SecondaryMatchCard extends StatelessWidget {
 class _StatsStrip extends StatelessWidget {
   final EstadisticasJugador? stats;
   final MisInvitacionesResumen invitaciones;
-  final double participacionPct;
-  final int invitesRecibidasVigentes;
   final int semanasJugando;
   final bool showPlaceholders;
 
   const _StatsStrip({
     required this.stats,
     required this.invitaciones,
-    required this.participacionPct,
-    required this.invitesRecibidasVigentes,
     required this.semanasJugando,
     this.showPlaceholders = false,
   });
@@ -1576,6 +1565,10 @@ class _StatsStrip extends StatelessWidget {
         ),
     };
 
+    final pagosAlDiaValue = (partidos > 0 && stats != null)
+        ? '${stats!.porcentajePagoAlDia.toStringAsFixed(0)}%'
+        : '—';
+
     // Siempre las 3 fichas principales (también en 0) para que el jugador
     // vea qué mide la app; no ocultar métricas solo porque valen cero.
     final items = <(String, String, String)>[
@@ -1589,24 +1582,11 @@ class _StatsStrip extends StatelessWidget {
         secondaryValue,
         secondaryLabel,
       ),
-      if (partidos > 0 && stats != null)
-        (
-          '💚',
-          '${stats!.porcentajePagoAlDia.toStringAsFixed(0)}%',
-          l10n.tr('playerStatOnTimePride'),
-        )
-      else if (invitesRecibidasVigentes > 0)
-        (
-          '🤝',
-          '${participacionPct.toStringAsFixed(0)}%',
-          l10n.tr('playerStatParticipation'),
-        )
-      else
-        (
-          '💚',
-          '—',
-          l10n.tr('playerStatOnTimePride'),
-        ),
+      (
+        '💚',
+        pagosAlDiaValue,
+        l10n.tr('playerStatOnTimePride'),
+      ),
     ];
 
     final visible = items.take(3).toList();
