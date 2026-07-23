@@ -378,11 +378,11 @@ class TranslationMaps {
     'homePlanillaCompactHint':
         'Registra aportes en la ficha de cada participante.',
     'homePayFull': 'Aporte total',
-    'homePartialPayment': 'Abono',
-    'homePartialAmountLabel': 'Monto del abono',
+    'homePartialPayment': 'Aporte parcial',
+    'homePartialAmountLabel': 'Monto del aporte parcial',
     'homePartialAmountHelper': 'Puede ser superior al pendiente para dejar saldo a favor',
     'homeRegisterFullPayment': 'Registrar aporte total',
-    'homeRegisterPartialPayment': 'Registrar abono',
+    'homeRegisterPartialPayment': 'Registrar aporte parcial',
     'homeClearSelection': 'Cancelar selección',
     'homeRegisterFullPaymentCount': 'Registrar aporte total ({count})',
     'homePlayerSheetTitle': 'Ficha del participante',
@@ -413,7 +413,7 @@ class TranslationMaps {
     'breakdownNetMatch': 'Neto del encuentro',
     'breakdownPaidOnRegister': '− Pagado al registrar',
     'breakdownPaidAmount': '− Abonado',
-    'breakdownToTransfer': 'A transferir',
+    'breakdownToTransfer': 'A aportar',
     'breakdownCreditResult': 'Saldo a favor',
     'cobroStatusReceiptReview': 'Comprobante en revisión',
     'cobroStatusReceiptReviewAmount':
@@ -432,9 +432,9 @@ class TranslationMaps {
     'cobroReceiptTypePartial': 'Aporte parcial',
     'cobroReceiptTypePayment': 'Aporte',
     'snackPaymentWithCredit':
-        'Abono {amount} · Saldo a favor: {credit} · {name}',
+        'Aporte parcial {amount} · Saldo a favor: {credit} · {name}',
     'snackDebtCleared': 'Pendiente saldado · {name}',
-    'snackPartialPayment': 'Abono {amount} · Queda {remaining} · {name}',
+    'snackPartialPayment': 'Aporte parcial {amount} · Queda {remaining} · {name}',
     'snackFullPaymentMultiple':
         'Aporte total registrado para {count} participantes',
     'matchesPlayedCount': '{count} encuentros',
@@ -482,11 +482,11 @@ class TranslationMaps {
         'Texto libre con tus datos fuera de Kloovi (PIX, alias, cuenta…). Tus participantes lo ven al abrir el aporte de tu grupo.',
     'configPaymentNameLabel': 'A nombre de',
     'configPaymentNameHint': 'Ej. Francisco Parra',
-    'configPaymentDetailLabel': 'Dato para transferir',
+    'configPaymentDetailLabel': 'Dato para aportar',
     'configPaymentDetailHint':
-        'Ej. Banco Estado · 12345678 · o PIX / alias CBU / CLABE',
+        'Ej. alias, PIX u otro dato fuera de Kloovi',
     'configPaymentNoteLabel': 'Nota (opcional)',
-    'configPaymentNoteHint': 'Ej. Transfiere y sube el comprobante en la app',
+    'configPaymentNoteHint': 'Ej. Aporta fuera de Kloovi y sube el comprobante aquí',
     'configSavePaymentInfo': 'Guardar datos',
     'configAccountHolderLabel': 'Nombre titular',
     'configRutLabel': 'ID fiscal',
@@ -822,7 +822,7 @@ class TranslationMaps {
         'Cuando te convoquen a un encuentro aparecerá aquí con botones para confirmar o rechazar.',
     'myChargesScreenTitle': 'Mis pendientes',
     'misCobrosBreakdownExpand': 'Ver desglose',
-    'partialAmountTitle': 'Monto transferido',
+    'partialAmountTitle': 'Monto aportado',
     'partialAmountBody':
         'Indica cuánto aportaste fuera de Kloovi. Puede ser menor o mayor que tu pendiente; el excedente queda a favor en tu cuenta.',
     'amountLabel': 'Monto',
@@ -849,7 +849,7 @@ class TranslationMaps {
     'paymentTypePartial': 'otro monto',
     'paymentTypeFull': 'aporte total',
     'paymentSentPartial':
-        'Transferencia de {amount} enviada. El organizador la validará pronto.',
+        'Declaraste un aporte de {amount}. El organizador lo validará pronto.',
     'paymentSentFull':
         'Aporte de {amount} enviado. El organizador lo validará pronto.',
     'misCobrosHelpTip':
@@ -880,9 +880,9 @@ class TranslationMaps {
     'rankingHelpTip':
         'Ranking basado en aportes al día y pendientes. '
         '¡Solo para diversión entre amigos! 😄',
-    'rankingBestPayersTitle': 'Mejores pagadores',
-    'rankingBestPayersSubtitle': 'Los que pagan más rápido (más puntuales)',
-    'rankingWorstPayersTitle': 'Peores pagadores',
+    'rankingBestPayersTitle': 'Mejores aportes',
+    'rankingBestPayersSubtitle': 'Los que aportan más rápido (más puntuales)',
+    'rankingWorstPayersTitle': 'Aportes más lentos',
     'rankingWorstPayersSubtitle': 'Los que más demoran (sin rencores 😄)',
     'rankingNoBestYetTitle': 'Sin mejores pagadores aún',
     'rankingNoBestYetSubtitle':
@@ -1193,7 +1193,7 @@ class TranslationMaps {
     'introPlayerFeatureExpenses': 'Revisa tus gastos',
     'introPlayerFeatureExpensesSub':
         'Tus aportes pendientes y tu historial de aportes',
-    'introPlayerFeaturePay': 'Paga fácilmente',
+    'introPlayerFeaturePay': 'Registra tu aporte',
     'introPlayerFeaturePaySub':
         'Sube tu comprobante al grupo.',
     'introOnboardingContinue': 'Empezar',
@@ -1331,13 +1331,13 @@ class TranslationMaps {
     'noPayments': 'Sin aportes',
     'previousDebt': 'Pendiente anterior: {amount}',
     'balanceInFavor': 'Saldo a favor: {amount}',
-    'toTransfer': 'A transferir: {amount}',
+    'toTransfer': 'A aportar: {amount}',
     'minusBalanceInFavor': '−{amount} saldo a favor',
     'creditWillApply':
         'Se aplicará {amount} de saldo a favor al aporte de este encuentro.',
     'owesViaApp': 'Pendiente {amount} — con comprobante en la app',
     'noPayment': 'Sin aporte',
-    'confirmPartialPayment': 'Confirmar abono',
+    'confirmPartialPayment': 'Confirmar aporte parcial',
     'individualExtraChargesTitle': 'Aportes extra individuales',
     'individualChargeInstructions':
         'Completa concepto y monto, luego pulsa Guardar.',
@@ -1350,9 +1350,9 @@ class TranslationMaps {
     'saveCharge': 'Guardar extra',
     'errorExtraChargeConcept': 'Indica el concepto del extra',
     'errorExtraChargeAmount': 'Indica el monto del extra',
-    'errorPlayerPartialAmount': '{name}: indica el monto del abono',
+    'errorPlayerPartialAmount': '{name}: indica el monto del aporte parcial',
     'errorConfirmPartialFirst':
-        '{name}: pulsa "Confirmar abono" antes de guardar',
+        '{name}: pulsa "Confirmar aporte parcial" antes de guardar',
     'errorSaveExtraChargeFirst':
         '{name}: pulsa "Guardar" en el extra pendiente',
     'errorMarkAtLeastOnePlayer': 'Marca al menos un participante asistente',
@@ -1377,15 +1377,15 @@ class TranslationMaps {
     'statusCoveredWithCreditApplied':
         '✓ Cubierto con saldo a favor ({amount})',
     'statusUpToDateNoTransfer': '✓ Al día — sin transferencia',
-    'statusToTransfer': '✓ A transferir: {amount}',
-    'statusPartialWithCredit': 'Abono {paid} · Saldo a favor: {credit}',
-    'statusPartialRemaining': 'Abono {paid} · Queda: {remaining}',
-    'statusOwesTransfer': 'A transferir: {amount}',
+    'statusToTransfer': '✓ A aportar: {amount}',
+    'statusPartialWithCredit': 'Aporte parcial {paid} · Saldo a favor: {credit}',
+    'statusPartialRemaining': 'Aporte parcial {paid} · Queda: {remaining}',
+    'statusOwesTransfer': 'A aportar: {amount}',
     'summaryCreditBalance': 'SALDO A FAVOR {amount}',
     'summaryUpToDate': 'AL DÍA',
-    'summaryTransfers': 'TRANSFIERE {amount}',
-    'summaryPartialWithCredit': 'ABONO {paid} · A FAVOR {credit}',
-    'summaryPartialOwes': 'Abono {paid} · Debe {remaining}',
+    'summaryTransfers': 'APORTAR {amount}',
+    'summaryPartialWithCredit': 'APORTE PARCIAL {paid} · A FAVOR {credit}',
+    'summaryPartialOwes': 'Aporte parcial {paid} · Pendiente {remaining}',
     'summaryOwes': 'Debe {amount}',
     'courtLabel': 'Cancha',
     'conceptHelpCancha':
@@ -1409,9 +1409,9 @@ class TranslationMaps {
         'No se pudo subir la foto. Verifica permisos o conexión.',
     'currentDebt': 'Pendiente actual: {amount}',
     'confirmAmount': 'Confirmar {amount}',
-    'snackPartialWithCredit': 'Abono {amount} · Saldo a favor: {credit}',
+    'snackPartialWithCredit': 'Aporte parcial {amount} · Saldo a favor: {credit}',
     'snackDebtClearedShort': 'Pendiente saldado',
-    'snackPartialRemainingShort': 'Abono {amount} · Queda {remaining}',
+    'snackPartialRemainingShort': 'Aporte parcial {amount} · Queda {remaining}',
     'playerNoEmail': 'Este participante no tiene email registrado',
     'pushSentTo': 'Notificación push enviada a {name}',
     'pushSendFailed': 'No se pudo enviar: {error}',
@@ -1421,7 +1421,7 @@ class TranslationMaps {
     'unpaidMatchesCount': '{count} encuentro(s) pendiente(s)',
     'paidCountLabel': '{count} al día',
     'totalGenerated': 'Total generado',
-    'creditAvailable': 'Crédito disponible',
+    'creditAvailable': 'A favor disponible',
     'paidLabel': 'Pagado',
     'pendingMatchesTitle': 'Encuentros pendientes',
     'totalPending': 'Total pendiente',
@@ -1489,8 +1489,8 @@ class TranslationMaps {
     'statsSwipeHint': 'Desliza para cambiar de ranking',
     'statsMetricParticipation': 'Participación',
     'statsMetricParticipationDesc': 'Quién juega más encuentros con el grupo',
-    'statsMetricGoodPayer': 'Buen pagador',
-    'statsMetricGoodPayerDesc': 'Paga al día, sin impagos (mín. 2 encuentros)',
+    'statsMetricGoodPayer': 'Aportes al día',
+    'statsMetricGoodPayerDesc': 'Aporta al día, sin pendientes (mín. 2 encuentros)',
     'statsMetricFastPayer': 'Aporte rápido',
     'statsMetricFastPayerDesc': 'Menor tiempo promedio para aportar',
     'statsMetricActive90': 'Activo (90 días)',
@@ -1529,11 +1529,11 @@ class TranslationMaps {
     'pendingReceiptsCount':
         '{count} comprobante(s) pendiente(s)',
     'matchNumber': 'Encuentro #{id}',
-    'confirmPartialReceived': 'Confirmar abono recibido',
+    'confirmPartialReceived': 'Confirmar aporte parcial recibido',
     'confirmPaymentReceived': 'Confirmar aporte',
     'confirmRejectTitle': 'Confirmar rechazo',
     'reconcilePartialMessage':
-        '¿Conciliar el abono de {amount} de {name}?',
+        '¿Conciliar el aporte parcial de {amount} de {name}?',
     'reconcilePaymentMessage':
         '¿Conciliar el aporte de {amount} de {name}?',
     'rejectReceiptMessage':
@@ -1541,14 +1541,14 @@ class TranslationMaps {
     'thisPlayer': 'este participante',
     'yesReconcile': 'Sí, conciliar',
     'yesReject': 'Sí, rechazar',
-    'partialReceivedUpdated': 'Abono recibido · saldo actualizado',
+    'partialReceivedUpdated': 'Aporte parcial recibido · saldo actualizado',
     'paymentReceivedUpdated': 'Aporte registrado · saldo actualizado',
     'receiptRejected': 'Comprobante rechazado',
-    'partialDeclared': 'Abono declarado: {amount}',
+    'partialDeclared': 'Aporte parcial declarado: {amount}',
     'paymentDeclared': 'Aporte declarado: {amount}',
     'matchAmountLabel': 'Monto encuentro: {amount}',
     'viewReceipt': 'Ver comprobante',
-    'partialReceived': 'Abono recibido',
+    'partialReceived': 'Aporte parcial recibido',
     'paymentReceived': 'Aporte registrado',
     'rejectReceipt': 'Rechazar comprobante',
     'receiptTitle': 'Comprobante',
@@ -1585,7 +1585,7 @@ class TranslationMaps {
     'creditBalanceLabel': 'Saldo a favor',
     'creditAppliedLine': '−{amount} aplicado al encuentro',
     'owesAmountLabel': 'Debe {amount}',
-    'paidPartialDetail': 'Abonó {paid} de {total}',
+    'paidPartialDetail': 'Aportó {paid} de {total}',
     'oldDebtShort': 'Pend. ant. {amount}',
     'hadCreditShort': 'Tenía a favor {amount}',
     'owesStatusLabel': 'Debe',
@@ -1629,7 +1629,7 @@ class TranslationMaps {
     'chargeBreakdownTitle': 'Desglose de aportes',
     'chargeBreakdownSubtitle': 'Detalle por participante',
     'paidOk': 'Pagado OK',
-    'partialOwesShort': 'Parcial - debe {amount}',
+    'partialOwesShort': 'Parcial · pendiente {amount}',
     'individualPdfTooltip': 'PDF individual',
     'creditedAmountLabel': 'Saldo a favor {amount}',
     'accountCreditAfterMatchNote':
@@ -1685,7 +1685,7 @@ class TranslationMaps {
     'generalPdf': 'PDF general',
     'tapPdfPerPlayer': 'Toca PDF junto a cada participante:',
     'paidCheck': 'PAGADO ✓',
-    'partialOwesLine': 'Parcial {paid} · Debe {remaining}',
+    'partialOwesLine': 'Parcial {paid} · Pendiente {remaining}',
     'owesColon': 'Debe: {amount}',
     'doneBtn': 'Listo',
     'langEs': 'Español',
@@ -1815,14 +1815,17 @@ class TranslationMaps {
     'notifMatchPaidWithCreditRemaining':
         'Te quedan {amount} a favor para los próximos encuentros.',
     'notifMatchPaidWithCreditDetail':
-        'Encuentro: {matchAmount}\nSaldo a favor usado: {credit}\nNo tienes que transferir por este encuentro.',
+
+        'Encuentro: {matchAmount}\n'
+        'Saldo a favor usado: {credit}\n'
+        'No tienes que aportar por este encuentro.',
     'notifReceiptPendingTitle': 'Aporte recibido (pendiente)',
     'notifReceiptPendingBody':
         '{name} realizó {type} de {amount}. Revisa el comprobante en la app.',
     'notifReceiptRejectedTitle': 'Comprobante no validado',
     'notifReceiptRejectedBody':
         'Hola {name}, no pudimos validar tu comprobante del encuentro del {date}. Entra a Aportes y sube uno nuevo. Pendiente: {amount}.',
-    'notifReceiptTypePartialArticle': 'un abono',
+    'notifReceiptTypePartialArticle': 'un aporte parcial',
     'notifReceiptTypeFullArticle': 'un aporte',
     'notifPaymentReminderTitle': 'Recordatorio de aporte · {amount}',
     'notifPaymentReminderBodyShort':
@@ -2178,11 +2181,11 @@ class TranslationMaps {
     'homeViewAllDebtors': 'View participants ({count})',
     'homePlanillaCompactHint': 'Record contributions from each participant profile.',
     'homePayFull': 'Full contribution',
-    'homePartialPayment': 'Partial payment',
-    'homePartialAmountLabel': 'Payment amount',
+    'homePartialPayment': 'Partial contribution',
+    'homePartialAmountLabel': 'Partial contribution amount',
     'homePartialAmountHelper': 'Can be higher than the pending amount to leave an amount in your favor',
     'homeRegisterFullPayment': 'Record full contribution',
-    'homeRegisterPartialPayment': 'Record partial payment',
+    'homeRegisterPartialPayment': 'Record partial contribution',
     'homeClearSelection': 'Clear selection',
     'homeRegisterFullPaymentCount': 'Record full contribution ({count})',
     'homePlayerSheetTitle': 'Participant profile',
@@ -2201,20 +2204,20 @@ class TranslationMaps {
     'historicalAccumulatedDebt': 'Accumulated pending',
     'historicalPartialPayment': 'Partial contribution',
     'historicalMatchPaid': 'Gathering settled',
-    'historicalMatchCoveredByCredit': 'Session covered with credit balance',
+    'historicalMatchCoveredByCredit': 'Session covered with amount in your favor',
     'historicalManualPayment': 'Contribution recorded manually',
     'historicalPaymentValidatedOrganizer': 'Contribution recorded',
     'historicalPartialValidatedOrganizer': 'Partial contribution recorded',
     'historicalMovement': 'Transaction',
     'breakdownMatchAmount': 'Session amount',
     'breakdownPreviousDebt': '+ Previous pending',
-    'breakdownCreditBalance': '− Credit balance',
+    'breakdownCreditBalance': '− Amount in your favor',
     'breakdownTotalDue': 'Total due',
     'breakdownNetMatch': 'Session net',
     'breakdownPaidOnRegister': '− Paid when recorded',
     'breakdownPaidAmount': '− Paid',
-    'breakdownToTransfer': 'To transfer',
-    'breakdownCreditResult': 'Credit balance',
+    'breakdownToTransfer': 'To contribute',
+    'breakdownCreditResult': 'Amount in your favor',
     'cobroStatusReceiptReview': 'Receipt under review',
     'cobroStatusReceiptSent': 'Receipt sent',
     'cobroStatusReceiptRejected': 'Receipt rejected',
@@ -2232,9 +2235,9 @@ class TranslationMaps {
     'cobroReceiptTypePartial': 'Partial contribution',
     'cobroReceiptTypePayment': 'Contribution',
     'snackPaymentWithCredit':
-        'Payment {amount} · Credit balance: {credit} · {name}',
+        'Contribution {amount} · In your favor: {credit} · {name}',
     'snackDebtCleared': 'Pending cleared · {name}',
-    'snackPartialPayment': 'Payment {amount} · Remaining {remaining} · {name}',
+    'snackPartialPayment': 'Contribution {amount} · Remaining {remaining} · {name}',
     'snackFullPaymentMultiple':
         'Full contribution recorded for {count} participants',
     'matchesPlayedCount': '{count} sessions',
@@ -2282,11 +2285,11 @@ class TranslationMaps {
         'Free text with your outside-Kloovi details (alias, account…). Participants see this when they open your group contribution.',
     'configPaymentNameLabel': 'Pay to',
     'configPaymentNameHint': 'E.g. Francisco Parra',
-    'configPaymentDetailLabel': 'Payment details',
+    'configPaymentDetailLabel': 'Contribution detail',
     'configPaymentDetailHint':
-        'E.g. Bank name · account · or PIX / CBU alias / CLABE',
+        'E.g. alias or other detail outside Kloovi',
     'configPaymentNoteLabel': 'Note (optional)',
-    'configPaymentNoteHint': 'E.g. Transfer and upload the receipt in the app',
+    'configPaymentNoteHint': 'E.g. Contribute outside Kloovi and upload the receipt here',
     'configSavePaymentInfo': 'Save details',
     'configAccountHolderLabel': 'Account holder name',
     'configRutLabel': 'Tax ID',
@@ -2540,7 +2543,7 @@ class TranslationMaps {
     'playerMatchHistoryDebtHint':
         'Your share in each session. Outstanding balance is on your account, not per session.',
     'playerMatchPaidAmount': 'Paid {amount}',
-    'playerCreditBalance': 'Credit balance: {amount}',
+    'playerCreditBalance': 'Amount in your favor: {amount}',
     'playerCreditBalanceHint': 'It will apply to your next contributions',
     'becomeOrganizerBadge': 'For your other group',
     'becomeOrganizerHeadline': 'Organize without the WhatsApp chaos',
@@ -2618,7 +2621,7 @@ class TranslationMaps {
         'When you are invited to a session it will appear here with buttons to confirm or decline.',
     'myChargesScreenTitle': 'My pending',
     'misCobrosBreakdownExpand': 'View breakdown',
-    'partialAmountTitle': 'Amount transferred',
+    'partialAmountTitle': 'Amount contributed',
     'partialAmountBody':
         'Enter how much you contributed outside Kloovi. It can be less or more than your pending amount; any excess stays as credit.',
     'amountLabel': 'Amount',
@@ -2645,7 +2648,7 @@ class TranslationMaps {
     'paymentTypePartial': 'other amount',
     'paymentTypeFull': 'full contribution',
     'paymentSentPartial':
-        'Transfer of {amount} sent. The organizer will validate it soon.',
+        'You declared a contribution of {amount}. The organizer will validate it soon.',
     'paymentSentFull':
         'Contribution of {amount} sent. The organizer will validate it soon.',
     'misCobrosHelpTip':
@@ -2676,9 +2679,9 @@ class TranslationMaps {
     'rankingHelpTip':
         'Ranking based on on-time contributions and pending amounts. '
         'Just for fun among friends! 😄',
-    'rankingBestPayersTitle': 'Best payers',
-    'rankingBestPayersSubtitle': 'Those who pay fastest (most reliable)',
-    'rankingWorstPayersTitle': 'Slowest payers',
+    'rankingBestPayersTitle': 'Best contributors',
+    'rankingBestPayersSubtitle': 'Those who contribute fastest (most reliable)',
+    'rankingWorstPayersTitle': 'Slowest contributions',
     'rankingWorstPayersSubtitle': 'Those who take longest (no hard feelings 😄)',
     'rankingNoBestYetTitle': 'No best payers yet',
     'rankingNoBestYetSubtitle':
@@ -2987,7 +2990,7 @@ class TranslationMaps {
     'introPlayerFeatureExpenses': 'Review your expenses',
     'introPlayerFeatureExpensesSub':
         'Your pending contributions and contribution history',
-    'introPlayerFeaturePay': 'Pay easily',
+    'introPlayerFeaturePay': 'Record your contribution',
     'introPlayerFeaturePaySub':
         'Upload your receipt to the group.',
     'introOnboardingContinue': 'Get started',
@@ -3124,14 +3127,14 @@ class TranslationMaps {
     'payAllFull': 'Full for all',
     'noPayments': 'No contributions',
     'previousDebt': 'Previous pending: {amount}',
-    'balanceInFavor': 'Credit balance: {amount}',
-    'toTransfer': 'To transfer: {amount}',
-    'minusBalanceInFavor': '−{amount} credit balance',
+    'balanceInFavor': 'Amount in your favor: {amount}',
+    'toTransfer': 'To contribute: {amount}',
+    'minusBalanceInFavor': '−{amount} in your favor',
     'creditWillApply':
         '{amount} of credit will apply to this gathering’s contribution.',
     'owesViaApp': '{amount} pending — with in-app receipt',
     'noPayment': 'No contribution',
-    'confirmPartialPayment': 'Confirm partial payment',
+    'confirmPartialPayment': 'Confirm partial contribution',
     'individualExtraChargesTitle': 'Individual extra contributions',
     'individualChargeInstructions':
         'Fill in concept and amount, then tap Save.',
@@ -3144,9 +3147,9 @@ class TranslationMaps {
     'saveCharge': 'Save extra',
     'errorExtraChargeConcept': 'Enter the extra concept',
     'errorExtraChargeAmount': 'Enter the extra amount',
-    'errorPlayerPartialAmount': '{name}: enter the partial payment amount',
+    'errorPlayerPartialAmount': '{name}: enter the partial contribution amount',
     'errorConfirmPartialFirst':
-        '{name}: tap "Confirm partial payment" before saving',
+        '{name}: tap "Confirm partial contribution" before saving',
     'errorSaveExtraChargeFirst':
         '{name}: tap "Save" on the pending extra',
     'errorMarkAtLeastOnePlayer': 'Mark at least one attending participant',
@@ -3167,19 +3170,19 @@ class TranslationMaps {
         'Review contributions and attendees before registering the session.',
     'finalSummaryTitle': 'Final summary',
     'reviewBeforeSave': 'Review before saving',
-    'statusCoveredWithCredit': '✓ Covered · Credit balance: {amount}',
+    'statusCoveredWithCredit': '✓ Covered · Amount in your favor: {amount}',
     'statusCoveredWithCreditApplied':
-        '✓ Covered with credit balance ({amount})',
+        '✓ Covered with amount in your favor ({amount})',
     'statusUpToDateNoTransfer': '✓ Up to date — no transfer',
-    'statusToTransfer': '✓ To transfer: {amount}',
-    'statusPartialWithCredit': 'Partial {paid} · Credit balance: {credit}',
+    'statusToTransfer': '✓ To contribute: {amount}',
+    'statusPartialWithCredit': 'Partial {paid} · In your favor: {credit}',
     'statusPartialRemaining': 'Partial {paid} · Remaining: {remaining}',
-    'statusOwesTransfer': 'To transfer: {amount}',
-    'summaryCreditBalance': 'CREDIT BALANCE {amount}',
+    'statusOwesTransfer': 'To contribute: {amount}',
+    'summaryCreditBalance': 'IN YOUR FAVOR {amount}',
     'summaryUpToDate': 'UP TO DATE',
-    'summaryTransfers': 'TRANSFER {amount}',
-    'summaryPartialWithCredit': 'PARTIAL {paid} · CREDIT {credit}',
-    'summaryPartialOwes': 'Partial {paid} · Owes {remaining}',
+    'summaryTransfers': 'CONTRIBUTE {amount}',
+    'summaryPartialWithCredit': 'PARTIAL {paid} · IN YOUR FAVOR {credit}',
+    'summaryPartialOwes': 'Partial {paid} · Pending {remaining}',
     'summaryOwes': 'Owes {amount}',
     'courtLabel': 'Court',
     'conceptHelpCancha':
@@ -3203,7 +3206,7 @@ class TranslationMaps {
         'Could not upload the photo. Check permissions or connection.',
     'currentDebt': 'Current pending: {amount}',
     'confirmAmount': 'Confirm {amount}',
-    'snackPartialWithCredit': 'Payment {amount} · Credit balance: {credit}',
+    'snackPartialWithCredit': 'Contribution {amount} · In your favor: {credit}',
     'snackDebtClearedShort': 'Pending cleared',
     'snackPartialRemainingShort': 'Payment {amount} · Remaining {remaining}',
     'playerNoEmail': 'This participant has no email on file',
@@ -3215,7 +3218,7 @@ class TranslationMaps {
     'unpaidMatchesCount': '{count} pending gathering(s)',
     'paidCountLabel': '{count} up to date',
     'totalGenerated': 'Total charged',
-    'creditAvailable': 'Credit available',
+    'creditAvailable': 'Amount in your favor',
     'paidLabel': 'Paid',
     'pendingMatchesTitle': 'Unpaid sessions',
     'totalPending': 'Total outstanding',
@@ -3263,7 +3266,7 @@ class TranslationMaps {
     'movementPaidAmount': 'Paid',
     'movementBalanceDebt': 'Still pending',
     'movementBalanceZero': 'Settled',
-    'movementBalanceCredit': 'Credit balance',
+    'movementBalanceCredit': 'Ended in your favor',
     'month1': 'January',
     'month2': 'February',
     'month3': 'March',
@@ -3283,8 +3286,8 @@ class TranslationMaps {
     'statsSwipeHint': 'Swipe to change ranking',
     'statsMetricParticipation': 'Participation',
     'statsMetricParticipationDesc': 'Who plays the most sessions with the group',
-    'statsMetricGoodPayer': 'Reliable payer',
-    'statsMetricGoodPayerDesc': 'Pays on time, no unpaid sessions (min. 2)',
+    'statsMetricGoodPayer': 'On-time contributions',
+    'statsMetricGoodPayerDesc': 'Contributes on time, no pending sessions (min. 2)',
     'statsMetricFastPayer': 'Fast contributor',
     'statsMetricFastPayerDesc': 'Shortest average time to contribute',
     'statsMetricActive90': 'Active (90 days)',
@@ -3323,11 +3326,11 @@ class TranslationMaps {
     'pendingReceiptsCount':
         '{count} pending receipt(s)',
     'matchNumber': 'Session #{id}',
-    'confirmPartialReceived': 'Confirm partial payment received',
+    'confirmPartialReceived': 'Confirm partial contribution received',
     'confirmPaymentReceived': 'Confirm contribution',
     'confirmRejectTitle': 'Confirm rejection',
     'reconcilePartialMessage':
-        'Reconcile the partial payment of {amount} from {name}?',
+        'Reconcile the partial contribution of {amount} from {name}?',
     'reconcilePaymentMessage':
         'Reconcile {name}’s contribution of {amount}?',
     'rejectReceiptMessage':
@@ -3335,14 +3338,14 @@ class TranslationMaps {
     'thisPlayer': 'this participant',
     'yesReconcile': 'Yes, reconcile',
     'yesReject': 'Yes, reject',
-    'partialReceivedUpdated': 'Partial payment received · balance updated',
+    'partialReceivedUpdated': 'Partial contribution received · balance updated',
     'paymentReceivedUpdated': 'Contribution recorded · balance updated',
     'receiptRejected': 'Receipt rejected',
-    'partialDeclared': 'Partial payment declared: {amount}',
+    'partialDeclared': 'Partial contribution declared: {amount}',
     'paymentDeclared': 'Contribution declared: {amount}',
     'matchAmountLabel': 'Session amount: {amount}',
     'viewReceipt': 'View receipt',
-    'partialReceived': 'Partial received',
+    'partialReceived': 'Partial contribution received',
     'paymentReceived': 'Contribution recorded',
     'rejectReceipt': 'Reject receipt',
     'receiptTitle': 'Receipt',
@@ -3376,7 +3379,7 @@ class TranslationMaps {
     'matchAmountShort': 'Session {amount}',
     'summaryMatchChargeWithCredit':
         'Gathering {charge} · −{credit} credit · Contribute {transfer}',
-    'creditBalanceLabel': 'Credit balance',
+    'creditBalanceLabel': 'Amount in your favor',
     'creditAppliedLine': '−{amount} applied to session',
     'owesAmountLabel': 'Owes {amount}',
     'paidPartialDetail': 'Paid {paid} of {total}',
@@ -3423,9 +3426,9 @@ class TranslationMaps {
     'chargeBreakdownTitle': 'Contribution breakdown',
     'chargeBreakdownSubtitle': 'Detail per participant',
     'paidOk': 'Paid OK',
-    'partialOwesShort': 'Partial - owes {amount}',
+    'partialOwesShort': 'Partial · pending {amount}',
     'individualPdfTooltip': 'Individual PDF',
-    'creditedAmountLabel': 'Credit balance {amount}',
+    'creditedAmountLabel': 'Amount in your favor {amount}',
     'accountCreditAfterMatchNote':
         '{amount} credit on their account (will apply to the next session)',
     'matchDetailAccountCredit': 'Account: {amount} credit',
@@ -3479,7 +3482,7 @@ class TranslationMaps {
     'generalPdf': 'General PDF',
     'tapPdfPerPlayer': 'Tap PDF next to each participant:',
     'paidCheck': 'PAID ✓',
-    'partialOwesLine': 'Partial {paid} · Owes {remaining}',
+    'partialOwesLine': 'Partial {paid} · Pending {remaining}',
     'owesColon': 'Owes: {amount}',
     'doneBtn': 'Done',
     'langEs': 'Español',
@@ -3603,11 +3606,14 @@ class TranslationMaps {
         'Open the app → Contributions to see details and upload a receipt.',
     'notifMatchPaidWithCreditTitle': '✅ Gathering settled with amount in your favor',
     'notifMatchPaidWithCreditBody':
-        'Your {sessionAmount} session is settled: we used {credit} from your credit balance.',
+        'Your {sessionAmount} session is settled: we used {credit} from the amount in your favor.',
     'notifMatchPaidWithCreditRemaining':
-        'You still have {amount} credit for upcoming sessions.',
+        'You still have {amount} in your favor for upcoming sessions.',
     'notifMatchPaidWithCreditDetail':
-        'Session: {sessionAmount}\nCredit used: {credit}\nNo transfer needed for this session.',
+
+        'Gathering: {matchAmount}\n'
+        'Amount in your favor used: {credit}\n'
+        'Nothing to contribute for this gathering.',
     'notifReceiptPendingTitle': 'Contribution received (pending)',
     'notifReceiptPendingBody':
         '{name} made a {type} of {amount}. Review the receipt in the app.',
@@ -3976,11 +3982,11 @@ class TranslationMaps {
     'homePlanillaCompactHint':
         'Registre contribuições na ficha de cada participante.',
     'homePayFull': 'Contribuição total',
-    'homePartialPayment': 'Abono',
-    'homePartialAmountLabel': 'Valor do abono',
+    'homePartialPayment': 'Contribuição parcial',
+    'homePartialAmountLabel': 'Valor da contribuição parcial',
     'homePartialAmountHelper': 'Pode ser maior que a pendência para deixar saldo a favor',
     'homeRegisterFullPayment': 'Registrar contribuição total',
-    'homeRegisterPartialPayment': 'Registrar abono',
+    'homeRegisterPartialPayment': 'Registrar contribuição parcial',
     'homeClearSelection': 'Cancelar seleção',
     'homeRegisterFullPaymentCount': 'Registrar contribuição total ({count})',
     'homePlayerSheetTitle': 'Ficha do participante',
@@ -4011,7 +4017,7 @@ class TranslationMaps {
     'breakdownNetMatch': 'Líquido do encontro',
     'breakdownPaidOnRegister': '− Pago ao registrar',
     'breakdownPaidAmount': '− Pago',
-    'breakdownToTransfer': 'A transferir',
+    'breakdownToTransfer': 'A contribuir',
     'breakdownCreditResult': 'Saldo a favor',
     'cobroStatusReceiptReview': 'Comprovante em revisão',
     'cobroStatusReceiptSent': 'Comprovante enviado',
@@ -4030,9 +4036,9 @@ class TranslationMaps {
     'cobroReceiptTypePartial': 'Contribuição parcial',
     'cobroReceiptTypePayment': 'Contribuição',
     'snackPaymentWithCredit':
-        'Abono {amount} · Saldo a favor: {credit} · {name}',
+        'Contribuição parcial {amount} · Saldo a favor: {credit} · {name}',
     'snackDebtCleared': 'Pendência quitada · {name}',
-    'snackPartialPayment': 'Abono {amount} · Resta {remaining} · {name}',
+    'snackPartialPayment': 'Contribuição parcial {amount} · Resta {remaining} · {name}',
     'snackFullPaymentMultiple':
         'Contribuição total registrada para {count} participantes',
     'matchesPlayedCount': '{count} encontros',
@@ -4080,11 +4086,11 @@ class TranslationMaps {
         'Texto livre com seus dados fora da Kloovi (PIX, alias, conta…). Os participantes veem ao abrir a contribuição do seu grupo.',
     'configPaymentNameLabel': 'Em nome de',
     'configPaymentNameHint': 'Ex. Francisco Parra',
-    'configPaymentDetailLabel': 'Dado para transferir',
+    'configPaymentDetailLabel': 'Dado para contribuir',
     'configPaymentDetailHint':
-        'Ex. Banco · conta · ou PIX / alias / chave',
+        'Ex. alias, PIX ou outro dado fora da Kloovi',
     'configPaymentNoteLabel': 'Nota (opcional)',
-    'configPaymentNoteHint': 'Ex. Transfira e envie o comprovante no app',
+    'configPaymentNoteHint': 'Ex. Contribua fora da Kloovi e envie o comprovante aqui',
     'configSavePaymentInfo': 'Salvar dados',
     'configAccountHolderLabel': 'Nome do titular',
     'configRutLabel': 'ID fiscal',
@@ -4421,7 +4427,7 @@ class TranslationMaps {
         'Quando for convocado para um encontro, aparecerá aqui com botões para confirmar ou recusar.',
     'myChargesScreenTitle': 'Minhas pendências',
     'misCobrosBreakdownExpand': 'Ver detalhamento',
-    'partialAmountTitle': 'Valor transferido',
+    'partialAmountTitle': 'Valor contribuído',
     'partialAmountBody':
         'Indique quanto você contribuiu fora da Kloovi. Pode ser menor ou maior que a pendência; o excedente fica a favor na conta.',
     'amountLabel': 'Valor',
@@ -4448,7 +4454,7 @@ class TranslationMaps {
     'paymentTypePartial': 'outro valor',
     'paymentTypeFull': 'contribuição total',
     'paymentSentPartial':
-        'Transferência de {amount} enviada. O organizador validará em breve.',
+        'Você declarou uma contribuição de {amount}. O organizador validará em breve.',
     'paymentSentFull':
         'Contribuição de {amount} enviada. O organizador validará em breve.',
     'misCobrosHelpTip':
@@ -4479,9 +4485,9 @@ class TranslationMaps {
     'rankingHelpTip':
         'Ranking baseado em contribuições em dia e pendências. '
         'Só para diversão entre amigos! 😄',
-    'rankingBestPayersTitle': 'Melhores pagadores',
-    'rankingBestPayersSubtitle': 'Os que pagam mais rápido (mais pontuais)',
-    'rankingWorstPayersTitle': 'Piores pagadores',
+    'rankingBestPayersTitle': 'Melhores contribuições',
+    'rankingBestPayersSubtitle': 'Os que contribuem mais rápido (mais pontuais)',
+    'rankingWorstPayersTitle': 'Contribuições mais lentas',
     'rankingWorstPayersSubtitle': 'Os que mais demoram (sem ressentimentos 😄)',
     'rankingNoBestYetTitle': 'Sem melhores pagadores ainda',
     'rankingNoBestYetSubtitle':
@@ -4792,7 +4798,7 @@ class TranslationMaps {
     'introPlayerFeatureExpenses': 'Revise seus gastos',
     'introPlayerFeatureExpensesSub':
         'Pendências e histórico de contribuições',
-    'introPlayerFeaturePay': 'Pague facilmente',
+    'introPlayerFeaturePay': 'Registre sua contribuição',
     'introPlayerFeaturePaySub':
         'Envie o comprovante ao grupo.',
     'introOnboardingContinue': 'Começar',
@@ -4931,13 +4937,13 @@ class TranslationMaps {
     'noPayments': 'Sem contribuições',
     'previousDebt': 'Pendência anterior: {amount}',
     'balanceInFavor': 'Saldo a favor: {amount}',
-    'toTransfer': 'A transferir: {amount}',
+    'toTransfer': 'A contribuir: {amount}',
     'minusBalanceInFavor': '−{amount} saldo a favor',
     'creditWillApply':
         'Serão aplicados {amount} de saldo a favor na contribuição deste encontro.',
     'owesViaApp': 'Pendente {amount} — com comprovante no app',
     'noPayment': 'Sem contribuição',
-    'confirmPartialPayment': 'Confirmar abono',
+    'confirmPartialPayment': 'Confirmar contribuição parcial',
     'individualExtraChargesTitle': 'Contribuições extra individuais',
     'individualChargeInstructions':
         'Preencha conceito e valor e toque em Salvar.',
@@ -4950,9 +4956,9 @@ class TranslationMaps {
     'saveCharge': 'Salvar extra',
     'errorExtraChargeConcept': 'Informe o conceito do extra',
     'errorExtraChargeAmount': 'Informe o valor do extra',
-    'errorPlayerPartialAmount': '{name}: indique o valor do abono',
+    'errorPlayerPartialAmount': '{name}: indique o valor da contribuição parcial',
     'errorConfirmPartialFirst':
-        '{name}: toque em "Confirmar abono" antes de salvar',
+        '{name}: toque em "Confirmar contribuição parcial" antes de salvar',
     'errorSaveExtraChargeFirst':
         '{name}: toque em "Salvar" no extra pendente',
     'errorMarkAtLeastOnePlayer': 'Marque pelo menos um participante presente',
@@ -4977,15 +4983,15 @@ class TranslationMaps {
     'statusCoveredWithCreditApplied':
         '✓ Coberto com saldo a favor ({amount})',
     'statusUpToDateNoTransfer': '✓ Em dia — sem transferência',
-    'statusToTransfer': '✓ A transferir: {amount}',
-    'statusPartialWithCredit': 'Abono {paid} · Saldo a favor: {credit}',
-    'statusPartialRemaining': 'Abono {paid} · Resta: {remaining}',
-    'statusOwesTransfer': 'A transferir: {amount}',
+    'statusToTransfer': '✓ A contribuir: {amount}',
+    'statusPartialWithCredit': 'Contribuição parcial {paid} · Saldo a favor: {credit}',
+    'statusPartialRemaining': 'Contribuição parcial {paid} · Resta: {remaining}',
+    'statusOwesTransfer': 'A contribuir: {amount}',
     'summaryCreditBalance': 'SALDO A FAVOR {amount}',
     'summaryUpToDate': 'EM DIA',
-    'summaryTransfers': 'TRANSFERE {amount}',
-    'summaryPartialWithCredit': 'ABONO {paid} · A FAVOR {credit}',
-    'summaryPartialOwes': 'Abono {paid} · Deve {remaining}',
+    'summaryTransfers': 'CONTRIBUIR {amount}',
+    'summaryPartialWithCredit': 'CONTRIBUIÇÃO PARCIAL {paid} · A FAVOR {credit}',
+    'summaryPartialOwes': 'Contribuição parcial {paid} · Pendente {remaining}',
     'summaryOwes': 'Deve {amount}',
     'courtLabel': 'Quadra',
     'conceptHelpCancha':
@@ -5009,9 +5015,9 @@ class TranslationMaps {
         'Não foi possível enviar a foto. Verifique permissões ou conexão.',
     'currentDebt': 'Pendência atual: {amount}',
     'confirmAmount': 'Confirmar {amount}',
-    'snackPartialWithCredit': 'Abono {amount} · Saldo a favor: {credit}',
+    'snackPartialWithCredit': 'Contribuição parcial {amount} · Saldo a favor: {credit}',
     'snackDebtClearedShort': 'Pendência quitada',
-    'snackPartialRemainingShort': 'Abono {amount} · Resta {remaining}',
+    'snackPartialRemainingShort': 'Contribuição parcial {amount} · Resta {remaining}',
     'playerNoEmail': 'Este participante não tem email cadastrado',
     'pushSentTo': 'Notificação push enviada para {name}',
     'pushSendFailed': 'Não foi possível enviar: {error}',
@@ -5021,7 +5027,7 @@ class TranslationMaps {
     'unpaidMatchesCount': '{count} encontro(s) pendente(s)',
     'paidCountLabel': '{count} em dia',
     'totalGenerated': 'Total gerado',
-    'creditAvailable': 'Crédito disponível',
+    'creditAvailable': 'Valor a favor disponível',
     'paidLabel': 'Pago',
     'pendingMatchesTitle': 'Encontros pendentes',
     'totalPending': 'Total pendente',
@@ -5089,8 +5095,8 @@ class TranslationMaps {
     'statsSwipeHint': 'Deslize para mudar o ranking',
     'statsMetricParticipation': 'Participação',
     'statsMetricParticipationDesc': 'Quem joga mais encontros com o grupo',
-    'statsMetricGoodPayer': 'Bom pagador',
-    'statsMetricGoodPayerDesc': 'Paga em dia, sem inadimplência (mín. 2 encontros)',
+    'statsMetricGoodPayer': 'Contribuições em dia',
+    'statsMetricGoodPayerDesc': 'Contribui em dia, sem pendências (mín. 2 encontros)',
     'statsMetricFastPayer': 'Contribuição rápida',
     'statsMetricFastPayerDesc': 'Menor tempo médio para contribuir',
     'statsMetricActive90': 'Ativo (90 dias)',
@@ -5129,11 +5135,11 @@ class TranslationMaps {
     'pendingReceiptsCount':
         '{count} comprovante(s) pendente(s)',
     'matchNumber': 'Encontro #{id}',
-    'confirmPartialReceived': 'Confirmar abono recebido',
+    'confirmPartialReceived': 'Confirmar contribuição parcial recebida',
     'confirmPaymentReceived': 'Confirmar contribuição',
     'confirmRejectTitle': 'Confirmar rejeição',
     'reconcilePartialMessage':
-        'Conciliar o abono de {amount} de {name}?',
+        'Conciliar a contribuição parcial de {amount} de {name}?',
     'reconcilePaymentMessage':
         'Conciliar a contribuição de {amount} de {name}?',
     'rejectReceiptMessage':
@@ -5141,14 +5147,14 @@ class TranslationMaps {
     'thisPlayer': 'este participante',
     'yesReconcile': 'Sim, conciliar',
     'yesReject': 'Sim, rejeitar',
-    'partialReceivedUpdated': 'Abono recebido · saldo atualizado',
+    'partialReceivedUpdated': 'Contribuição parcial recebida · saldo atualizado',
     'paymentReceivedUpdated': 'Contribuição registrada · saldo atualizado',
     'receiptRejected': 'Comprovante rejeitado',
-    'partialDeclared': 'Abono declarado: {amount}',
+    'partialDeclared': 'Contribuição parcial declarada: {amount}',
     'paymentDeclared': 'Contribuição declarada: {amount}',
     'matchAmountLabel': 'Valor do encontro: {amount}',
     'viewReceipt': 'Ver comprovante',
-    'partialReceived': 'Abono recebido',
+    'partialReceived': 'Contribuição parcial recebida',
     'paymentReceived': 'Contribuição registrada',
     'rejectReceipt': 'Rejeitar comprovante',
     'receiptTitle': 'Comprovante',
@@ -5229,7 +5235,7 @@ class TranslationMaps {
     'chargeBreakdownTitle': 'Detalhamento de contribuições',
     'chargeBreakdownSubtitle': 'Detalhe por participante',
     'paidOk': 'Pago OK',
-    'partialOwesShort': 'Parcial - deve {amount}',
+    'partialOwesShort': 'Parcial · pendente {amount}',
     'individualPdfTooltip': 'PDF individual',
     'creditedAmountLabel': 'Saldo a favor {amount}',
     'accountCreditAfterMatchNote':
@@ -5285,7 +5291,7 @@ class TranslationMaps {
     'generalPdf': 'PDF geral',
     'tapPdfPerPlayer': 'Toque em PDF ao lado de cada participante:',
     'paidCheck': 'PAGO ✓',
-    'partialOwesLine': 'Parcial {paid} · Deve {remaining}',
+    'partialOwesLine': 'Parcial {paid} · Pendente {remaining}',
     'owesColon': 'Deve: {amount}',
     'doneBtn': 'Pronto',
     'langEs': 'Español',
@@ -5415,14 +5421,17 @@ class TranslationMaps {
     'notifMatchPaidWithCreditRemaining':
         'Você ainda tem {amount} a favor para as próximos encontros.',
     'notifMatchPaidWithCreditDetail':
-        'Encontro: {matchAmount}\nSaldo a favor usado: {credit}\nNão precisa transferir por este encontro.',
+
+        'Encontro: {matchAmount}\n'
+        'Saldo a favor usado: {credit}\n'
+        'Nada a contribuir neste encontro.',
     'notifReceiptPendingTitle': 'Contribuição recebida (pendente)',
     'notifReceiptPendingBody':
         '{name} fez {type} de {amount}. Revise o comprovante no app.',
     'notifReceiptRejectedTitle': 'Comprovante não validado',
     'notifReceiptRejectedBody':
         'Olá {name}, não validamos seu comprovante do encontro de {date}. Entre em Contribuições e envie um novo. Pendente: {amount}.',
-    'notifReceiptTypePartialArticle': 'um pagamento parcial',
+    'notifReceiptTypePartialArticle': 'uma contribuição parcial',
     'notifReceiptTypeFullArticle': 'uma contribuição',
     'notifPaymentReminderTitle': 'Lembrete de contribuição · {amount}',
     'notifPaymentReminderBodyShort':
