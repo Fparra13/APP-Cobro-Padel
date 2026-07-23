@@ -56,7 +56,7 @@ class TranslationMaps {
     'becomeOrganizerBenefit2': 'Confirman sin que los persigas',
     'becomeOrganizerBenefit3': 'Aportes claros, sin planillas',
     'becomeOrganizerSoftSub':
-        'Invita. Confirman. Asisten. Pagan. Así de simple.',
+        'Invita. Confirman. Asisten. Aportan. Así de simple.',
     'sportLabel': 'Deporte principal',
     'primarySportHint':
         'Define el color de la app y el deporte por defecto al crear encuentros.',
@@ -305,7 +305,7 @@ class TranslationMaps {
     'errorDatosInconsistentes':
         'Faltan datos de aporte para este encuentro. Revisa el historial o reintenta.',
     'errorMontoInvalido':
-        'El monto del abono debe ser mayor a cero.',
+        'El monto del aporte parcial debe ser mayor a cero.',
     'errorPlazoVencido':
         'Se acabó el plazo para responder a esta convocatoria.',
     'errorConvocatoriaCerrada':
@@ -391,7 +391,7 @@ class TranslationMaps {
     'homeSelectedPlayers': '{count} participante(s) seleccionado(s)',
     'homeSelectedAllUpToDate': 'Los seleccionados ya están al día.',
     'homePlayerBalanceLine': '{name} · Saldo {amount}',
-    'homeOwesSuffix': 'debe {amount}',
+    'homeOwesSuffix': 'tiene {amount} pendiente',
     'homeBatchPaymentNote':
         'Se registrará el aporte total de cada participante ({amount} en total).',
     'errorAmountGreaterThanZero': 'Introduce un importe superior a 0',
@@ -684,7 +684,7 @@ class TranslationMaps {
     'organizerEmpathyTitleNextTime': 'La próxima vez que te toque organizar…',
     'organizerEmpathyBodyNextTime':
         'Olvídate de perseguir aportes y comprobantes.',
-    'organizerEmpathyTitleSimple': 'Invita. Confirman. Asisten. Pagan.',
+    'organizerEmpathyTitleSimple': 'Invita. Confirman. Asisten. Aportan.',
     'organizerEmpathyBodySimple':
         'Así de simple puede ser organizar con tus amigos.',
     'playerHeaderPendingInvite': 'Tienes convocatorias por responder',
@@ -728,7 +728,7 @@ class TranslationMaps {
     'playerMatchHistoryTapHint':
         'Toca un encuentro para ver el desglose de tu aporte.',
     'playerMatchHistoryHeroCaption': '{count} encuentros en tu historial',
-    'playerMatchHistoryHeroPaidLine': '{paid} pagados · {pending} pendientes',
+    'playerMatchHistoryHeroPaidLine': '{paid} al día · {pending} pendientes',
     'playerMatchHistoryFilterAll': 'Todos',
     'playerMatchHistoryFilterEmpty': 'No hay encuentros de este deporte en tu historial.',
     'playerMatchHistoryDebtBanner':
@@ -876,7 +876,7 @@ class TranslationMaps {
         'Arriba: PDF general · Abajo: PDF individual.',
     'rankingEmptyTitle': 'Ranking vacío',
     'rankingEmptySubtitle':
-        'Juega algunos encuentros para ver\nquién paga más rápido 🎾',
+        'Juega algunos encuentros para ver\nquién aporta más rápido 🎾',
     'rankingHelpTip':
         'Ranking basado en aportes al día y pendientes. '
         '¡Solo para diversión entre amigos! 😄',
@@ -884,7 +884,7 @@ class TranslationMaps {
     'rankingBestPayersSubtitle': 'Los que aportan más rápido (más puntuales)',
     'rankingWorstPayersTitle': 'Aportes más lentos',
     'rankingWorstPayersSubtitle': 'Los que más demoran (sin rencores 😄)',
-    'rankingNoBestYetTitle': 'Sin mejores pagadores aún',
+    'rankingNoBestYetTitle': 'Sin ranking de aportes aún',
     'rankingNoBestYetSubtitle':
         'Aparecen quienes aportan al día sin pendientes.',
     'rankingNoWorstTitle': '¡Nadie en la lista negra!',
@@ -1463,10 +1463,10 @@ class TranslationMaps {
     'movementTypeCharge': 'Aporte',
     'movementTypePayment': 'Registro',
     'movementTypeBoth': 'Aporte y registro',
-    'movementOwedBefore': 'Debía',
+    'movementOwedBefore': 'Pendiente antes',
     'movementCreditBefore': 'Tenía a favor',
     'movementMatchCharge': 'Aporte del encuentro',
-    'movementPaidAmount': 'Pagó',
+    'movementPaidAmount': 'Aportó',
     'movementBalanceDebt': 'Quedó pendiente',
     'movementBalanceZero': 'Quedó al día',
     'movementBalanceCredit': 'Quedó a favor',
@@ -1516,7 +1516,7 @@ class TranslationMaps {
     'statPaymentsOnTime': '{count} aportes al día',
     'statTotalMatches': '{count} encuentros en total',
     'statMatchesPlayed': '{count} encuentros',
-    'statUnpaidMatches': '{count} encuentro(s) impago(s)',
+    'statUnpaidMatches': '{count} encuentro(s) pendiente(s)',
     'matchesHistoryTitle': 'Historial de encuentros',
     'noMatchesRegistered': 'Sin encuentros registrados',
     'pdfLabel': 'PDF',
@@ -1578,17 +1578,17 @@ class TranslationMaps {
     'paymentStatusTitle': 'Estado de aportes',
     'paidStatus': 'Pagado',
     'creditAmountLabel': 'A favor {amount}',
-    'paidDetailLine': 'Abonó {paid} · Encuentro {amount}',
+    'paidDetailLine': 'Aportó {paid} · Encuentro {amount}',
     'matchAmountShort': 'Encuentro {amount}',
     'summaryMatchChargeWithCredit':
         'Encuentro {charge} · −{credit} saldo a favor · Aportar {transfer}',
     'creditBalanceLabel': 'Saldo a favor',
     'creditAppliedLine': '−{amount} aplicado al encuentro',
-    'owesAmountLabel': 'Debe {amount}',
+    'owesAmountLabel': 'Pendiente {amount}',
     'paidPartialDetail': 'Aportó {paid} de {total}',
     'oldDebtShort': 'Pend. ant. {amount}',
     'hadCreditShort': 'Tenía a favor {amount}',
-    'owesStatusLabel': 'Debe',
+    'owesStatusLabel': 'Pendiente',
     'deleteMatchConsequence1':
         'Se borrarán los datos del encuentro de forma permanente.',
     'deleteMatchConsequence2':
@@ -1671,7 +1671,7 @@ class TranslationMaps {
     'reminderPushHint':
         'Push a participantes con la app. '
         'Sin Android/iPhone: usa "Copiar mensaje" y envía manualmente.',
-    'owesNoAppLine': 'Debe {amount} · Sin app',
+    'owesNoAppLine': 'Pendiente {amount} · Sin app',
     'copyMessageTooltip': 'Copiar mensaje manual',
     'sendPushTooltip': 'Enviar push',
     'sendingReminders': 'Enviando recordatorios...',
@@ -1686,7 +1686,7 @@ class TranslationMaps {
     'tapPdfPerPlayer': 'Toca PDF junto a cada participante:',
     'paidCheck': 'PAGADO ✓',
     'partialOwesLine': 'Parcial {paid} · Pendiente {remaining}',
-    'owesColon': 'Debe: {amount}',
+    'owesColon': 'Pendiente: {amount}',
     'doneBtn': 'Listo',
     'langEs': 'Español',
     'langEn': 'English',
@@ -1698,8 +1698,8 @@ class TranslationMaps {
     'convocatoriaNotFoundSnack':
         'No encontramos tu convocatoria. Actualiza el inicio o contacta al organizador.',
     'noUnpaidPlayersDeadline':
-        'No hay participantes impagos que cumplan el plazo',
-    'unpaidPlayersTitle': 'Participantes impagos',
+        'No hay participantes pendientes que cumplan el plazo',
+    'unpaidPlayersTitle': 'Participantes pendientes',
     'debtOlderThanDay': 'Pendiente de más de {days} día',
     'debtOlderThanDays': 'Pendiente de más de {days} días',
     'debtChartAllUpToDate': '¡Todos al día!',
@@ -1870,7 +1870,7 @@ class TranslationMaps {
     'becomeOrganizerBenefit2': 'They confirm without you chasing',
     'becomeOrganizerBenefit3': 'Clear contributions, no spreadsheets',
     'becomeOrganizerSoftSub':
-        'Invite. They confirm. Attend. Pay. That simple.',
+        'Invite. Confirm. Attend. Contribute. That simple.',
     'sportLabel': 'Primary sport',
     'primarySportHint':
         'Sets the app color and the default sport when creating sessions.',
@@ -2194,7 +2194,7 @@ class TranslationMaps {
     'homeSelectedPlayers': '{count} participant(s) selected',
     'homeSelectedAllUpToDate': 'Selected participants are already up to date.',
     'homePlayerBalanceLine': '{name} · Balance {amount}',
-    'homeOwesSuffix': 'owes {amount}',
+    'homeOwesSuffix': 'has {amount} pending',
     'homeBatchPaymentNote':
         'A full contribution will be recorded for each participant ({amount} total).',
     'errorAmountGreaterThanZero': 'Enter an amount greater than 0',
@@ -2485,7 +2485,7 @@ class TranslationMaps {
     'organizerEmpathyTitleNextTime': 'Next time it is your turn to organize…',
     'organizerEmpathyBodyNextTime':
         'Forget chasing contributions and receipts.',
-    'organizerEmpathyTitleSimple': 'Invite. They confirm. Attend. Pay.',
+    'organizerEmpathyTitleSimple': 'Invite. They confirm. Attend. Contribute.',
     'organizerEmpathyBodySimple':
         'Organizing with friends can be that simple.',
     'playerHeaderPendingInvite': 'You have invites to respond to',
@@ -2529,7 +2529,7 @@ class TranslationMaps {
     'playerMatchHistoryTapHint':
         'Tap a gathering to see your contribution breakdown.',
     'playerMatchHistoryHeroCaption': '{count} sessions in your history',
-    'playerMatchHistoryHeroPaidLine': '{paid} paid · {pending} pending',
+    'playerMatchHistoryHeroPaidLine': '{paid} up to date · {pending} pending',
     'playerMatchHistoryFilterAll': 'All',
     'playerMatchHistoryFilterEmpty': 'No sessions for this sport in your history.',
     'playerMatchHistoryDebtBanner':
@@ -2675,7 +2675,7 @@ class TranslationMaps {
         'Top: general PDF · Bottom: individual PDF.',
     'rankingEmptyTitle': 'Empty ranking',
     'rankingEmptySubtitle':
-        'Play some sessions to see\nwho pays fastest 🎾',
+        'Play some sessions to see\nwho contributes fastest 🎾',
     'rankingHelpTip':
         'Ranking based on on-time contributions and pending amounts. '
         'Just for fun among friends! 😄',
@@ -2683,7 +2683,7 @@ class TranslationMaps {
     'rankingBestPayersSubtitle': 'Those who contribute fastest (most reliable)',
     'rankingWorstPayersTitle': 'Slowest contributions',
     'rankingWorstPayersSubtitle': 'Those who take longest (no hard feelings 😄)',
-    'rankingNoBestYetTitle': 'No best payers yet',
+    'rankingNoBestYetTitle': 'No contribution ranking yet',
     'rankingNoBestYetSubtitle':
         'Participants who contribute on time with no pending amounts appear here.',
     'rankingNoWorstTitle': 'Nobody on the naughty list!',
@@ -3260,10 +3260,10 @@ class TranslationMaps {
     'movementTypeCharge': 'Contribution',
     'movementTypePayment': 'Record',
     'movementTypeBoth': 'Contribution and record',
-    'movementOwedBefore': 'Owed',
+    'movementOwedBefore': 'Pending before',
     'movementCreditBefore': 'Had credit',
     'movementMatchCharge': 'Gathering contribution',
-    'movementPaidAmount': 'Paid',
+    'movementPaidAmount': 'Contributed',
     'movementBalanceDebt': 'Still pending',
     'movementBalanceZero': 'Settled',
     'movementBalanceCredit': 'Ended in your favor',
@@ -3313,7 +3313,7 @@ class TranslationMaps {
     'statPaymentsOnTime': '{count} on-time contributions',
     'statTotalMatches': '{count} sessions total',
     'statMatchesPlayed': '{count} sessions',
-    'statUnpaidMatches': '{count} unpaid session(es)',
+    'statUnpaidMatches': '{count} pending session(es)',
     'matchesHistoryTitle': 'Session history',
     'noMatchesRegistered': 'No sessions recorded',
     'pdfLabel': 'PDF',
@@ -3381,11 +3381,11 @@ class TranslationMaps {
         'Gathering {charge} · −{credit} credit · Contribute {transfer}',
     'creditBalanceLabel': 'Amount in your favor',
     'creditAppliedLine': '−{amount} applied to session',
-    'owesAmountLabel': 'Owes {amount}',
+    'owesAmountLabel': 'Pending {amount}',
     'paidPartialDetail': 'Paid {paid} of {total}',
     'oldDebtShort': 'Prev. pend. {amount}',
     'hadCreditShort': 'Had credit {amount}',
-    'owesStatusLabel': 'Owes',
+    'owesStatusLabel': 'Pending',
     'deleteMatchConsequence1':
         'Session data will be permanently deleted.',
     'deleteMatchConsequence2':
@@ -3468,7 +3468,7 @@ class TranslationMaps {
     'reminderPushHint':
         'Push to participants with the app. '
         'Without Android/iPhone: use "Copy message" and send manually.',
-    'owesNoAppLine': 'Owes {amount} · No app',
+    'owesNoAppLine': 'Pending {amount} · No app',
     'copyMessageTooltip': 'Copy message manually',
     'sendPushTooltip': 'Send push',
     'sendingReminders': 'Sending reminders...',
@@ -3483,7 +3483,7 @@ class TranslationMaps {
     'tapPdfPerPlayer': 'Tap PDF next to each participant:',
     'paidCheck': 'PAID ✓',
     'partialOwesLine': 'Partial {paid} · Pending {remaining}',
-    'owesColon': 'Owes: {amount}',
+    'owesColon': 'Pending: {amount}',
     'doneBtn': 'Done',
     'langEs': 'Español',
     'langEn': 'English',
@@ -3494,8 +3494,8 @@ class TranslationMaps {
     'receiptsHistoryCount': '{count} receipts',
     'convocatoriaNotFoundSnack':
         'We could not find your invitation. Refresh home or contact the organizer.',
-    'noUnpaidPlayersDeadline': 'No unpaid participants meet the deadline',
-    'unpaidPlayersTitle': 'Unpaid participants',
+    'noUnpaidPlayersDeadline': 'No pending participants meet the deadline',
+    'unpaidPlayersTitle': 'Pending participants',
     'debtOlderThanDay': 'Pending more than {days} day',
     'debtOlderThanDays': 'Pending more than {days} days',
     'debtChartAllUpToDate': 'Everyone is up to date!',
@@ -3665,7 +3665,7 @@ class TranslationMaps {
     'becomeOrganizerBenefit2': 'Confirmam sem você ficar cobrando',
     'becomeOrganizerBenefit3': 'Contribuições claras, sem planilhas',
     'becomeOrganizerSoftSub':
-        'Convide. Confirmam. Comparecem. Pagam. Simples assim.',
+        'Convida. Confirmam. Comparecem. Contribuem. Simples assim.',
     'sportLabel': 'Esporte principal',
     'primarySportHint':
         'Define a cor do app e o esporte padrão ao criar encontros.',
@@ -3910,7 +3910,7 @@ class TranslationMaps {
     'errorCupoLleno': 'Não há mais vagas para confirmar.',
     'errorDatosInconsistentes':
         'Faltam dados de contribuição neste encontro. Revise o histórico ou tente de novo.',
-    'errorMontoInvalido': 'O valor do abono deve ser maior que zero.',
+    'errorMontoInvalido': 'O valor da contribuição parcial deve ser maior que zero.',
     'errorPlazoVencido': 'O prazo para responder a esta convocatória acabou.',
     'errorConvocatoriaCerrada':
         'Esta convocatória já não aceita respostas.',
@@ -3995,7 +3995,7 @@ class TranslationMaps {
     'homeSelectedPlayers': '{count} participante(s) selecionado(s)',
     'homeSelectedAllUpToDate': 'Os selecionados já estão em dia.',
     'homePlayerBalanceLine': '{name} · Saldo {amount}',
-    'homeOwesSuffix': 'deve {amount}',
+    'homeOwesSuffix': 'tem {amount} pendente',
     'homeBatchPaymentNote':
         'Será registrada a contribuição total de cada participante ({amount} no total).',
     'errorAmountGreaterThanZero': 'Informe um valor maior que 0',
@@ -4287,7 +4287,7 @@ class TranslationMaps {
     'organizerEmpathyTitleNextTime': 'Na próxima vez que for você a organizar…',
     'organizerEmpathyBodyNextTime':
         'Esqueça perseguir contribuições e comprovantes.',
-    'organizerEmpathyTitleSimple': 'Convide. Confirmam. Comparecem. Pagam.',
+    'organizerEmpathyTitleSimple': 'Convide. Confirmam. Comparecem. Contribuem.',
     'organizerEmpathyBodySimple':
         'Organizar com amigos pode ser assim de simples.',
     'playerHeaderPendingInvite': 'Você tem convocatórias para responder',
@@ -4331,7 +4331,7 @@ class TranslationMaps {
     'playerMatchHistoryTapHint':
         'Toque em um encontro para ver o detalhe da sua contribuição.',
     'playerMatchHistoryHeroCaption': '{count} encontros no seu histórico',
-    'playerMatchHistoryHeroPaidLine': '{paid} pagas · {pending} pendentes',
+    'playerMatchHistoryHeroPaidLine': '{paid} em dia · {pending} pendentes',
     'playerMatchHistoryFilterAll': 'Todos',
     'playerMatchHistoryFilterEmpty':
         'Não há encontros deste esporte no seu histórico.',
@@ -4481,7 +4481,7 @@ class TranslationMaps {
         'Acima: PDF geral · Abaixo: PDF individual.',
     'rankingEmptyTitle': 'Ranking vazio',
     'rankingEmptySubtitle':
-        'Jogue alguns encontros para ver\nquem paga mais rápido 🎾',
+        'Jogue alguns encontros para ver\nquem contribui mais rápido 🎾',
     'rankingHelpTip':
         'Ranking baseado em contribuições em dia e pendências. '
         'Só para diversão entre amigos! 😄',
@@ -4489,7 +4489,7 @@ class TranslationMaps {
     'rankingBestPayersSubtitle': 'Os que contribuem mais rápido (mais pontuais)',
     'rankingWorstPayersTitle': 'Contribuições mais lentas',
     'rankingWorstPayersSubtitle': 'Os que mais demoram (sem ressentimentos 😄)',
-    'rankingNoBestYetTitle': 'Sem melhores pagadores ainda',
+    'rankingNoBestYetTitle': 'Sem ranking de contribuições ainda',
     'rankingNoBestYetSubtitle':
         'Aparecem quem contribui em dia sem pendências.',
     'rankingNoWorstTitle': 'Ninguém na lista negra!',
@@ -5069,10 +5069,10 @@ class TranslationMaps {
     'movementTypeCharge': 'Contribuição',
     'movementTypePayment': 'Registro',
     'movementTypeBoth': 'Contribuição e registro',
-    'movementOwedBefore': 'Devia',
+    'movementOwedBefore': 'Pendente antes',
     'movementCreditBefore': 'Tinha a favor',
     'movementMatchCharge': 'Contribuição do encontro',
-    'movementPaidAmount': 'Pagou',
+    'movementPaidAmount': 'Contribuiu',
     'movementBalanceDebt': 'Ficou pendente',
     'movementBalanceZero': 'Ficou em dia',
     'movementBalanceCredit': 'Ficou a favor',
@@ -5122,7 +5122,7 @@ class TranslationMaps {
     'statPaymentsOnTime': '{count} contribuições em dia',
     'statTotalMatches': '{count} encontros no total',
     'statMatchesPlayed': '{count} encontros',
-    'statUnpaidMatches': '{count} encontro(s) inadimplente(s)',
+    'statUnpaidMatches': '{count} encontro(s) pendente(s)',
     'matchesHistoryTitle': 'Histórico de encontros',
     'noMatchesRegistered': 'Sem encontros registrados',
     'pdfLabel': 'PDF',
@@ -5190,11 +5190,11 @@ class TranslationMaps {
         'Encontro {charge} · −{credit} saldo a favor · Contribuir {transfer}',
     'creditBalanceLabel': 'Saldo a favor',
     'creditAppliedLine': '−{amount} aplicado à encontro',
-    'owesAmountLabel': 'Deve {amount}',
+    'owesAmountLabel': 'Pendente {amount}',
     'paidPartialDetail': 'Pagou {paid} de {total}',
     'oldDebtShort': 'Pend. ant. {amount}',
     'hadCreditShort': 'Tinha a favor {amount}',
-    'owesStatusLabel': 'Deve',
+    'owesStatusLabel': 'Pendente',
     'deleteMatchConsequence1':
         'Os dados do encontro serão excluídos permanentemente.',
     'deleteMatchConsequence2':
@@ -5277,7 +5277,7 @@ class TranslationMaps {
     'reminderPushHint':
         'Push para participantes com o app. '
         'Sem Android/iPhone: use "Copiar mensagem" e envie manualmente.',
-    'owesNoAppLine': 'Deve {amount} · Sem app',
+    'owesNoAppLine': 'Pendente {amount} · Sem app',
     'copyMessageTooltip': 'Copiar mensagem manual',
     'sendPushTooltip': 'Enviar push',
     'sendingReminders': 'Enviando lembretes...',
@@ -5292,7 +5292,7 @@ class TranslationMaps {
     'tapPdfPerPlayer': 'Toque em PDF ao lado de cada participante:',
     'paidCheck': 'PAGO ✓',
     'partialOwesLine': 'Parcial {paid} · Pendente {remaining}',
-    'owesColon': 'Deve: {amount}',
+    'owesColon': 'Pendente: {amount}',
     'doneBtn': 'Pronto',
     'langEs': 'Español',
     'langEn': 'English',
@@ -5304,8 +5304,8 @@ class TranslationMaps {
     'convocatoriaNotFoundSnack':
         'Não encontramos sua convocação. Atualize o início ou fale com o organizador.',
     'noUnpaidPlayersDeadline':
-        'Nenhum participante inadimplente atende ao prazo',
-    'unpaidPlayersTitle': 'Participantes inadimplentes',
+        'Nenhum participante pendente atende ao prazo',
+    'unpaidPlayersTitle': 'Participantes pendentes',
     'debtOlderThanDay': 'Pendência há mais de {days} dia',
     'debtOlderThanDays': 'Pendência há mais de {days} dias',
     'debtChartAllUpToDate': 'Todos em dia!',
