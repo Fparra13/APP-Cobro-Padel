@@ -33,7 +33,9 @@ class ConvocatoriaSyncResult {
 /// Lógica automática: recordatorios de plazo, vencimientos, lista de espera y cierre.
 class ConvocatoriaListaEsperaService {
   final _notificaciones = ConvocatoriaNotificacionService();
-  final _syncInFlight = <int>{};
+
+  /// Shared across instances (Home / PlayerHome / Responder crean `new` cada vez).
+  static final Set<int> _syncInFlight = <int>{};
 
   /// Ventana para el aviso "te queda menos de 1 h".
   static const recordatorioAntes = Duration(hours: 1);
@@ -102,6 +104,7 @@ class ConvocatoriaListaEsperaService {
     }
 
     // 1) Recordatorio: invitado, plazo futuro y dentro de la última hora.
+    // Claim atómico ANTES del push (evita doble envío entre syncs/dispositivos).
     for (final entry in conv.titulares) {
       if (entry.estado != EstadoConfirmacion.invitado) continue;
       final limite = entry.tiempoLimite;
@@ -112,16 +115,18 @@ class ConvocatoriaListaEsperaService {
         continue;
       }
 
+      final claimed = await repos.claimRecordatorioPlazo(
+        partidoId: partidoId,
+        jugadorId: entry.jugador.keyId,
+      );
+      if (!claimed) continue;
+
       await _notificaciones.notificarRecordatorioPlazo(
         jugador: entry.jugador,
         partidoId: partidoId,
         fecha: partido.fecha,
         recinto: partido.recinto ?? '',
         sportType: partido.sportType,
-      );
-      await repos.marcarRecordatorioPlazoEnviado(
-        partidoId: partidoId,
-        jugadorId: entry.jugador.keyId,
       );
       recordatorios++;
     }

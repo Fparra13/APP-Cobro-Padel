@@ -252,6 +252,27 @@ class ConvocatoriaRepository {
     } catch (_) {}
   }
 
+  /// Claim local: true solo si el flag pasó de 0 → 1 en esta llamada.
+  Future<bool> claimRecordatorioPlazo({
+    required int partidoId,
+    required int jugadorId,
+  }) async {
+    final db = await _db.database;
+    try {
+      final changed = await db.update(
+        'convocatoria_jugadores',
+        {'recordatorio_plazo_enviado': 1},
+        where: 'partido_id = ? AND jugador_id = ? '
+            'AND recordatorio_plazo_enviado = 0 '
+            "AND estado_confirmacion = 'invitado'",
+        whereArgs: [partidoId, jugadorId],
+      );
+      return changed > 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<Jugador?> promoverSiguienteSuplente(int partidoId) async {
     final conv = await getCompleta(partidoId);
     if (conv == null) return null;

@@ -401,6 +401,39 @@ class ConvocatoriaRepositoryRemote {
     });
   }
 
+  /// Claim atómico: true solo si este caller ganó el derecho a enviar el push.
+  Future<bool> claimRecordatorioPlazo({
+    required int partidoId,
+    required String jugadorId,
+  }) async {
+    return SupabaseHelpers.write('Claim recordatorio plazo', () async {
+      try {
+        final claimedId = await _client.rpc(
+          'claim_recordatorio_plazo',
+          params: {
+            'p_partido_id': partidoId,
+            'p_jugador_id': jugadorId,
+          },
+        );
+        if (claimedId != null) return true;
+      } catch (_) {
+        // Fallback si migración 090 aún no está aplicada: UPDATE condicional.
+        try {
+          final rows = await _client
+              .from('convocatoria_jugadores')
+              .update({'recordatorio_plazo_enviado': true})
+              .eq('partido_id', partidoId)
+              .eq('jugador_id', jugadorId)
+              .eq('recordatorio_plazo_enviado', false)
+              .eq('estado_confirmacion', 'invitado')
+              .select('id');
+          return rows.isNotEmpty;
+        } catch (_) {}
+      }
+      return false;
+    });
+  }
+
   Future<Jugador?> promoverSiguienteSuplente(int partidoId) async {
     return SupabaseHelpers.write('Promover suplente', () async {
       try {

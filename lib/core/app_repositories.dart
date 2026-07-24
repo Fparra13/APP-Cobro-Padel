@@ -859,6 +859,23 @@ class AppRepositories {
     );
   }
 
+  /// true = este caller debe enviar el push de recordatorio de plazo.
+  Future<bool> claimRecordatorioPlazo({
+    required int partidoId,
+    required String jugadorId,
+  }) {
+    if (useRemote) {
+      return _convocatoriaRemote.claimRecordatorioPlazo(
+        partidoId: partidoId,
+        jugadorId: jugadorId,
+      );
+    }
+    return _convocatoriaLocal.claimRecordatorioPlazo(
+      partidoId: partidoId,
+      jugadorId: _localId(jugadorId),
+    );
+  }
+
   Future<Jugador?> promoverSiguienteSuplente(int partidoId) {
     if (useRemote) {
       return _convocatoriaRemote.promoverSiguienteSuplente(partidoId);
