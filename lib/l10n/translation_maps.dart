@@ -428,7 +428,7 @@ class TranslationMaps {
         'El organizador aún no valida tu aporte. No puedes enviar otro.',
     'cobroStatusPending': 'Aporte pendiente',
     'cobroStatusPartialRegistered': 'Aporte parcial registrado',
-    'cobroStatusPaid': 'Pagado',
+    'cobroStatusPaid': 'Al día',
     'cobroReceiptTypePartial': 'Aporte parcial',
     'cobroReceiptTypePayment': 'Aporte',
     'snackPaymentWithCredit':
@@ -662,7 +662,7 @@ class TranslationMaps {
     'playerHomeCobrosTeaserMany': '{match} · y {count} más',
     'playerHomeCobrosTeaserManyCount': '{count} encuentros con aporte pendiente',
     'playerHomeOpenMisCobros': 'Pendientes',
-    'playerHomeCobrosSection': 'Pendiente con el grupo',
+    'playerHomeCobrosSection': 'Aportes pendientes',
     'playerStatWeeksPride': 'semanas activas',
     'playerActivityPlayed': 'Estuviste en {place}',
     'playerActivityNewMatch': 'Nuevo encuentro en {place}',
@@ -790,6 +790,8 @@ class TranslationMaps {
     'paymentInfoPayToNamed': 'Datos de {name}',
     'paymentInfoPayee': 'A nombre de: {name}',
     'paymentInfoCopied': 'Datos copiados',
+    'cobrosPayingToLabel': 'Aportando a',
+    'cobrosContributionDataLabel': 'Datos para aportar',
     'copyPaymentInfoTooltip': 'Copiar datos',
     'cobrosViewChargeTitle': 'Detalle del encuentro',
     'cobrosGoToPay': 'Registrar aporte',
@@ -820,7 +822,7 @@ class TranslationMaps {
     'playerAllQuietTitle': 'Todo tranquilo por ahora',
     'playerAllQuietBody':
         'Cuando te convoquen a un encuentro aparecerá aquí con botones para confirmar o rechazar.',
-    'myChargesScreenTitle': 'Mis pendientes',
+    'myChargesScreenTitle': 'Mis aportes pendientes',
     'misCobrosBreakdownExpand': 'Ver desglose',
     'partialAmountTitle': 'Monto aportado',
     'partialAmountBody':
@@ -844,8 +846,8 @@ class TranslationMaps {
     'receiptRequiredTitle': 'Comprobante obligatorio',
     'receiptRequiredBody':
         'Monto declarado: {amount} ({paymentType}).\n\n'
-        'Sube la foto o captura de tu transferencia. '
-        'El organizador la revisará antes de conciliar.',
+        'Sube la foto o captura de tu aporte. '
+        'El organizador la revisará antes de validar.',
     'paymentTypePartial': 'otro monto',
     'paymentTypeFull': 'aporte total',
     'paymentSentPartial':
@@ -1430,15 +1432,15 @@ class TranslationMaps {
     'deudaSimpleMatchAmount': 'Monto del encuentro',
     'deudaSimpleCredit': 'Saldo a favor',
     'deudaSimplePreviousDebt': 'Pendiente anterior',
-    'deudaSimplePaidOnRegister': 'Pagaste al anotar el encuentro',
-    'deudaSimplePaymentsAfter': 'Pagos que hiciste después',
+    'deudaSimplePaidOnRegister': 'Aportaste al anotar el encuentro',
+    'deudaSimplePaymentsAfter': 'Aportes realizados después',
     'deudaSimpleYouOwe': 'Pendiente ahora',
     'deudaSimpleYouOweOnly': 'Pendiente en total',
     'deudaExplainCreditApplied': 'Saldo a favor previo',
     'deudaExplainDebtCarried': 'Pendiente anterior arrastrada',
     'deudaExplainMatchCharge': 'Aporte del encuentro',
     'deudaExplainPaidOnMatch': 'Abonado al registrar',
-    'deudaExplainPaymentsAfter': 'Pagos posteriores',
+    'deudaExplainPaymentsAfter': 'Aportes posteriores',
     'deudaExplainCurrentDebt': 'Pendiente actual',
     'deudaExplainAccumulated': 'Pendiente acumulado',
     'deudaExplainSubtitleCredit':
@@ -2231,7 +2233,7 @@ class TranslationMaps {
         '{type} {amount} · receipt under review',
     'cobroStatusPending': 'Contribution pending',
     'cobroStatusPartialRegistered': 'Partial contribution recorded',
-    'cobroStatusPaid': 'Paid',
+    'cobroStatusPaid': 'Up to date',
     'cobroReceiptTypePartial': 'Partial contribution',
     'cobroReceiptTypePayment': 'Contribution',
     'snackPaymentWithCredit':
@@ -2463,7 +2465,7 @@ class TranslationMaps {
     'playerHomeCobrosTeaserMany': '{match} · and {count} more',
     'playerHomeCobrosTeaserManyCount': '{count} sessions with pending contribution',
     'playerHomeOpenMisCobros': 'Pending',
-    'playerHomeCobrosSection': 'Pending with the group',
+    'playerHomeCobrosSection': 'Pending contributions',
     'playerStatWeeksPride': 'active weeks',
     'playerActivityPlayed': 'You were at {place}',
     'playerActivityNewMatch': 'New session at {place}',
@@ -2588,8 +2590,10 @@ class TranslationMaps {
         'This organizer hasn’t shared how to contribute yet. Ask on WhatsApp or copy the contribution notice.',
     'paymentInfoPayToOrganizer': 'Organizer details',
     'paymentInfoPayToNamed': '{name}’s details',
-    'paymentInfoPayee': 'Pay to: {name}',
+    'paymentInfoPayee': 'In the name of: {name}',
     'paymentInfoCopied': 'Details copied',
+    'cobrosPayingToLabel': 'Contributing to',
+    'cobrosContributionDataLabel': 'Contribution details',
     'copyPaymentInfoTooltip': 'Copy details',
     'cobrosViewChargeTitle': 'Session details',
     'cobrosGoToPay': 'Record contribution',
@@ -2619,7 +2623,7 @@ class TranslationMaps {
     'playerAllQuietTitle': 'All quiet for now',
     'playerAllQuietBody':
         'When you are invited to a session it will appear here with buttons to confirm or decline.',
-    'myChargesScreenTitle': 'My pending',
+    'myChargesScreenTitle': 'My pending contributions',
     'misCobrosBreakdownExpand': 'View breakdown',
     'partialAmountTitle': 'Amount contributed',
     'partialAmountBody':
@@ -2643,8 +2647,8 @@ class TranslationMaps {
     'receiptRequiredTitle': 'Receipt required',
     'receiptRequiredBody':
         'Declared amount: {amount} ({paymentType}).\n\n'
-        'Upload a photo or screenshot of your transfer. '
-        'The organizer will review it before reconciling.',
+        'Upload a photo or screenshot of your contribution. '
+        'The organizer will review it before validating.',
     'paymentTypePartial': 'other amount',
     'paymentTypeFull': 'full contribution',
     'paymentSentPartial':
@@ -3227,15 +3231,15 @@ class TranslationMaps {
     'deudaSimpleMatchAmount': 'Session amount',
     'deudaSimpleCredit': 'Amount in your favor',
     'deudaSimplePreviousDebt': 'Previous pending',
-    'deudaSimplePaidOnRegister': 'Paid when the session was recorded',
-    'deudaSimplePaymentsAfter': 'Payments you made later',
+    'deudaSimplePaidOnRegister': 'You contributed when the session was recorded',
+    'deudaSimplePaymentsAfter': 'Contributions you made later',
     'deudaSimpleYouOwe': 'Pending now',
     'deudaSimpleYouOweOnly': 'Total pending',
     'deudaExplainCreditApplied': 'Previous amount in your favor',
     'deudaExplainDebtCarried': 'Previous pending carried over',
     'deudaExplainMatchCharge': 'Session contribution',
     'deudaExplainPaidOnMatch': 'Paid when recorded',
-    'deudaExplainPaymentsAfter': 'Later payments',
+    'deudaExplainPaymentsAfter': 'Later contributions',
     'deudaExplainCurrentDebt': 'Current pending',
     'deudaExplainAccumulated': 'Accumulated pending',
     'deudaExplainSubtitleCredit':
@@ -4032,7 +4036,7 @@ class TranslationMaps {
         '{type} {amount} · comprovante em revisão',
     'cobroStatusPending': 'Contribuição pendente',
     'cobroStatusPartialRegistered': 'Contribuição parcial registrada',
-    'cobroStatusPaid': 'Pago',
+    'cobroStatusPaid': 'Em dia',
     'cobroReceiptTypePartial': 'Contribuição parcial',
     'cobroReceiptTypePayment': 'Contribuição',
     'snackPaymentWithCredit':
@@ -4265,7 +4269,7 @@ class TranslationMaps {
     'playerHomeCobrosTeaserMany': '{match} · e mais {count}',
     'playerHomeCobrosTeaserManyCount': '{count} encontros com aporte pendente',
     'playerHomeOpenMisCobros': 'Pendências',
-    'playerHomeCobrosSection': 'Pendente com o grupo',
+    'playerHomeCobrosSection': 'Contribuições pendentes',
     'playerStatWeeksPride': 'semanas ativas',
     'playerActivityPlayed': 'Esteve em {place}',
     'playerActivityNewMatch': 'Novo encontro em {place}',
@@ -4395,6 +4399,8 @@ class TranslationMaps {
     'paymentInfoPayToNamed': 'Dados de {name}',
     'paymentInfoPayee': 'Em nome de: {name}',
     'paymentInfoCopied': 'Dados copiados',
+    'cobrosPayingToLabel': 'Contribuindo para',
+    'cobrosContributionDataLabel': 'Dados para contribuir',
     'copyPaymentInfoTooltip': 'Copiar dados',
     'cobrosViewChargeTitle': 'Detalhe do encontro',
     'cobrosGoToPay': 'Registrar contribuição',
@@ -4425,7 +4431,7 @@ class TranslationMaps {
     'playerAllQuietTitle': 'Tudo tranquilo por enquanto',
     'playerAllQuietBody':
         'Quando for convocado para um encontro, aparecerá aqui com botões para confirmar ou recusar.',
-    'myChargesScreenTitle': 'Minhas pendências',
+    'myChargesScreenTitle': 'Minhas contribuições pendentes',
     'misCobrosBreakdownExpand': 'Ver detalhamento',
     'partialAmountTitle': 'Valor contribuído',
     'partialAmountBody':
@@ -4449,8 +4455,8 @@ class TranslationMaps {
     'receiptRequiredTitle': 'Comprovante obrigatório',
     'receiptRequiredBody':
         'Valor declarado: {amount} ({paymentType}).\n\n'
-        'Envie a foto ou captura da transferência. '
-        'O organizador revisará antes de conciliar.',
+        'Envie a foto ou captura da sua contribuição. '
+        'O organizador revisará antes de validar.',
     'paymentTypePartial': 'outro valor',
     'paymentTypeFull': 'contribuição total',
     'paymentSentPartial':
@@ -5036,15 +5042,15 @@ class TranslationMaps {
     'deudaSimpleMatchAmount': 'Valor do encontro',
     'deudaSimpleCredit': 'Saldo a favor',
     'deudaSimplePreviousDebt': 'Pendência anterior',
-    'deudaSimplePaidOnRegister': 'Pago ao registrar o encontro',
-    'deudaSimplePaymentsAfter': 'Pagamentos feitos depois',
+    'deudaSimplePaidOnRegister': 'Você contribuiu ao registrar o encontro',
+    'deudaSimplePaymentsAfter': 'Contribuições feitas depois',
     'deudaSimpleYouOwe': 'Pendente agora',
     'deudaSimpleYouOweOnly': 'Pendente no total',
     'deudaExplainCreditApplied': 'Saldo a favor anterior',
     'deudaExplainDebtCarried': 'Pendência anterior arrastada',
     'deudaExplainMatchCharge': 'Contribuição do encontro',
     'deudaExplainPaidOnMatch': 'Pago ao registrar',
-    'deudaExplainPaymentsAfter': 'Pagamentos posteriores',
+    'deudaExplainPaymentsAfter': 'Contribuições posteriores',
     'deudaExplainCurrentDebt': 'Pendência atual',
     'deudaExplainAccumulated': 'Pendência acumulada',
     'deudaExplainSubtitleCredit':
