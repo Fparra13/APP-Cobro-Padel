@@ -7,22 +7,35 @@ import '../core/acquisition_controller.dart';
 import '../core/app_settings_controller.dart';
 import '../core/auth_service.dart';
 import '../screens/responder_convocatoria_screen.dart';
+import '../utils/app_log.dart';
 import '../utils/app_navigation.dart';
 
 /// Tras login: aplica intención de adquisición (organizer explícito o jugador).
+///
+/// [MatchPayAcquisitionIntent.createFirstGroup] promueve a organizer (RLS/shell).
+/// Eso no es Pro: crear encuentros sigue pasando por [FeatureGate.requirePro].
 Future<void> applyAcquisitionAfterLogin(BuildContext context) async {
   final acq = context.read<AcquisitionController>();
   final settings = context.read<AppSettingsController>();
 
   switch (acq.intent) {
     case MatchPayAcquisitionIntent.createFirstGroup:
-      await settings.syncUiModeWithRole(
-        isOrganizer: AuthService.instance.isOrganizer,
-      );
-      // Solo si aún no se consumió (intent sigue siendo createFirstGroup).
-      if (AuthService.instance.isOrganizer &&
-          acq.intent == MatchPayAcquisitionIntent.createFirstGroup) {
-        acq.markPendingOpenOrganizer();
+      try {
+        if (!AuthService.instance.isOrganizer) {
+          await AuthService.instance.becomeOrganizer();
+        }
+        await AuthService.instance.refreshProfile();
+        if (AuthService.instance.isOrganizer) {
+          await settings.setUiMode(AppUiMode.organizer);
+          acq.markPendingOpenOrganizer();
+        } else {
+          await settings.syncUiModeWithRole(isOrganizer: false);
+        }
+      } catch (e) {
+        appLog('applyAcquisitionAfterLogin createFirstGroup: $e');
+        await settings.syncUiModeWithRole(
+          isOrganizer: AuthService.instance.isOrganizer,
+        );
       }
     case MatchPayAcquisitionIntent.invited:
       await settings.syncUiModeWithRole(
