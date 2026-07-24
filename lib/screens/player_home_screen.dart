@@ -364,15 +364,14 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       final repos =
           AppRepositories.isReady ? AppRepositories.I : context.repos;
       final partidoId = hero!.partido.id!;
-      final ConvocatoriaCompleta? conv;
-      if (AuthService.instance.isOrganizer) {
-        conv = await repos.getConvocatoriaCompleta(partidoId);
-      } else {
-        conv = await repos.getConvocatoriaRosterParaJugador(
-          partidoId: partidoId,
-          partido: hero.partido,
-        );
-      }
+      // Player Home es vista de invitado: el roster completo viene del RPC
+      // (SECURITY DEFINER). No usar getConvocatoriaCompleta por rol global
+      // isOrganizer — RLS solo devolvería la fila propia y ocultaría
+      // confirmaciones de otros (p. ej. organizador-player ajeno).
+      final conv = await repos.getConvocatoriaRosterParaJugador(
+        partidoId: partidoId,
+        partido: hero.partido,
+      );
       if (mounted) setState(() => _heroConvocatoriaCompleta = conv);
     } catch (_) {
       if (mounted) setState(() => _heroConvocatoriaCompleta = null);
