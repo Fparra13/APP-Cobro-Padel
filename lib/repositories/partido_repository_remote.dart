@@ -2644,14 +2644,20 @@ class PartidoRepositoryRemote {
   }
 
   /// Comprobantes de pago enviados por jugadores, pendientes de conciliar.
+  /// Solo partidos del organizador autenticado (no los que envió como jugador).
   Future<List<DetallePartido>> getPagosPorValidar() async {
     return SupabaseHelpers.guard('Pagos por validar', () async {
+      final uid = _organizadorIdActual;
+      if (uid == null) return [];
+
       final rows = await _client
           .from('detalles_partido')
           .select(
-            '*, partidos(fecha, recinto, sport_type), profiles:jugador_id(nombre)',
+            '*, partidos!inner(fecha, recinto, sport_type, organizador_id), '
+            'profiles:jugador_id(nombre)',
           )
-          .eq('comprobante_estado', ComprobanteEstado.enRevision.dbValue);
+          .eq('comprobante_estado', ComprobanteEstado.enRevision.dbValue)
+          .eq('partidos.organizador_id', uid);
 
       final list = (rows as List).map((row) {
         final map = Map<String, dynamic>.from(row);
@@ -2665,6 +2671,8 @@ class PartidoRepositoryRemote {
           sportType: SportType.fromDb(
             SupabaseParse.toStringOrNull(partidoEmbed?['sport_type']),
           ),
+          organizadorId:
+              SupabaseParse.toStringOrNull(partidoEmbed?['organizador_id']),
         );
       }).where((d) => d.comprobantePendienteValidacion).toList();
 
