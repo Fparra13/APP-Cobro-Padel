@@ -38,6 +38,11 @@ class AuthService {
   bool _accesoIlimitado = false;
   String? _profileEmail;
 
+  /// Generación de carga de perfil. Se incrementa al iniciar cada
+  /// [refreshProfile] y al mutar el rol en cliente ([becomeOrganizer], logout).
+  /// Así un refresh iniciado antes de promover no puede pisar el estado nuevo.
+  int _profileEpoch = 0;
+
   static bool isOrganizerRole(String? role) =>
       role == 'organizer' || role == 'organizador';
 
@@ -51,7 +56,12 @@ class AuthService {
 
   String? get profileEmail => _profileEmail;
 
+  void _invalidateProfileLoads() {
+    _profileEpoch++;
+  }
+
   /// Jugador se convierte en organizador (misma cuenta; habilita crear partidos).
+  /// No es Pro: solo permiso RLS / shell organizador.
   Future<void> becomeOrganizer() async {
     final client = _client;
     final uid = currentUser?.id;
@@ -59,15 +69,19 @@ class AuthService {
       throw Exception('Sesión requerida');
     }
     await client.rpc('promover_a_organizador');
+    // Invalida refreshes en vuelo que aún leyeron role=jugador.
+    _invalidateProfileLoads();
     _profileRole = 'organizer';
   }
 
   /// Recarga rol y entitlements desde `profiles`.
-  /// Devuelve true si la lectura a BD fue exitosa.
+  /// Devuelve true si la lectura a BD fue exitosa y se aplicó (no estaba stale).
   Future<bool> refreshProfile() async {
+    final epoch = ++_profileEpoch;
     final client = _client;
     final uid = currentUser?.id;
     if (client == null || uid == null) {
+      if (epoch != _profileEpoch) return _profileRole != null;
       _profileRole = null;
       _accesoIlimitado = false;
       _profileEmail = null;
@@ -91,6 +105,10 @@ class AuthService {
             .eq('id', uid)
             .maybeSingle();
       }
+      // Otra refresh o becomeOrganizer ganó mientras esperábamos la red.
+      if (epoch != _profileEpoch) {
+        return isOrganizerRole(_profileRole) || _profileRole != null;
+      }
       if (row != null) {
         _profileRole = row['role'] as String? ?? 'jugador';
         _accesoIlimitado = row['acceso_ilimitado'] == true;
@@ -113,6 +131,9 @@ class AuthService {
       );
       return false;
     } catch (_) {
+      if (epoch != _profileEpoch) {
+        return isOrganizerRole(_profileRole) || _profileRole != null;
+      }
       // Mantener rol previo si ya se cargó; si no, asumir jugador (nunca organizer).
       _profileRole ??= 'jugador';
       _profileEmail ??= authEmail;
@@ -377,6 +398,7 @@ class AuthService {
   }
 
   void _clearCachedProfile() {
+    _invalidateProfileLoads();
     _profileRole = null;
     _accesoIlimitado = false;
     _profileEmail = null;
