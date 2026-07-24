@@ -2363,6 +2363,7 @@ class PartidoRepositoryRemote {
     required String storagePath,
     required double montoDeclarado,
     required bool esAbono,
+    required String organizadorId,
   }) async {
     await SupabaseHelpers.write('Subir comprobante', () async {
       final uid = SupabaseHelpers.currentUserId;
@@ -2371,6 +2372,10 @@ class PartidoRepositoryRemote {
       }
       if (montoDeclarado <= 0) {
         throw Exception('El importe del pago debe ser superior a cero');
+      }
+      final orgEsperado = organizadorId.trim();
+      if (orgEsperado.isEmpty) {
+        throw Exception('Organizador requerido');
       }
 
       final prev = await _client
@@ -2395,18 +2400,25 @@ class PartidoRepositoryRemote {
 
       final partidoId = (prevMap['partido_id'] as num).toInt();
       final partidoEmbed = SupabaseParse.mapEmbed(prevMap['partidos']);
-      final organizadorId =
-          SupabaseParse.toStringOrNull(partidoEmbed?['organizador_id']);
-      if (organizadorId == null || organizadorId.isEmpty) {
+      final orgDelPartido =
+          SupabaseParse.toStringOrNull(partidoEmbed?['organizador_id'])?.trim();
+      if (orgDelPartido == null || orgDelPartido.isEmpty) {
         throw Exception('Partido sin organizador');
+      }
+      if (orgDelPartido != orgEsperado) {
+        throw Exception(
+          'El comprobante no corresponde al organizador seleccionado',
+        );
       }
       final total = SupabaseParse.toDouble(prevMap['total']);
       final montoPagadoEnPartido =
           SupabaseParse.toDouble(prevMap['monto_pagado']);
 
-      final jugador = await _jugadorRepo.getById(uid);
       final pendienteCuenta = CobroLogic.obtenerPendienteJugador(
-        saldoAcumulado: jugador?.saldoAcumulado ?? 0,
+        saldoAcumulado: await _jugadorRepo.getSaldoCuenta(
+          organizadorId: orgEsperado,
+          jugadorId: uid,
+        ),
       );
 
       final snapshotSaldo = await _snapshotSaldoAnteriorOpcional(
@@ -2441,7 +2453,7 @@ class PartidoRepositoryRemote {
         'detalle_id': detalleId,
         'partido_id': partidoId,
         'jugador_id': uid,
-        'organizador_id': organizadorId,
+        'organizador_id': orgEsperado,
         'storage_path': storagePath,
         'monto_declarado': monto,
         'es_abono': esAbono,
@@ -2455,6 +2467,7 @@ class PartidoRepositoryRemote {
       await _cobroNotificaciones.notificarComprobanteOrganizador(
         detalleId: detalleId,
         partidoId: partidoId,
+        organizadorId: orgEsperado,
         jugadorNombre: nombre,
         monto: monto,
         esAbono: esAbono,

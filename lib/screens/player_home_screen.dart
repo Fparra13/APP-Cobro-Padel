@@ -493,18 +493,30 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     await openOrganizerSubscriptionFlow(context);
   }
 
-  CuentaSaldo? get _cuentaFoco => cuentaConMayorDeuda(_cuentasSaldo);
+  /// Cuentas con deuda viva (orden por monto ↓ solo para display).
+  List<CuentaSaldo> get _cuentasConDeuda {
+    final list =
+        _cuentasSaldo.where((c) => c.deuda > 0.005).toList(growable: false);
+    return List<CuentaSaldo>.from(list)
+      ..sort((a, b) => b.deuda.compareTo(a.deuda));
+  }
 
-  double? get _saldoCuentaFoco => _cuentaFoco?.saldoAcumulado;
+  /// Solo si hay exactamente una cuenta con deuda (pago directo desde Home).
+  CuentaSaldo? get _cuentaUnicaPendiente {
+    final cuentas = _cuentasConDeuda;
+    return cuentas.length == 1 ? cuentas.first : null;
+  }
 
-  List<DetallePartido> get _deudasCuentaFoco {
-    final orgId = _cuentaFoco?.organizadorId;
+  double? get _saldoCuentaUnica => _cuentaUnicaPendiente?.saldoAcumulado;
+
+  List<DetallePartido> get _deudasCuentaUnica {
+    final orgId = _cuentaUnicaPendiente?.organizadorId;
     if (orgId == null) return const [];
     return deudasDeOrganizador(_deudas, orgId);
   }
 
-  List<SaldoHistorico> get _historialCuentaFoco {
-    final orgId = _cuentaFoco?.organizadorId;
+  List<SaldoHistorico> get _historialCuentaUnica {
+    final orgId = _cuentaUnicaPendiente?.organizadorId;
     if (orgId == null) return const [];
     return _historialSaldo
         .where((h) => h.organizadorId == orgId)
@@ -512,41 +524,58 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   }
 
   ExplicacionDeudaJugador? get _explicacionDeuda {
-    final cuenta = _cuentaFoco;
+    final cuenta = _cuentaUnicaPendiente;
     final saldo = cuenta?.saldoAcumulado;
     if (cuenta == null || saldo == null) return null;
     return explicarDeudaJugador(
       saldoAcumulado: saldo,
-      historial: _historialCuentaFoco,
+      historial: _historialCuentaUnica,
       organizadorId: cuenta.organizadorId,
     );
   }
 
+  void _abrirMisCobros() {
+    widget.onOpenMisCobros?.call();
+  }
+
   void _pagarTotalDesdeHomeTeaser() {
+    // Multi-org: no elegir cuenta; ir a Mis pendientes.
+    if (_cuentasConDeuda.length > 1) {
+      _abrirMisCobros();
+      return;
+    }
     widget.onPayTotalFromHome?.call();
   }
 
   void _pagarOtroDesdeHomeTeaser() {
+    if (_cuentasConDeuda.length > 1) {
+      _abrirMisCobros();
+      return;
+    }
     widget.onPayOtherFromHome?.call();
   }
 
   void _verDetalleCobroDesdeHome() {
-    final deudasFoco = _deudasCuentaFoco;
-    final saldo = _saldoCuentaFoco;
+    if (_cuentasConDeuda.length > 1) {
+      _abrirMisCobros();
+      return;
+    }
+    final deudasUnica = _deudasCuentaUnica;
+    final saldo = _saldoCuentaUnica;
     final detalle = detalleCobroParaVerDetalle(
-      deudas: deudasFoco,
+      deudas: deudasUnica,
       desgloses: _desglosePorPartido,
       saldosAnterioresPorPartido: _saldosPorPartido,
       saldoAcumuladoJugador: saldo,
     );
     if (detalle == null) {
-      widget.onOpenMisCobros?.call();
+      _abrirMisCobros();
       return;
     }
     final bloqueado =
-        deudasFoco.any((d) => d.comprobantePendienteValidacion);
+        deudasUnica.any((d) => d.comprobantePendienteValidacion);
     final ancla = cobrosVisiblesJugador(
-      deudas: deudasFoco,
+      deudas: deudasUnica,
       desgloses: _desglosePorPartido,
       saldosAnterioresPorPartido: _saldosPorPartido,
       saldoAcumuladoJugador: saldo,
@@ -558,7 +587,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       saldoAnteriorAlPartido: _saldosPorPartido[detalle.partidoId],
       saldoAcumuladoJugador: saldo,
       esAnclaCuenta: ancla?.partidoId == detalle.partidoId || ancla == null,
-      historialSaldo: _historialCuentaFoco,
+      historialSaldo: _historialCuentaUnica,
       onPayTotal: bloqueado || _readOnly
           ? null
           : () {
@@ -670,19 +699,25 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     final explicacion = _explicacionDeuda;
     final empathy = _organizerEmpathyCopy();
     final headline = _dynamicHeadline(l10n, deudaTotal, hero);
-    final deudasFoco = _deudasCuentaFoco;
-    final saldoFoco = _saldoCuentaFoco;
+    final cuentasDeuda = _cuentasConDeuda;
+    final multiOrgPendiente = cuentasDeuda.length > 1;
+    final deudasTeaser = multiOrgPendiente
+        ? _deudas
+        : _deudasCuentaUnica;
+    final saldoTeaser = multiOrgPendiente ? null : _saldoCuentaUnica;
     final comprobanteEnRevision =
-        deudasFoco.any((d) => d.comprobantePendienteValidacion);
+        deudasTeaser.any((d) => d.comprobantePendienteValidacion);
     final cobrosVisibles = cobrosVisiblesJugador(
-      deudas: deudasFoco,
+      deudas: deudasTeaser,
       desgloses: _desglosePorPartido,
       saldosAnterioresPorPartido: _saldosPorPartido,
-      saldoAcumuladoJugador: saldoFoco,
+      saldoAcumuladoJugador: saldoTeaser,
     );
     final encuentrosPendientesCount =
         (cobrosVisibles.ancla != null ? 1 : 0) + cobrosVisibles.otros.length;
-    final partidoLineaCobro = lineaPartidoDetalle(cobrosVisibles.ancla);
+    final partidoLineaCobro = multiOrgPendiente
+        ? null
+        : lineaPartidoDetalle(cobrosVisibles.ancla);
 
     return ShellTabScaffold(
       backgroundColor: MatchPayTokens.surfaceBase,

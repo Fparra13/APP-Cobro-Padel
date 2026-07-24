@@ -1060,6 +1060,7 @@ class AppRepositories {
     required String storagePath,
     required double montoDeclarado,
     required bool esAbono,
+    required String organizadorId,
   }) {
     if (useRemote) {
       return _partidoRemote.subirComprobantePago(
@@ -1067,6 +1068,7 @@ class AppRepositories {
         storagePath: storagePath,
         montoDeclarado: montoDeclarado,
         esAbono: esAbono,
+        organizadorId: organizadorId,
       );
     }
     throw UnsupportedError('Requiere conexión a Supabase');

@@ -572,6 +572,142 @@ class PlayerMisCobrosHeroCard extends StatelessWidget {
   }
 }
 
+/// Resumen superior: total multi-org (sin CTA de pago).
+class PlayerMisCobrosTotalResumen extends StatelessWidget {
+  final double total;
+
+  const PlayerMisCobrosTotalResumen({super.key, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return MatchPaySurfaceCard(
+      elevated: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l10n.tr('myChargesScreenTitle'),
+            style: MatchPayTokens.bodySmallStyle().copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            formatMoney(total),
+            style: MatchPayTokens.headlineStyle().copyWith(fontSize: 32),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Una cuenta pendiente con un organizador concreto.
+class PlayerCuentaOrganizadorPendienteCard extends StatelessWidget {
+  final String organizadorNombre;
+  final double deuda;
+  final bool pagando;
+  final bool comprobanteEnRevision;
+  final VoidCallback onPayTotal;
+  final VoidCallback onPayAbono;
+  final VoidCallback? onVerDetalle;
+
+  const PlayerCuentaOrganizadorPendienteCard({
+    super.key,
+    required this.organizadorNombre,
+    required this.deuda,
+    required this.pagando,
+    required this.comprobanteEnRevision,
+    required this.onPayTotal,
+    required this.onPayAbono,
+    this.onVerDetalle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final bloqueado = pagando || comprobanteEnRevision;
+    return MatchPaySurfaceCard(
+      urgent: !comprobanteEnRevision,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (comprobanteEnRevision) ...[
+            MatchPayStatusBanner(
+              icon: Icons.hourglass_top_rounded,
+              message: l10n.tr('paymentPendingApprovalBody'),
+              urgent: true,
+            ),
+            const SizedBox(height: 12),
+          ],
+          Text(
+            organizadorNombre,
+            style: MatchPayTokens.titleSmallStyle().copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            formatMoney(deuda),
+            style: MatchPayTokens.headlineStyle().copyWith(fontSize: 26),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 44,
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: bloqueado ? null : onPayTotal,
+              style: FilledButton.styleFrom(
+                backgroundColor: MatchPayTokens.accentUrgent,
+              ),
+              child: pagando
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      l10n.tr('cobrosPayTotalBtn'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 40,
+                  child: OutlinedButton(
+                    onPressed: bloqueado ? null : onPayAbono,
+                    child: Text(l10n.tr('cobrosAbonoShort')),
+                  ),
+                ),
+              ),
+              if (onVerDetalle != null) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: OutlinedButton(
+                      onPressed: pagando ? null : onVerDetalle,
+                      child: Text(l10n.tr('cobrosViewDetail')),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Al día en cuenta; opcionalmente con saldo a favor.
 class PlayerCuentaAlDiaCard extends StatelessWidget {
   final double saldoAFavor;

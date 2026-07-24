@@ -653,26 +653,15 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
   void _payTotalFromHome() {
     setState(() => _index = 2);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final started = await PlayerPayBridge.instance.requestPayTotal();
-      if (!started && mounted) {
-        NotificationService.instance.showInAppSnack(
-          context.l10n.tr('cobrosNoOpenCharges'),
-          context: context,
-        );
-      }
+      // 1 cuenta → MisCobros inicia pago. 2+ → solo lista (started=false).
+      await PlayerPayBridge.instance.requestPayTotal();
     });
   }
 
   void _payOtherFromHome() {
     setState(() => _index = 2);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final started = await PlayerPayBridge.instance.requestPayOther();
-      if (!started && mounted) {
-        NotificationService.instance.showInAppSnack(
-          context.l10n.tr('cobrosNoOpenCharges'),
-          context: context,
-        );
-      }
+      await PlayerPayBridge.instance.requestPayOther();
     });
   }
 

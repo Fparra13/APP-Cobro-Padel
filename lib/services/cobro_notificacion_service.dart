@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/sport_theme.dart';
@@ -292,10 +290,11 @@ class CobroNotificacionService {
   String _truncar(String s, int max) =>
       s.length <= max ? s : '${s.substring(0, max - 1)}…';
 
-  /// Jugador subió comprobante → avisa al organizador.
+  /// Jugador subió comprobante → avisa al organizador del partido.
   Future<void> notificarComprobanteOrganizador({
     required int detalleId,
     required int partidoId,
+    required String organizadorId,
     required String jugadorNombre,
     required double monto,
     required bool esAbono,
@@ -303,8 +302,20 @@ class CobroNotificacionService {
     if (!SupabaseConfig.isConfigured) return;
 
     try {
-      final orgId = await _resolverOrganizadorId(partidoId);
+      final orgId = organizadorId.trim().isNotEmpty
+          ? organizadorId.trim()
+          : await _organizadorIdDePartido(partidoId);
       if (orgId == null || orgId.isEmpty) return;
+
+      // Defensa: el partido debe pertenecer a ese organizador.
+      final orgPartido = await _organizadorIdDePartido(partidoId);
+      if (orgPartido == null || orgPartido.isEmpty || orgPartido != orgId) {
+        appLog(
+          'CobroNotificacionService.notificarComprobanteOrganizador: '
+          'organizador no coincide con partido $partidoId',
+        );
+        return;
+      }
 
       final lang = await NotificationLocale.forUser(orgId);
       final tipo = esAbono
@@ -458,22 +469,15 @@ class CobroNotificacionService {
     return jugadorId;
   }
 
-  Future<String?> _resolverOrganizadorId(int partidoId) async {
+  /// Solo el organizador dueño del partido. Sin fallback a “cualquier organizer”.
+  Future<String?> _organizadorIdDePartido(int partidoId) async {
     final row = await SupabaseHelpers.client
         .from('partidos')
         .select('organizador_id')
         .eq('id', partidoId)
         .maybeSingle();
-    final orgId = row?['organizador_id']?.toString();
-    if (orgId != null && orgId.isNotEmpty) return orgId;
-
-    final fallback = await SupabaseHelpers.client
-        .from('profiles')
-        .select('id')
-        .inFilter('role', ['organizer', 'organizador'])
-        .eq('activo', true)
-        .limit(1)
-        .maybeSingle();
-    return fallback?['id']?.toString();
+    final orgId = row?['organizador_id']?.toString().trim();
+    if (orgId == null || orgId.isEmpty) return null;
+    return orgId;
   }
 }

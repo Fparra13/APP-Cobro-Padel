@@ -2,17 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../domain/deuda_explicacion.dart';
-import '../models/cuenta_saldo.dart';
-import '../models/saldo_historico.dart';
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
+import '../models/cuenta_saldo.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
+import '../models/saldo_historico.dart';
 import '../utils/cobro_jugador_ui.dart';
-import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
 import '../utils/player_pay_bridge.dart';
 import '../widgets/cobro_pago_flow.dart';
@@ -23,7 +21,7 @@ import '../widgets/player_match_history_tile.dart';
 import '../widgets/player_matches_to_close.dart';
 import '../widgets/shimmer_loading.dart';
 
-/// Cobros del jugador: cuentas por organizador + historial.
+/// Cobros del jugador: una fila/pago por organizador + historial.
 class MisCobrosScreen extends StatefulWidget {
   const MisCobrosScreen({super.key});
 
@@ -38,38 +36,39 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
   final Map<int, double> _saldoAnteriorPorPartido = {};
   List<CuentaSaldo> _cuentas = [];
   double _totalDeudaHome = 0;
-  CuentaSaldo? _cuentaFoco;
-  List<SaldoHistorico> _historialSaldo = [];
+  final Map<String, List<SaldoHistorico>> _historialPorOrg = {};
   bool _loading = true;
   bool _hasLoaded = false;
   bool _loadInFlight = false;
   String? _error;
-  bool _pagando = false;
+  /// organizadorId en curso de pago (deshabilita CTAs de esa card).
+  String? _pagandoOrgId;
   Timer? _reloadDebounce;
 
-  /// Saldo de la cuenta en foco (nunca un wallet global).
-  double? get _saldoCuentaFoco => _cuentaFoco?.saldoAcumulado;
+  /// Cuentas con deuda viva, mayor monto primero (solo orden, no auto-pago).
+  List<CuentaSaldo> get _cuentasConDeuda {
+    final list =
+        _cuentas.where((c) => c.deuda > 0.005).toList(growable: false);
+    return List<CuentaSaldo>.from(list)
+      ..sort((a, b) => b.deuda.compareTo(a.deuda));
+  }
 
-  List<DetallePartido> get _deudasCuentaFoco {
-    final orgId = _cuentaFoco?.organizadorId;
-    if (orgId == null) return const [];
-    return deudasDeOrganizador(_deudas, orgId);
+  bool _cuentaEnRevision(CuentaSaldo cuenta) {
+    return deudasDeOrganizador(_deudas, cuenta.organizadorId)
+        .any((d) => d.comprobantePendienteValidacion);
   }
 
   @override
   void initState() {
     super.initState();
+    // Home teaser: solo inicia pago si hay una única cuenta con deuda.
     PlayerPayBridge.instance.registerPayTotalHandler(() async {
-      if (!_hasLoaded) {
-        await _load();
-      }
-      await _pagar(esTotal: true);
+      if (!_hasLoaded) await _load();
+      return _pagarDesdeBridge(esTotal: true);
     });
     PlayerPayBridge.instance.registerPayOtherHandler(() async {
-      if (!_hasLoaded) {
-        await _load();
-      }
-      await _pagar(esTotal: false);
+      if (!_hasLoaded) await _load();
+      return _pagarDesdeBridge(esTotal: false);
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
     AppRepositories.dataRevision.addListener(_onDataChanged);
@@ -119,23 +118,27 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
       final total = totalRpc > 0.005
           ? totalRpc
           : totalDeudaDesdeCuentas(cuentas);
-      final foco = cuentaConMayorDeuda(cuentas);
-      final historialSaldo = uid != null && foco != null
-          ? await repos.getSaldosByJugador(
-              uid,
-              organizadorId: foco.organizadorId,
-            )
-          : <SaldoHistorico>[];
-      final deudasFoco = foco == null
-          ? <DetallePartido>[]
-          : deudasDeOrganizador(rawDeudas, foco.organizadorId);
-      final deudas = ordenarCobrosPorAtencion(
-        deudasFoco,
-        saldosAnterioresPorPartido: saldosAnteriores,
-      );
+
+      final conDeuda = cuentas.where((c) => c.deuda > 0.005).toList();
+      final historialPorOrg = <String, List<SaldoHistorico>>{};
+      if (uid != null) {
+        await Future.wait(
+          conDeuda.map((c) async {
+            try {
+              historialPorOrg[c.organizadorId] = await repos.getSaldosByJugador(
+                uid,
+                organizadorId: c.organizadorId,
+              );
+            } catch (_) {
+              historialPorOrg[c.organizadorId] = const [];
+            }
+          }),
+        );
+      }
+
       final desgloseMap = <int, DesgloseJugador?>{};
       await Future.wait(
-        deudas.map((d) async {
+        rawDeudas.map((d) async {
           try {
             desgloseMap[d.partidoId] = await repos.getMiDesglosePartido(
               d.partidoId,
@@ -145,6 +148,7 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
           }
         }),
       );
+
       if (mounted) {
         setState(() {
           _deudas = rawDeudas;
@@ -157,8 +161,9 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
             ..addAll(saldosAnteriores);
           _cuentas = cuentas;
           _totalDeudaHome = total;
-          _cuentaFoco = foco;
-          _historialSaldo = historialSaldo;
+          _historialPorOrg
+            ..clear()
+            ..addAll(historialPorOrg);
         });
       }
     } catch (e) {
@@ -178,57 +183,69 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
     }
   }
 
-  Future<void> _pagar({required bool esTotal}) async {
-    if (_pagando) return;
-    final deudasPago = _deudasCuentaFoco;
-    final saldo = _saldoCuentaFoco;
-    if (deudasPago.isEmpty || saldo == null) return;
-    setState(() => _pagando = true);
+  Future<bool> _pagarDesdeBridge({required bool esTotal}) async {
+    final cuentas = _cuentasConDeuda;
+    if (cuentas.length != 1) return false;
+    await _pagar(cuenta: cuentas.first, esTotal: esTotal);
+    return true;
+  }
+
+  Future<void> _pagar({
+    required CuentaSaldo cuenta,
+    required bool esTotal,
+  }) async {
+    if (_pagandoOrgId != null) return;
+    final deudasPago = deudasDeOrganizador(_deudas, cuenta.organizadorId);
+    if (deudasPago.isEmpty) return;
+    setState(() => _pagandoOrgId = cuenta.organizadorId);
     try {
       await CobroPagoFlow.iniciarPagoGlobal(
         context: context,
+        organizadorId: cuenta.organizadorId,
+        organizadorNombre: cuenta.nombreOrganizador,
+        cuenta: cuenta,
         deudas: deudasPago,
         desgloses: _desglosePorPartido,
         saldosAnterioresPorPartido: _saldoAnteriorPorPartido,
-        saldoAcumuladoJugador: saldo,
         esTotal: esTotal,
         onCompletado: () => _load(silent: true),
       );
     } finally {
-      if (mounted) setState(() => _pagando = false);
+      if (mounted) setState(() => _pagandoOrgId = null);
     }
   }
 
-  void _verDetalle(DetallePartido detalle) {
-    final deudasPago = _deudasCuentaFoco;
-    final saldo = _saldoCuentaFoco;
+  void _verDetalle(CuentaSaldo cuenta) {
+    final deudasOrg = deudasDeOrganizador(_deudas, cuenta.organizadorId);
+    final saldo = cuenta.saldoAcumulado;
     final bloqueado =
-        deudasPago.any((d) => d.comprobantePendienteValidacion);
+        deudasOrg.any((d) => d.comprobantePendienteValidacion);
     final ancla = detalleCobroParaVerDetalle(
-      deudas: deudasPago,
+      deudas: deudasOrg,
       desgloses: _desglosePorPartido,
       saldosAnterioresPorPartido: _saldoAnteriorPorPartido,
       saldoAcumuladoJugador: saldo,
     );
+    if (ancla == null) return;
     CobroVerDetalleSheet.show(
       context,
-      detalle: detalle,
-      desglose: _desglosePorPartido[detalle.partidoId],
-      saldoAnteriorAlPartido: _saldoAnteriorPorPartido[detalle.partidoId],
+      detalle: ancla,
+      desglose: _desglosePorPartido[ancla.partidoId],
+      saldoAnteriorAlPartido: _saldoAnteriorPorPartido[ancla.partidoId],
       saldoAcumuladoJugador: saldo,
-      esAnclaCuenta: detalle.partidoId == ancla?.partidoId,
-      historialSaldo: _historialSaldo,
+      esAnclaCuenta: true,
+      historialSaldo: _historialPorOrg[cuenta.organizadorId] ?? const [],
       onPayTotal: bloqueado
           ? null
           : () {
               Navigator.of(context).maybePop();
-              _pagar(esTotal: true);
+              _pagar(cuenta: cuenta, esTotal: true);
             },
       onPayAbono: bloqueado
           ? null
           : () {
               Navigator.of(context).maybePop();
-              _pagar(esTotal: false);
+              _pagar(cuenta: cuenta, esTotal: false);
             },
     );
   }
@@ -236,36 +253,9 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final lang = context.readSettings().locale.languageCode;
-    final deudasFoco = _deudasCuentaFoco;
-    final saldoFoco = _saldoCuentaFoco;
-    final visibles = cobrosVisiblesJugador(
-      deudas: deudasFoco,
-      desgloses: _desglosePorPartido,
-      saldosAnterioresPorPartido: _saldoAnteriorPorPartido,
-      saldoAcumuladoJugador: saldoFoco,
-    );
-    final explicacion = saldoFoco == null || _cuentaFoco == null
-        ? null
-        : explicarDeudaJugador(
-            saldoAcumulado: saldoFoco,
-            historial: _historialSaldo,
-            organizadorId: _cuentaFoco!.organizadorId,
-          );
-    final ancla = visibles.ancla;
-    // Hero: total home (sin netear). Pago/explicación: cuenta en foco.
+    final cuentasDeuda = _cuentasConDeuda;
     final total = _totalDeudaHome;
-    final cuentaConDeuda = total > 0.005;
-    final comprobanteEnRevision =
-        deudasFoco.any((d) => d.comprobantePendienteValidacion);
-    final mostrarHero = mostrarHeroCobroPendiente(
-      totalPendiente: total,
-      comprobanteEnRevision: comprobanteEnRevision,
-    );
-    final cobrosResumen = cobrosParaResumenDeportes(
-      ancla: ancla,
-      otros: visibles.otros,
-    );
+    final tieneDeuda = total > 0.005 || cuentasDeuda.isNotEmpty;
     final creditoAlDia = totalCreditoDesdeCuentas(_cuentas);
 
     return ShellTabScaffold(
@@ -298,36 +288,29 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  if (!mostrarHero)
+                  if (!tieneDeuda)
                     PlayerCuentaAlDiaCard(
                       saldoAFavor: creditoAlDia,
                     )
                   else ...[
-                    PlayerMisCobrosHeroCard(
-                      total: total,
-                      pagando: _pagando,
-                      comprobanteEnRevision: comprobanteEnRevision,
-                      explicacion: cuentaConDeuda ? explicacion : null,
-                      partidoLinea: lineaPartidoDetalle(ancla),
-                      deportesResumen: cobrosResumen.length > 1
-                          ? resumenDeportesLinea(cobrosResumen, l10n, lang)
-                          : null,
-                      onPayTotal: () => _pagar(esTotal: true),
-                      onPayAbono: () => _pagar(esTotal: false),
-                      onVerDetallePartido: () {
-                        final target = ancla ??
-                            detalleCobroParaVerDetalle(
-                              deudas: deudasFoco,
-                              desgloses: _desglosePorPartido,
-                              saldosAnterioresPorPartido:
-                                  _saldoAnteriorPorPartido,
-                              saldoAcumuladoJugador: saldoFoco,
-                            );
-                        if (target != null) _verDetalle(target);
-                      },
-                    ),
-                    if (cuentaConDeuda && _partidosJugados.isNotEmpty) ...[
-                      const SizedBox(height: 24),
+                    PlayerMisCobrosTotalResumen(total: total),
+                    const SizedBox(height: 16),
+                    for (final cuenta in cuentasDeuda) ...[
+                      PlayerCuentaOrganizadorPendienteCard(
+                        organizadorNombre: cuenta.nombreOrganizador,
+                        deuda: cuenta.deuda,
+                        pagando: _pagandoOrgId == cuenta.organizadorId,
+                        comprobanteEnRevision: _cuentaEnRevision(cuenta),
+                        onPayTotal: () =>
+                            _pagar(cuenta: cuenta, esTotal: true),
+                        onPayAbono: () =>
+                            _pagar(cuenta: cuenta, esTotal: false),
+                        onVerDetalle: () => _verDetalle(cuenta),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    if (_partidosJugados.isNotEmpty) ...[
+                      const SizedBox(height: 12),
                       MatchPaySectionHeader(
                         title: l10n.tr('playerMatchHistorySection'),
                       ),
@@ -336,7 +319,11 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
                         partidos: _partidosJugados,
                         saldosPorPartido: _saldoAnteriorPorPartido,
                         modo: PlayerMatchHistorialModo.cuentaConDeuda,
-                        historialSaldo: _historialSaldo,
+                        historialSaldo: cuentasDeuda.length == 1
+                            ? (_historialPorOrg[
+                                    cuentasDeuda.first.organizadorId] ??
+                                const [])
+                            : const [],
                       ),
                     ],
                   ],
