@@ -97,7 +97,7 @@ window.KLOOVI_LOCALES = {
       <div class="notice">
         <strong>Kloovi no es una app financiera</strong>
         <span class="notice-key">Kloovi no recibe, custodia, transfiere ni procesa dinero.</span>
-        No somos un banco, billetera electrónica, procesador de pagos (PSP) ni intermediario de pagos. La app solo ayuda a organizar encuentros deportivos y a registrar información administrativa entre miembros de un grupo (por ejemplo, quién aportó y comprobantes fotográficos). Cualquier pago real ocurre fuera de Kloovi, entre organizador y participantes (transferencia, efectivo u otro medio elegido por ustedes).
+        No somos un banco, billetera electrónica, proveedor de servicios de pago (PSP) ni intermediario de pagos. La app solo ayuda a organizar encuentros deportivos y a registrar información administrativa entre miembros de un grupo (por ejemplo, quién aportó y comprobantes fotográficos). Cualquier pago real ocurre fuera de Kloovi, entre organizador y participantes (transferencia, efectivo u otro medio que elijan).
       </div>
       <p>Esta Política explica qué datos personales tratamos cuando usas la aplicación móvil Kloovi y el sitio <a href="https://kloovi.app">kloovi.app</a>, con qué finalidades, con quién los compartimos y qué derechos tienes. Contacto de privacidad: <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
 
@@ -113,16 +113,16 @@ window.KLOOVI_LOCALES = {
       <p>Según cómo uses la app, podemos tratar:</p>
       <ul>
         <li><strong>Cuenta e identidad:</strong> nombre, correo electrónico, foto de perfil (si inicias sesión con Google o los cargas tú), identificador de usuario.</li>
-        <li><strong>Datos de uso del grupo:</strong> encuentros, convocatorias, confirmaciones, roster, saldos y conceptos administrativos.</li>
+        <li><strong>Datos de uso del grupo:</strong> encuentros, convocatorias, confirmaciones, lista de participantes, saldos y conceptos administrativos.</li>
         <li><strong>Comprobantes:</strong> imágenes o archivos como evidencia de un pago hecho <em>fuera</em> de la app. Kloovi no ejecuta el pago.</li>
-        <li><strong>Dispositivo y notificaciones:</strong> token de notificaciones push, idioma/preferencias, diagnósticos de estabilidad si están habilitados.</li>
+        <li><strong>Dispositivo y notificaciones:</strong> token de notificaciones automáticas (push), idioma/preferencias, diagnósticos de estabilidad si están habilitados.</li>
         <li><strong>Soporte:</strong> contenido que nos envíes por correo.</li>
       </ul>
       <p>No solicitamos datos de tarjetas bancarias, claves de banco, CVV ni credenciales de pasarelas, porque Kloovi <strong>no procesa pagos</strong>.</p>
 
       <h2>3. Finalidades</h2>
       <ul>
-        <li>Crear y autenticar tu cuenta (incluido Acceder con Google vía nuestro proveedor de autenticación).</li>
+        <li>Crear y autenticar tu cuenta (incluido el inicio de sesión con Google a través de nuestro proveedor de autenticación).</li>
         <li>Organizar encuentros, invitaciones, confirmaciones y comunicación del grupo.</li>
         <li>Permitir al organizador registrar y hacer seguimiento de aportes (registros, saldos y revisión de comprobantes).</li>
         <li>Enviar notificaciones relacionadas con la app, si otorgas permiso.</li>
@@ -131,15 +131,15 @@ window.KLOOVI_LOCALES = {
       </ul>
 
       <h2>4. Base del tratamiento</h2>
-      <p>Tratamos datos principalmente sobre la base de la <strong>ejecución del contrato</strong> (prestar el servicio Kloovi que solicitas). También podemos tratar datos por tu consentimiento cuando aplica (p. ej. notificaciones push, cámara o galería) y por interés legítimo de seguridad y mejora del producto, sin menoscabar tus derechos.</p>
+      <p>Tratamos datos principalmente sobre la base de la <strong>ejecución del contrato</strong> (prestar el servicio Kloovi que solicitas). También podemos tratar datos por tu consentimiento cuando aplica (p. ej. notificaciones automáticas, cámara o galería) y por interés legítimo de seguridad y mejora del producto, sin menoscabar tus derechos.</p>
 
       <h2>5. Proveedores</h2>
       <ul>
         <li><strong>Supabase</strong> — autenticación de cuentas, base de datos y almacenamiento (p. ej. perfiles y comprobantes).</li>
         <li><strong>Google Sign-In</strong> — si eliges entrar con Google, para obtener identidad básica (nombre, correo, foto) que se asocia a tu sesión en Supabase.</li>
-        <li><strong>Firebase Cloud Messaging (FCM)</strong> — envío de notificaciones push.</li>
+        <li><strong>Firebase Cloud Messaging (FCM)</strong> — envío de notificaciones automáticas (push).</li>
         <li><strong>Firebase Crashlytics</strong> — reportes de estabilidad y fallos de la app, cuando está habilitado.</li>
-        <li><strong>Firebase Analytics</strong> — métricas de uso básicas, solo si está habilitado en la build.</li>
+        <li><strong>Firebase Analytics</strong> — métricas de uso básicas, solo si está habilitado en la versión de la aplicación.</li>
         <li><strong>Vercel</strong> — alojamiento de este sitio web.</li>
       </ul>
       <p>No vendemos tus datos personales. No usamos Firebase Authentication como sistema principal de cuentas (la sesión la gestiona Supabase).</p>
@@ -149,8 +149,8 @@ window.KLOOVI_LOCALES = {
       <ul>
         <li>no inicia transferencias,</li>
         <li>no recibe ni custodia fondos,</li>
-        <li>no remesa ni liquida dinero,</li>
-        <li>no actúa como pasarela de pago, billetera ni escrow,</li>
+        <li>no realiza remesas ni liquida dinero,</li>
+        <li>no actúa como pasarela de pago, billetera ni custodia de fondos de terceros (escrow),</li>
         <li>no garantiza ni ejecuta el cobro entre particulares.</li>
       </ul>
       <p>La relación de pago existe solo entre las personas del grupo. Kloovi refleja información que los usuarios cargan (incluida la revisión de comprobantes por el organizador).</p>
@@ -181,7 +181,7 @@ window.KLOOVI_LOCALES = {
       <p>Según la ley aplicable (incluida normativa chilena cuando corresponda), puedes solicitar acceso, rectificación, oposición, limitación o eliminación, y retirar consentimientos. Escríbenos a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
 
       <h2>13. Menores</h2>
-      <p>Kloovi no está dirigida a menores de 13 años o a la edad mínima exigida por la legislación de su país, la que sea mayor. Si crees que un menor nos aportó datos indebidamente, contáctanos para borrarlos.</p>
+      <p>Kloovi no está dirigida a menores de 13 años o a la edad mínima exigida por la legislación de tu país, la que sea mayor. Si crees que un menor nos aportó datos indebidamente, contáctanos para borrarlos.</p>
 
       <h2>14. Transferencias internacionales</h2>
       <p>Nuestros proveedores pueden procesar datos en servidores fuera de tu país, con las salvaguardas que ofrezcan.</p>
@@ -214,14 +214,14 @@ window.KLOOVI_LOCALES = {
         <li>No somos entidad financiera ni emisora de medios de pago.</li>
         <li>No recibimos, custodiamos ni transferimos fondos.</li>
         <li>No iniciamos débitos ni cargos a tarjetas.</li>
-        <li>No somos pasarela, agregador, billetera ni escrow.</li>
+        <li>No somos pasarela, agregador, billetera ni custodia de fondos de terceros (escrow).</li>
         <li>No garantizamos pagos entre particulares ni mediamos legalmente esas disputas.</li>
       </ul>
       <p>Cualquier pago ocurre fuera de Kloovi, entre las personas del grupo.</p>
       <h2>3. Naturaleza del servicio y comprobantes</h2>
       <p>Kloovi proporciona únicamente herramientas para registrar información administrativa entre miembros de un grupo. No verificamos la autenticidad de los comprobantes ni intervenimos en disputas por pagos externos. Cada usuario es responsable de lo que comparte; el organizador decide cómo validarlo.</p>
       <h2>4. Cuentas y eliminación</h2>
-      <p>Información veraz; edad mínima de 13 años o la exigida por tu país, la que sea mayor. Puedes eliminar tu cuenta desde Configuración en la app o solicitándolo a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
+      <p>Debes proporcionar información veraz. Debes tener al menos 13 años o la edad mínima exigida por tu país, la que sea mayor. Puedes eliminar tu cuenta desde Configuración en la app o solicitándolo a <a href="mailto:hello@kloovi.app">hello@kloovi.app</a>.</p>
       <h2>5. Conducta</h2>
       <p>No uses Kloovi para fraude, lavado de dinero, acoso u otras ilegalidades; ni presentes la app como banco o procesador de pagos.</p>
       <h2>6. Contenido del usuario</h2>
@@ -231,7 +231,7 @@ window.KLOOVI_LOCALES = {
       <h2>8. Suscripciones (si aplican)</h2>
       <p>Un cobro por software al organizador (plan de la app) no es un servicio financiero ni un pago “en nombre” de los participantes del encuentro.</p>
       <h2>9. Disponibilidad</h2>
-      <p>Servicio “tal cual” y según disponibilidad; pueden existir interrupciones.</p>
+      <p>El servicio se ofrece en el estado en que se encuentra y según disponibilidad; pueden existir interrupciones.</p>
       <h2>10. Limitación de responsabilidad</h2>
       <p>Kloovi no responde por disputas de pago entre usuarios, montos adeudados, reservas externas ni comprobantes incorrectos o falsos. Nada limita derechos inalienables del consumidor cuando la ley no permita excluirlos.</p>
       <h2>11. Propiedad intelectual</h2>
