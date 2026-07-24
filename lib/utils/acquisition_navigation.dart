@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -8,12 +6,12 @@ import '../core/app_settings_controller.dart';
 import '../core/auth_service.dart';
 import '../screens/responder_convocatoria_screen.dart';
 import '../utils/app_log.dart';
-import '../utils/app_navigation.dart';
 
 /// Tras login: aplica intención de adquisición (organizer explícito o jugador).
 ///
-/// [MatchPayAcquisitionIntent.createFirstGroup] promueve a organizer (RLS/shell).
-/// Eso no es Pro: crear encuentros sigue pasando por [FeatureGate.requirePro].
+/// [MatchPayAcquisitionIntent.createFirstGroup] promueve a organizer y deja
+/// [AppUiMode.organizer] para que [RoleAwareShell] muestre Organizer Home.
+/// No abre crear encuentro ni paywall: Pro solo al crear (FeatureGate).
 Future<void> applyAcquisitionAfterLogin(BuildContext context) async {
   final acq = context.read<AcquisitionController>();
   final settings = context.read<AppSettingsController>();
@@ -27,6 +25,8 @@ Future<void> applyAcquisitionAfterLogin(BuildContext context) async {
         await AuthService.instance.refreshProfile();
         if (AuthService.instance.isOrganizer) {
           await settings.setUiMode(AppUiMode.organizer);
+          // One-shot: limpia intent en [runPendingAcquisitionNavigation].
+          // No auto-navega a crear encuentro.
           acq.markPendingOpenOrganizer();
         } else {
           await settings.syncUiModeWithRole(isOrganizer: false);
@@ -53,15 +53,14 @@ Future<void> applyAcquisitionAfterLogin(BuildContext context) async {
   await acq.markResolvedAfterLogin();
 }
 
-/// Abre convocatoria o flujo de primer grupo si quedó pendiente tras login.
+/// Navegación post-login pendiente (invitación).
+///
+/// createFirstGroup solo consume el flag para no re-aplicar el intent;
+/// el usuario ya está en Organizer Home vía [AppUiMode.organizer].
 void runPendingAcquisitionNavigation(BuildContext context) {
   final acq = context.read<AcquisitionController>();
 
   if (acq.consumePendingOpenOrganizer()) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!context.mounted) return;
-      unawaited(abrirOrganizarPartido(context));
-    });
     return;
   }
 
