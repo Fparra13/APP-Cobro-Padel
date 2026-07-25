@@ -10,6 +10,7 @@ import '../models/comprobante_estado.dart';
 import '../models/comprobante_pago.dart';
 import '../models/costo_variable.dart';
 import '../models/cobros_resumen.dart';
+import '../models/desglose_gasto_comprobante.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/gasto_por_concepto.dart';
@@ -1855,14 +1856,17 @@ class PartidoRepositoryRemote {
           cancha = pf;
         }
 
-        final vars = await _variablesAsignadasPartido(partidoId, uid);
+        final varsParsed = await _variablesAsignadasPartido(partidoId, uid);
         return _desgloseJugadorDesdeDatos(
           uid: uid,
           nombre: nombre,
           saldoAnterior: saldoAnt,
           cancha: cancha,
           pelotas: pelotas,
-          variables: vars,
+          variables: varsParsed.amounts,
+          gastosVariables: varsParsed.gastos,
+          comprobanteCanchaUrl: partido.comprobanteCancha,
+          comprobantePelotasUrl: partido.comprobantePelotas,
           detalleMap: detalleMap,
         );
       }),
@@ -1892,16 +1896,7 @@ class PartidoRepositoryRemote {
       cancha = pf;
     }
 
-    final varsRaw = map['variables'];
-    final vars = <String, double>{};
-    if (varsRaw is Map) {
-      for (final entry in varsRaw.entries) {
-        final monto = SupabaseParse.toDouble(entry.value);
-        if (monto > 0) {
-          vars[entry.key.toString()] = monto;
-        }
-      }
-    }
+    final parsed = DesgloseJugador.parseVariablesRpc(map['variables']);
 
     return _desgloseJugadorDesdeDatos(
       uid: uid,
@@ -1909,32 +1904,52 @@ class PartidoRepositoryRemote {
       saldoAnterior: saldoAnt,
       cancha: cancha,
       pelotas: pelotas,
-      variables: vars,
+      variables: parsed.amounts,
+      gastosVariables: parsed.gastos,
+      comprobanteCanchaUrl:
+          SupabaseParse.toStringOrNull(map['comprobante_cancha_url']),
+      comprobantePelotasUrl:
+          SupabaseParse.toStringOrNull(map['comprobante_pelotas_url']),
       detalleMap: map,
     );
   }
 
-  Future<Map<String, double>> _variablesAsignadasPartido(
+  Future<({
+    Map<String, double> amounts,
+    List<DesgloseGastoComprobante> gastos,
+  })> _variablesAsignadasPartido(
     int partidoId,
     String uid,
   ) async {
     final rows = await _client
         .from('asignaciones_costo')
-        .select('monto, costos_variables!inner(concepto, partido_id)')
+        .select(
+          'monto, costos_variables!inner(concepto, partido_id, comprobante_url)',
+        )
         .eq('costos_variables.partido_id', partidoId)
         .eq('jugador_id', uid);
 
-    final vars = <String, double>{};
+    final amounts = <String, double>{};
+    final gastos = <DesgloseGastoComprobante>[];
     for (final row in rows as List) {
       final map = Map<String, dynamic>.from(row);
       final cv = SupabaseParse.mapEmbed(map['costos_variables']);
       final concepto = SupabaseParse.toStringOrNull(cv?['concepto']);
       final monto = SupabaseParse.toDouble(map['monto']);
-      if (concepto != null && monto > 0) {
-        vars[concepto] = monto;
+      final url = SupabaseParse.toStringOrNull(cv?['comprobante_url']);
+      if (concepto == null) continue;
+      if (monto > 0) {
+        amounts[concepto] = monto;
       }
+      gastos.add(
+        DesgloseGastoComprobante(
+          concepto: concepto,
+          monto: monto,
+          comprobanteUrl: url,
+        ),
+      );
     }
-    return vars;
+    return (amounts: amounts, gastos: gastos);
   }
 
   DesgloseJugador _desgloseFallbackDesdeDetalle({
@@ -1965,6 +1980,9 @@ class PartidoRepositoryRemote {
     required double pelotas,
     required Map<String, double> variables,
     required Map<String, dynamic> detalleMap,
+    List<DesgloseGastoComprobante> gastosVariables = const [],
+    String? comprobanteCanchaUrl,
+    String? comprobantePelotasUrl,
   }) {
     final pf = SupabaseParse.toDouble(detalleMap['prorrateo_fijo']);
     final totalVars = SupabaseParse.toDouble(detalleMap['total_variables']);
@@ -1984,6 +2002,17 @@ class PartidoRepositoryRemote {
       montoPagado: montoPagado,
     );
 
+    final gastos = gastosVariables.isNotEmpty
+        ? gastosVariables
+        : variables.entries
+            .map(
+              (e) => DesgloseGastoComprobante(
+                concepto: e.key,
+                monto: e.value,
+              ),
+            )
+            .toList(growable: false);
+
     return DesgloseJugador(
       jugadorSupabaseId: uid,
       nombre: nombre,
@@ -1998,6 +2027,13 @@ class PartidoRepositoryRemote {
       montoPagado: roundMoney(montoPagado).toDouble(),
       saldoRestante: roundMoney(saldoRestante).toDouble(),
       pagado: pagado,
+      comprobanteCanchaUrl: comprobanteCanchaUrl?.trim().isEmpty == true
+          ? null
+          : comprobanteCanchaUrl?.trim(),
+      comprobantePelotasUrl: comprobantePelotasUrl?.trim().isEmpty == true
+          ? null
+          : comprobantePelotasUrl?.trim(),
+      gastosVariables: gastos,
     );
   }
 

@@ -20,7 +20,7 @@ import '../utils/formatters.dart';
 import '../utils/single_action.dart';
 import 'ayuda_tip.dart';
 import 'comprobante_historico_chip.dart';
-import 'comprobante_pago_tile.dart';
+import 'comprobantes_gastos_section.dart';
 import 'desglose_cobro_panel.dart';
 import 'jugador_app_badge.dart';
 import 'pagos_por_validar_panel.dart';
@@ -1141,40 +1141,13 @@ class _SeccionComprobantesGastos extends StatelessWidget {
     final items = _items(context);
     if (items.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SeccionTitulo(
-          icono: Icons.receipt_long,
-          titulo: context.tr('expenseReceiptsTitle'),
-          subtitulo: context.tr('expenseReceiptsSubtitle'),
-        ),
-        const SizedBox(height: 8),
-        ...items.map(
-          (item) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.label,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 6),
-                  ComprobantePagoTile(
-                    comprobantePath: item.path,
-                    onChanged: (_) {},
-                    compact: true,
-                    readOnly: true,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
+    return ComprobantesGastosSection(
+      items: items,
+      header: _SeccionTitulo(
+        icono: Icons.receipt_long,
+        titulo: context.tr('expenseReceiptsTitle'),
+        subtitulo: context.tr('expenseReceiptsSubtitle'),
+      ),
     );
   }
 }

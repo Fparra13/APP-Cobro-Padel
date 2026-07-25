@@ -15,6 +15,7 @@ import '../utils/formatters.dart';
 import '../widgets/desglose_cobro_panel.dart';
 import '../widgets/player_matches_to_close.dart';
 import 'comprobante_historico_chip.dart';
+import 'comprobantes_gastos_section.dart';
 import 'matchpay_ui.dart';
 import 'sport_icon.dart';
 
@@ -121,6 +122,11 @@ class CobroVerDetalleSheet extends StatelessWidget {
         !detalle.comprobantePendienteValidacion &&
         pendiente > 0.005;
     final bottomPad = 16.0 + bottomSafeInset;
+    final comprobantesGastos = desglose?.comprobantesGastosItems(
+          canchaLabel: l10n.tr('courtLabel'),
+          pelotasLabel: l10n.tr('ballsLabel'),
+        ) ??
+        const <({String label, String path})>[];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -250,6 +256,10 @@ class CobroVerDetalleSheet extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (comprobantesGastos.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  ComprobantesGastosSection(items: comprobantesGastos),
+                ],
                 if (detalle.organizadorId != null &&
                     detalle.organizadorId!.isNotEmpty &&
                     (pendiente > 0.005 ||

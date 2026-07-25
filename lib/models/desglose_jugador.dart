@@ -3,6 +3,7 @@ import '../domain/cobro_logic.dart';
 import '../services/calculation_service.dart';
 import '../utils/formatters.dart';
 import 'costo_variable.dart';
+import 'desglose_gasto_comprobante.dart';
 import 'detalle_partido.dart';
 import 'partido.dart';
 
@@ -23,6 +24,15 @@ class DesgloseJugador {
   /// (`organizador_jugadores.saldo_acumulado`).
   final double? saldoAcumuladoCuenta;
 
+  /// Path Storage del comprobante de cancha (opcional).
+  final String? comprobanteCanchaUrl;
+
+  /// Path Storage del comprobante de pelotas (opcional).
+  final String? comprobantePelotasUrl;
+
+  /// Variables enriquecidas (concepto/monto/comprobante) desde RPC.
+  final List<DesgloseGastoComprobante> gastosVariables;
+
   const DesgloseJugador({
     this.jugadorId = 0,
     this.jugadorSupabaseId,
@@ -37,7 +47,86 @@ class DesgloseJugador {
     required this.saldoRestante,
     required this.pagado,
     this.saldoAcumuladoCuenta,
+    this.comprobanteCanchaUrl,
+    this.comprobantePelotasUrl,
+    this.gastosVariables = const [],
   });
+
+  /// Parsea `variables` del RPC: array enriquecido o mapa legacy concepto→monto.
+  static ({
+    Map<String, double> amounts,
+    List<DesgloseGastoComprobante> gastos,
+  }) parseVariablesRpc(dynamic varsRaw) {
+    final amounts = <String, double>{};
+    final gastos = <DesgloseGastoComprobante>[];
+
+    if (varsRaw is List) {
+      for (final item in varsRaw) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+        final concepto = (map['concepto'] as String?)?.trim();
+        if (concepto == null || concepto.isEmpty) continue;
+        final monto = _toDouble(map['monto']);
+        final url = (map['comprobante_url'] as String?)?.trim();
+        final normalizedUrl =
+            (url != null && url.isNotEmpty) ? url : null;
+        if (monto > 0) {
+          amounts[concepto] = monto;
+        }
+        gastos.add(
+          DesgloseGastoComprobante(
+            concepto: concepto,
+            monto: monto,
+            comprobanteUrl: normalizedUrl,
+          ),
+        );
+      }
+      return (amounts: amounts, gastos: gastos);
+    }
+
+    if (varsRaw is Map) {
+      for (final entry in varsRaw.entries) {
+        final concepto = entry.key.toString().trim();
+        if (concepto.isEmpty) continue;
+        final monto = _toDouble(entry.value);
+        if (monto > 0) {
+          amounts[concepto] = monto;
+          gastos.add(
+            DesgloseGastoComprobante(concepto: concepto, monto: monto),
+          );
+        }
+      }
+    }
+
+    return (amounts: amounts, gastos: gastos);
+  }
+
+  static double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  /// Ítems con path no vacío para la sección de comprobantes de gastos.
+  List<({String label, String path})> comprobantesGastosItems({
+    required String canchaLabel,
+    required String pelotasLabel,
+  }) {
+    final items = <({String label, String path})>[];
+    final canchaUrl = comprobanteCanchaUrl?.trim();
+    if (canchaUrl != null && canchaUrl.isNotEmpty) {
+      items.add((label: canchaLabel, path: canchaUrl));
+    }
+    final pelotasUrl = comprobantePelotasUrl?.trim();
+    if (pelotasUrl != null && pelotasUrl.isNotEmpty) {
+      items.add((label: pelotasLabel, path: pelotasUrl));
+    }
+    for (final g in gastosVariables) {
+      if (!g.tieneComprobante) continue;
+      items.add((label: g.concepto, path: g.comprobanteUrl!.trim()));
+    }
+    return items;
+  }
 
   /// Crédito a favor en la cuenta del jugador (no solo en este partido).
   double get creditoCuenta {
