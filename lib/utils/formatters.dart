@@ -347,39 +347,49 @@ String formatPlazoRestante(Duration remaining) {
   );
 }
 
-/// Tiempo hasta [fecha] (ej. "3 horas", "mañana").
-String formatEnCuanto(DateTime fecha) {
-  final now = DateTime.now();
-  final diff = fecha.difference(now);
-  if (diff.isNegative) return formatTiempoRelativo(fecha);
-  if (diff.inMinutes < 60) {
-    final m = diff.inMinutes.clamp(1, 59);
+/// Tiempo hasta [fecha] según día calendario (no `Duration.inDays`).
+///
+/// - Hoy: "hoy a las HH:mm"
+/// - Mañana (día siguiente): "mañana a las HH:mm"
+/// - Dentro de 7 días: "el {día} a las HH:mm"
+/// - Más lejos: fecha completa con hora
+///
+/// [now] solo para tests; en producción usa [DateTime.now].
+String formatEnCuanto(DateTime fecha, {DateTime? now}) {
+  final reference = now ?? DateTime.now();
+  if (fecha.isBefore(reference)) {
+    return formatTiempoRelativo(fecha);
+  }
+
+  final dayFecha = DateTime(fecha.year, fecha.month, fecha.day);
+  final dayNow = DateTime(reference.year, reference.month, reference.day);
+  final calendarDays = dayFecha.difference(dayNow).inDays;
+  final time = formatHora(fecha);
+
+  if (calendarDays == 0) {
     return _relativeLocalePhrase(
-      es: '$m minutos',
-      en: '$m minutes',
-      pt: '$m minutos',
+      es: 'hoy a las $time',
+      en: 'today at $time',
+      pt: 'hoje às $time',
     );
   }
-  if (diff.inHours < 24) {
-    final h = diff.inHours;
+  if (calendarDays == 1) {
     return _relativeLocalePhrase(
-      es: '$h horas',
-      en: '$h hours',
-      pt: '$h horas',
+      es: 'mañana a las $time',
+      en: 'tomorrow at $time',
+      pt: 'amanhã às $time',
     );
   }
-  if (diff.inDays == 1) {
-    return _relativeLocalePhrase(es: 'mañana', en: 'tomorrow', pt: 'amanhã');
-  }
-  if (diff.inDays < 7) {
-    final d = diff.inDays;
+  if (calendarDays < 7) {
+    final weekday =
+        DateFormat('EEEE', _activeDateLocale).format(fecha).toLowerCase();
     return _relativeLocalePhrase(
-      es: '$d días',
-      en: '$d days',
-      pt: '$d dias',
+      es: 'el $weekday a las $time',
+      en: 'on ${capitalize(weekday)} at $time',
+      pt: '$weekday às $time',
     );
   }
-  return formatDiaCorto(fecha);
+  return formatDiaCompleto(fecha);
 }
 
 /// Saludo corto para mensajes (ej. "Francisco Parra" → "F. P.").
