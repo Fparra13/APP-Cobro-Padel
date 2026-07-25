@@ -28,6 +28,8 @@ class CobroVerDetalleSheet extends StatelessWidget {
   final double? saldoAnteriorAlPartido;
   final double? saldoAcumuladoJugador;
   final bool esAnclaCuenta;
+  /// Nombre del organizador ya disponible en UI (sin fetch).
+  final String? organizadorNombre;
   final List<SaldoHistorico>? historialSaldo;
   /// Inset de la barra de navegación / gesture (evita tapar botones).
   final double bottomSafeInset;
@@ -39,6 +41,7 @@ class CobroVerDetalleSheet extends StatelessWidget {
     this.saldoAnteriorAlPartido,
     this.saldoAcumuladoJugador,
     this.esAnclaCuenta = false,
+    this.organizadorNombre,
     this.historialSaldo,
     this.onPayTotal,
     this.onPayAbono,
@@ -52,6 +55,7 @@ class CobroVerDetalleSheet extends StatelessWidget {
     double? saldoAnteriorAlPartido,
     double? saldoAcumuladoJugador,
     bool esAnclaCuenta = false,
+    String? organizadorNombre,
     List<SaldoHistorico>? historialSaldo,
     VoidCallback? onPayTotal,
     VoidCallback? onPayAbono,
@@ -75,6 +79,7 @@ class CobroVerDetalleSheet extends StatelessWidget {
             saldoAnteriorAlPartido: saldoAnteriorAlPartido,
             saldoAcumuladoJugador: saldoAcumuladoJugador,
             esAnclaCuenta: esAnclaCuenta,
+            organizadorNombre: organizadorNombre,
             historialSaldo: historialSaldo,
             onPayTotal: onPayTotal,
             onPayAbono: onPayAbono,
@@ -152,6 +157,19 @@ class CobroVerDetalleSheet extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 12),
+              if (esAnclaCuenta &&
+                  (organizadorNombre?.trim().isNotEmpty ?? false)) ...[
+                Text(
+                  l10n.tr(
+                    'cobrosOrganizerNamed',
+                    params: {'name': organizadorNombre!.trim()},
+                  ),
+                  style: MatchPayTokens.bodySmallStyle(
+                    color: MatchPayTokens.inkMuted,
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
               Text(
                 _titulo(l10n),
                 style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 17),

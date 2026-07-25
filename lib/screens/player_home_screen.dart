@@ -619,6 +619,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       saldoAnteriorAlPartido: _saldosPorPartido[detalle.partidoId],
       saldoAcumuladoJugador: saldo,
       esAnclaCuenta: ancla?.partidoId == detalle.partidoId || ancla == null,
+      organizadorNombre: _cuentaUnicaPendiente?.nombreOrganizador,
       historialSaldo: _historialCuentaUnica,
       onPayTotal: bloqueado || _readOnly
           ? null

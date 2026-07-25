@@ -234,6 +234,7 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
       saldoAnteriorAlPartido: _saldoAnteriorPorPartido[ancla.partidoId],
       saldoAcumuladoJugador: saldo,
       esAnclaCuenta: true,
+      organizadorNombre: cuenta.nombreOrganizador,
       historialSaldo: _historialPorOrg[cuenta.organizadorId] ?? const [],
       onPayTotal: bloqueado
           ? null
@@ -298,6 +299,7 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
                     for (final cuenta in cuentasDeuda) ...[
                       PlayerCuentaOrganizadorPendienteCard(
                         organizadorNombre: cuenta.nombreOrganizador,
+                        fotoUrl: cuenta.fotoUrl,
                         deuda: cuenta.deuda,
                         pagando: _pagandoOrgId == cuenta.organizadorId,
                         comprobanteEnRevision: _cuentaEnRevision(cuenta),

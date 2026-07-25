@@ -120,55 +120,59 @@ class CobroPagoFlow {
       final ok = await showDialog<bool>(
         context: overlay,
         useRootNavigator: true,
-        builder: (ctx) => AlertDialog(
-          title: Text(l10n.tr('cobrosPayDialogTitle')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                l10n.tr(
-                  'cobrosPayDialogBody',
-                  params: {'amount': formatMoney(total)},
+        builder: (ctx) {
+          final muted = Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+              );
+          return AlertDialog(
+            title: Text(
+              l10n.tr(
+                'cobrosPayDialogTitle',
+                params: {'amount': formatMoney(total)},
+              ),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(l10n.tr('cobrosOrganizerLabel'), style: muted),
+                const SizedBox(height: 2),
+                Text(
+                  nombre,
+                  style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
+                const SizedBox(height: 12),
+                Text(l10n.tr('cobrosAutoApplyHint'), style: muted),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(l10n.tr('cancel')),
               ),
-              const SizedBox(height: 8),
-              Text(
-                nombre,
-                style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                l10n.tr('cobrosAutoApplyHint'),
-                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                    ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(
+                  l10n.tr(
+                    'cobrosPayAmount',
+                    params: {'amount': formatMoney(total)},
+                  ),
+                ),
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(l10n.tr('cancel')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(
-                l10n.tr(
-                  'cobrosPayAmount',
-                  params: {'amount': formatMoney(total)},
-                ),
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       );
       if (ok != true || !overlay.mounted) return;
       monto = total;
     } else {
-      final abono = await _pedirMontoAbono(overlay, total);
+      final abono = await _pedirMontoAbono(
+        overlay,
+        total,
+        organizadorNombre: nombre,
+      );
       if (abono == null || !overlay.mounted) return;
       monto = abono;
     }
@@ -206,8 +210,9 @@ class CobroPagoFlow {
 
   static Future<double?> _pedirMontoAbono(
     BuildContext context,
-    double sugerido,
-  ) async {
+    double sugerido, {
+    required String organizadorNombre,
+  }) async {
     final l10n = context.l10n;
     final ctrl = TextEditingController(
       text: sugerido > 0 ? sugerido.toStringAsFixed(0) : '',
@@ -215,53 +220,62 @@ class CobroPagoFlow {
     return showDialog<double>(
       context: context,
       useRootNavigator: true,
-      builder: (ctx) => AlertDialog(
-        title: Text(l10n.tr('partialAmountTitle')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(l10n.tr('partialAmountBody')),
-            const SizedBox(height: 8),
-            Text(
-              l10n.tr('cobrosAutoApplyHint'),
-              style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                  ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctrl,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                labelText: l10n.tr('amountLabel'),
-                hintText: sugerido > 0
-                    ? formatMoney(sugerido)
-                    : l10n.tr('amountHintExample'),
-                prefixText: '\$ ',
+      builder: (ctx) {
+        final muted = Theme.of(ctx).textTheme.bodySmall?.copyWith(
+              color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+            );
+        return AlertDialog(
+          title: Text(l10n.tr('partialAmountTitle')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(l10n.tr('partialAmountBody')),
+              const SizedBox(height: 10),
+              Text(l10n.tr('cobrosOrganizerLabel'), style: muted),
+              const SizedBox(height: 2),
+              Text(
+                organizadorNombre,
+                style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
-              autofocus: true,
+              const SizedBox(height: 10),
+              Text(l10n.tr('cobrosAutoApplyHint'), style: muted),
+              const SizedBox(height: 12),
+              TextField(
+                controller: ctrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                decoration: InputDecoration(
+                  labelText: l10n.tr('amountLabel'),
+                  hintText: sugerido > 0
+                      ? formatMoney(sugerido)
+                      : l10n.tr('amountHintExample'),
+                  prefixText: '\$ ',
+                ),
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(l10n.tr('cancel')),
+            ),
+            FilledButton(
+              onPressed: () {
+                final raw = ctrl.text.trim();
+                if (raw.isEmpty) return;
+                final monto = double.tryParse(raw);
+                if (monto == null || monto <= 0) return;
+                Navigator.pop(ctx, monto);
+              },
+              child: Text(l10n.tr('continueBtn')),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.tr('cancel')),
-          ),
-          FilledButton(
-            onPressed: () {
-              final raw = ctrl.text.trim();
-              if (raw.isEmpty) return;
-              final monto = double.tryParse(raw);
-              if (monto == null || monto <= 0) return;
-              Navigator.pop(ctx, monto);
-            },
-            child: Text(l10n.tr('continueBtn')),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

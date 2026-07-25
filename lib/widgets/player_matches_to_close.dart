@@ -11,6 +11,7 @@ import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import 'cobro_pago_flow.dart';
 import '../widgets/desglose_cobro_panel.dart';
+import '../widgets/jugador_avatar.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/sport_icon.dart';
 
@@ -606,6 +607,7 @@ class PlayerMisCobrosTotalResumen extends StatelessWidget {
 /// Una cuenta pendiente con un organizador concreto.
 class PlayerCuentaOrganizadorPendienteCard extends StatelessWidget {
   final String organizadorNombre;
+  final String? fotoUrl;
   final double deuda;
   final bool pagando;
   final bool comprobanteEnRevision;
@@ -616,6 +618,7 @@ class PlayerCuentaOrganizadorPendienteCard extends StatelessWidget {
   const PlayerCuentaOrganizadorPendienteCard({
     super.key,
     required this.organizadorNombre,
+    this.fotoUrl,
     required this.deuda,
     required this.pagando,
     required this.comprobanteEnRevision,
@@ -641,15 +644,44 @@ class PlayerCuentaOrganizadorPendienteCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          Text(
-            organizadorNombre,
-            style: MatchPayTokens.titleSmallStyle().copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              JugadorAvatar(
+                nombre: organizadorNombre,
+                fotoUrl: fotoUrl,
+                size: 44,
+                borderRadius: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      organizadorNombre,
+                      style: MatchPayTokens.titleSmallStyle().copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.tr('cobrosOrganizerRoleSubtitle'),
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.inkMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           Text(
-            formatMoney(deuda),
+            l10n.tr(
+              'cobrosPendingAmountLabel',
+              params: {'amount': formatMoney(deuda)},
+            ),
             style: MatchPayTokens.headlineStyle().copyWith(fontSize: 26),
           ),
           const SizedBox(height: 14),
