@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
 import '../services/comprobante_service.dart';
 
@@ -61,21 +62,33 @@ class _ComprobantePagoTileState extends State<ComprobantePagoTile> {
     }
 
     if (widget.comprobantePath == null) {
-      return OutlinedButton.icon(
-        onPressed: _cargando ? null : _adjuntar,
-        icon: _cargando
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.receipt_long, size: 18),
-        label: Text(
-          widget.compact
-              ? context.tr('receiptCompact')
-              : context.tr('expenseReceiptPhotoOptional'),
-          style: const TextStyle(fontSize: 12),
-        ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _cargando ? null : _adjuntar,
+            icon: _cargando
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.receipt_long, size: 18),
+            label: Text(
+              widget.compact
+                  ? context.tr('receiptCompact')
+                  : context.tr('expenseReceiptPhotoOptional'),
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.tr('receiptRetentionNoticeExpense'),
+            style: MatchPayTokens.bodySmallStyle(
+              color: MatchPayTokens.inkMuted,
+            ),
+          ),
+        ],
       );
     }
 

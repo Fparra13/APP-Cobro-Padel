@@ -390,6 +390,11 @@ class CobroPagoFlow {
                   ),
                   style: theme.textTheme.bodySmall,
                 ),
+                const SizedBox(height: 10),
+                Text(
+                  l10n.tr('receiptRetentionNoticePlayer'),
+                  style: theme.textTheme.bodySmall?.copyWith(color: muted),
+                ),
               ],
             ),
           ),

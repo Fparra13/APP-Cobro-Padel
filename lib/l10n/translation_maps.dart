@@ -852,6 +852,9 @@ class TranslationMaps {
         'Monto declarado: {amount} ({paymentType}).\n\n'
         'Sube la foto o captura de tu aporte. '
         'El organizador la revisará antes de validar.',
+    'receiptRetentionNoticePlayer':
+        'El comprobante se almacena temporalmente por 14 días desde su envío. '
+        'El registro del aporte se mantiene.',
     'paymentTypePartial': 'otro monto',
     'paymentTypeFull': 'aporte total',
     'paymentSentPartial':
@@ -1652,6 +1655,9 @@ class TranslationMaps {
     'receiptCompact': 'Comprobante',
     'expenseReceiptPhotoOptional':
         'Foto comprobante del gasto (opcional)',
+    'receiptRetentionNoticeExpense':
+        'El comprobante se almacena temporalmente por 14 días desde su carga. '
+        'El detalle del gasto se mantiene.',
     'expenseReceiptLabel': 'Comprobante del gasto',
     'viewBtn': 'Ver',
     'changeBtn': 'Cambiar',
@@ -2658,6 +2664,9 @@ class TranslationMaps {
         'Declared amount: {amount} ({paymentType}).\n\n'
         'Upload a photo or screenshot of your contribution. '
         'The organizer will review it before validating.',
+    'receiptRetentionNoticePlayer':
+        'Receipt images are stored temporarily for 14 days after submission. '
+        'The contribution record is kept.',
     'paymentTypePartial': 'other amount',
     'paymentTypeFull': 'full contribution',
     'paymentSentPartial':
@@ -3456,6 +3465,9 @@ class TranslationMaps {
     'receiptCompact': 'Receipt',
     'expenseReceiptPhotoOptional':
         'Expense receipt photo (optional)',
+    'receiptRetentionNoticeExpense':
+        'Expense receipts are stored temporarily for 14 days after upload. '
+        'Expense details are kept.',
     'expenseReceiptLabel': 'Expense receipt',
     'viewBtn': 'View',
     'changeBtn': 'Change',
@@ -4470,6 +4482,9 @@ class TranslationMaps {
         'Valor declarado: {amount} ({paymentType}).\n\n'
         'Envie a foto ou captura da sua contribuição. '
         'O organizador revisará antes de validar.',
+    'receiptRetentionNoticePlayer':
+        'Os comprovantes são armazenados temporariamente por 14 dias após o envio. '
+        'O registro do aporte é mantido.',
     'paymentTypePartial': 'outro valor',
     'paymentTypeFull': 'contribuição total',
     'paymentSentPartial':
@@ -5271,6 +5286,9 @@ class TranslationMaps {
     'receiptCompact': 'Comprovante',
     'expenseReceiptPhotoOptional':
         'Foto do comprovante da despesa (opcional)',
+    'receiptRetentionNoticeExpense':
+        'Os comprovantes de despesas são armazenados temporariamente por 14 dias após o envio. '
+        'Os detalhes da despesa são mantidos.',
     'expenseReceiptLabel': 'Comprovante da despesa',
     'viewBtn': 'Ver',
     'changeBtn': 'Alterar',
