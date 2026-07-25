@@ -9,7 +9,6 @@
         android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <!-- No SCHEDULE_EXACT_ALARM: los recordatorios de cobro son server-driven (Supabase + FCM). -->
     <!-- Evita declarar AD_ID si algún SDK de Firebase lo fusiona (no usamos Ads/Analytics). -->
     <uses-permission

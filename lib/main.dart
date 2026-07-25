@@ -1,8 +1,11 @@
 import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:image_picker_android/image_picker_android.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -54,6 +57,14 @@ final offlineRefreshCoordinator = OfflineRefreshCoordinator();
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    // Android 13+: Photo Picker nativo para galería (sin READ_MEDIA_IMAGES).
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final ImagePickerPlatform imagePickerImplementation =
+          ImagePickerPlatform.instance;
+      if (imagePickerImplementation is ImagePickerAndroid) {
+        imagePickerImplementation.useAndroidPhotoPicker = true;
+      }
+    }
     if (FirebaseConfig.isConfigured) {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
       final firebaseOk = await FirebaseConfig.ensureInitialized();
