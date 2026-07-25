@@ -1,3 +1,6 @@
+import 'package:intl/intl.dart';
+
+import '../core/sport_type.dart';
 import '../utils/formatters.dart';
 import 'desglose_jugador.dart';
 import 'detalle_partido.dart';
@@ -24,6 +27,8 @@ class ComprobanteGastoGrupo {
   final int? partidoId;
   final DateTime? fecha;
   final String? organizadorNombre;
+  final SportType? sportType;
+  final String? lugar;
   final List<ComprobanteGastoLinea> lineas;
   final bool initiallyExpanded;
 
@@ -31,6 +36,8 @@ class ComprobanteGastoGrupo {
     this.partidoId,
     this.fecha,
     this.organizadorNombre,
+    this.sportType,
+    this.lugar,
     required this.lineas,
     this.initiallyExpanded = true,
   });
@@ -38,11 +45,35 @@ class ComprobanteGastoGrupo {
   bool get isEmpty => lineas.isEmpty;
   bool get isNotEmpty => lineas.isNotEmpty;
 
-  /// Título compacto: "Domingo 27/7 · 20:00".
-  String get tituloEncuentro {
+  /// Fecha abreviada: "Dom 26 jul · 20:00".
+  String get tituloFechaHora {
     final f = fecha;
     if (f == null) return '';
-    return '${formatDiaMensaje(f)} · ${formatHora(f)}';
+    final locale = MoneyFormatConfig.dateLocale.isNotEmpty
+        ? MoneyFormatConfig.dateLocale
+        : 'es';
+    final raw = DateFormat('EEE d MMM', locale).format(f);
+    final cleaned = raw.replaceAll('.', '').trim();
+    return '${capitalize(cleaned)} · ${formatHora(f)}';
+  }
+
+  /// Compat: mismo texto que [tituloFechaHora].
+  String get tituloEncuentro => tituloFechaHora;
+
+  /// "🎾 Pádel · Club Central" (partes omitidas si faltan).
+  String lineaDeporteLugar({String? sportLabel}) {
+    final parts = <String>[];
+    final sport = sportType;
+    if (sport != null) {
+      final label = (sportLabel ?? sport.labelEs).trim();
+      final emoji = sport.emoji;
+      parts.add(label.isEmpty ? emoji : '$emoji $label');
+    }
+    final place = lugar?.trim();
+    if (place != null && place.isNotEmpty) {
+      parts.add(place);
+    }
+    return parts.join(' · ');
   }
 
   static String? emojiParaConcepto(String concepto) {
@@ -114,12 +145,15 @@ class ComprobanteGastoGrupo {
 
     if (lineas.isEmpty) return null;
 
+    final lugar = detalle.recintoPartido?.trim();
     return ComprobanteGastoGrupo(
       partidoId: detalle.partidoId,
       fecha: detalle.fechaPartido,
       organizadorNombre: organizadorNombre?.trim().isNotEmpty == true
           ? organizadorNombre!.trim()
           : null,
+      sportType: detalle.sportType,
+      lugar: (lugar != null && lugar.isNotEmpty) ? lugar : null,
       lineas: lineas,
       initiallyExpanded: initiallyExpanded,
     );
@@ -202,10 +236,13 @@ class ComprobanteGastoGrupo {
       );
     }
     if (lineas.isEmpty) return null;
+    final lugar = partido.recinto?.trim();
     return ComprobanteGastoGrupo(
       partidoId: partido.id,
       fecha: partido.fecha,
       organizadorNombre: organizadorNombre,
+      sportType: partido.sportType,
+      lugar: (lugar != null && lugar.isNotEmpty) ? lugar : null,
       lineas: lineas,
       initiallyExpanded: true,
     );

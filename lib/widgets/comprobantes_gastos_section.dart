@@ -7,6 +7,8 @@ import '../services/comprobante_service.dart';
 import '../utils/formatters.dart';
 
 /// Comprobantes de gastos agrupados por encuentro (sin miniaturas).
+///
+/// Jerarquía: Organizador → Encuentro (fecha/hora + deporte/lugar) → Gastos.
 class ComprobantesGastosSection extends StatelessWidget {
   final List<ComprobanteGastoGrupo> grupos;
   final Widget? header;
@@ -22,6 +24,7 @@ class ComprobantesGastosSection extends StatelessWidget {
     final visibles = grupos.where((g) => g.isNotEmpty).toList(growable: false);
     if (visibles.isEmpty) return const SizedBox.shrink();
     final l10n = context.l10n;
+    final lang = Localizations.localeOf(context).languageCode;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -33,60 +36,79 @@ class ComprobantesGastosSection extends StatelessWidget {
             ),
         const SizedBox(height: 8),
         ...visibles.map(
-          (grupo) => _GrupoEncuentroTile(grupo: grupo),
+          (grupo) => _GrupoEncuentroCard(
+            grupo: grupo,
+            sportLabel: grupo.sportType?.labelForLang(lang),
+          ),
         ),
       ],
     );
   }
 }
 
-class _GrupoEncuentroTile extends StatelessWidget {
+class _GrupoEncuentroCard extends StatelessWidget {
   final ComprobanteGastoGrupo grupo;
+  final String? sportLabel;
 
-  const _GrupoEncuentroTile({required this.grupo});
+  const _GrupoEncuentroCard({
+    required this.grupo,
+    this.sportLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final titulo = grupo.tituloEncuentro;
-    final org = grupo.organizadorNombre;
+    final org = grupo.organizadorNombre?.trim();
+    final fechaHora = grupo.tituloFechaHora;
+    final deporteLugar = grupo.lineaDeporteLugar(sportLabel: sportLabel);
+    final tieneEncuentro =
+        fechaHora.isNotEmpty || deporteLugar.isNotEmpty;
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: grupo.initiallyExpanded,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-          title: Text(
-            titulo.isNotEmpty
-                ? titulo
-                : l10n.tr('expenseReceiptsTitle'),
-            style: MatchPayTokens.titleSmallStyle().copyWith(
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-            ),
-          ),
-          subtitle: org == null || org.isEmpty
-              ? null
-              : Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(
-                    l10n.tr(
-                      'cobrosOrganizerNamed',
-                      params: {'name': org},
-                    ),
-                    style: MatchPayTokens.bodySmallStyle(
-                      color: MatchPayTokens.inkMuted,
-                    ),
-                  ),
-                ),
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (org != null && org.isNotEmpty) ...[
+              Text(
+                l10n.tr(
+                  'cobrosOrganizerNamed',
+                  params: {'name': org},
+                ),
+                style: MatchPayTokens.bodySmallStyle().copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: MatchPayTokens.ink,
+                ),
+              ),
+              const SizedBox(height: 6),
+            ],
+            if (fechaHora.isNotEmpty)
+              Text(
+                fechaHora,
+                style: MatchPayTokens.titleSmallStyle().copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+            if (deporteLugar.isNotEmpty) ...[
+              if (fechaHora.isNotEmpty) const SizedBox(height: 2),
+              Text(
+                deporteLugar,
+                style: MatchPayTokens.bodySmallStyle(
+                  color: MatchPayTokens.inkMuted,
+                ),
+              ),
+            ],
+            if (tieneEncuentro) ...[
+              const SizedBox(height: 10),
+              Divider(height: 1, color: MatchPayTokens.borderSubtle),
+              const SizedBox(height: 8),
+            ],
             for (var i = 0; i < grupo.lineas.length; i++) ...[
               _LineaGastoComprobante(linea: grupo.lineas[i]),
-              if (i < grupo.lineas.length - 1)
-                Divider(height: 12, color: MatchPayTokens.borderSubtle),
+              if (i < grupo.lineas.length - 1) const SizedBox(height: 10),
             ],
           ],
         ),
@@ -104,9 +126,8 @@ class _LineaGastoComprobante extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final emoji = linea.emoji;
-    final concepto = emoji == null
-        ? linea.concepto
-        : '$emoji ${linea.concepto}';
+    final concepto =
+        emoji == null ? linea.concepto : '$emoji ${linea.concepto}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -131,7 +152,7 @@ class _LineaGastoComprobante extends StatelessWidget {
         ),
         Align(
           alignment: Alignment.centerLeft,
-          child: TextButton(
+          child: TextButton.icon(
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
               minimumSize: Size.zero,
@@ -141,7 +162,8 @@ class _LineaGastoComprobante extends StatelessWidget {
               context,
               relativePath: linea.path,
             ),
-            child: Text(l10n.tr('viewReceipt')),
+            icon: const Icon(Icons.description_outlined, size: 16),
+            label: Text(l10n.tr('viewReceipt')),
           ),
         ),
       ],
