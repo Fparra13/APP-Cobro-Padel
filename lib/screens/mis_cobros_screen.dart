@@ -6,6 +6,7 @@ import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
+import '../models/comprobante_gasto_grupo.dart';
 import '../models/cuenta_saldo.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
@@ -227,6 +228,14 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
       saldoAcumuladoJugador: saldo,
     );
     if (ancla == null) return;
+    final l10n = context.l10n;
+    final comprobantes = ComprobanteGastoGrupo.fromPendientes(
+      deudas: deudasOrg,
+      desgloses: _desglosePorPartido,
+      organizadorNombre: cuenta.nombreOrganizador,
+      canchaLabel: l10n.tr('courtLabel'),
+      pelotasLabel: l10n.tr('ballsLabel'),
+    );
     CobroVerDetalleSheet.show(
       context,
       detalle: ancla,
@@ -235,6 +244,7 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
       saldoAcumuladoJugador: saldo,
       esAnclaCuenta: true,
       organizadorNombre: cuenta.nombreOrganizador,
+      comprobantesPorEncuentro: comprobantes,
       historialSaldo: _historialPorOrg[cuenta.organizadorId] ?? const [],
       onPayTotal: bloqueado
           ? null

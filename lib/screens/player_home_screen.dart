@@ -17,6 +17,7 @@ import '../models/detalle_partido.dart';
 import '../models/estadisticas_jugador.dart';
 import '../models/jugador.dart';
 import '../models/cuenta_saldo.dart';
+import '../models/comprobante_gasto_grupo.dart';
 import '../models/mi_convocatoria.dart';
 import '../repositories/partido_repository.dart';
 import '../l10n/matchpay_strings.dart';
@@ -612,6 +613,15 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       saldosAnterioresPorPartido: _saldosPorPartido,
       saldoAcumuladoJugador: saldo,
     ).ancla;
+    final l10n = context.l10n;
+    final orgNombre = _cuentaUnicaPendiente?.nombreOrganizador;
+    final comprobantes = ComprobanteGastoGrupo.fromPendientes(
+      deudas: deudasUnica,
+      desgloses: _desglosePorPartido,
+      organizadorNombre: orgNombre,
+      canchaLabel: l10n.tr('courtLabel'),
+      pelotasLabel: l10n.tr('ballsLabel'),
+    );
     CobroVerDetalleSheet.show(
       context,
       detalle: detalle,
@@ -619,7 +629,8 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       saldoAnteriorAlPartido: _saldosPorPartido[detalle.partidoId],
       saldoAcumuladoJugador: saldo,
       esAnclaCuenta: ancla?.partidoId == detalle.partidoId || ancla == null,
-      organizadorNombre: _cuentaUnicaPendiente?.nombreOrganizador,
+      organizadorNombre: orgNombre,
+      comprobantesPorEncuentro: comprobantes,
       historialSaldo: _historialCuentaUnica,
       onPayTotal: bloqueado || _readOnly
           ? null

@@ -5,6 +5,7 @@ import '../core/app_repositories.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
 import '../domain/deuda_explicacion.dart';
+import '../models/comprobante_gasto_grupo.dart';
 import '../models/datos_pago_organizador.dart';
 import '../models/desglose_jugador.dart';
 import '../models/saldo_historico.dart';
@@ -31,6 +32,8 @@ class CobroVerDetalleSheet extends StatelessWidget {
   final bool esAnclaCuenta;
   /// Nombre del organizador ya disponible en UI (sin fetch).
   final String? organizadorNombre;
+  /// Comprobantes agrupados por encuentro (multi-pendiente).
+  final List<ComprobanteGastoGrupo> comprobantesPorEncuentro;
   final List<SaldoHistorico>? historialSaldo;
   /// Inset de la barra de navegación / gesture (evita tapar botones).
   final double bottomSafeInset;
@@ -43,6 +46,7 @@ class CobroVerDetalleSheet extends StatelessWidget {
     this.saldoAcumuladoJugador,
     this.esAnclaCuenta = false,
     this.organizadorNombre,
+    this.comprobantesPorEncuentro = const [],
     this.historialSaldo,
     this.onPayTotal,
     this.onPayAbono,
@@ -57,6 +61,7 @@ class CobroVerDetalleSheet extends StatelessWidget {
     double? saldoAcumuladoJugador,
     bool esAnclaCuenta = false,
     String? organizadorNombre,
+    List<ComprobanteGastoGrupo> comprobantesPorEncuentro = const [],
     List<SaldoHistorico>? historialSaldo,
     VoidCallback? onPayTotal,
     VoidCallback? onPayAbono,
@@ -81,6 +86,7 @@ class CobroVerDetalleSheet extends StatelessWidget {
             saldoAcumuladoJugador: saldoAcumuladoJugador,
             esAnclaCuenta: esAnclaCuenta,
             organizadorNombre: organizadorNombre,
+            comprobantesPorEncuentro: comprobantesPorEncuentro,
             historialSaldo: historialSaldo,
             onPayTotal: onPayTotal,
             onPayAbono: onPayAbono,
@@ -122,11 +128,22 @@ class CobroVerDetalleSheet extends StatelessWidget {
         !detalle.comprobantePendienteValidacion &&
         pendiente > 0.005;
     final bottomPad = 16.0 + bottomSafeInset;
-    final comprobantesGastos = desglose?.comprobantesGastosItems(
-          canchaLabel: l10n.tr('courtLabel'),
-          pelotasLabel: l10n.tr('ballsLabel'),
-        ) ??
-        const <({String label, String path})>[];
+    List<ComprobanteGastoGrupo> gruposComprobantes;
+    if (comprobantesPorEncuentro.isNotEmpty) {
+      gruposComprobantes = comprobantesPorEncuentro;
+    } else if (desglose != null) {
+      final unico = ComprobanteGastoGrupo.fromDesglose(
+        desglose: desglose!,
+        detalle: detalle,
+        organizadorNombre: organizadorNombre,
+        canchaLabel: l10n.tr('courtLabel'),
+        pelotasLabel: l10n.tr('ballsLabel'),
+      );
+      gruposComprobantes =
+          unico == null ? const [] : [unico];
+    } else {
+      gruposComprobantes = const [];
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -256,9 +273,9 @@ class CobroVerDetalleSheet extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (comprobantesGastos.isNotEmpty) ...[
+                if (gruposComprobantes.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  ComprobantesGastosSection(items: comprobantesGastos),
+                  ComprobantesGastosSection(grupos: gruposComprobantes),
                 ],
                 if (detalle.organizadorId != null &&
                     detalle.organizadorId!.isNotEmpty &&

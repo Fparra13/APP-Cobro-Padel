@@ -6,6 +6,7 @@ import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../domain/cobro_logic.dart';
 import '../l10n/matchpay_strings.dart';
+import '../models/comprobante_gasto_grupo.dart';
 import '../models/datos_pago_organizador.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
@@ -1118,31 +1119,18 @@ class _SeccionComprobantesGastos extends StatelessWidget {
 
   const _SeccionComprobantesGastos({required this.completo});
 
-  List<({String label, String path})> _items(BuildContext context) {
-    final p = completo.partido;
-    final items = <({String label, String path})>[];
-
-    if (p.costoCancha > 0 && p.comprobanteCancha != null) {
-      items.add((label: context.tr('courtLabel'), path: p.comprobanteCancha!));
-    }
-    if (p.costoPelotas > 0 && p.comprobantePelotas != null) {
-      items.add((label: context.tr('ballsLabel'), path: p.comprobantePelotas!));
-    }
-    for (final cv in completo.costosVariables) {
-      if (cv.comprobantePath != null) {
-        items.add((label: cv.concepto, path: cv.comprobantePath!));
-      }
-    }
-    return items;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final items = _items(context);
-    if (items.isEmpty) return const SizedBox.shrink();
+    final grupo = ComprobanteGastoGrupo.fromPartidoOrganizador(
+      partido: completo.partido,
+      costosVariables: completo.costosVariables,
+      canchaLabel: context.tr('courtLabel'),
+      pelotasLabel: context.tr('ballsLabel'),
+    );
+    if (grupo == null) return const SizedBox.shrink();
 
     return ComprobantesGastosSection(
-      items: items,
+      grupos: [grupo],
       header: _SeccionTitulo(
         icono: Icons.receipt_long,
         titulo: context.tr('expenseReceiptsTitle'),
