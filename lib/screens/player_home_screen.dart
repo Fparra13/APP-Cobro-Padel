@@ -88,6 +88,8 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   int _organizerPendingCount = 0;
   bool _offlineEmpty = false;
   ConvocatoriaCompleta? _heroConvocatoriaCompleta;
+  /// Roster completo por partido (misma fuente que Organizer / hero).
+  final Map<int, ConvocatoriaCompleta> _rosterPorPartido = {};
   Timer? _reloadDebounce;
   String? _error;
   bool _loadingData = false;
@@ -222,6 +224,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
             _misStats = null;
             _invitacionesResumen = MisInvitacionesResumen.empty;
             _heroConvocatoriaCompleta = null;
+            _rosterPorPartido.clear();
             _showOrganizerNudge = false;
             _organizerPendingCount = 0;
             _offlineEmpty = true;
@@ -295,6 +298,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
 
     unawaited(_cargarDesgloses(deudas));
     unawaited(_cargarHeroConvocatoria(_heroConvocatoria));
+    unawaited(_cargarRostersProximos());
     unawaited(
       ConvocatoriaListaEsperaService().sincronizarPartidos(
         todas.map((c) => c.partido.id).whereType<int>(),
@@ -372,10 +376,38 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
         partidoId: partidoId,
         partido: hero.partido,
       );
-      if (mounted) setState(() => _heroConvocatoriaCompleta = conv);
+      if (!mounted) return;
+      setState(() {
+        _heroConvocatoriaCompleta = conv;
+        if (conv != null) _rosterPorPartido[partidoId] = conv;
+      });
     } catch (_) {
       if (mounted) setState(() => _heroConvocatoriaCompleta = null);
     }
+  }
+
+  /// Rosters de próximos (cards secundarias): misma fuente que el hero.
+  Future<void> _cargarRostersProximos() async {
+    final proximos = _otrosProximos;
+    if (proximos.isEmpty) return;
+    try {
+      final repos =
+          AppRepositories.isReady ? AppRepositories.I : context.repos;
+      final loaded = <int, ConvocatoriaCompleta>{};
+      await Future.wait(
+        proximos.map((c) async {
+          final id = c.partido.id;
+          if (id == null) return;
+          final conv = await repos.getConvocatoriaRosterParaJugador(
+            partidoId: id,
+            partido: c.partido,
+          );
+          if (conv != null) loaded[id] = conv;
+        }),
+      );
+      if (!mounted || loaded.isEmpty) return;
+      setState(() => _rosterPorPartido.addAll(loaded));
+    } catch (_) {}
   }
 
   int get _partidosEsteMes {
@@ -971,6 +1003,9 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           ..._otrosProximos.map(
                             (c) => _SecondaryMatchCard(
                               convocatoria: c,
+                              completa: c.partido.id != null
+                                  ? _rosterPorPartido[c.partido.id!]
+                                  : null,
                               onTap: () => _openConvocatoria(c),
                             ),
                           ),
@@ -1477,11 +1512,13 @@ class _PlayerUpToDateStrip extends StatelessWidget {
 
 class _SecondaryMatchCard extends StatelessWidget {
   final MiConvocatoria convocatoria;
+  final ConvocatoriaCompleta? completa;
   final VoidCallback onTap;
 
   const _SecondaryMatchCard({
     required this.convocatoria,
     required this.onTap,
+    this.completa,
   });
 
   @override
@@ -1489,8 +1526,11 @@ class _SecondaryMatchCard extends StatelessWidget {
     final p = convocatoria.partido;
     final recinto = p.recinto?.trim();
     final palette = SportThemeConfig.paletteFor(p.sportType);
-    final estadoView =
-        PartidoEstadoPublicoView.resolveJugador(convocatoria, null);
+    // Misma fuente que Organizer Home: resolve(ConvocatoriaCompleta).
+    // Fallback defensivo si el roster aún no cargó.
+    final estadoView = completa != null
+        ? PartidoEstadoPublicoView.resolve(completa!)
+        : PartidoEstadoPublicoView.resolveJugador(convocatoria, null);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -1532,6 +1572,24 @@ class _SecondaryMatchCard extends StatelessWidget {
                           fontSize: 12.5,
                         ),
                       ),
+                    if (completa != null &&
+                        (completa!.confirmados > 0 ||
+                            completa!.pendientes > 0)) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        context.l10n.tr(
+                          'playerHeroRosterLine',
+                          params: {
+                            'confirmed': '${completa!.confirmados}',
+                            'pending': '${completa!.pendientes}',
+                          },
+                        ),
+                        style: MatchPayTokens.bodySmallStyle().copyWith(
+                          fontSize: 12.5,
+                          color: MatchPayTokens.inkSecondary,
+                        ),
+                      ),
+                    ],
                     if (recinto != null && recinto.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(

@@ -216,13 +216,17 @@ class PartidoEstadoPublicoView {
       );
     }
 
+    // Sin roster: la confirmación PERSONAL no implica encuentro completo.
+    // Nunca inventar confirmados = cuposMax ni estado confirmado.
     if (convocatoria.estaConfirmado) {
+      final cupos = p.cuposMax;
+      final faltan = cupos > 0 ? (cupos - 1).clamp(0, cupos) : 0;
       return PartidoEstadoPublicoView(
-        estado: EstadoPartidoPublico.confirmado,
-        confirmados: p.cuposMax,
-        cuposMax: p.cuposMax,
+        estado: EstadoPartidoPublico.esperandoConfirmaciones,
+        confirmados: 1,
+        cuposMax: cupos,
         pendientes: 0,
-        faltan: 0,
+        faltan: faltan,
       );
     }
     if (convocatoria.requiereRespuesta) {

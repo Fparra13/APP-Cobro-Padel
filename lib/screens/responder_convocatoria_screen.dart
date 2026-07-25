@@ -48,6 +48,7 @@ class _ResponderConvocatoriaScreenState
   bool _loading = true;
   bool _loadFailed = false;
   MiConvocatoria? _data;
+  ConvocatoriaCompleta? _completa;
 
   @override
   void initState() {
@@ -65,9 +66,18 @@ class _ResponderConvocatoriaScreenState
           ? AppRepositories.I
           : context.repos;
       final fresh = await repos.getMiConvocatoria(widget.partidoId);
+      final mi = fresh ?? _data ?? widget.convocatoria;
+      ConvocatoriaCompleta? roster;
+      if (mi != null && mi.partido.id != null) {
+        roster = await repos.getConvocatoriaRosterParaJugador(
+          partidoId: widget.partidoId,
+          partido: mi.partido,
+        );
+      }
       if (!mounted) return;
       setState(() {
-        _data = fresh ?? _data ?? widget.convocatoria;
+        _data = mi;
+        _completa = roster;
         _loadFailed = _data == null && widget.entry == null;
         _loading = false;
       });
@@ -267,10 +277,14 @@ class _ResponderConvocatoriaScreenState
                         MatchPaySurfaceCard(
                           padding: const EdgeInsets.all(14),
                           child: PartidoEstadoPublicoMessage(
-                            view: PartidoEstadoPublicoView.resolveJugador(
-                                  _data!,
-                                  null,
-                                ) ??
+                            view: (_completa != null
+                                    ? PartidoEstadoPublicoView.resolve(
+                                        _completa!,
+                                      )
+                                    : PartidoEstadoPublicoView.resolveJugador(
+                                        _data!,
+                                        null,
+                                      )) ??
                                 PartidoEstadoPublicoView(
                                   estado: EstadoPartidoPublico
                                       .esperandoConfirmaciones,

@@ -175,4 +175,73 @@ void main() {
     final view = PartidoEstadoPublicoView.resolveJugador(conv, null, ref);
     expect(view?.estado, EstadoPartidoPublico.reprogramado);
   });
+
+  test('cupos 2: 1 confirmado + 1 invitado → no encuentro confirmado', () {
+    final partido = _partido(
+      fecha: DateTime(2026, 7, 12, 20),
+      cuposMax: 2,
+    );
+    final completa = _conv(
+      partido: partido,
+      jugadores: [
+        _titular(partidoId: 1, estado: EstadoConfirmacion.confirmado),
+        _titular(partidoId: 1, estado: EstadoConfirmacion.invitado),
+      ],
+    );
+    final view = PartidoEstadoPublicoView.resolve(completa, ref);
+    expect(view.estado, isNot(EstadoPartidoPublico.confirmado));
+    expect(view.confirmados, 1);
+    expect(view.pendientes, 1);
+    expect(view.faltan, 1);
+  });
+
+  test(
+    'resolveJugador sin roster: confirmación personal no completa el cupo',
+    () {
+      final partido = _partido(
+        fecha: DateTime(2026, 7, 12, 20),
+        cuposMax: 2,
+      );
+      final mi = MiConvocatoria(
+        partido: partido,
+        entry: _titular(
+          partidoId: 1,
+          estado: EstadoConfirmacion.confirmado,
+        ),
+      );
+      final view = PartidoEstadoPublicoView.resolveJugador(mi, null, ref);
+      expect(view, isNotNull);
+      expect(view!.estado, isNot(EstadoPartidoPublico.confirmado));
+      expect(view.confirmados, isNot(2));
+      expect(view.faltan, isNot(0));
+      expect(view.confirmados, 1);
+      expect(view.faltan, 1);
+    },
+  );
+
+  test(
+    'resolveJugador con roster: usa resolve(completa) como Organizer Home',
+    () {
+      final partido = _partido(
+        fecha: DateTime(2026, 7, 12, 20),
+        cuposMax: 2,
+      );
+      final completa = _conv(
+        partido: partido,
+        jugadores: [
+          _titular(partidoId: 1, estado: EstadoConfirmacion.confirmado),
+          _titular(partidoId: 1, estado: EstadoConfirmacion.invitado),
+        ],
+      );
+      final mi = MiConvocatoria(
+        partido: partido,
+        entry: completa.jugadores.first,
+      );
+      final view = PartidoEstadoPublicoView.resolveJugador(mi, completa, ref);
+      expect(view!.estado, isNot(EstadoPartidoPublico.confirmado));
+      expect(view.confirmados, 1);
+      expect(view.pendientes, 1);
+      expect(view.faltan, 1);
+    },
+  );
 }
