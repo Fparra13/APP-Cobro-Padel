@@ -59,9 +59,13 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   final _listaEsperaService = ConvocatoriaListaEsperaService();
   final _notificaciones = ConvocatoriaNotificacionService();
 
+  static const _cuposPresets = <int>[4, 6, 8];
+
   final _notasCtrl = TextEditingController();
   final _cuposCtrl = TextEditingController(text: '4');
   final _jugadoresBusquedaCtrl = TextEditingController();
+  /// `true` cuando el organizador eligió «Otro» (muestra el input numérico).
+  bool _cuposOtro = false;
 
   List<Jugador> _habituales = [];
   final Set<String> _prioridadJugadorIds = {};
@@ -329,6 +333,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         recintoSel = _recintoDesdePartido(conv.partido, recintosGuardados);
         _notasCtrl.text = conv.partido.notas ?? '';
         _cuposCtrl.text = conv.partido.cuposMax.toString();
+        _cuposOtro = !_cuposPresets.contains(conv.partido.cuposMax);
         _horasLimite = conv.partido.horasLimiteRespuesta;
         // Ajusta a opciones válidas para la fecha (evita crash del dropdown
         // si el partido quedó lejano y el plazo guardado era 1–2 h).
@@ -361,6 +366,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         } catch (_) {}
       } else {
         Set<String> prioridad = {};
+        // Última actividad del organizador (partidos.sport_type), nunca settings.sport.
+        SportType? ultimaActividad;
         try {
           final ultimo = await repos.getUltimoPartido();
           if (ultimo != null) {
@@ -368,6 +375,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
               for (final d in ultimo.detalles)
                 if (d.asistio) d.jugadorKeyId,
             };
+            ultimaActividad = ultimo.partido.sportType;
           }
         } catch (_) {}
         _prioridadJugadorIds
@@ -395,9 +403,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           }
         }
         if (mounted) {
-          // Primera creación: sin actividad por defecto (elige conscientemente).
-          // Última actividad usada: PR2.
-          _sportType = null;
+          // Primera creación → null («Elegir actividad»).
+          // Creaciones posteriores → última actividad usada.
+          _sportType = ultimaActividad;
         }
       }
 
@@ -575,6 +583,27 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         _listaEspera.remove(id);
         _estados.remove(id);
       }
+    });
+  }
+
+  bool get _mostrarCuposInput {
+    if (_cuposOtro) return true;
+    final n = int.tryParse(_cuposCtrl.text.trim());
+    return n == null || !_cuposPresets.contains(n);
+  }
+
+  void _selectCuposPreset(int value) {
+    if (_formularioBloqueado) return;
+    _cuposCtrl.text = '$value';
+    setState(() => _cuposOtro = false);
+    _onCuposChanged('$value');
+  }
+
+  void _selectCuposOtro() {
+    if (_formularioBloqueado) return;
+    setState(() {
+      _cuposOtro = true;
+      _dirty = true;
     });
   }
 
@@ -2053,32 +2082,58 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   Widget _buildCuposCard() {
+    final cuposActual = int.tryParse(_cuposCtrl.text.trim());
+    final mostrarInput = _mostrarCuposInput;
+    final bloqueado = _formularioBloqueado;
+
     return MatchPaySurfaceCard(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            context.l10n.tr('organizeSlotsCardTitle'),
+            context.l10n.tr('organizeMaxSlotsLabel'),
             style: MatchPayTokens.titleSmallStyle().copyWith(
               fontSize: 14,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _cuposCtrl,
-            readOnly: _formularioBloqueado,
-            onChanged: _formularioBloqueado ? null : _onCuposChanged,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-              labelText: context.l10n.tr('organizeMaxSlotsLabel'),
-              prefixIcon: const Icon(Icons.people),
-              isDense: true,
-              border: const OutlineInputBorder(),
-            ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final n in _cuposPresets)
+                ChoiceChip(
+                  label: Text('$n'),
+                  selected: !mostrarInput && cuposActual == n,
+                  onSelected: bloqueado
+                      ? null
+                      : (_) => _selectCuposPreset(n),
+                ),
+              ChoiceChip(
+                label: Text(context.l10n.tr('organizeSlotsOther')),
+                selected: mostrarInput,
+                onSelected: bloqueado ? null : (_) => _selectCuposOtro(),
+              ),
+            ],
           ),
+          if (mostrarInput) ...[
+            const SizedBox(height: 10),
+            TextField(
+              controller: _cuposCtrl,
+              readOnly: bloqueado,
+              onChanged: bloqueado ? null : _onCuposChanged,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                labelText: context.l10n.tr('organizeMaxSlotsLabel'),
+                prefixIcon: const Icon(Icons.people),
+                isDense: true,
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
         ],
       ),
     );
