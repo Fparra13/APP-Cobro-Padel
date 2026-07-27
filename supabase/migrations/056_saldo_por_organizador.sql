@@ -252,6 +252,8 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.recalcular_saldos_jugadores(uuid[]);
+
 CREATE OR REPLACE FUNCTION public.recalcular_saldos_jugadores(p_jugador_ids uuid[])
 RETURNS void
 LANGUAGE plpgsql
