@@ -109,6 +109,30 @@ class AuthService {
       if (epoch != _profileEpoch) {
         return isOrganizerRole(_profileRole) || _profileRole != null;
       }
+      if (row == null) {
+        // Identidad: no inventar role sin fila en profiles.
+        await client.rpc('asegurar_mi_perfil');
+        if (epoch != _profileEpoch) {
+          return isOrganizerRole(_profileRole) || _profileRole != null;
+        }
+        try {
+          row = await client
+              .from('profiles')
+              .select('role, email, acceso_ilimitado')
+              .eq('id', uid)
+              .maybeSingle();
+        } catch (_) {
+          row = await client
+              .from('profiles')
+              .select('role, email')
+              .eq('id', uid)
+              .maybeSingle();
+        }
+        if (epoch != _profileEpoch) {
+          return isOrganizerRole(_profileRole) || _profileRole != null;
+        }
+      }
+
       if (row != null) {
         _profileRole = row['role'] as String? ?? 'jugador';
         _accesoIlimitado = row['acceso_ilimitado'] == true;
@@ -121,26 +145,29 @@ class AuthService {
         );
         return true;
       }
-      // Sin fila en profiles: no inferir organizador desde metadata de auth.
-      _profileRole = 'jugador';
+
+      // Ensure falló: no asumir jugador fantasma.
+      _profileRole = null;
       _accesoIlimitado = false;
       _profileEmail = authEmail;
-      SubscriptionService.instance.syncFromProfile(
-        accesoIlimitado: false,
-        email: _profileEmail,
-      );
+      SubscriptionService.instance.clearProfileEntitlements();
       return false;
     } catch (_) {
       if (epoch != _profileEpoch) {
         return isOrganizerRole(_profileRole) || _profileRole != null;
       }
-      // Mantener rol previo si ya se cargó; si no, asumir jugador (nunca organizer).
-      _profileRole ??= 'jugador';
-      _profileEmail ??= authEmail;
-      SubscriptionService.instance.syncFromProfile(
-        accesoIlimitado: _accesoIlimitado,
-        email: _profileEmail,
-      );
+      // Error de red/lectura: conservar rol previo si ya existía; si no, null.
+      if (_profileRole == null) {
+        _accesoIlimitado = false;
+        _profileEmail = authEmail;
+        SubscriptionService.instance.clearProfileEntitlements();
+      } else {
+        _profileEmail ??= authEmail;
+        SubscriptionService.instance.syncFromProfile(
+          accesoIlimitado: _accesoIlimitado,
+          email: _profileEmail,
+        );
+      }
       return false;
     }
   }
