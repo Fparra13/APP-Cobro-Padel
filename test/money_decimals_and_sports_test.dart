@@ -53,9 +53,10 @@ void main() {
     expect(SportType.fromDb('pickleball'), SportType.pickleball);
     expect(SportType.fromDb('futevolei'), SportType.futevolei);
     final br = CountrySportCatalog.featuredFor('BR');
-    expect(br, contains(SportType.beachTennis));
-    expect(br, contains(SportType.pickleball));
-    expect(br, contains(SportType.futevolei));
+    expect(br.first, SportType.football);
+    expect(br, contains(SportType.yoga));
+    expect(br, contains(SportType.trekking));
+    // Catálogo completo sigue incluyendo deportes regionales.
     expect(SportType.beachTennis.labelForLang('pt'), 'Beach tennis');
     expect(SportType.futevolei.labelForLang('pt'), 'Futevôlei');
     expect(SportType.futevolei.labelForLang('en'), 'Footvolley');

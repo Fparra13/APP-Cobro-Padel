@@ -60,14 +60,20 @@ class TranslationMaps {
     'sportLabel': 'Deporte principal',
     'primarySportHint':
         'Define el color de la app y el deporte por defecto al crear encuentros.',
-    'matchSportLabel': 'Deporte del encuentro',
-    'sportSeeMore': 'Ver más',
-    'sportSeeMoreHint': 'Más deportes y actividades',
-    'sportPickAllTitle': 'Elige un deporte',
+    'matchSportLabel': 'Actividad del encuentro',
+    'matchActivityPrompt': '¿Qué actividad realizarán?',
+    'matchActivitySubtitle': 'Selecciona la actividad de este encuentro.',
+    'matchActivityChoose': 'Elegir actividad',
+    'matchActivityChange': 'Cambiar actividad',
+    'matchActivityRequired': 'Elige la actividad del encuentro',
+    'sportSeeMore': 'Ver todas las actividades',
+    'sportSeeMoreHint': 'Más actividades para tu grupo',
+    'sportPickAllTitle': 'Elegir actividad',
+    'sportOtherActivity': 'Otra actividad',
     'sportDescGeneric': 'Identidad visual de tu grupo',
     'countryLabel': 'País',
     'countryHint':
-        'Ordena primero los deportes más comunes en tu país. El resto sigue en «Ver más».',
+        'Ordena primero las actividades más comunes en tu país. El resto sigue en «Ver todas».',
     'languageLabel': 'Idioma',
     'currencyLabel': 'Moneda',
     'loading': 'Cargando…',
@@ -977,7 +983,7 @@ class TranslationMaps {
     'backupError': 'Error: {error}',
     'organizeTitle': 'Organizar encuentro',
     'convocatoriaTitle': 'Convocatoria',
-    'sendConvocatoria': 'Enviar convocatoria',
+    'sendConvocatoria': 'Enviar invitación',
     'goToCharges': 'Gestionar aportes',
     'organizeMatchConfirmedTitle': 'Encuentro confirmado',
     'organizeTrackingTitle': 'Asistencias',
@@ -1063,8 +1069,8 @@ class TranslationMaps {
         'La fecha del encuentro ya pasó. Registra los aportes con quienes '
         'asistieron o elimina la convocatoria si no se realizó.',
     'organizeHelpDraft':
-        'Completa los datos, elige a quién invitar '
-        'y pulsa "Enviar convocatoria". Recibirán push.',
+        'Define cuándo, la actividad, el lugar y a quién invitar. '
+        'Luego pulsa "Enviar invitación".',
     'organizeConfirmedBar': 'Confirmado · {confirmed}/{max} participantes',
     'organizeTrackingBar':
         'Seguimiento activo · {confirmed}/{max} confirmados · {pending} pendientes',
@@ -1083,16 +1089,16 @@ class TranslationMaps {
     'organizeSummarySlotsAvailable':
         '{available} cupo(s) libre(s) · {starters} invitados · {subs} en espera',
     'organizeRecentVenues': 'Recintos recientes',
-    'organizeMaxSlotsLabel': 'Cupos máximos',
-    'organizeResponseDeadlineLabel': 'Tiempo límite para confirmar',
+    'organizeMaxSlotsLabel': '¿Cuántas personas participarán?',
+    'organizeResponseDeadlineLabel': 'Plazo para responder',
     'organizeResponseDeadlineNeedDate':
         'Primero elige la fecha del encuentro para calcular el plazo.',
     'organizeResponseDeadlineHint': 'Hasta el {deadline}.',
     'organizeResponseDeadlineCapped':
         'Tope: hora del encuentro · hasta el {deadline}.',
-    'organizePickMatchWhenTitle': '¿Cuándo es el encuentro?',
+    'organizePickMatchWhenTitle': '¿Cuándo será el encuentro?',
     'organizePickMatchWhenSubtitle':
-        'Elige fecha y hora antes de enviar la convocatoria.',
+        'Elige fecha y hora antes de enviar la invitación.',
     'organizePickMatchWhenAction': 'Elegir fecha y hora',
     'organizePickMatchWhenChange': 'Toca para cambiar fecha u hora',
     'organizeMatchDateRequired': 'Elige la fecha y hora del encuentro',
@@ -1100,15 +1106,18 @@ class TranslationMaps {
         'La fecha del encuentro debe ser en el futuro',
     'organizeHoursCount': '{n} hora(s)',
     'organizeAddRegularPlayersFirst': 'Agrega participantes habituales primero',
-    'organizeStartersTitle': '¿A quién quieres invitar?',
+    'organizeStartersTitle': 'Invita participantes',
     'organizeAutoSelect': 'Auto',
     'organizeClearSelection': 'Limpiar',
     'organizeSearchHint': 'Buscar persona',
     'organizeStartersHintTracking':
         'Con app: responden solos. Sin app: toca su estado para registrar respuesta.',
     'organizeStartersHintDraft':
-        'Selecciona hasta {max} personas que recibirán esta convocatoria. '
-        'Si marcas más, pasarán a la lista de espera.',
+        'Selecciona quiénes recibirán la invitación. '
+        'Si el encuentro se completa, los siguientes quedarán en lista de espera.',
+    'organizeVenueCardTitle': '¿Dónde será?',
+    'organizeVenueCardHint': 'Selecciona dónde será el encuentro',
+    'organizeSlotsCardTitle': 'Participantes',
     'organizeWhatsAppNoAppTitle': 'Convocatoria por WhatsApp',
     'organizeWhatsAppNoAppSubtitle':
         '{count} participante(s) sin app · {withWhatsApp} con WhatsApp',
@@ -1900,14 +1909,20 @@ class TranslationMaps {
     'sportLabel': 'Primary sport',
     'primarySportHint':
         'Sets the app color and the default sport when creating sessions.',
-    'matchSportLabel': 'Session sport',
-    'sportSeeMore': 'See more',
-    'sportSeeMoreHint': 'More sports and activities',
-    'sportPickAllTitle': 'Pick a sport',
+    'matchSportLabel': 'Session activity',
+    'matchActivityPrompt': 'What activity will you do?',
+    'matchActivitySubtitle': 'Choose the activity for this session.',
+    'matchActivityChoose': 'Choose activity',
+    'matchActivityChange': 'Change activity',
+    'matchActivityRequired': 'Choose the session activity',
+    'sportSeeMore': 'See all activities',
+    'sportSeeMoreHint': 'More activities for your group',
+    'sportPickAllTitle': 'Choose activity',
+    'sportOtherActivity': 'Other activity',
     'sportDescGeneric': 'Visual identity for your group',
     'countryLabel': 'Country',
     'countryHint':
-        'Puts the most common sports in your country first. Everything else stays under “See more”.',
+        'Puts the most common activities in your country first. Everything else stays under “See all”.',
     'languageLabel': 'Language',
     'currencyLabel': 'Currency',
     'loading': 'Loading…',
@@ -2813,7 +2828,7 @@ class TranslationMaps {
     'backupError': 'Error: {error}',
     'organizeTitle': 'Organize session',
     'convocatoriaTitle': 'Invite',
-    'sendConvocatoria': 'Send invite',
+    'sendConvocatoria': 'Send invitation',
     'goToCharges': 'Manage contributions',
     'organizeMatchConfirmedTitle': 'Session confirmed',
     'organizeTrackingTitle': 'Attendance',
@@ -2897,8 +2912,8 @@ class TranslationMaps {
         'The session date has passed. Register contributions for those who '
         'attended or delete the invite if it was cancelled.',
     'organizeHelpDraft':
-        'Fill in the details, choose who to invite, '
-        'and tap "Send invite". They will receive a push notification.',
+        'Set when, the activity, the place, and who to invite. '
+        'Then tap "Send invitation".',
     'organizeConfirmedBar': 'Confirmed · {confirmed}/{max} participants',
     'organizeTrackingBar':
         'Active tracking · {confirmed}/{max} confirmed · {pending} pending',
@@ -2917,7 +2932,7 @@ class TranslationMaps {
     'organizeSummarySlotsAvailable':
         '{available} slot(s) available · {starters} invited · {subs} waiting',
     'organizeRecentVenues': 'Recent venues',
-    'organizeMaxSlotsLabel': 'Maximum slots',
+    'organizeMaxSlotsLabel': 'How many people will join?',
     'organizeResponseDeadlineLabel': 'Response deadline',
     'organizeResponseDeadlineNeedDate':
         'Pick the session date first to calculate the deadline.',
@@ -2925,22 +2940,25 @@ class TranslationMaps {
     'organizeResponseDeadlineCapped': 'Cap: session time · until {deadline}.',
     'organizePickMatchWhenTitle': 'When is the session?',
     'organizePickMatchWhenSubtitle':
-        'Pick date and time before sending the invite.',
+        'Pick date and time before sending the invitation.',
     'organizePickMatchWhenAction': 'Pick date and time',
     'organizePickMatchWhenChange': 'Tap to change date or time',
     'organizeMatchDateRequired': 'Pick the session date and time',
     'organizeMatchDateMustBeFuture': 'The session must be in the future',
     'organizeHoursCount': '{n} hour(s)',
     'organizeAddRegularPlayersFirst': 'Add regular participants first',
-    'organizeStartersTitle': 'Who do you want to invite?',
+    'organizeStartersTitle': 'Invite participants',
     'organizeAutoSelect': 'Auto',
     'organizeClearSelection': 'Clear',
     'organizeSearchHint': 'Search people',
     'organizeStartersHintTracking':
         'With app: they respond on their own. No app: tap their status to record.',
     'organizeStartersHintDraft':
-        'Select up to {max} people who will receive this invite. '
-        'Anyone beyond that goes to the waitlist.',
+        'Select who will receive the invitation. '
+        'If the session fills up, the next people go on the waitlist.',
+    'organizeVenueCardTitle': 'Where will it be?',
+    'organizeVenueCardHint': 'Choose where the session will take place',
+    'organizeSlotsCardTitle': 'Participants',
     'organizeWhatsAppNoAppTitle': 'Invite via WhatsApp',
     'organizeWhatsAppNoAppSubtitle':
         '{count} participant(s) without app · {withWhatsApp} with WhatsApp',
@@ -3724,14 +3742,20 @@ class TranslationMaps {
     'sportLabel': 'Esporte principal',
     'primarySportHint':
         'Define a cor do app e o esporte padrão ao criar encontros.',
-    'matchSportLabel': 'Esporte do encontro',
-    'sportSeeMore': 'Ver mais',
-    'sportSeeMoreHint': 'Mais esportes e atividades',
-    'sportPickAllTitle': 'Escolha um esporte',
+    'matchSportLabel': 'Atividade do encontro',
+    'matchActivityPrompt': 'Que atividade vocês vão fazer?',
+    'matchActivitySubtitle': 'Escolha a atividade deste encontro.',
+    'matchActivityChoose': 'Escolher atividade',
+    'matchActivityChange': 'Alterar atividade',
+    'matchActivityRequired': 'Escolha a atividade do encontro',
+    'sportSeeMore': 'Ver todas as atividades',
+    'sportSeeMoreHint': 'Mais atividades para o seu grupo',
+    'sportPickAllTitle': 'Escolher atividade',
+    'sportOtherActivity': 'Outra atividade',
     'sportDescGeneric': 'Identidade visual do seu grupo',
     'countryLabel': 'País',
     'countryHint':
-        'Mostra primeiro os esportes mais comuns no seu país. O resto fica em «Ver mais».',
+        'Mostra primeiro as atividades mais comuns no seu país. O resto fica em «Ver todas».',
     'languageLabel': 'Idioma',
     'currencyLabel': 'Moeda',
     'loading': 'Carregando…',
@@ -4724,8 +4748,8 @@ class TranslationMaps {
         'A data do encontro já passou. Registre as contribuições de quem '
         'compareceu ou exclua o convite se não aconteceu.',
     'organizeHelpDraft':
-        'Preencha os dados, escolha quem convidar '
-        'e toque em "Enviar convite". Eles receberão push.',
+        'Defina quando, a atividade, o local e quem convidar. '
+        'Depois toque em "Enviar convite".',
     'organizeConfirmedBar': 'Confirmado · {confirmed}/{max} participantes',
     'organizeTrackingBar':
         'Acompanhamento ativo · {confirmed}/{max} confirmados · {pending} pendentes',
@@ -4744,16 +4768,16 @@ class TranslationMaps {
     'organizeSummarySlotsAvailable':
         '{available} vaga(s) livre(s) · {starters} convidados · {subs} em espera',
     'organizeRecentVenues': 'Locais recentes',
-    'organizeMaxSlotsLabel': 'Vagas máximas',
-    'organizeResponseDeadlineLabel': 'Prazo para confirmar',
+    'organizeMaxSlotsLabel': 'Quantas pessoas vão participar?',
+    'organizeResponseDeadlineLabel': 'Prazo para responder',
     'organizeResponseDeadlineNeedDate':
         'Escolha primeiro a data do encontro para calcular o prazo.',
     'organizeResponseDeadlineHint': 'Até {deadline}.',
     'organizeResponseDeadlineCapped':
         'Limite: hora do encontro · até {deadline}.',
-    'organizePickMatchWhenTitle': 'Quando é o encontro?',
+    'organizePickMatchWhenTitle': 'Quando será o encontro?',
     'organizePickMatchWhenSubtitle':
-        'Escolha data e hora antes de enviar a convocatória.',
+        'Escolha data e hora antes de enviar o convite.',
     'organizePickMatchWhenAction': 'Escolher data e hora',
     'organizePickMatchWhenChange': 'Toque para alterar data ou hora',
     'organizeMatchDateRequired': 'Escolha a data e hora do encontro',
@@ -4761,15 +4785,18 @@ class TranslationMaps {
     'organizeHoursCount': '{n} hora(s)',
     'organizeAddRegularPlayersFirst':
         'Adicione participantes habituais primeiro',
-    'organizeStartersTitle': 'Quem você quer convidar?',
+    'organizeStartersTitle': 'Convide participantes',
     'organizeAutoSelect': 'Auto',
     'organizeClearSelection': 'Limpar',
     'organizeSearchHint': 'Buscar pessoa',
     'organizeStartersHintTracking':
         'Com app: respondem sozinhos. Sem app: toque o status para registrar.',
     'organizeStartersHintDraft':
-        'Selecione até {max} pessoas que receberão este convite. '
-        'Se marcar mais, elas vão para a lista de espera.',
+        'Selecione quem receberá o convite. '
+        'Se o encontro lotar, os seguintes ficam na lista de espera.',
+    'organizeVenueCardTitle': 'Onde será?',
+    'organizeVenueCardHint': 'Escolha onde será o encontro',
+    'organizeSlotsCardTitle': 'Participantes',
     'organizeWhatsAppNoAppTitle': 'Convite por WhatsApp',
     'organizeWhatsAppNoAppSubtitle':
         '{count} participante(s) sem app · {withWhatsApp} com WhatsApp',

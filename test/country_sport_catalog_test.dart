@@ -4,18 +4,23 @@ import 'package:matchpay/core/country_sport_catalog.dart';
 import 'package:matchpay/core/sport_type.dart';
 
 void main() {
-  test('BR prioriza futevôlei, beach tennis y pickleball', () {
+  test('BR prioriza fútbol y mezcla inclusiva', () {
     final featured = CountrySportCatalog.featuredFor('BR');
-    expect(featured.take(4).toList(), [
+    expect(featured.take(6).toList(), [
       SportType.football,
-      SportType.futevolei,
-      SportType.beachTennis,
-      SportType.pickleball,
+      SportType.padel,
+      SportType.yoga,
+      SportType.trekking,
+      SportType.running,
+      SportType.cycling,
     ]);
   });
 
-  test('US prioriza pickleball', () {
-    expect(CountrySportCatalog.featuredFor('US').first, SportType.pickleball);
+  test('US incluye yoga y trekking en destacados', () {
+    final featured = CountrySportCatalog.featuredFor('US');
+    expect(featured, contains(SportType.yoga));
+    expect(featured, contains(SportType.trekking));
+    expect(featured.first, SportType.padel);
   });
 
   test('CL prioriza pádel', () {

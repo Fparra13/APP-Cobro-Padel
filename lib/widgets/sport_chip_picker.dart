@@ -11,6 +11,8 @@ class SportChipPicker extends StatelessWidget {
   final ValueChanged<SportType>? onChanged;
   final bool enabled;
   final String? moreLabel;
+  /// Si false, no marca ningún chip como seleccionado (p. ej. aún sin elegir).
+  final bool highlightSelection;
 
   const SportChipPicker({
     super.key,
@@ -18,6 +20,7 @@ class SportChipPicker extends StatelessWidget {
     this.onChanged,
     this.enabled = true,
     this.moreLabel,
+    this.highlightSelection = true,
   });
 
   @override
@@ -27,17 +30,18 @@ class SportChipPicker extends StatelessWidget {
     final label = moreLabel ?? context.l10n.tr('sportSeeMore');
     final featured = settings.featuredSports;
     final valueInFeatured = featured.contains(value);
+    final showSelected = highlightSelection;
 
     final chips = <Widget>[
       for (final sport in featured)
         _SportChoiceChip(
           sport: sport,
           lang: lang,
-          selected: value == sport,
+          selected: showSelected && value == sport,
           enabled: enabled && onChanged != null,
           onSelected: () => onChanged?.call(sport),
         ),
-      if (!valueInFeatured)
+      if (showSelected && !valueInFeatured)
         _SportChoiceChip(
           sport: value,
           lang: lang,

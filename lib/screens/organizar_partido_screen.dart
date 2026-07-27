@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../core/app_repositories.dart';
+import '../core/sport_theme.dart';
 import '../core/sport_type.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/convocatoria_jugador.dart';
@@ -72,7 +73,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   final Map<String, EstadoConfirmacion> _estados = {};
   int _horasLimite = 24;
   DateTime? _fechaPartido;
-  SportType _sportType = SportType.padel;
+  SportType? _sportType;
   bool _loading = true;
   bool _guardando = false;
   String? _errorCarga;
@@ -394,7 +395,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           }
         }
         if (mounted) {
-          _sportType = context.readSettings().sport;
+          // Primera creación: sin actividad por defecto (elige conscientemente).
+          // Última actividad usada: PR2.
+          _sportType = null;
         }
       }
 
@@ -795,6 +798,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       _mostrarError(context.l10n.tr('organizeMatchDateRequired'));
       return false;
     }
+    if (_sportType == null) {
+      _mostrarError(context.l10n.tr('matchActivityRequired'));
+      return false;
+    }
     if (!_fechaPartido!.isAfter(DateTime.now())) {
       _mostrarError(context.l10n.tr('organizeMatchDateMustBeFuture'));
       return false;
@@ -836,7 +843,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           cuposMax: _cuposMax,
           horasLimiteRespuesta: _horasLimite,
           jugadores: jugadores,
-          sportType: _sportType,
+          sportType: _sportType!,
         );
       } else {
         final partidoId = _partidoId!;
@@ -877,7 +884,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           cuposMax: _cuposMax,
           horasLimiteRespuesta: _horasLimite,
           jugadores: jugadores,
-          sportType: _sportType,
+          sportType: _sportType!,
         );
         if (_convocatoriaEnviada && mounted) {
           final fresh = await repos.getConvocatoriaCompleta(partidoId);
@@ -1001,7 +1008,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         fecha: _fechaPartido!,
         horasLimite: _horasLimite,
         recinto: recinto.nombre.trim(),
-        sportType: _sportType,
+        sportType: _sportType!,
       );
 
       if (!mounted) return;
@@ -1190,7 +1197,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themed = context.readSettings().themeForSport(_sportType);
+    final themed = _organizeTheme(context);
     return Theme(
       data: themed,
       child: PopScope(
@@ -1343,9 +1350,17 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   _buildResumen(),
                 ],
                 const SizedBox(height: 12),
-                _buildDatosPartido(),
+                _buildActividadCard(),
+                const SizedBox(height: 10),
+                _buildLugarCard(),
+                const SizedBox(height: 10),
+                _buildCuposCard(),
                 const SizedBox(height: 12),
                 _buildListaJugadores(),
+                const SizedBox(height: 10),
+                _buildPlazoCard(),
+                const SizedBox(height: 10),
+                _buildNotasCard(),
                 const SizedBox(height: 80),
               ],
             ),
@@ -1554,7 +1569,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     return ConvocatoriaAsistenciasView(
       fecha: fecha,
       recinto: recinto,
-      sportType: _sportType,
+      sportType: _sportType!,
       cuposMax: _cuposMax,
       statusLabel: context.l10n.tr('asistenciasStatusInProgress'),
       titulares: titulares,
@@ -1575,6 +1590,22 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       context,
       convocatoria: conv,
     );
+  }
+
+  ThemeData _organizeTheme(BuildContext context) {
+    final sport = _sportType;
+    if (sport == null) {
+      // Marca Kloovi hasta elegir actividad.
+      return ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2EC4B6),
+          primary: const Color(0xFF1AA89B),
+          brightness: Brightness.light,
+        ),
+      );
+    }
+    return context.readSettings().themeForSport(sport);
   }
 
   Widget _buildFechaHoraHero() {
@@ -1857,239 +1888,272 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     );
   }
 
-  Widget _buildDatosPartido() {
+  Widget _buildActividadCard() {
     if (_formularioBloqueado) {
-      final recinto = _recintoSeleccionado;
+      final sport = _sportType;
+      if (sport == null) return const SizedBox.shrink();
       return MatchPaySurfaceCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Row(
           children: [
             Text(
-              context.l10n.tr('matchDetailsTitle'),
-              style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
+              SportThemeConfig.paletteFor(sport).emoji,
+              style: const TextStyle(fontSize: 22),
             ),
-            const SizedBox(height: 12),
-            SportChargeChip(sport: _sportType),
-            if (recinto != null) ...[
-              const SizedBox(height: 12),
-              Row(
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.place_outlined,
-                    size: 20,
-                    color: context.sportPalette.primaryDark,
+                  Text(
+                    context.l10n.tr('matchSportLabel'),
+                    style: MatchPayTokens.bodySmallStyle(
+                      color: MatchPayTokens.inkMuted,
+                    ).copyWith(fontSize: 11, fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          recinto.nombre,
-                          style: MatchPayTokens.titleSmallStyle().copyWith(
-                            fontSize: 14,
-                          ),
-                        ),
-                        if (recinto.location.hasExactLocation) ...[
-                          const SizedBox(height: 6),
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              await recinto.location.open();
-                            },
-                            icon: const Icon(Icons.map_outlined, size: 18),
-                            label: Text(
-                              context.l10n.tr('openExactVenueMap'),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                  SportChargeChip(sport: sport),
                 ],
               ),
-            ],
+            ),
           ],
         ),
       );
     }
 
     return MatchPaySurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            context.l10n.tr('matchDetailsTitle'),
-            style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
-          ),
-            const SizedBox(height: 12),
-          MatchSportPicker(
-            value: _sportType,
-            onChanged: (sport) => setState(() {
-              _sportType = sport;
-              _dirty = true;
-            }),
-          ),
-          const SizedBox(height: 12),
-            InputDecorator(
-              decoration: InputDecoration(
-                labelText: context.l10n.tr('venueLabelRequired'),
-                prefixIcon: const Icon(Icons.place),
-                border: const OutlineInputBorder(),
-              ),
+      padding: const EdgeInsets.all(10),
+      child: MatchSportPicker(
+        value: _sportType,
+        compact: true,
+        onChanged: (sport) => setState(() {
+          _sportType = sport;
+          _dirty = true;
+        }),
+      ),
+    );
+  }
+
+  Widget _buildLugarCard() {
+    final recinto = _recintoSeleccionado;
+    if (_formularioBloqueado) {
+      if (recinto == null) return const SizedBox.shrink();
+      return MatchPaySurfaceCard(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.place_outlined,
+              size: 20,
+              color: context.sportPalette.primaryDark,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _recintoSeleccionado?.nombre ??
-                        context.l10n.tr('venuePickHint'),
-                    style: TextStyle(
-                      fontWeight: _recintoSeleccionado == null
-                          ? FontWeight.normal
-                          : FontWeight.w600,
-                      color: _recintoSeleccionado == null
-                          ? MatchPayTokens.inkMuted
-                          : null,
+                    context.l10n.tr('organizeVenueCardTitle'),
+                    style: MatchPayTokens.bodySmallStyle(
+                      color: MatchPayTokens.inkMuted,
+                    ).copyWith(fontSize: 11, fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    recinto.nombre,
+                    style: MatchPayTokens.titleSmallStyle().copyWith(
+                      fontSize: 14,
                     ),
                   ),
-                  if (_recintoSeleccionado != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      _recintoSeleccionado!.location.hasExactLocation
-                          ? context.l10n.tr('venueHasExactMap')
-                          : context.l10n.tr('venueNoExactMap'),
-                      style: MatchPayTokens.bodySmallStyle(
-                        color: _recintoSeleccionado!.location.hasExactLocation
-                            ? MatchPayTokens.accentSuccess
-                            : MatchPayTokens.accentUrgent,
-                      ).copyWith(fontSize: 12),
-                    ),
-                  ],
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      if (!_formularioBloqueado)
-                        FilledButton.tonalIcon(
-                          onPressed: _elegirRecintoGuardado,
-                          icon: const Icon(Icons.list_alt, size: 18),
-                          label: Text(
-                            _recintosGuardados.isEmpty
-                                ? context.l10n.tr('venueManageInSettings')
-                                : context.l10n.tr('venueChooseSaved'),
-                          ),
-                        ),
-                      if (!_formularioBloqueado)
-                        TextButton(
-                          onPressed: _administrarRecintos,
-                          child: Text(context.l10n.tr('venueManageShort')),
-                        ),
-                      OutlinedButton.icon(
-                        onPressed: _recintoSeleccionado == null
-                            ? null
-                            : _abrirMapaRecinto,
-                        icon: const Icon(Icons.map_outlined, size: 18),
-                        label: Text(context.l10n.tr('openVenueMapTooltip')),
-                      ),
-                    ],
-                  ),
-                  if (!_formularioBloqueado && _recintosGuardados.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        context.l10n.tr('venueOrganizeEmptyHint'),
-                        style: MatchPayTokens.bodySmallStyle(
-                          color: MatchPayTokens.accentUrgent,
-                        ).copyWith(fontSize: 12),
-                      ),
-                    ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _cuposCtrl,
-              readOnly: _formularioBloqueado,
-              onChanged: _formularioBloqueado ? null : _onCuposChanged,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                labelText: context.l10n.tr('organizeMaxSlotsLabel'),
-                prefixIcon: const Icon(Icons.people),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Builder(
-              builder: (context) {
-                final opciones = _opcionesPlazo;
-                assert(opciones.isNotEmpty);
-                final valor = opciones.contains(_horasLimite)
-                    ? _horasLimite
-                    : opciones.last;
-                if (valor != _horasLimite) {
-                  // Sync diferido: evita value fuera de items (assert Flutter).
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    if (_horasLimite != valor) {
-                      setState(() => _horasLimite = valor);
-                    }
-                  });
-                }
-                return DropdownButtonFormField<int>(
-                  key: ValueKey('plazo-${opciones.join('-')}'),
-                  value: valor,
-                  decoration: InputDecoration(
-                    labelText:
-                        context.l10n.tr('organizeResponseDeadlineLabel'),
-                    prefixIcon: const Icon(Icons.timer_outlined),
-                    helperText: _fechaPartido == null
-                        ? context.l10n
-                            .tr('organizeResponseDeadlineNeedDate')
-                        : _buildPlazoHelperText(),
-                    helperMaxLines: 2,
-                  ),
-                  items: opciones
-                      .map(
-                        (h) => DropdownMenuItem(
-                          value: h,
-                          child: Text(
-                            context.l10n.tr(
-                              'organizeHoursCount',
-                              params: {'n': '$h'},
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: _formularioBloqueado || _fechaPartido == null
-                      ? null
-                      : (v) {
-                          if (v == null) return;
-                          setState(() {
-                            _horasLimite = v;
-                            _dirty = true;
-                          });
-                        },
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _notasCtrl,
-              readOnly: _formularioBloqueado,
-              onChanged: _formularioBloqueado ? null : (_) => _marcarDirty(),
-              maxLines: 2,
-              decoration: InputDecoration(
-                labelText: context.l10n.tr('notesOptionalLabel'),
-                prefixIcon: const Icon(Icons.notes),
               ),
             ),
           ],
         ),
+      );
+    }
+
+    return MatchPaySurfaceCard(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            context.l10n.tr('organizeVenueCardTitle'),
+            style: MatchPayTokens.titleSmallStyle().copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            context.l10n.tr('organizeVenueCardHint'),
+            style: MatchPayTokens.bodySmallStyle(
+              color: MatchPayTokens.inkSecondary,
+            ).copyWith(fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            recinto?.nombre ?? context.l10n.tr('venuePickHint'),
+            style: TextStyle(
+              fontWeight: recinto == null ? FontWeight.normal : FontWeight.w600,
+              color: recinto == null ? MatchPayTokens.inkMuted : null,
+            ),
+          ),
+          if (recinto != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              recinto.location.hasExactLocation
+                  ? context.l10n.tr('venueHasExactMap')
+                  : context.l10n.tr('venueNoExactMap'),
+              style: MatchPayTokens.bodySmallStyle(
+                color: recinto.location.hasExactLocation
+                    ? MatchPayTokens.accentSuccess
+                    : MatchPayTokens.accentUrgent,
+              ).copyWith(fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: _elegirRecintoGuardado,
+                icon: const Icon(Icons.list_alt, size: 18),
+                label: Text(
+                  _recintosGuardados.isEmpty
+                      ? context.l10n.tr('venueManageInSettings')
+                      : context.l10n.tr('venueChooseSaved'),
+                ),
+              ),
+              TextButton(
+                onPressed: _administrarRecintos,
+                child: Text(context.l10n.tr('venueManageShort')),
+              ),
+              OutlinedButton.icon(
+                onPressed: recinto == null ? null : _abrirMapaRecinto,
+                icon: const Icon(Icons.map_outlined, size: 18),
+                label: Text(context.l10n.tr('openVenueMapTooltip')),
+              ),
+            ],
+          ),
+          if (_recintosGuardados.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                context.l10n.tr('venueOrganizeEmptyHint'),
+                style: MatchPayTokens.bodySmallStyle(
+                  color: MatchPayTokens.accentUrgent,
+                ).copyWith(fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCuposCard() {
+    return MatchPaySurfaceCard(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            context.l10n.tr('organizeSlotsCardTitle'),
+            style: MatchPayTokens.titleSmallStyle().copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _cuposCtrl,
+            readOnly: _formularioBloqueado,
+            onChanged: _formularioBloqueado ? null : _onCuposChanged,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: InputDecoration(
+              labelText: context.l10n.tr('organizeMaxSlotsLabel'),
+              prefixIcon: const Icon(Icons.people),
+              isDense: true,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlazoCard() {
+    final opciones = _opcionesPlazo;
+    assert(opciones.isNotEmpty);
+    final valor =
+        opciones.contains(_horasLimite) ? _horasLimite : opciones.last;
+    if (valor != _horasLimite) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_horasLimite != valor) {
+          setState(() => _horasLimite = valor);
+        }
+      });
+    }
+
+    return MatchPaySurfaceCard(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: DropdownButtonFormField<int>(
+        key: ValueKey('plazo-${opciones.join('-')}'),
+        value: valor,
+        decoration: InputDecoration(
+          labelText: context.l10n.tr('organizeResponseDeadlineLabel'),
+          prefixIcon: const Icon(Icons.timer_outlined),
+          helperText: _fechaPartido == null
+              ? context.l10n.tr('organizeResponseDeadlineNeedDate')
+              : _buildPlazoHelperText(),
+          helperMaxLines: 2,
+          isDense: true,
+          border: const OutlineInputBorder(),
+        ),
+        items: opciones
+            .map(
+              (h) => DropdownMenuItem(
+                value: h,
+                child: Text(
+                  context.l10n.tr(
+                    'organizeHoursCount',
+                    params: {'n': '$h'},
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: _formularioBloqueado || _fechaPartido == null
+            ? null
+            : (v) {
+                if (v == null) return;
+                setState(() {
+                  _horasLimite = v;
+                  _dirty = true;
+                });
+              },
+      ),
+    );
+  }
+
+  Widget _buildNotasCard() {
+    return MatchPaySurfaceCard(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: TextField(
+        controller: _notasCtrl,
+        readOnly: _formularioBloqueado,
+        onChanged: _formularioBloqueado ? null : (_) => _marcarDirty(),
+        maxLines: 2,
+        decoration: InputDecoration(
+          labelText: context.l10n.tr('notesOptionalLabel'),
+          prefixIcon: const Icon(Icons.notes),
+          isDense: true,
+          border: const OutlineInputBorder(),
+        ),
+      ),
     );
   }
 

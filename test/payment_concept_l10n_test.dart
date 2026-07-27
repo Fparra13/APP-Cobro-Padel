@@ -12,7 +12,7 @@ void main() {
         'Encuentro cubierto con saldo a favor',
         'en',
       ),
-      'Session covered with credit balance',
+      'Session covered with amount in your favor',
     );
   });
 
