@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/app_repositories.dart';
 import '../core/app_settings_controller.dart';
@@ -72,12 +73,15 @@ class PlayerHomeScreen extends StatefulWidget {
 }
 
 class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
+  static const _kGroupCodePromptSeenPrefix = 'player_group_code_prompt_seen_';
+
   List<MiConvocatoria> _todas = [];
   List<DetallePartido> _deudas = [];
   List<DetallePartido> _partidosJugados = [];
   List<SaldoHistorico> _historialSaldo = [];
   Map<int, double> _saldosPorPartido = {};
   final Map<int, DesgloseJugador?> _desglosePorPartido = {};
+  bool _groupCodePromptChecked = false;
   List<CuentaSaldo> _cuentasSaldo = [];
   double _totalDeudaHome = 0;
   Jugador? _perfil;
@@ -295,6 +299,8 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       if (mounted) setState(() => _organizerPendingCount = count);
     }));
 
+    unawaited(_maybeShowGroupCodePrompt());
+
     if (!fromLive) return;
 
     unawaited(_cargarDesgloses(deudas));
@@ -306,6 +312,64 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       ),
     );
     unawaited(PartidoCanceladoPopupFlow.mostrarPendientesEnHome(context));
+  }
+
+  Future<void> _maybeShowGroupCodePrompt() async {
+    if (_groupCodePromptChecked || !mounted) return;
+    if (AuthService.instance.isOrganizer) {
+      _groupCodePromptChecked = true;
+      return;
+    }
+    if (_cuentasSaldo.any((c) => c.activo)) {
+      _groupCodePromptChecked = true;
+      return;
+    }
+    if (_readOnly) return;
+
+    final userId = AuthService.instance.currentUser?.id;
+    if (userId == null || userId.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final key = '$_kGroupCodePromptSeenPrefix$userId';
+    if (prefs.getBool(key) == true) {
+      _groupCodePromptChecked = true;
+      return;
+    }
+
+    _groupCodePromptChecked = true;
+    if (!mounted) return;
+
+    // Deja pintar el home antes del diálogo opcional.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    if (AuthService.instance.isOrganizer) return;
+    if (_cuentasSaldo.any((c) => c.activo)) return;
+
+    final l10n = context.l10n;
+    final enter = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.tr('playerGroupCodePromptTitle')),
+        content: Text(l10n.tr('playerGroupCodePromptBody')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.tr('playerGroupCodePromptLater')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.tr('playerGroupCodePromptEnter')),
+          ),
+        ],
+      ),
+    );
+
+    await prefs.setBool(key, true);
+    if (!mounted) return;
+    if (enter == true) {
+      await _unirseAGrupo();
+    }
   }
 
   /// Solo [read]: nunca llamar [watch] desde callbacks (p. ej. Ver detalle).
@@ -966,6 +1030,9 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                             onOpenCobros: widget.onOpenMisCobros,
                             onJoinGroup:
                                 mostrarUnirseGrupo ? _unirseAGrupo : null,
+                            onOrganizeGroup: mostrarUnirseGrupo
+                                ? _onBecomeOrganizerTap
+                                : null,
                             forOrganizerPlayer: esAdmin,
                           ),
                           const SizedBox(height: 12),
@@ -1358,6 +1425,7 @@ class _HeroMatchCard extends StatelessWidget {
 class _HeroEmptyCard extends StatelessWidget {
   final VoidCallback? onOpenCobros;
   final VoidCallback? onJoinGroup;
+  final VoidCallback? onOrganizeGroup;
   /// Organizador en vista jugador: no empujar a “unirse a un grupo”.
   final bool forOrganizerPlayer;
 
@@ -1365,6 +1433,7 @@ class _HeroEmptyCard extends StatelessWidget {
     super.key,
     this.onOpenCobros,
     this.onJoinGroup,
+    this.onOrganizeGroup,
     this.forOrganizerPlayer = false,
   });
 
@@ -1384,7 +1453,7 @@ class _HeroEmptyCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Ink(
-        height: showJoin ? 230 : 200,
+        height: showJoin ? 278 : 200,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
           gradient: LinearGradient(
@@ -1462,8 +1531,26 @@ class _HeroEmptyCard extends StatelessWidget {
                         foregroundColor: palette.primaryDark,
                       ),
                       onPressed: onJoinGroup,
-                      child: Text(l10n.tr('groupCodeJoinAction')),
+                      child: Text(l10n.tr('playerHeroEnterCodeCta')),
                     ),
+                    if (onOrganizeGroup != null) ...[
+                      const SizedBox(height: 4),
+                      TextButton(
+                        onPressed: onOrganizeGroup,
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        child: Text(
+                          l10n.tr('playerHeroWantOrganizeCta'),
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.92),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),

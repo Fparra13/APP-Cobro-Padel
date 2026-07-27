@@ -93,7 +93,7 @@ class _PlayerIntroOnboardingScreenState
                     child: ListView(
                       children: [
                         MatchPayFeatureRow(
-                          icon: Icons.notifications_active_rounded,
+                          icon: Icons.group_add_rounded,
                           color: palette.primary,
                           title: l10n.tr('introPlayerFeatureNotifications'),
                           subtitle: l10n.tr('introPlayerFeatureNotificationsSub'),
@@ -102,20 +102,13 @@ class _PlayerIntroOnboardingScreenState
                         MatchPayFeatureRow(
                           icon: Icons.how_to_reg_rounded,
                           color: MatchPayTokens.accentSuccess,
-                          title: l10n.tr('introFeatureConfirm'),
-                          subtitle: l10n.tr('introPlayerFeatureConfirmSub'),
-                        ),
-                        const SizedBox(height: 12),
-                        MatchPayFeatureRow(
-                          icon: Icons.account_balance_wallet_outlined,
-                          color: MatchPayTokens.accentUrgent,
                           title: l10n.tr('introPlayerFeatureExpenses'),
                           subtitle: l10n.tr('introPlayerFeatureExpensesSub'),
                         ),
                         const SizedBox(height: 12),
                         MatchPayFeatureRow(
-                          icon: Icons.receipt_long_rounded,
-                          color: const Color(0xFF7C3AED),
+                          icon: Icons.account_balance_wallet_outlined,
+                          color: MatchPayTokens.accentUrgent,
                           title: l10n.tr('introPlayerFeaturePay'),
                           subtitle: l10n.tr('introPlayerFeaturePaySub'),
                         ),

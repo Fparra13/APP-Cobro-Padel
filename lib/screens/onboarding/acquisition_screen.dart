@@ -52,7 +52,7 @@ class AcquisitionScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 28),
                 _PathCard(
-                  icon: Icons.event_available_rounded,
+                  icon: Icons.groups_rounded,
                   iconColor: palette.primary,
                   title: l10n.tr('acquisitionOrganizeFirstMatch'),
                   subtitle: l10n.tr('acquisitionOrganizeFirstMatchSub'),
