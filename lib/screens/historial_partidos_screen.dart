@@ -78,13 +78,14 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
 
   void _onTabChanged() {
     if (_tabs.indexIsChanging) return;
-    if (_tabs.index == 1) {
-      if (!_rankingTabVisited) {
-        setState(() => _rankingTabVisited = true);
+    // TabBar escucha el controller; IndexedStack solo se actualiza en rebuild.
+    setState(() {
+      if (_tabs.index == 1 && !_rankingTabVisited) {
+        _rankingTabVisited = true;
       }
-      if (!_rankingLoaded && !_rankingLoading) {
-        _loadRanking();
-      }
+    });
+    if (_tabs.index == 1 && !_rankingLoaded && !_rankingLoading) {
+      _loadRanking();
     }
   }
 
