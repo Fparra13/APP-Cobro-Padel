@@ -763,6 +763,8 @@ GRANT SELECT ON public.cobros_resumen TO authenticated;
 -- ---------------------------------------------------------------------------
 -- 9) Roster: devolver saldo de la cuenta (no profiles)
 -- ---------------------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.get_mis_jugadores_organizador(boolean);
+
 CREATE OR REPLACE FUNCTION public.get_mis_jugadores_organizador(
   p_solo_activos boolean DEFAULT NULL
 )
