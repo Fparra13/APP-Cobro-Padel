@@ -122,13 +122,30 @@ class TranslationMaps {
     'organizerCycleEmptyBody':
         'Crea una convocatoria o registra un encuentro que ya se realizó.',
     'organizerCycleCreateMatch': 'Crear encuentro',
-    'organizerActivationTitle': 'Tu grupo comienza aquí',
+    'organizerActivationTitle': 'Activa tu grupo',
     'organizerActivationBody':
-        'Comparte tu código y reúne a las personas con las que haces encuentros.',
+        'Invita personas para crear tu primer grupo deportivo.',
     'organizerActivationAddParticipant': 'Agregar participante',
-    'organizerActivationCreateMatchSecondary': 'Crear encuentro más tarde',
+    'organizerActivationCreateMatchSecondary':
+        'Crear un encuentro sin participantes',
     'organizerActivationCreateMatchHint':
         'Tu grupo todavía no tiene participantes. Comparte tu código para invitar personas antes de crear un encuentro.',
+    'organizerActivationShareCta': 'Compartir invitación',
+    'groupCodeHeroLabel': 'Tu código',
+    'groupCodeHeroHint': 'Compártelo con tu grupo',
+    'groupCodeInviteCardTitle': 'Código de grupo',
+    'groupCodeInviteCardBody':
+        'Compártelo ahora para que se unan a tu grupo.',
+    'groupCodeShareCodeCta': 'Compartir invitación',
+    'groupCodeRegenExpired': '¿El código expiró? Generar uno nuevo',
+    'addParticipantChooserTitle': '¿Cómo quieres agregar esta persona?',
+    'addParticipantUsesKlooviTitle': 'Invita personas a Kloovi',
+    'addParticipantUsesKlooviBody':
+        'Comparte tu código de grupo. Si aún no tienen Kloovi, podrán instalar la app antes de unirse.',
+    'addParticipantManualTitle': 'Agrega participantes manualmente',
+    'addParticipantManualBody':
+        'Agrega personas con nombre y WhatsApp si todavía no usarán la app.',
+    'addParticipantManualCta': 'Agregar manualmente',
     'organizerActivationProgress': '{count} participantes invitados',
     'organizerCyclePreparingToday': '{emoji} Encuentro de hoy · {time}',
     'organizerCyclePreparingSoon': '{emoji} Encuentro {when}',
@@ -1945,13 +1962,30 @@ class TranslationMaps {
     'organizerCycleEmptyBody':
         'Create an invite or log a session that already happened.',
     'organizerCycleCreateMatch': 'Create session',
-    'organizerActivationTitle': 'Your group starts here',
+    'organizerActivationTitle': 'Activate your group',
     'organizerActivationBody':
-        'Share your code and gather the people you play with.',
+        'Invite people to create your first sports group.',
     'organizerActivationAddParticipant': 'Add participant',
-    'organizerActivationCreateMatchSecondary': 'Create session later',
+    'organizerActivationCreateMatchSecondary':
+        'Create a session without participants',
     'organizerActivationCreateMatchHint':
         'Your group still has no participants. Share your code to invite people before creating a session.',
+    'organizerActivationShareCta': 'Share invitation',
+    'groupCodeHeroLabel': 'Your code',
+    'groupCodeHeroHint': 'Share it with your group',
+    'groupCodeInviteCardTitle': 'Group code',
+    'groupCodeInviteCardBody':
+        'Share it now so they can join your group.',
+    'groupCodeShareCodeCta': 'Share invitation',
+    'groupCodeRegenExpired': 'Code expired? Generate a new one',
+    'addParticipantChooserTitle': 'How do you want to add this person?',
+    'addParticipantUsesKlooviTitle': 'Invite people to Kloovi',
+    'addParticipantUsesKlooviBody':
+        'Share your group code. If they don\'t have Kloovi yet, they can install the app before joining.',
+    'addParticipantManualTitle': 'Add participants manually',
+    'addParticipantManualBody':
+        'Add people with name and WhatsApp if they won\'t use the app yet.',
+    'addParticipantManualCta': 'Add manually',
     'organizerActivationProgress': '{count} invited participants',
     'organizerCyclePreparingToday': '{emoji} Session today · {time}',
     'organizerCyclePreparingSoon': '{emoji} Session {when}',
@@ -3751,13 +3785,30 @@ class TranslationMaps {
     'organizerCycleEmptyBody':
         'Crie uma convocação ou registre um encontro que já aconteceu.',
     'organizerCycleCreateMatch': 'Criar encontro',
-    'organizerActivationTitle': 'Seu grupo começa aqui',
+    'organizerActivationTitle': 'Ative seu grupo',
     'organizerActivationBody':
-        'Compartilhe seu código e reúna as pessoas com quem você joga.',
+        'Convide pessoas para criar seu primeiro grupo esportivo.',
     'organizerActivationAddParticipant': 'Adicionar participante',
-    'organizerActivationCreateMatchSecondary': 'Criar encontro mais tarde',
+    'organizerActivationCreateMatchSecondary':
+        'Criar um encontro sem participantes',
     'organizerActivationCreateMatchHint':
         'Seu grupo ainda não tem participantes. Compartilhe seu código para convidar pessoas antes de criar um encontro.',
+    'organizerActivationShareCta': 'Compartilhar convite',
+    'groupCodeHeroLabel': 'Seu código',
+    'groupCodeHeroHint': 'Compartilhe com seu grupo',
+    'groupCodeInviteCardTitle': 'Código do grupo',
+    'groupCodeInviteCardBody':
+        'Compartilhe agora para que entrem no seu grupo.',
+    'groupCodeShareCodeCta': 'Compartilhar convite',
+    'groupCodeRegenExpired': 'O código expirou? Gerar um novo',
+    'addParticipantChooserTitle': 'Como você quer adicionar esta pessoa?',
+    'addParticipantUsesKlooviTitle': 'Convide pessoas para o Kloovi',
+    'addParticipantUsesKlooviBody':
+        'Compartilhe seu código de grupo. Se ainda não tiverem o Kloovi, poderão instalar o app antes de entrar.',
+    'addParticipantManualTitle': 'Adicione participantes manualmente',
+    'addParticipantManualBody':
+        'Adicione pessoas com nome e WhatsApp se ainda não forem usar o app.',
+    'addParticipantManualCta': 'Adicionar manualmente',
     'organizerActivationProgress': '{count} participantes convidados',
     'organizerCyclePreparingToday': '{emoji} Encontro hoje · {time}',
     'organizerCyclePreparingSoon': '{emoji} Encontro {when}',

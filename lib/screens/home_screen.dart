@@ -32,9 +32,8 @@ import '../widgets/app_mode_switch_button.dart';
 import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/organizer_cycle_hero.dart';
 import '../utils/cancelar_convocatoria_flow.dart';
-import '../utils/codigo_grupo_share.dart';
 import '../utils/reprogramar_convocatoria_flow.dart';
-import '../utils/organizador_participante_form.dart';
+import '../utils/agregar_participante_chooser.dart';
 import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/organizer_group_summary.dart';
 import '../widgets/quick_actions_panel.dart';
@@ -478,40 +477,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     if (_showActivationFirstGroupState)
                                       _OrganizerActivationHero(
-                                        participantesExternos:
-                                            _participantesExternosActivos,
                                         onAddParticipant: () async {
                                           if (_readOnly) {
                                             _showOfflineWriteBlocked();
                                             return;
                                           }
-                                          await showOrganizerParticipanteForm(
+                                          await showAgregarParticipanteChooser(
                                             context,
+                                            onManualAdded: () async {
+                                              if (mounted) {
+                                                await _load(silent: true);
+                                              }
+                                            },
                                           );
-                                          if (mounted) {
-                                            await _load(silent: true);
-                                          }
-                                        },
-                                        onCreateMatchAnyway: () async {
-                                          if (_readOnly) {
-                                            _showOfflineWriteBlocked();
-                                            return;
-                                          }
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                l10n.tr(
-                                                  'organizerActivationCreateMatchHint',
-                                                ),
-                                              ),
-                                              duration: const Duration(
-                                                seconds: 4,
-                                              ),
-                                            ),
-                                          );
-                                          await showOrganizerMatchMenu(context);
                                         },
                                       ),
                                     if (_hasPagosPendientes) ...[
@@ -583,17 +561,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                         _convocatoriasEnLista,
                                       ),
                                     ],
-                                    const SizedBox(height: 20),
-                                    QuickActionsPanel(
-                                      resumenes: _resumenes,
-                                      ultimoPartido: _ultimoPartido,
-                                      ultimoPartidoDesglose:
-                                          _ultimoPartidoDesglose,
-                                      onRefresh: () => _load(silent: true),
-                                      onNavigateTab: widget.onNavigateTab,
-                                      readOnly: readOnly,
-                                      onReadOnlyTap: _showOfflineWriteBlocked,
-                                    ),
+                                    if (!_showActivationFirstGroupState) ...[
+                                      const SizedBox(height: 20),
+                                      QuickActionsPanel(
+                                        resumenes: _resumenes,
+                                        ultimoPartido: _ultimoPartido,
+                                        ultimoPartidoDesglose:
+                                            _ultimoPartidoDesglose,
+                                        onRefresh: () => _load(silent: true),
+                                        onNavigateTab: widget.onNavigateTab,
+                                        readOnly: readOnly,
+                                        onReadOnlyTap: _showOfflineWriteBlocked,
+                                      ),
+                                    ],
                                     const SizedBox(height: 88),
                                   ]),
                                 ),
@@ -605,31 +585,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
           ),
-          if (!readOnly)
+          if (!readOnly && !_showActivationFirstGroupState)
             Positioned(
               right: 16,
               bottom: 16,
-              child: _showActivationFirstGroupState
-                  ? FloatingActionButton.extended(
-                      heroTag: null,
-                      onPressed: () =>
-                          compartirCodigoGrupoOrganizador(context),
-                      elevation: 6,
-                      backgroundColor: const Color(0xFF0F766E),
-                      foregroundColor: Colors.white,
-                      icon: const Icon(Icons.share_rounded, size: 22),
-                      label: Text(
-                        l10n.tr('groupCodeShare'),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                    )
-                  : OrganizerPartidoFab(
-                      onPressed: () => showOrganizerMatchMenu(context),
-                    ),
+              child: OrganizerPartidoFab(
+                onPressed: () => showOrganizerMatchMenu(context),
+              ),
             ),
         ],
       ),
@@ -833,78 +795,71 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _OrganizerActivationHero extends StatelessWidget {
-  final int participantesExternos;
   final VoidCallback onAddParticipant;
-  final VoidCallback onCreateMatchAnyway;
 
   const _OrganizerActivationHero({
-    required this.participantesExternos,
     required this.onAddParticipant,
-    required this.onCreateMatchAnyway,
   });
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    const brandTeal = Color(0xFF1AA89B);
+    const brandMint = Color(0xFF2EC4B6);
+    const brandWash = Color(0xFFF3FBFA);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        MatchPaySurfaceCard(
-          elevated: true,
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.tr('organizerActivationTitle'),
-                style: MatchPayTokens.titleMediumStyle(),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                l10n.tr('organizerActivationBody'),
-                style: MatchPayTokens.bodySmallStyle(),
-              ),
-              const SizedBox(height: 12),
-              const CodigoGrupoOrganizadorCard(
-                showShareAsPrimaryCta: true,
-                showCompactActions: false,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: onAddParticipant,
-                      icon: const Icon(Icons.person_add_rounded),
-                      label: Text(l10n.tr('organizerActivationAddParticipant')),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: onCreateMatchAnyway,
-                  child: Text(
-                    l10n.tr('organizerActivationCreateMatchSecondary'),
-                  ),
-                ),
-              ),
-              Text(
-                l10n.tr(
-                  'organizerActivationProgress',
-                  params: {'count': '$participantesExternos'},
-                ),
-                style: MatchPayTokens.bodySmallStyle(
-                  color: MatchPayTokens.inkSecondary,
-                ),
-              ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        color: brandWash,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 28, 16, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l10n.tr('organizerActivationTitle'),
+            textAlign: TextAlign.center,
+            style: MatchPayTokens.headlineStyle().copyWith(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+              letterSpacing: -0.4,
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              l10n.tr('organizerActivationBody'),
+              textAlign: TextAlign.center,
+              style: MatchPayTokens.bodySmallStyle(
+                color: MatchPayTokens.inkSecondary,
+              ).copyWith(fontSize: 15.5, height: 1.45),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const CodigoGrupoOrganizadorCard(invitationHero: true),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: onAddParticipant,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: brandTeal,
+              backgroundColor: Colors.white,
+              side: BorderSide(color: brandMint.withValues(alpha: 0.45)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
+            label: Text(
+              l10n.tr('organizerActivationAddParticipant'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

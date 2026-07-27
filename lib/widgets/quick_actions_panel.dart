@@ -6,7 +6,6 @@ import '../l10n/matchpay_strings.dart';
 import '../models/desglose_jugador.dart';
 import '../repositories/partido_repository.dart';
 import '../utils/formatters.dart';
-import 'matchpay_ui.dart';
 import 'recordatorio_deudores_sheet.dart';
 
 /// Acciones rápidas del organizador: último partido, recordar deudores, jugadores.
@@ -56,7 +55,7 @@ class QuickActionsPanel extends StatelessWidget {
         label: l10n.tr('lastMatch'),
         linea1: _ultimoPartidoLineas(l10n),
         linea2: _ultimoPartidoRecinto(l10n),
-        accent: MatchPayTokens.accentCredit,
+        accent: MatchPayTokens.accentSuccess,
         onTap: () => _abrirUltimoPartido(context),
       ),
       if (_conDeuda > 0)
@@ -93,8 +92,17 @@ class QuickActionsPanel extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MatchPaySectionHeader(title: l10n.tr('homeQuickActions')),
-        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 2),
+          child: Text(
+            l10n.tr('homeQuickActions'),
+            style: MatchPayTokens.titleSmallStyle().copyWith(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 520;
@@ -266,63 +274,76 @@ class _AccionRapida {
 }
 
 class _AccionCard extends StatelessWidget {
-  static const _slotLinea2 = 14.0;
-
   final _AccionRapida accion;
 
   const _AccionCard({required this.accion});
 
   @override
   Widget build(BuildContext context) {
-    final subtituloStyle = MatchPayTokens.bodySmallStyle().copyWith(fontSize: 11);
+    final subtituloStyle = MatchPayTokens.bodySmallStyle().copyWith(
+      fontSize: 12,
+      height: 1.3,
+      color: MatchPayTokens.inkMuted,
+    );
     final linea2 = accion.linea2?.trim() ?? '';
+    // Evitar azul corporativo en vacíos/acciones: tipear a menta Kloovi.
+    final accent = accion.accent == MatchPayTokens.accentCredit
+        ? MatchPayTokens.accentSuccess
+        : accion.accent;
 
-    return MatchPaySurfaceCard(
-      padding: const EdgeInsets.all(12),
-      onTap: accion.onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: accion.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(accion.icon, color: accion.accent, size: 22),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: accion.onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: MatchPayTokens.borderSubtle),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            accion.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: MatchPayTokens.titleSmallStyle(),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            accion.linea1,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: subtituloStyle,
-          ),
-          SizedBox(
-            height: _slotLinea2,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                linea2,
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              Icon(accion.icon, color: accent, size: 28),
+              const SizedBox(height: 14),
+              Text(
+                accion.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: subtituloStyle.copyWith(
-                  color: linea2.isEmpty
-                      ? Colors.transparent
-                      : MatchPayTokens.inkMuted,
+                style: MatchPayTokens.titleSmallStyle().copyWith(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
                 ),
               ),
-            ),
+              const SizedBox(height: 4),
+              Text(
+                accion.linea1,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: subtituloStyle,
+              ),
+              if (linea2.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  linea2,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: subtituloStyle,
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
