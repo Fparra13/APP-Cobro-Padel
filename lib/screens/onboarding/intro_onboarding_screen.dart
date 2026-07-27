@@ -77,7 +77,9 @@ class _IntroOnboardingScreenState extends State<IntroOnboardingScreen> {
                   const SizedBox(height: 20),
                   Text(
                     l10n.tr('introOnboardingTitle'),
-                    style: MatchPayTokens.headlineStyle().copyWith(fontSize: 20),
+                    style: MatchPayTokens.headlineStyle().copyWith(
+                      fontSize: 20,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
@@ -91,31 +93,31 @@ class _IntroOnboardingScreenState extends State<IntroOnboardingScreen> {
                     child: ListView(
                       children: [
                         MatchPayFeatureRow(
-                          icon: Icons.event_available_rounded,
+                          icon: Icons.groups_rounded,
                           color: palette.primary,
+                          title: l10n.tr('introFeatureGroups'),
+                          subtitle: l10n.tr('introFeatureGroupsSub'),
+                        ),
+                        const SizedBox(height: 12),
+                        MatchPayFeatureRow(
+                          icon: Icons.group_add_rounded,
+                          color: MatchPayTokens.accentSuccess,
+                          title: l10n.tr('introFeatureInvite'),
+                          subtitle: l10n.tr('introFeatureInviteSub'),
+                        ),
+                        const SizedBox(height: 12),
+                        MatchPayFeatureRow(
+                          icon: Icons.event_available_rounded,
+                          color: MatchPayTokens.accentUrgent,
                           title: l10n.tr('introFeatureOrganize'),
                           subtitle: l10n.tr('introFeatureOrganizeSub'),
                         ),
                         const SizedBox(height: 12),
                         MatchPayFeatureRow(
-                          icon: Icons.how_to_reg_rounded,
-                          color: MatchPayTokens.accentSuccess,
-                          title: l10n.tr('introFeatureConfirm'),
-                          subtitle: l10n.tr('introFeatureConfirmSub'),
-                        ),
-                        const SizedBox(height: 12),
-                        MatchPayFeatureRow(
                           icon: Icons.payments_rounded,
-                          color: MatchPayTokens.accentUrgent,
+                          color: const Color(0xFF0F766E),
                           title: l10n.tr('introFeaturePay'),
                           subtitle: l10n.tr('introFeaturePaySub'),
-                        ),
-                        const SizedBox(height: 12),
-                        MatchPayFeatureRow(
-                          icon: Icons.bar_chart_rounded,
-                          color: const Color(0xFF7C3AED),
-                          title: l10n.tr('introFeatureStats'),
-                          subtitle: l10n.tr('introFeatureStatsSub'),
                         ),
                       ],
                     ),
@@ -126,8 +128,9 @@ class _IntroOnboardingScreenState extends State<IntroOnboardingScreen> {
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(MatchPayTokens.radiusButton),
+                        borderRadius: BorderRadius.circular(
+                          MatchPayTokens.radiusButton,
+                        ),
                       ),
                     ),
                     child: _saving

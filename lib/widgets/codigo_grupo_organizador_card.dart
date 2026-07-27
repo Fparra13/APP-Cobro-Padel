@@ -1,24 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../core/app_repositories.dart';
-import '../core/legal_urls.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../l10n/matchpay_strings.dart';
+import '../utils/codigo_grupo_share.dart';
 import '../utils/matchpay_context.dart';
 import 'matchpay_ui.dart';
 
 /// Card compacta: código de grupo + copiar / compartir / regenerar.
 class CodigoGrupoOrganizadorCard extends StatefulWidget {
-  const CodigoGrupoOrganizadorCard({super.key});
+  final bool showShareAsPrimaryCta;
+  final bool showCompactActions;
+
+  const CodigoGrupoOrganizadorCard({
+    super.key,
+    this.showShareAsPrimaryCta = false,
+    this.showCompactActions = true,
+  });
 
   @override
   State<CodigoGrupoOrganizadorCard> createState() =>
       _CodigoGrupoOrganizadorCardState();
 }
 
-class _CodigoGrupoOrganizadorCardState extends State<CodigoGrupoOrganizadorCard> {
+class _CodigoGrupoOrganizadorCardState
+    extends State<CodigoGrupoOrganizadorCard> {
   String? _codigo;
   bool _loading = true;
   bool _busy = false;
@@ -56,26 +63,13 @@ class _CodigoGrupoOrganizadorCardState extends State<CodigoGrupoOrganizadorCard>
     if (code == null || code.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: code));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.tr('groupCodeCopied'))),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.l10n.tr('groupCodeCopied'))));
   }
 
   Future<void> _compartir() async {
-    final code = _codigo;
-    if (code == null || code.isEmpty) return;
-    final l10n = context.l10n;
-    await SharePlus.instance.share(
-      ShareParams(
-        text: l10n.tr(
-          'groupCodeShareMessage',
-          params: {
-            'code': code,
-            'url': LegalUrls.website,
-          },
-        ),
-      ),
-    );
+    await compartirCodigoGrupoOrganizador(context);
   }
 
   Future<void> _regenerar() async {
@@ -107,15 +101,15 @@ class _CodigoGrupoOrganizadorCardState extends State<CodigoGrupoOrganizadorCard>
         _codigo = code;
         _busy = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.tr('groupCodeRegenDone'))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.tr('groupCodeRegenDone'))));
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.userError(e))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(context.userError(e))));
     }
   }
 
@@ -213,20 +207,33 @@ class _CodigoGrupoOrganizadorCardState extends State<CodigoGrupoOrganizadorCard>
                   ),
                 ),
                 const SizedBox(width: 4),
-                IconButton(
-                  tooltip: l10n.tr('groupCodeCopy'),
-                  onPressed: canAct ? _copiar : null,
-                  icon: const Icon(Icons.copy_rounded, size: 20),
-                  visualDensity: VisualDensity.compact,
-                ),
-                IconButton(
-                  tooltip: l10n.tr('groupCodeShare'),
-                  onPressed: canAct ? _compartir : null,
-                  icon: const Icon(Icons.share_rounded, size: 20),
-                  visualDensity: VisualDensity.compact,
-                ),
+                if (widget.showCompactActions) ...[
+                  IconButton(
+                    tooltip: l10n.tr('groupCodeCopy'),
+                    onPressed: canAct ? _copiar : null,
+                    icon: const Icon(Icons.copy_rounded, size: 20),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  IconButton(
+                    tooltip: l10n.tr('groupCodeShare'),
+                    onPressed: canAct ? _compartir : null,
+                    icon: const Icon(Icons.share_rounded, size: 20),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
               ],
             ),
+          if (widget.showShareAsPrimaryCta) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: canAct ? _compartir : null,
+                icon: const Icon(Icons.share_rounded),
+                label: Text(l10n.tr('groupCodeShare')),
+              ),
+            ),
+          ],
         ],
       ),
     );

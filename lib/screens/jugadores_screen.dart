@@ -18,6 +18,7 @@ import '../utils/formatters.dart';
 import '../utils/jugador_name_filter.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
+import '../utils/organizador_participante_form.dart';
 import '../utils/single_action.dart';
 import '../widgets/ayuda_tip.dart';
 import '../widgets/codigo_grupo_organizador_card.dart';
@@ -140,222 +141,16 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
     }
   }
 
-  bool _esEmailValido(String email) {
-    return RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email);
-  }
-
   Future<void> _showForm({Jugador? jugador}) async {
     if (_isReadOnly(context)) {
       _showOfflineWriteBlocked();
       return;
     }
-
-    final nombreCtrl = TextEditingController(text: jugador?.nombre ?? '');
-    final emailCtrl = TextEditingController(text: jugador?.contactEmail ?? '');
-    final whatsappCtrl =
-        TextEditingController(text: jugador?.contactWhatsApp ?? '');
-    final activo = ValueNotifier(jugador?.activo ?? true);
-
-    try {
-    final saved = await showDialog<bool>(
-      context: context,
-      useRootNavigator: true,
-      barrierDismissible: true,
-      builder: (ctx) {
-        final l10n = ctx.l10n;
-        var formError = '';
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) {
-            void validateAndSave() {
-              final nombre = nombreCtrl.text.trim();
-              final emailRaw = emailCtrl.text.trim();
-              if (nombre.isEmpty) {
-                setDialogState(() => formError = l10n.tr('playerNameRequired'));
-                return;
-              }
-              if (emailRaw.isNotEmpty && !_esEmailValido(emailRaw)) {
-                setDialogState(() => formError = l10n.tr('emailFormatInvalid'));
-                return;
-              }
-              Navigator.pop(ctx, true);
-            }
-
-            return AlertDialog(
-              scrollable: true,
-              icon: Icon(
-                jugador == null ? Icons.person_add_alt_1 : Icons.edit,
-                color: Theme.of(ctx).colorScheme.primary,
-                size: 32,
-              ),
-              title: Text(
-                jugador == null ? l10n.tr('newPlayer') : l10n.tr('editPlayer'),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextField(
-                      controller: nombreCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.tr('nameLabel'),
-                        prefixIcon: const Icon(Icons.badge_outlined),
-                        border: const OutlineInputBorder(),
-                      ),
-                      textCapitalization: TextCapitalization.words,
-                      autofocus: true,
-                      onSubmitted: (_) => validateAndSave(),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: emailCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.tr('emailLabel'),
-                        hintText: l10n.tr('loginEmailHint'),
-                        prefixIcon: const Icon(Icons.email_outlined),
-                        border: const OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      autocorrect: false,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: whatsappCtrl,
-                      decoration: InputDecoration(
-                        labelText: l10n.tr('whatsappLabel'),
-                        hintText: l10n.tr('whatsappHint'),
-                        helperText: l10n.tr('whatsappHelper'),
-                        prefixIcon: const Icon(Icons.chat_outlined),
-                        border: const OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 12),
-                    ValueListenableBuilder(
-                      valueListenable: activo,
-                      builder: (_, value, _) => SwitchListTile(
-                        secondary: Icon(
-                          value ? Icons.star : Icons.star_border,
-                          color: value
-                              ? MatchPayTokens.accentUrgent
-                              : MatchPayTokens.inkMuted,
-                        ),
-                        title: Text(l10n.tr('regularPlayer')),
-                        subtitle: Text(l10n.tr('regularPlayerSubtitle')),
-                        value: value,
-                        onChanged: (v) => activo.value = v,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                    if (formError.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        formError,
-                        style: MatchPayTokens.bodySmallStyle(
-                          color: MatchPayTokens.accentError,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: Text(l10n.tr('cancel')),
-                ),
-                FilledButton.icon(
-                  onPressed: validateAndSave,
-                  icon: const Icon(Icons.save),
-                  label: Text(l10n.tr('save')),
-                ),
-              ],
-            );
-          },
-        );
-      },
+    final saved = await showOrganizerParticipanteForm(
+      context,
+      jugador: jugador,
     );
-
-    if (saved != true || !mounted) return;
-
-    final now = DateTime.now();
-    final emailRaw = emailCtrl.text.trim();
-    final email = emailRaw.isEmpty ? null : emailRaw.toLowerCase();
-    final whatsappRaw = whatsappCtrl.text.trim();
-    final whatsapp = whatsappRaw.isEmpty
-        ? null
-        : normalizeWhatsAppDigits(whatsappRaw);
-    if (whatsappRaw.isNotEmpty && whatsapp == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.l10n.tr('whatsappInvalid')),
-            backgroundColor: MatchPayTokens.accentError,
-          ),
-        );
-      }
-      return;
-    }
-    try {
-      if (jugador == null) {
-        await context.repos.insertJugador(Jugador(
-          nombre: nombreCtrl.text.trim(),
-          activo: activo.value,
-          email: email,
-          telefono: whatsapp,
-          createdAt: now,
-        ));
-      } else {
-        await context.repos.updateJugador(jugador.copyWith(
-          nombre: nombreCtrl.text.trim(),
-          activo: activo.value,
-          email: email,
-          telefono: whatsapp,
-          clearTelefono: whatsapp == null,
-        ));
-      }
-      if (mounted) {
-        AppRepositories.notifyDataChanged();
-        _load();
-        final l10n = context.l10n;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              jugador == null
-                  ? l10n.tr('playerAdded')
-                  : l10n.tr(
-                      'playerDataSaved',
-                      params: {'name': nombreCtrl.text.trim()},
-                    ),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.userError(e)),
-            backgroundColor: MatchPayTokens.accentError,
-            duration: const Duration(seconds: 12),
-            action: SnackBarAction(
-              label: context.l10n.tr('close'),
-              textColor: Colors.white,
-              onPressed: () {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              },
-            ),
-          ),
-        );
-      }
-    }
-    } finally {
-      nombreCtrl.dispose();
-      emailCtrl.dispose();
-      whatsappCtrl.dispose();
-      activo.dispose();
-    }
+    if (saved && mounted) await _load(silent: true);
   }
 
   Future<void> _enviarCobroWhatsApp(Jugador j) async {
@@ -439,8 +234,9 @@ class _JugadoresScreenState extends State<JugadoresScreen> {
     );
     if (confirm == true) {
       await _fotoService.delete(j.fotoPath);
+      if (!mounted) return;
       await context.repos.deleteJugador(j.keyId);
-      _load();
+      if (mounted) await _load();
     }
   }
 

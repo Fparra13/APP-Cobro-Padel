@@ -14,6 +14,7 @@ import '../offline/offline_snapshot_store.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/convocatoria_jugador.dart';
+import '../models/jugador.dart';
 import '../models/mi_convocatoria.dart';
 import '../repositories/partido_repository.dart';
 import '../widgets/partido_estado_publico.dart';
@@ -31,7 +32,9 @@ import '../widgets/app_mode_switch_button.dart';
 import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/organizer_cycle_hero.dart';
 import '../utils/cancelar_convocatoria_flow.dart';
+import '../utils/codigo_grupo_share.dart';
 import '../utils/reprogramar_convocatoria_flow.dart';
+import '../utils/organizador_participante_form.dart';
 import '../widgets/confirmar_eliminar_partido_dialog.dart';
 import '../widgets/organizer_group_summary.dart';
 import '../widgets/quick_actions_panel.dart';
@@ -40,6 +43,7 @@ import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
 import '../widgets/friendly_error_panel.dart';
 import '../widgets/event_date_block.dart';
+import '../widgets/codigo_grupo_organizador_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final void Function(int tabIndex)? onNavigateTab;
@@ -58,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MiConvocatoria> _misInvitaciones = [];
   List<DetallePartido> _pagosPorValidar = [];
   List<DetallePartido> _misDeudas = [];
+  int _participantesExternosActivos = 0;
   bool _loading = true;
   bool _primeraCarga = true;
   bool _offlineEmpty = false;
@@ -97,16 +102,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final offlineStatus = context.read<OfflineStatusController>();
+    final repos = context.repos;
     final userId = AuthService.instance.currentUser?.id;
     final snapshotStore = userId != null
         ? OfflineSnapshotStore(userId: userId)
         : null;
 
     // Stale-while-revalidate: pintar cache ya y refrescar en vivo.
-    if (!silent &&
-        _primeraCarga &&
-        _loading &&
-        snapshotStore != null) {
+    if (!silent && _primeraCarga && _loading && snapshotStore != null) {
       try {
         final snap = await snapshotStore.read(organizerHomeSnapshotKey);
         if (snap != null && mounted) {
@@ -118,10 +121,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      final result = await loadOrganizerHome(
-        repos: context.repos,
-        snapshotStore: snapshotStore,
-      );
+      final results = await Future.wait([
+        loadOrganizerHome(repos: repos, snapshotStore: snapshotStore),
+        repos.getJugadores(soloActivos: true, incluirUsuarioActual: false),
+      ]);
+      final result = results[0] as OrganizerHomeLoadResult;
+      final jugadoresGrupo = results[1] as List<Jugador>;
+      final orgId = AuthService.instance.currentUser?.id;
+      _participantesExternosActivos = jugadoresGrupo
+          .where((j) => j.supabaseId != null && j.supabaseId != orgId)
+          .length;
 
       if (!mounted) return;
 
@@ -142,6 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _misDeudas = [];
             _partidosJugadosRecientes = [];
             _ultimoPartidoDesglose = [];
+            _participantesExternosActivos = 0;
             _offlineEmpty = true;
             _primeraCarga = false;
           });
@@ -200,7 +210,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (partidoId == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.tr('convocatoriaOpenUnavailable'))),
+          SnackBar(
+            content: Text(context.l10n.tr('convocatoriaOpenUnavailable')),
+          ),
         );
       }
       return;
@@ -210,33 +222,37 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   int get _playerPendingCount => playerModePendingCount(
-        misDeudas: _misDeudas,
-        misInvitaciones: _misInvitaciones,
-      );
+    misDeudas: _misDeudas,
+    misInvitaciones: _misInvitaciones,
+  );
 
   int get _jugadoresAlDia => jugadoresAlDiaGrupo(_resumenes);
 
-  bool get _hasPagosPendientes => _pagosPorValidar
-      .any((d) => d.comprobantePendienteValidacion);
+  bool get _hasPagosPendientes =>
+      _pagosPorValidar.any((d) => d.comprobantePendienteValidacion);
 
   bool get _convocatoriasNeedAttention => _convocatoriasEnLista.any((c) {
-        final situacion = PartidoLifecycle.situacionOrganizador(c);
-        if (situacion == ConvocatoriaOrganizadorSituacion.sinResolver) {
-          return true;
-        }
-        return situacion == ConvocatoriaOrganizadorSituacion.preparando &&
-            c.partido.esOrganizando;
-      });
+    final situacion = PartidoLifecycle.situacionOrganizador(c);
+    if (situacion == ConvocatoriaOrganizadorSituacion.sinResolver) {
+      return true;
+    }
+    return situacion == ConvocatoriaOrganizadorSituacion.preparando &&
+        c.partido.esOrganizando;
+  });
 
   PartidoCompleto? get _ultimoPartido => _partidosJugadosRecientes.isNotEmpty
       ? _partidosJugadosRecientes.first
       : null;
 
   OrganizerCycleSnapshot get _cycleSnapshot => OrganizerCycleSnapshot.resolve(
-        convocatorias: _convocatorias,
-        partidosJugadosRecientes: _partidosJugadosRecientes,
-        resumenesGrupo: _resumenes,
-      );
+    convocatorias: _convocatorias,
+    partidosJugadosRecientes: _partidosJugadosRecientes,
+    resumenesGrupo: _resumenes,
+  );
+
+  bool get _showActivationFirstGroupState =>
+      _cycleSnapshot.phase == OrganizerCyclePhase.empty &&
+      _participantesExternosActivos == 0;
 
   /// Hero de partido solo en etapas operativas (convocar / registrar gastos).
   /// En cobranza manda [CobrosCard]; no duplicar ficha de partido.
@@ -282,6 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final host = matchPayRootContext ?? context;
     if (!host.mounted) return;
+    final repos = context.repos;
 
     final l10n = host.l10n;
     final ok = await confirmarEliminarPartido(
@@ -296,7 +313,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (!ok || !mounted) return;
     try {
-      final conv = await context.repos.getConvocatoriaCompleta(partidoId);
+      final conv = await repos.getConvocatoriaCompleta(partidoId);
+      if (!host.mounted) return;
       final cancelOk = await CancelarConvocatoriaFlow.ejecutar(
         host,
         partidoId: partidoId,
@@ -319,7 +337,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _reprogramarConvocatoria(ConvocatoriaCompleta convocatoria) async {
+  Future<void> _reprogramarConvocatoria(
+    ConvocatoriaCompleta convocatoria,
+  ) async {
     if (_readOnly) {
       _showOfflineWriteBlocked();
       return;
@@ -385,211 +405,231 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _loading && _primeraCarga
                 ? const PlayerHomeShimmer()
                 : _loadError != null
-                    ? _buildLoadErrorState()
-                    : _offlineEmpty
-                        ? _buildOfflineEmptyState()
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Material(
-                                color: MatchPayTokens.surfaceBase,
-                                elevation: 0,
-                                child: SafeArea(
-                                  bottom: false,
-                                  child: Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      20,
-                                      8,
-                                      12,
-                                      8,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Expanded(
-                                          child: Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: KlooviHomeBrand(
-                                              forOrganizer: true,
-                                            ),
-                                          ),
-                                        ),
-                                        AppModeSwitchButton(
-                                          targetMode: AppUiMode.player,
-                                          pendingCount: _playerPendingCount,
-                                          onPressed: () {
-                                            context.switchAppUiMode(
-                                              AppUiMode.player,
-                                            );
-                                          },
-                                        ),
-                                        IconButton(
-                                          tooltip: l10n.refreshTooltip,
-                                          onPressed: () =>
-                                              _load(silent: true),
-                                          icon: Icon(
-                                            Icons.refresh_rounded,
-                                            color: MatchPayTokens.inkMuted,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                ? _buildLoadErrorState()
+                : _offlineEmpty
+                ? _buildOfflineEmptyState()
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Material(
+                        color: MatchPayTokens.surfaceBase,
+                        elevation: 0,
+                        child: SafeArea(
+                          bottom: false,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+                            child: Row(
+                              children: [
+                                const Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: KlooviHomeBrand(forOrganizer: true),
                                   ),
                                 ),
-                              ),
-                              Expanded(
-                                child: RefreshIndicator(
-                                  color: palette.primary,
-                                  onRefresh: () => _load(silent: true),
-                                  child: CustomScrollView(
-                                    physics:
-                                        const AlwaysScrollableScrollPhysics(),
-                                    slivers: [
-                                      SliverPadding(
-                                        padding: NavShellScope.listPadding(
-                                          context,
-                                          top: 8,
-                                          bottom: 24,
+                                AppModeSwitchButton(
+                                  targetMode: AppUiMode.player,
+                                  pendingCount: _playerPendingCount,
+                                  onPressed: () {
+                                    context.switchAppUiMode(AppUiMode.player);
+                                  },
+                                ),
+                                IconButton(
+                                  tooltip: l10n.refreshTooltip,
+                                  onPressed: () => _load(silent: true),
+                                  icon: Icon(
+                                    Icons.refresh_rounded,
+                                    color: MatchPayTokens.inkMuted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: RefreshIndicator(
+                          color: palette.primary,
+                          onRefresh: () => _load(silent: true),
+                          child: CustomScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            slivers: [
+                              SliverPadding(
+                                padding: NavShellScope.listPadding(
+                                  context,
+                                  top: 8,
+                                  bottom: 24,
+                                ),
+                                sliver: SliverList(
+                                  delegate: // ignore: prefer_const_constructors
+                                  SliverChildListDelegate([
+                                    if (!_showActivationFirstGroupState)
+                                      OrganizerGroupSummary(
+                                        totalJugadores: _resumenes.length,
+                                        jugadoresConDeuda:
+                                            jugadoresConDeudaGrupo(_resumenes),
+                                        jugadoresAlDia: _jugadoresAlDia,
+                                        montoPendiente: deudaTotalGrupo(
+                                          _resumenes,
                                         ),
-                                        sliver: SliverList(
-                                          delegate: // ignore: prefer_const_constructors
-                                              SliverChildListDelegate([
-                                            OrganizerGroupSummary(
-                                              totalJugadores:
-                                                  _resumenes.length,
-                                              jugadoresConDeuda:
-                                                  jugadoresConDeudaGrupo(
-                                                _resumenes,
+                                        onVerCobros:
+                                            widget.onNavigateTab != null
+                                            ? () => widget.onNavigateTab!(1)
+                                            : null,
+                                      ),
+                                    if (_showActivationFirstGroupState)
+                                      _OrganizerActivationHero(
+                                        participantesExternos:
+                                            _participantesExternosActivos,
+                                        onAddParticipant: () async {
+                                          if (_readOnly) {
+                                            _showOfflineWriteBlocked();
+                                            return;
+                                          }
+                                          await showOrganizerParticipanteForm(
+                                            context,
+                                          );
+                                          if (mounted) {
+                                            await _load(silent: true);
+                                          }
+                                        },
+                                        onCreateMatchAnyway: () async {
+                                          if (_readOnly) {
+                                            _showOfflineWriteBlocked();
+                                            return;
+                                          }
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                l10n.tr(
+                                                  'organizerActivationCreateMatchHint',
+                                                ),
                                               ),
-                                              jugadoresAlDia: _jugadoresAlDia,
-                                              montoPendiente:
-                                                  deudaTotalGrupo(_resumenes),
-                                              onVerCobros:
-                                                  widget.onNavigateTab != null
-                                                      ? () => widget
-                                                          .onNavigateTab!(1)
-                                                      : null,
+                                              duration: const Duration(
+                                                seconds: 4,
+                                              ),
                                             ),
-                                            if (_hasPagosPendientes) ...[
-                                              const SizedBox(height: 16),
-                                              MatchPaySectionHeader(
-                                                title: l10n.tr(
-                                                  'paymentsToValidateTitle',
-                                                ),
-                                                count: _pagosPorValidar
-                                                    .where(
-                                                      (d) => d
-                                                          .comprobantePendienteValidacion,
-                                                    )
-                                                    .length,
-                                                accent: true,
-                                                pulseDot: true,
-                                              ),
-                                              const SizedBox(height: 10),
-                                              PagosPorValidarPanel(
-                                                pagos: _pagosPorValidar,
-                                                onValidado: _load,
-                                                prominent: true,
-                                                sectionTitleExternal: true,
-                                                readOnly: readOnly,
-                                                onReadOnlyTap:
-                                                    _showOfflineWriteBlocked,
-                                              ),
-                                            ],
-                                            if (_mostrarHeroOperativo(
-                                              cycle,
-                                            )) ...[
-                                              const SizedBox(height: 20),
-                                              OrganizerCycleHero(
-                                                snapshot: cycle,
-                                                onPrimaryAction:
-                                                    _onCyclePrimaryAction,
-                                                onCreateMatch: () =>
-                                                    showOrganizerMatchMenu(
-                                                  context,
-                                                ),
-                                                onMarkPlayed: cycle
-                                                            .convocatoria
-                                                            ?.partido
-                                                            .id ==
-                                                        null
-                                                    ? null
-                                                    : () =>
-                                                        _abrirRegistrarGastos(
-                                                          cycle
-                                                              .convocatoria!
-                                                              .partido
-                                                              .id!,
-                                                        ),
-                                                onReschedule:
-                                                    cycle.convocatoria == null
-                                                        ? null
-                                                        : () =>
-                                                            _reprogramarConvocatoria(
-                                                              cycle
-                                                                  .convocatoria!,
-                                                            ),
-                                                onCancel: cycle.convocatoria
-                                                            ?.partido.id ==
-                                                        null
-                                                    ? null
-                                                    : () =>
-                                                        _cancelarConvocatoria(
-                                                          cycle.convocatoria!
-                                                              .partido.id!,
-                                                        ),
-                                              ),
-                                            ],
-                                            if (_convocatoriasEnLista
-                                                .isNotEmpty) ...[
-                                              const SizedBox(height: 20),
-                                              MatchPaySectionHeader(
-                                                title: l10n.tr(
-                                                  'homeActiveConvocatorias',
-                                                ),
-                                                count: _convocatoriasEnLista
-                                                    .length,
-                                                accent:
-                                                    _convocatoriasNeedAttention,
-                                                pulseDot:
-                                                    _convocatoriasNeedAttention,
-                                              ),
-                                              const SizedBox(height: 10),
-                                              _buildConvocatoriasActivas(
-                                                _convocatoriasEnLista,
-                                              ),
-                                            ],
-                                            const SizedBox(height: 20),
-                                            QuickActionsPanel(
-                                              resumenes: _resumenes,
-                                              ultimoPartido: _ultimoPartido,
-                                              ultimoPartidoDesglose:
-                                                  _ultimoPartidoDesglose,
-                                              onRefresh: () =>
-                                                  _load(silent: true),
-                                              onNavigateTab:
-                                                  widget.onNavigateTab,
-                                              readOnly: readOnly,
-                                              onReadOnlyTap:
-                                                  _showOfflineWriteBlocked,
-                                            ),
-                                            const SizedBox(height: 88),
-                                          ]),
+                                          );
+                                          await showOrganizerMatchMenu(context);
+                                        },
+                                      ),
+                                    if (_hasPagosPendientes) ...[
+                                      const SizedBox(height: 16),
+                                      MatchPaySectionHeader(
+                                        title: l10n.tr(
+                                          'paymentsToValidateTitle',
                                         ),
+                                        count: _pagosPorValidar
+                                            .where(
+                                              (d) => d
+                                                  .comprobantePendienteValidacion,
+                                            )
+                                            .length,
+                                        accent: true,
+                                        pulseDot: true,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      PagosPorValidarPanel(
+                                        pagos: _pagosPorValidar,
+                                        onValidado: _load,
+                                        prominent: true,
+                                        sectionTitleExternal: true,
+                                        readOnly: readOnly,
+                                        onReadOnlyTap: _showOfflineWriteBlocked,
                                       ),
                                     ],
-                                  ),
+                                    if (!_showActivationFirstGroupState &&
+                                        _mostrarHeroOperativo(cycle)) ...[
+                                      const SizedBox(height: 20),
+                                      OrganizerCycleHero(
+                                        snapshot: cycle,
+                                        onPrimaryAction: _onCyclePrimaryAction,
+                                        onCreateMatch: () =>
+                                            showOrganizerMatchMenu(context),
+                                        onMarkPlayed:
+                                            cycle.convocatoria?.partido.id ==
+                                                null
+                                            ? null
+                                            : () => _abrirRegistrarGastos(
+                                                cycle.convocatoria!.partido.id!,
+                                              ),
+                                        onReschedule: cycle.convocatoria == null
+                                            ? null
+                                            : () => _reprogramarConvocatoria(
+                                                cycle.convocatoria!,
+                                              ),
+                                        onCancel:
+                                            cycle.convocatoria?.partido.id ==
+                                                null
+                                            ? null
+                                            : () => _cancelarConvocatoria(
+                                                cycle.convocatoria!.partido.id!,
+                                              ),
+                                      ),
+                                    ],
+                                    if (_convocatoriasEnLista.isNotEmpty) ...[
+                                      const SizedBox(height: 20),
+                                      MatchPaySectionHeader(
+                                        title: l10n.tr(
+                                          'homeActiveConvocatorias',
+                                        ),
+                                        count: _convocatoriasEnLista.length,
+                                        accent: _convocatoriasNeedAttention,
+                                        pulseDot: _convocatoriasNeedAttention,
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildConvocatoriasActivas(
+                                        _convocatoriasEnLista,
+                                      ),
+                                    ],
+                                    const SizedBox(height: 20),
+                                    QuickActionsPanel(
+                                      resumenes: _resumenes,
+                                      ultimoPartido: _ultimoPartido,
+                                      ultimoPartidoDesglose:
+                                          _ultimoPartidoDesglose,
+                                      onRefresh: () => _load(silent: true),
+                                      onNavigateTab: widget.onNavigateTab,
+                                      readOnly: readOnly,
+                                      onReadOnlyTap: _showOfflineWriteBlocked,
+                                    ),
+                                    const SizedBox(height: 88),
+                                  ]),
                                 ),
                               ),
                             ],
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
           if (!readOnly)
             Positioned(
               right: 16,
               bottom: 16,
-              child: OrganizerPartidoFab(
-                onPressed: () => showOrganizerMatchMenu(context),
-              ),
+              child: _showActivationFirstGroupState
+                  ? FloatingActionButton.extended(
+                      heroTag: null,
+                      onPressed: () =>
+                          compartirCodigoGrupoOrganizador(context),
+                      elevation: 6,
+                      backgroundColor: const Color(0xFF0F766E),
+                      foregroundColor: Colors.white,
+                      icon: const Icon(Icons.share_rounded, size: 22),
+                      label: Text(
+                        l10n.tr('groupCodeShare'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    )
+                  : OrganizerPartidoFab(
+                      onPressed: () => showOrganizerMatchMenu(context),
+                    ),
             ),
         ],
       ),
@@ -689,10 +729,8 @@ class _HomeScreenState extends State<HomeScreen> {
       List<ConvocatoriaCompleta> lista, {
       required ConvocatoriaOrganizadorSituacion situacion,
     }) {
-      final enEspera =
-          lista.where((c) => c.partido.esOrganizando).toList();
-      final confirmadas =
-          lista.where((c) => c.partido.esConfirmado).toList();
+      final enEspera = lista.where((c) => c.partido.esOrganizando).toList();
+      final confirmadas = lista.where((c) => c.partido.esConfirmado).toList();
       final esPreparando =
           situacion == ConvocatoriaOrganizadorSituacion.preparando;
 
@@ -794,6 +832,83 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+class _OrganizerActivationHero extends StatelessWidget {
+  final int participantesExternos;
+  final VoidCallback onAddParticipant;
+  final VoidCallback onCreateMatchAnyway;
+
+  const _OrganizerActivationHero({
+    required this.participantesExternos,
+    required this.onAddParticipant,
+    required this.onCreateMatchAnyway,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MatchPaySurfaceCard(
+          elevated: true,
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.tr('organizerActivationTitle'),
+                style: MatchPayTokens.titleMediumStyle(),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                l10n.tr('organizerActivationBody'),
+                style: MatchPayTokens.bodySmallStyle(),
+              ),
+              const SizedBox(height: 12),
+              const CodigoGrupoOrganizadorCard(
+                showShareAsPrimaryCta: true,
+                showCompactActions: false,
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: onAddParticipant,
+                      icon: const Icon(Icons.person_add_rounded),
+                      label: Text(l10n.tr('organizerActivationAddParticipant')),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: onCreateMatchAnyway,
+                  child: Text(
+                    l10n.tr('organizerActivationCreateMatchSecondary'),
+                  ),
+                ),
+              ),
+              Text(
+                l10n.tr(
+                  'organizerActivationProgress',
+                  params: {'count': '$participantesExternos'},
+                ),
+                style: MatchPayTokens.bodySmallStyle(
+                  color: MatchPayTokens.inkSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ConvocatoriaGrupo extends StatelessWidget {
   final String titulo;
   final IconData icono;
@@ -817,10 +932,9 @@ class _ConvocatoriaGrupo extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             '$titulo ($cantidad)',
-            style: MatchPayTokens.sectionLabelStyle(color: color).copyWith(
-              letterSpacing: 0.2,
-              fontSize: 12,
-            ),
+            style: MatchPayTokens.sectionLabelStyle(
+              color: color,
+            ).copyWith(letterSpacing: 0.2, fontSize: 12),
           ),
         ],
       ),
@@ -851,10 +965,10 @@ class _ConvocatoriaTile extends StatelessWidget {
     final hora = formatHora(c.partido.fecha);
     final pendientes = c.invitados - c.confirmados - c.rechazados;
     final recinto = c.partido.recinto ?? l10n.tr('noVenue');
-    final confirmadosLine = l10n.tr('homeConvocatoriaConfirmedLine', params: {
-      'confirmed': '${c.confirmados}',
-      'max': '${c.partido.cuposMax}',
-    });
+    final confirmadosLine = l10n.tr(
+      'homeConvocatoriaConfirmedLine',
+      params: {'confirmed': '${c.confirmados}', 'max': '${c.partido.cuposMax}'},
+    );
     final pendientesLine = !confirmado && pendientes > 0
         ? ' · ${l10n.tr('homeConvocatoriaPendingShort', params: {'count': '$pendientes'})}'
         : '';
@@ -870,20 +984,19 @@ class _ConvocatoriaTile extends StatelessWidget {
     final dayColor = sinResolver
         ? MatchPayTokens.accentUrgent
         : listoGastos
-            ? MatchPayTokens.accentCredit
-            : destacada
-                ? const Color(0xFF0F766E)
-                : confirmado
-                    ? MatchPayTokens.accentSuccess
-                    : MatchPayTokens.ink;
+        ? MatchPayTokens.accentCredit
+        : destacada
+        ? const Color(0xFF0F766E)
+        : confirmado
+        ? MatchPayTokens.accentSuccess
+        : MatchPayTokens.ink;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: DecoratedBox(
         decoration: destacada
             ? BoxDecoration(
-                borderRadius:
-                    BorderRadius.circular(MatchPayTokens.radiusCard),
+                borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF0F766E).withValues(alpha: 0.18),
@@ -1022,10 +1135,7 @@ class _ConvocatoriaTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: MatchPayTokens.inkMuted,
-              ),
+              Icon(Icons.chevron_right_rounded, color: MatchPayTokens.inkMuted),
             ],
           ),
         ),
