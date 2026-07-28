@@ -1038,11 +1038,10 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                         children: [
                           if (widget.isEditing && !_flujoRegistrarAportes)
                             _buildInfoEdicion(),
-                          _buildDatosPartido(),
-                          if (_flujoRegistrarAportes) ...[
-                            const SizedBox(height: 12),
-                            _buildBannerCobro(),
-                          ],
+                          if (_flujoRegistrarAportes)
+                            _buildResumenEncuentroReadonly()
+                          else
+                            _buildDatosPartido(),
                           if (context.repos.isCloud && _flujoRegistrarAportes) ...[
                             const SizedBox(height: 12),
                             Card(
@@ -1100,56 +1099,112 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     );
   }
 
-  Widget _buildBannerCobro() {
+  Widget _buildResumenEncuentroReadonly() {
     final l10n = context.l10n;
+    final lang = context.readSettings().locale.languageCode;
     final fechaStr =
         '${_fechaPartido.day}/${_fechaPartido.month}/${_fechaPartido.year} · '
         '${_fechaPartido.hour.toString().padLeft(2, '0')}:'
         '${_fechaPartido.minute.toString().padLeft(2, '0')}';
     final recinto = _recintoCtrl.text.trim();
+    final notas = _notasCtrl.text.trim();
+    final sportLabel = _sportType.labelForLocale(lang);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.green.shade50, Colors.teal.shade50],
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.green.shade200),
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.green.shade200),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: context.sportPalette.surfaceTint,
-            child: SportIcon(color: context.sportPrimaryDark),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.tr('matchConfirmedLine', params: {
-                    'players': _asistentes.length == 1
-                        ? l10n.tr('onePlayer')
-                        : l10n.tr('matchPlayersCount', params: {
-                            'count': '${_asistentes.length}',
-                          }),
-                  }),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade900,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.green.shade50, Colors.teal.shade50],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: context.sportPalette.surfaceTint,
+                    child: SportIcon(
+                      sport: _sportType,
+                      color: context.sportPrimaryDark,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  recinto.isNotEmpty ? '$fechaStr · $recinto' : fechaStr,
-                  style: TextStyle(fontSize: 12, color: Colors.green.shade800),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.tr('matchConfirmedLine', params: {
+                            'players': _asistentes.length == 1
+                                ? l10n.tr('onePlayer')
+                                : l10n.tr('matchPlayersCount', params: {
+                                    'count': '${_asistentes.length}',
+                                  }),
+                          }),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade900,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          sportLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            _buildEncabezadoSeccion(
+              titulo: l10n.tr('matchDetailsTitle'),
+              icono: Icons.event,
+              color: context.sportPrimary,
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.calendar_today, color: context.sportPrimary),
+              title: Text(l10n.tr('dateAndTime')),
+              subtitle: Text(fechaStr),
+            ),
+            if (recinto.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading:
+                    Icon(Icons.location_on_outlined, color: context.sportPrimary),
+                title: Text(l10n.tr('venueClubLabel')),
+                subtitle: Text(recinto),
+              ),
+            ],
+            if (notas.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.notes, color: context.sportPrimary),
+                title: Text(l10n.tr('notesOptionalLabel')),
+                subtitle: Text(notas),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
