@@ -308,8 +308,10 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
               _prioridadFuente = prioridad.isEmpty
                   ? JugadorPrioritySource.none
                   : JugadorPrioritySource.convocatoriaConfirmed;
-              // Ya hay confirmados: colapsar para no alargar la pantalla.
-              _jugadoresExpandido = _asistentes.length <= 6;
+              // Registrar gastos: lista colapsada; edición: colapsar si hay muchos.
+              _jugadoresExpandido = widget.registrarAportes || _esOrganizando
+                  ? false
+                  : _asistentes.length <= 6;
               _loading = false;
             });
           }
@@ -416,7 +418,9 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             _habituales = todos.values.toList()
               ..sort((a, b) => a.nombre.compareTo(b.nombre));
             _recintosSugeridos = recintos;
-            _jugadoresExpandido = _asistentes.length <= 6;
+            _jugadoresExpandido = widget.registrarAportes || _esOrganizando
+                ? false
+                : _asistentes.length <= 6;
             _loading = false;
           });
         }
@@ -1954,12 +1958,16 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             priorityIds: _prioridadJugadorIds,
           )
         : (priority: const <Jugador>[], rest: jugadoresVisibles);
-    final conteo = nSel == 0
-        ? l10n.tr('playersNoneSelected', params: {'total': '$nTotal'})
-        : l10n.tr('playersSelectedCount', params: {
-            'count': '$nSel',
-            'total': '$nTotal',
-          });
+    final conteo = _flujoRegistrarAportes
+        ? (nSel == 1
+            ? l10n.tr('onePlayer')
+            : l10n.tr('matchPlayersCount', params: {'count': '$nSel'}))
+        : nSel == 0
+            ? l10n.tr('playersNoneSelected', params: {'total': '$nTotal'})
+            : l10n.tr('playersSelectedCount', params: {
+                'count': '$nSel',
+                'total': '$nTotal',
+              });
 
     return Card(
       elevation: 0,
@@ -2162,22 +2170,43 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (seleccionados.isEmpty)
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.person_add_alt_1_outlined,
-                        size: 20, color: Colors.indigo.shade700),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        l10n.tr('playersTapToSelect'),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.indigo.shade900,
+                    Row(
+                      children: [
+                        Icon(Icons.person_add_alt_1_outlined,
+                            size: 20, color: Colors.indigo.shade700),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l10n.tr('playersTapToSelect'),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.indigo.shade900,
+                            ),
+                          ),
+                        ),
+                        Icon(Icons.chevron_right,
+                            color: Colors.indigo.shade400),
+                      ],
+                    ),
+                    if (_flujoRegistrarAportes) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: _toggleJugadoresExpandido,
+                          icon: Icon(
+                            Icons.edit_outlined,
+                            size: 18,
+                            color: Colors.indigo.shade700,
+                          ),
+                          label: Text(l10n.tr('playersTapToEditList')),
                         ),
                       ),
-                    ),
-                    Icon(Icons.chevron_right, color: Colors.indigo.shade400),
+                    ],
                   ],
                 )
               else ...[
@@ -2216,10 +2245,24 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  l10n.tr('playersTapToEditList'),
-                  style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
-                ),
+                if (_flujoRegistrarAportes)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _toggleJugadoresExpandido,
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: Colors.indigo.shade700,
+                      ),
+                      label: Text(l10n.tr('playersTapToEditList')),
+                    ),
+                  )
+                else
+                  Text(
+                    l10n.tr('playersTapToEditList'),
+                    style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
+                  ),
               ],
             ],
           ),
