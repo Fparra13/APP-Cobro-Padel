@@ -28,6 +28,7 @@ import '../utils/jugador_name_filter.dart';
 import '../utils/convocatoria_organizador_actions.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/reprogramar_convocatoria_flow.dart';
+import '../domain/organizer_surface.dart';
 import '../widgets/convocatoria_asistencias_view.dart';
 import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/convocatoria_decision_panel.dart';
@@ -45,7 +46,15 @@ import '../widgets/sport_icon.dart';
 class OrganizarPartidoScreen extends StatefulWidget {
   final int? partidoId;
 
-  const OrganizarPartidoScreen({super.key, this.partidoId});
+  /// Intención de navegación decidida por el entry point (p. ej. Home).
+  /// PR1: contrato únicamente; la UI sigue las flags legacy existentes.
+  final OrganizerSurface surface;
+
+  const OrganizarPartidoScreen({
+    super.key,
+    this.partidoId,
+    this.surface = OrganizerSurface.build,
+  });
 
   bool get isEditing => partidoId != null;
 

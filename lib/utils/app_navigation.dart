@@ -4,6 +4,7 @@ import '../core/app_repositories.dart';
 import '../core/feature_gate.dart';
 import '../core/subscription_service.dart';
 import '../l10n/matchpay_strings.dart';
+import '../domain/organizer_surface.dart';
 import '../screens/nuevo_partido_screen.dart';
 import '../screens/organizar_partido_screen.dart';
 import '../services/notification_service.dart';
@@ -50,7 +51,10 @@ Future<void> showOrganizerMatchMenu(BuildContext context) async {
               subtitle: l10n.tr('homeOrganizeConvocatoriaSubtitle'),
               onTap: () async {
                 Navigator.pop(ctx);
-                await abrirOrganizarPartido(host);
+                await abrirOrganizarPartido(
+                  host,
+                  surface: OrganizerSurface.build,
+                );
                 AppRepositories.notifyDataChanged();
               },
             ),
@@ -163,7 +167,13 @@ class _MatchMenuActionCard extends StatelessWidget {
 Future<bool?> abrirOrganizarPartido(
   BuildContext context, {
   int? partidoId,
+  OrganizerSurface? surface,
 }) async {
+  final resolvedSurface = surface ??
+      (partidoId == null
+          ? OrganizerSurface.build
+          : OrganizerSurface.attendance);
+
   if (partidoId == null) {
     final allowed = await FeatureGate.requirePro(
       context,
@@ -177,7 +187,10 @@ Future<bool?> abrirOrganizarPartido(
     MaterialPageRoute(
       builder: (ctx) => AppRepositoriesScope(
         repos: AppRepositories.I,
-        child: OrganizarPartidoScreen(partidoId: partidoId),
+        child: OrganizarPartidoScreen(
+          partidoId: partidoId,
+          surface: resolvedSurface,
+        ),
       ),
     ),
   );

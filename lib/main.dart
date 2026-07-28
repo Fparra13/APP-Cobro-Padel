@@ -20,6 +20,7 @@ import 'core/subscription_service.dart';
 import 'core/auth_service.dart';
 import 'core/firebase_config.dart';
 import 'core/supabase_config.dart';
+import 'domain/organizer_surface.dart';
 import 'offline/offline_refresh_coordinator.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/backup_screen.dart';
@@ -188,7 +189,10 @@ class MatchPayApp extends StatelessWidget {
         if (settings.name == '/editar-convocatoria') {
           final id = settings.arguments as int;
           return MaterialPageRoute(
-            builder: (_) => OrganizarPartidoScreen(partidoId: id),
+            builder: (_) => OrganizarPartidoScreen(
+              partidoId: id,
+              surface: OrganizerSurface.attendance,
+            ),
           );
         }
         if (settings.name == '/registrar-partido') {

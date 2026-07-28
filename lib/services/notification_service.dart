@@ -10,6 +10,7 @@ import '../core/app_settings_controller.dart';
 import '../l10n/matchpay_strings.dart';
 import '../l10n/translation_maps.dart';
 import '../models/mi_convocatoria.dart';
+import '../domain/organizer_surface.dart';
 import '../screens/mis_cobros_screen.dart';
 import '../screens/organizar_partido_screen.dart';
 import '../screens/responder_convocatoria_screen.dart';
@@ -709,7 +710,10 @@ class NotificationService {
 
     await Navigator.of(ctx, rootNavigator: true).push(
       MaterialPageRoute(
-        builder: (_) => OrganizarPartidoScreen(partidoId: partidoId),
+        builder: (_) => OrganizarPartidoScreen(
+          partidoId: partidoId,
+          surface: OrganizerSurface.attendance,
+        ),
       ),
     );
   }

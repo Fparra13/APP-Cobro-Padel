@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../domain/organizer_cycle_logic.dart';
+import '../domain/organizer_surface.dart';
 import '../domain/partido_lifecycle.dart';
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
@@ -485,7 +486,11 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
       );
       return;
     }
-    await abrirOrganizarPartido(context, partidoId: partidoId);
+    await abrirOrganizarPartido(
+      context,
+      partidoId: partidoId,
+      surface: OrganizerSurface.attendance,
+    );
     if (mounted) _load();
   }
 

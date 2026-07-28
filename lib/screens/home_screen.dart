@@ -21,6 +21,7 @@ import '../widgets/partido_estado_publico.dart';
 import '../domain/estado_partido_publico.dart';
 import '../domain/partido_lifecycle.dart';
 import '../domain/organizer_cycle_logic.dart';
+import '../domain/organizer_surface.dart';
 import '../services/convocatoria_lista_espera_service.dart';
 import '../utils/formatters.dart';
 import '../utils/app_navigation.dart';
@@ -216,7 +217,11 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       return;
     }
-    await abrirOrganizarPartido(context, partidoId: partidoId);
+    await abrirOrganizarPartido(
+      context,
+      partidoId: partidoId,
+      surface: OrganizerSurface.attendance,
+    );
     if (mounted) _load(silent: true);
   }
 
@@ -370,7 +375,11 @@ class _HomeScreenState extends State<HomeScreen> {
       case OrganizerCyclePhase.needsResolution:
         final id = snap.convocatoria?.partido.id;
         if (id != null) {
-          await abrirOrganizarPartido(context, partidoId: id);
+          await abrirOrganizarPartido(
+            context,
+            partidoId: id,
+            surface: snap.surface,
+          );
         }
       case OrganizerCyclePhase.registerExpenses:
         if (_readOnly) {

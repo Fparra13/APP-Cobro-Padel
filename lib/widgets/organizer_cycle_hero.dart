@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../domain/estado_partido_publico.dart';
 import '../domain/partido_lifecycle.dart';
 import '../domain/organizer_cycle_logic.dart';
+import '../domain/organizer_surface.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/sport_theme.dart';
 import '../l10n/matchpay_strings.dart';
@@ -160,6 +161,23 @@ class OrganizerCycleSnapshot {
     }
 
     return const OrganizerCycleSnapshot(phase: OrganizerCyclePhase.empty);
+  }
+
+  /// Surface de navegación según la phase del ciclo (SSOT → intención).
+  OrganizerSurface get surface {
+    switch (phase) {
+      case OrganizerCyclePhase.empty:
+        return OrganizerSurface.build;
+      case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.atRisk:
+      case OrganizerCyclePhase.needsResolution:
+        return OrganizerSurface.attendance;
+      case OrganizerCyclePhase.registerExpenses:
+        return OrganizerSurface.expenses;
+      case OrganizerCyclePhase.collecting:
+      case OrganizerCyclePhase.allPaid:
+        return OrganizerSurface.collection;
+    }
   }
 
   String phaseLabel(MatchPayStrings l10n) {
