@@ -54,8 +54,9 @@ class OrganizerAttendanceChrome extends StatelessWidget
         return l10n.tr('organizerCyclePhaseNeedsResolution');
       case OrganizerCyclePhase.preparing:
         return l10n.tr('organizeTrackingTitle');
-      case OrganizerCyclePhase.empty:
       case OrganizerCyclePhase.registerExpenses:
+        return l10n.tr('chargeMatchTitle');
+      case OrganizerCyclePhase.empty:
       case OrganizerCyclePhase.collecting:
       case OrganizerCyclePhase.allPaid:
       case null:

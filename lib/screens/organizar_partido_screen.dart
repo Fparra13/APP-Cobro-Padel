@@ -114,32 +114,35 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   bool get _isAttendanceSurface =>
       widget.surface == OrganizerSurface.attendance;
 
-  /// Phase SSOT en Attendance; null → fallback legacy.
-  OrganizerCyclePhase? get _attendanceCyclePhase =>
-      _isAttendanceSurface ? widget.cyclePhase : null;
+  /// Phase vivo en Attendance: convocatoria cargada → [phaseForConvocatoria];
+  /// antes del fetch → [widget.cyclePhase].
+  OrganizerCyclePhase? get _resolvedCyclePhase {
+    if (!_isAttendanceSurface) return null;
+    if (_convocatoriaCompleta != null) {
+      return OrganizerCycleSnapshot.phaseForConvocatoria(
+        _convocatoriaCompleta!,
+      );
+    }
+    return widget.cyclePhase;
+  }
 
   bool get _formularioBloqueado => _convocatoriaEnviada || _partidoConfirmado;
 
   /// Seguimiento activo (Recordar / ciclar / hint): preparing | atRisk.
-  /// Si [cyclePhase] es null → mismo criterio que `_modoSeguimiento`.
   bool get _activeAttendanceTracking {
-    final phase = _attendanceCyclePhase;
-    if (phase != null) {
-      return phase == OrganizerCyclePhase.preparing ||
-          phase == OrganizerCyclePhase.atRisk;
-    }
-    return _modoSeguimiento;
+    final phase = _resolvedCyclePhase;
+    if (phase == null) return false;
+    return phase == OrganizerCyclePhase.preparing ||
+        phase == OrganizerCyclePhase.atRisk;
   }
 
   /// Bottom Attendance (CTAs o resolución), no Build/cobros.
   bool get _showAttendanceBottomBar {
-    final phase = _attendanceCyclePhase;
-    if (phase != null) {
-      return phase == OrganizerCyclePhase.preparing ||
-          phase == OrganizerCyclePhase.atRisk ||
-          phase == OrganizerCyclePhase.needsResolution;
-    }
-    return _modoSeguimiento;
+    final phase = _resolvedCyclePhase;
+    if (phase == null) return false;
+    return phase == OrganizerCyclePhase.preparing ||
+        phase == OrganizerCyclePhase.atRisk ||
+        phase == OrganizerCyclePhase.needsResolution;
   }
 
   /// Ciclar estados de asistencia.
@@ -148,23 +151,21 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   /// DecisionPanel / resolución de cupo en Attendance.
   bool get _showAttendanceDecisionPanel {
     if (_partidoId == null) return false;
-    final phase = _attendanceCyclePhase;
-    if (phase != null) {
-      switch (phase) {
-        case OrganizerCyclePhase.needsResolution:
-          return true;
-        case OrganizerCyclePhase.atRisk:
-          return _cupoImposible;
-        case OrganizerCyclePhase.preparing:
-        case OrganizerCyclePhase.confirmed:
-        case OrganizerCyclePhase.empty:
-        case OrganizerCyclePhase.registerExpenses:
-        case OrganizerCyclePhase.collecting:
-        case OrganizerCyclePhase.allPaid:
-          return false;
-      }
+    final phase = _resolvedCyclePhase;
+    if (phase == null) return false;
+    switch (phase) {
+      case OrganizerCyclePhase.needsResolution:
+        return true;
+      case OrganizerCyclePhase.atRisk:
+        return _cupoImposible;
+      case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.confirmed:
+      case OrganizerCyclePhase.empty:
+      case OrganizerCyclePhase.registerExpenses:
+      case OrganizerCyclePhase.collecting:
+      case OrganizerCyclePhase.allPaid:
+        return false;
     }
-    return _cupoImposible;
   }
 
   bool get _showAttendanceAutoConfirmHint =>
@@ -185,23 +186,34 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
   bool get _cupoImposible {
     final completa = _convocatoriaCompleta;
-    if (completa == null || !_modoSeguimiento) return false;
+    if (completa == null) return false;
+    final phase = _resolvedCyclePhase;
+    if (phase == null) return false;
+    switch (phase) {
+      case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.atRisk:
+      case OrganizerCyclePhase.needsResolution:
+        break;
+      case OrganizerCyclePhase.confirmed:
+      case OrganizerCyclePhase.empty:
+      case OrganizerCyclePhase.registerExpenses:
+      case OrganizerCyclePhase.collecting:
+      case OrganizerCyclePhase.allPaid:
+        return false;
+    }
     return ConvocatoriaCupoLogic.cupoImposible(completa);
   }
 
   bool get _shouldShowEstadoSeguimiento {
     if (_convocatoriaCompleta == null) return false;
-    final phase = _attendanceCyclePhase;
-    if (phase != null) {
-      if (phase == OrganizerCyclePhase.confirmed ||
-          phase == OrganizerCyclePhase.needsResolution) {
-        return false;
-      }
-      if (phase != OrganizerCyclePhase.preparing &&
-          phase != OrganizerCyclePhase.atRisk) {
-        return false;
-      }
-    } else if (!_modoSeguimiento) {
+    final phase = _resolvedCyclePhase;
+    if (phase == null) return false;
+    if (phase == OrganizerCyclePhase.confirmed ||
+        phase == OrganizerCyclePhase.needsResolution) {
+      return false;
+    }
+    if (phase != OrganizerCyclePhase.preparing &&
+        phase != OrganizerCyclePhase.atRisk) {
       return false;
     }
     if (_cupoImposible) return false;
@@ -1317,7 +1329,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       backgroundColor: MatchPayTokens.surfaceBase,
       appBar: _isAttendanceSurface
           ? OrganizerAttendanceChrome(
-              cyclePhase: widget.cyclePhase,
+              cyclePhase: _resolvedCyclePhase,
               showingDetail: _editarSeguimiento,
               onToggleDetail: () => setState(
                 () => _editarSeguimiento = !_editarSeguimiento,
