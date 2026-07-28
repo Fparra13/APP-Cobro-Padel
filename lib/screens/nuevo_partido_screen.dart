@@ -2275,8 +2275,44 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   }
 
   Widget _buildFilaJugador(Jugador j) {
-    final l10n = context.l10n;
     final asistio = _asistentes.contains(j.keyId);
+
+    // Registrar gastos: solo corregir asistencia (sin Card ni cálculos de pago).
+    if (_flujoRegistrarAportes) {
+      return Material(
+        color: asistio ? Colors.transparent : Colors.grey.shade50,
+        child: InkWell(
+          onTap: () => _toggleAsistente(j),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            child: Row(
+              children: [
+                // Solo visual: el tap lo maneja InkWell (evita double toggle).
+                IgnorePointer(
+                  child: Checkbox(
+                    value: asistio,
+                    onChanged: (_) {},
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    j.nombre,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: asistio ? null : Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final l10n = context.l10n;
     final totalDeb = asistio ? _netoAPagarPartido(j) : 0.0;
     final pago = asistio ? _pagoDe(j.keyId) : null;
     final restante = asistio ? _saldoRestante(j) : 0.0;
@@ -2304,7 +2340,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                if (asistio && !modoNube && !_flujoRegistrarAportes)
+                if (asistio && !modoNube)
                   Text(
                     l10n.tr('toTransfer', params: {
                       'amount': formatMoney(aTransferir),
@@ -2314,7 +2350,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                   ),
               ],
             ),
-            if (asistio && pago != null && !modoNube && !_flujoRegistrarAportes) ...[
+            if (asistio && pago != null && !modoNube) ...[
               const SizedBox(height: 8),
               SegmentedButton<TipoPago>(
                 segments: [
