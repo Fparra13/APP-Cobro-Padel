@@ -221,7 +221,8 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
           tabs: [
             Tab(
               height: 52,
-              icon: SportIcon(size: 26),
+              // Neutro: no usar preferencia global del organizador.
+              icon: const Icon(Icons.event_note_rounded, size: 26),
               text: l10n.tr('tabMatches'),
             ),
             Tab(
@@ -261,7 +262,11 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
     final palette = context.sportPalette;
     if (_partidos.isEmpty && _convocatorias.isEmpty) {
       return _EmptyTab(
-        iconWidget: SportIcon(size: 48, color: MatchPayTokens.inkMuted),
+        iconWidget: Icon(
+          Icons.event_note_rounded,
+          size: 48,
+          color: MatchPayTokens.inkMuted,
+        ),
         titulo: l10n.tr('historyEmptyMatchesTitle'),
         subtitulo: l10n.tr('historyEmptyMatchesSubtitle'),
         accent: MatchPayTokens.accentSuccess,

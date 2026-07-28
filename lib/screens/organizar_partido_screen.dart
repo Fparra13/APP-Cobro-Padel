@@ -1415,7 +1415,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 const SizedBox(height: 80),
               ],
             ),
-      bottomNavigationBar: _errorCarga != null
+      bottomNavigationBar: (_loading || _errorCarga != null)
           ? null
           : SafeArea(
         child: Padding(
@@ -1455,7 +1455,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
             if (_puedeRegistrarCobros)
               FilledButton.icon(
                 onPressed: _registrarCobros,
-                icon: SportIcon(size: 20),
+                icon: SportIcon(sport: _sportType, size: 20),
                 label: Text(context.l10n.tr('goToCharges')),
                 style: FilledButton.styleFrom(
                   backgroundColor: MatchPayTokens.accentSuccess,
