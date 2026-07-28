@@ -343,7 +343,7 @@ class TranslationMaps {
     'rankingOfflineUnavailable': 'El ranking necesita conexión a internet.',
     'homeMatchFab': 'Encuentro',
     'homeMatchMenuTitle': '¿Qué quieres hacer?',
-    'homeOrganizeConvocatoria': 'Organizar convocatoria',
+    'homeOrganizeConvocatoria': 'Organizar encuentro',
     'homeOrganizeConvocatoriaSubtitle':
         'Confirmar participantes antes del encuentro (sin aportes)',
     'homeRegisterPlayedMatch': 'Registrar encuentro realizado',
@@ -538,7 +538,7 @@ class TranslationMaps {
     'playerHasApp': 'Tiene Kloovi',
     'playerNoApp': 'Sin app',
     'sendChargeWhatsApp': 'Enviar aviso',
-    'sendConvocatoriaWhatsApp': 'Enviar convocatoria',
+    'sendConvocatoriaWhatsApp': 'Enviar invitación',
     'sendChargeWhatsAppBulk': 'Enviar aviso por WhatsApp ({count})',
     'sendChargeWhatsAppBulkHint':
         'Se abre un chat por participante. Repite para el resto.',
@@ -668,7 +668,7 @@ class TranslationMaps {
     'playerContextNextIn': '{emoji} Tu próximo encuentro es {when}',
     'playerContextMatchesMonth': '🔥 Llevas {count} encuentros este mes',
     'playerContextWeeksStreak': '🔥 {weeks} semanas activo',
-    'playerContextPendingInvite': '⏳ Tienes convocatorias por responder',
+    'playerContextPendingInvite': '⏳ Tienes invitaciones por responder',
     'playerContextPendingPay': '💸 {amount} pendiente',
     'playerHeroRosterLine': '{confirmed} confirmados · {pending} pendientes',
     'playerHeroMatchTypeOpen': 'Convocatoria abierta',
@@ -718,7 +718,7 @@ class TranslationMaps {
     'organizerEmpathyTitleSimple': 'Invita. Confirman. Asisten. Aportan.',
     'organizerEmpathyBodySimple':
         'Así de simple puede ser organizar con tus amigos.',
-    'playerHeaderPendingInvite': 'Tienes convocatorias por responder',
+    'playerHeaderPendingInvite': 'Tienes invitaciones por responder',
     'playerHeaderPendingPayment': 'Tienes aportes pendientes',
     'playerHeaderNextMatch': 'Tu próximo encuentro está confirmado',
     'playerHeroAllGood': 'Todo al día',
@@ -1039,7 +1039,7 @@ class TranslationMaps {
     'organizeMatchAlreadyConfirmed': 'El encuentro ya está confirmado',
     'organizeInviteAlreadySent': 'La convocatoria ya fue enviada',
     'organizeSelectAtLeastOneStarter': 'Selecciona al menos un participante',
-    'organizeInviteSentSnack': 'Convocatoria enviada',
+    'organizeInviteSentSnack': 'Invitación enviada',
     'organizeSendFailed': 'No se pudo enviar: {error}',
     'organizeNoConfirmedTitle': 'Sin confirmados',
     'organizeNoConfirmedBody':
@@ -1081,7 +1081,7 @@ class TranslationMaps {
     'organizeChargesAfterMatch':
         'Podrás registrar gastos cuando pase la hora del encuentro ({when}).',
     'organizeBannerConfirmed': 'Encuentro confirmado · visible en Inicio',
-    'organizeBannerSent': 'Convocatoria enviada · seguimiento en tiempo real',
+    'organizeBannerSent': 'Invitación enviada · seguimiento en tiempo real',
     'organizeTrackingSectionTitle': 'RESPUESTAS',
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmados · {pending} pendientes · {waiting} en espera',
@@ -1119,11 +1119,11 @@ class TranslationMaps {
     'organizeVenueCardHint': 'Selecciona dónde será el encuentro',
     'organizeSlotsCardTitle': 'Participantes',
     'organizeSlotsOther': 'Otro',
-    'organizeWhatsAppNoAppTitle': 'Convocatoria por WhatsApp',
+    'organizeWhatsAppNoAppTitle': 'Invitación por WhatsApp',
     'organizeWhatsAppNoAppSubtitle':
         '{count} participante(s) sin app · {withWhatsApp} con WhatsApp',
     'organizeWhatsAppNoAppHint':
-        'Envía el mensaje de convocatoria a cada participante sin app. '
+        'Envía la invitación por WhatsApp a cada participante sin app. '
         'Luego registra su respuesta tocando su estado en la lista.',
     'organizeWhatsAppNoAppButton': 'WhatsApp · participantes sin app',
     'organizeWhatsAppNoAppPlayerStatus': 'Estado: {status}',
@@ -1166,7 +1166,7 @@ class TranslationMaps {
     'respondMatchSportLine': 'Encuentro de {sport}',
     'respondDeadlineLabel': 'Plazo',
     'respondBeforeDeadline': 'Responde antes de {deadline}',
-    'inviteRespondEyebrow': 'Responde tu convocatoria',
+    'inviteRespondEyebrow': 'Responde tu invitación',
     'inviteRespondCountdown': 'Quedan {time}',
     'inviteRespondCountdownUrgent': 'Queda menos de 1 h',
     'inviteRespondDeadline': 'Confirma antes de {deadline}',
@@ -1773,9 +1773,9 @@ class TranslationMaps {
     'notifTestTitle': 'Recordatorio de prueba',
     'notifTestBody':
         'Las notificaciones están activas. Toca para abrir recordatorios.',
-    'notifConvocadoTitle': '{emoji} Convocatoria de {sport}',
+    'notifConvocadoTitle': '{emoji} Invitación a {sport}',
     'notifConvocadoBody': '📍 {venue} · {date} · Responde en {hours} h',
-    'notifPromocionTitle': '{emoji} Convocatoria de {sport}',
+    'notifPromocionTitle': '{emoji} Invitación a {sport}',
     'notifPromocionBody': '📍 {venue} · {date} · Responde en {hours} h',
     'notifConvocadoBodyInApp':
         '📍 {venue} · {date} · Responde en {hours} h en la app',
@@ -2189,7 +2189,7 @@ class TranslationMaps {
     'rankingOfflineUnavailable': 'Ranking requires an internet connection.',
     'homeMatchFab': 'Session',
     'homeMatchMenuTitle': 'What would you like to do?',
-    'homeOrganizeConvocatoria': 'Organize invite',
+    'homeOrganizeConvocatoria': 'Organize session',
     'homeOrganizeConvocatoriaSubtitle':
         'Confirm participants before the session (no contributions)',
     'homeRegisterPlayedMatch': 'Log a completed session',
@@ -2382,7 +2382,7 @@ class TranslationMaps {
     'playerHasApp': 'Has Kloovi',
     'playerNoApp': 'No app',
     'sendChargeWhatsApp': 'Send reminder',
-    'sendConvocatoriaWhatsApp': 'Send invite',
+    'sendConvocatoriaWhatsApp': 'Send invitation',
     'sendChargeWhatsAppBulk': 'Send WhatsApp reminder ({count})',
     'sendChargeWhatsAppBulkHint':
         'Opens one chat per participant. Repeat for the rest.',
@@ -2511,7 +2511,7 @@ class TranslationMaps {
     'playerContextNextIn': '{emoji} Your next session is {when}',
     'playerContextMatchesMonth': '🔥 {count} sessions this month',
     'playerContextWeeksStreak': '🔥 {weeks} weeks active',
-    'playerContextPendingInvite': '⏳ You have invites to respond to',
+    'playerContextPendingInvite': '⏳ You have invitations to respond to',
     'playerContextPendingPay': '💸 {amount} pending',
     'playerHeroRosterLine': '{confirmed} confirmed · {pending} pending',
     'playerHeroMatchTypeOpen': 'Open invite',
@@ -2560,7 +2560,7 @@ class TranslationMaps {
         'Forget chasing contributions and receipts.',
     'organizerEmpathyTitleSimple': 'Invite. They confirm. Attend. Contribute.',
     'organizerEmpathyBodySimple': 'Organizing with friends can be that simple.',
-    'playerHeaderPendingInvite': 'You have invites to respond to',
+    'playerHeaderPendingInvite': 'You have invitations to respond to',
     'playerHeaderPendingPayment': 'You have pending contributions',
     'playerHeaderNextMatch': 'Your next session is confirmed',
     'playerHeroAllGood': 'All clear',
@@ -2883,7 +2883,7 @@ class TranslationMaps {
     'organizeMatchAlreadyConfirmed': 'The session is already confirmed',
     'organizeInviteAlreadySent': 'The invite was already sent',
     'organizeSelectAtLeastOneStarter': 'Select at least one participant',
-    'organizeInviteSentSnack': 'Invite sent',
+    'organizeInviteSentSnack': 'Invitation sent',
     'organizeSendFailed': 'Could not send: {error}',
     'organizeNoConfirmedTitle': 'No confirmed participants',
     'organizeNoConfirmedBody':
@@ -2925,7 +2925,7 @@ class TranslationMaps {
     'organizeChargesAfterMatch':
         'You can register expenses after session time ({when}).',
     'organizeBannerConfirmed': 'Session confirmed · visible on Home',
-    'organizeBannerSent': 'Invite sent · real-time tracking',
+    'organizeBannerSent': 'Invitation sent · real-time tracking',
     'organizeTrackingSectionTitle': 'RESPONSES',
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmed · {pending} pending · {waiting} waiting',
@@ -2961,11 +2961,11 @@ class TranslationMaps {
     'organizeVenueCardHint': 'Choose where the session will take place',
     'organizeSlotsCardTitle': 'Participants',
     'organizeSlotsOther': 'Other',
-    'organizeWhatsAppNoAppTitle': 'Invite via WhatsApp',
+    'organizeWhatsAppNoAppTitle': 'Invitation via WhatsApp',
     'organizeWhatsAppNoAppSubtitle':
         '{count} participant(s) without app · {withWhatsApp} with WhatsApp',
     'organizeWhatsAppNoAppHint':
-        'Send the invite message to each participant without the app. '
+        'Send the invitation via WhatsApp to each participant without the app. '
         'Then record their response by tapping their status in the list.',
     'organizeWhatsAppNoAppButton': 'WhatsApp · participants without app',
     'organizeWhatsAppNoAppPlayerStatus': 'Status: {status}',
@@ -3008,7 +3008,7 @@ class TranslationMaps {
     'respondMatchSportLine': '{sport} session',
     'respondDeadlineLabel': 'Deadline',
     'respondBeforeDeadline': 'Respond before {deadline}',
-    'inviteRespondEyebrow': 'Respond to your invite',
+    'inviteRespondEyebrow': 'Respond to your invitation',
     'inviteRespondCountdown': '{time} left',
     'inviteRespondCountdownUrgent': 'Less than 1 h left',
     'inviteRespondDeadline': 'Confirm before {deadline}',
@@ -3604,9 +3604,9 @@ class TranslationMaps {
         '{count} participants have pending amounts older than {days} days. Tap to send reminders.',
     'notifTestTitle': 'Test reminder',
     'notifTestBody': 'Notifications are active. Tap to open reminders.',
-    'notifConvocadoTitle': '{emoji} {sport} invitation',
+    'notifConvocadoTitle': '{emoji} Invitation to {sport}',
     'notifConvocadoBody': '📍 {venue} · {date} · Reply within {hours} h',
-    'notifPromocionTitle': '{emoji} {sport} invitation',
+    'notifPromocionTitle': '{emoji} Invitation to {sport}',
     'notifPromocionBody': '📍 {venue} · {date} · Respond within {hours} h',
     'notifConvocadoBodyInApp':
         '📍 {venue} · {date} · Reply within {hours} h in the app',
@@ -4022,7 +4022,7 @@ class TranslationMaps {
     'rankingOfflineUnavailable': 'O ranking precisa de conexão com a internet.',
     'homeMatchFab': 'Encontro',
     'homeMatchMenuTitle': 'O que você quer fazer?',
-    'homeOrganizeConvocatoria': 'Organizar convite',
+    'homeOrganizeConvocatoria': 'Organizar encontro',
     'homeOrganizeConvocatoriaSubtitle':
         'Confirmar participantes antes do encontro (sem contribuições)',
     'homeRegisterPlayedMatch': 'Registrar encontro realizado',
@@ -4217,7 +4217,7 @@ class TranslationMaps {
     'playerHasApp': 'Tem Kloovi',
     'playerNoApp': 'Sem app',
     'sendChargeWhatsApp': 'Enviar aviso',
-    'sendConvocatoriaWhatsApp': 'Enviar convocação',
+    'sendConvocatoriaWhatsApp': 'Enviar convite',
     'sendChargeWhatsAppBulk': 'Enviar aviso pelo WhatsApp ({count})',
     'sendChargeWhatsAppBulkHint':
         'Abre um chat por participante. Repita para o restante.',
@@ -4347,7 +4347,7 @@ class TranslationMaps {
     'playerContextNextIn': '{emoji} Seu próximo encontro é {when}',
     'playerContextMatchesMonth': '🔥 {count} encontros este mês',
     'playerContextWeeksStreak': '🔥 {weeks} semanas ativo',
-    'playerContextPendingInvite': '⏳ Você tem convocatórias para responder',
+    'playerContextPendingInvite': '⏳ Você tem convites para responder',
     'playerContextPendingPay': '💸 {amount} pendente',
     'playerHeroRosterLine': '{confirmed} confirmados · {pending} pendentes',
     'playerHeroMatchTypeOpen': 'Convocatória aberta',
@@ -4395,7 +4395,7 @@ class TranslationMaps {
         'Convide. Confirmam. Comparecem. Contribuem.',
     'organizerEmpathyBodySimple':
         'Organizar com amigos pode ser assim de simples.',
-    'playerHeaderPendingInvite': 'Você tem convocatórias para responder',
+    'playerHeaderPendingInvite': 'Você tem convites para responder',
     'playerHeaderPendingPayment': 'Você tem contribuições pendentes',
     'playerHeaderNextMatch': 'Sua próximo encontro está confirmada',
     'playerHeroAllGood': 'Tudo em dia',
@@ -4846,7 +4846,7 @@ class TranslationMaps {
     'respondMatchSportLine': 'Encontro de {sport}',
     'respondDeadlineLabel': 'Prazo',
     'respondBeforeDeadline': 'Responda antes de {deadline}',
-    'inviteRespondEyebrow': 'Responda à convocatória',
+    'inviteRespondEyebrow': 'Responda ao seu convite',
     'inviteRespondCountdown': 'Restam {time}',
     'inviteRespondCountdownUrgent': 'Resta menos de 1 h',
     'inviteRespondDeadline': 'Confirme antes de {deadline}',
@@ -5459,9 +5459,9 @@ class TranslationMaps {
     'notifTestTitle': 'Lembrete de teste',
     'notifTestBody':
         'As notificações estão ativas. Toque para abrir lembretes.',
-    'notifConvocadoTitle': '{emoji} Convocatória de {sport}',
+    'notifConvocadoTitle': '{emoji} Convite para {sport}',
     'notifConvocadoBody': '📍 {venue} · {date} · Responda em {hours} h',
-    'notifPromocionTitle': '{emoji} Convocatória de {sport}',
+    'notifPromocionTitle': '{emoji} Convite para {sport}',
     'notifPromocionBody': '📍 {venue} · {date} · Responda em {hours} h',
     'notifConvocadoBodyInApp':
         '📍 {venue} · {date} · Responda em {hours} h no app',
