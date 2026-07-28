@@ -47,7 +47,7 @@ class OrganizarPartidoScreen extends StatefulWidget {
   final int? partidoId;
 
   /// Intención de navegación decidida por el entry point (p. ej. Home).
-  /// PR1: contrato únicamente; la UI sigue las flags legacy existentes.
+  /// [OrganizerSurface.attendance] gobierna la composición (sin form Build).
   final OrganizerSurface surface;
 
   const OrganizarPartidoScreen({
@@ -100,6 +100,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   bool _editarSeguimiento = false;
 
   bool get _modoSeguimiento => _convocatoriaEnviada && !_partidoConfirmado;
+
+  /// Entrada por contrato de navegación (PR2): manda sobre flags legacy.
+  bool get _isAttendanceSurface =>
+      widget.surface == OrganizerSurface.attendance;
 
   bool get _formularioBloqueado => _convocatoriaEnviada || _partidoConfirmado;
 
@@ -1252,20 +1256,26 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         backgroundColor: themed.colorScheme.primary,
         foregroundColor: Colors.white,
         title: Text(
-          _partidoConfirmado
-              ? context.l10n.tr('organizeMatchConfirmedTitle')
-              : _modoSeguimiento && _editarSeguimiento
+          _isAttendanceSurface
+              ? (_editarSeguimiento
                   ? context.l10n.tr('matchDetailTitle')
-                  : _modoSeguimiento || (_loading && widget.isEditing)
-                      // Encuentro existente: "Asistencias" desde el primer frame
-                      // (evita flash "Convocatoria" mientras llega el fetch).
-                      ? context.l10n.tr('organizeTrackingTitle')
-                      : widget.isEditing
-                          ? context.l10n.tr('convocatoriaTitle')
-                          : context.l10n.tr('organizeTitle'),
+                  : _partidoConfirmado
+                      ? context.l10n.tr('organizeMatchConfirmedTitle')
+                      : context.l10n.tr('organizeTrackingTitle'))
+              : _partidoConfirmado
+                  ? context.l10n.tr('organizeMatchConfirmedTitle')
+                  : _modoSeguimiento && _editarSeguimiento
+                      ? context.l10n.tr('matchDetailTitle')
+                      : _modoSeguimiento || (_loading && widget.isEditing)
+                          // Encuentro existente: "Asistencias" desde el primer frame
+                          // (evita flash "Convocatoria" mientras llega el fetch).
+                          ? context.l10n.tr('organizeTrackingTitle')
+                          : widget.isEditing
+                              ? context.l10n.tr('convocatoriaTitle')
+                              : context.l10n.tr('organizeTitle'),
         ),
         actions: [
-          if (_modoSeguimiento)
+          if (_isAttendanceSurface || _modoSeguimiento)
             IconButton(
               icon: Icon(
                 _editarSeguimiento
@@ -1334,11 +1344,15 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       ),
                   ],
                 )
-              : _modoSeguimiento && !_editarSeguimiento
-                  ? _buildAsistenciasBody()
-                  : _modoSeguimiento && _editarSeguimiento
+              : _isAttendanceSurface
+                  ? (_editarSeguimiento
                       ? _buildDetalleSeguimientoBody()
-                      : ListView(
+                      : _buildAsistenciasBody())
+                  : _modoSeguimiento && !_editarSeguimiento
+                      ? _buildAsistenciasBody()
+                      : _modoSeguimiento && _editarSeguimiento
+                          ? _buildDetalleSeguimientoBody()
+                          : ListView(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
               children: [
                 AyudaTip(
