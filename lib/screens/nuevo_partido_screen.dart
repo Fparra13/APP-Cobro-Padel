@@ -33,7 +33,15 @@ import '../widgets/sport_icon.dart';
 class NuevoPartidoScreen extends StatefulWidget {
   final int? partidoId;
 
-  const NuevoPartidoScreen({super.key, this.partidoId});
+  /// Intención de navegación: cierre de aportes (`/registrar-partido`).
+  /// Evita flash de "Editar encuentro" antes del fetch.
+  final bool registrarAportes;
+
+  const NuevoPartidoScreen({
+    super.key,
+    this.partidoId,
+    this.registrarAportes = false,
+  });
 
   bool get isEditing => partidoId != null;
 
@@ -68,6 +76,15 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   /// Lista de jugadores expandida; colapsada muestra chips de seleccionados.
   bool _jugadoresExpandido = true;
   DateTime? _createdAtOriginal;
+
+  /// Entrada registrar aportes: prop explícita, o fallback por nombre de ruta.
+  bool get _entradaRegistrarAportes =>
+      widget.registrarAportes ||
+      ModalRoute.of(context)?.settings.name == '/registrar-partido';
+
+  /// Modo cierre: intent de navegación, ruta, o convocatoria ya resuelta.
+  bool get _flujoRegistrarAportes =>
+      _esOrganizando || _entradaRegistrarAportes;
 
   @override
   void initState() {
@@ -994,14 +1011,14 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         backgroundColor: themed.colorScheme.primary,
         foregroundColor: Colors.white,
         title: Text(
-          _esOrganizando
+          _flujoRegistrarAportes
               ? l10n.tr('chargeMatchTitle')
               : widget.isEditing
                   ? l10n.tr('editMatchTitle')
                   : l10n.tr('newMatchTitle'),
         ),
         actions: [
-          if (widget.isEditing && !_esOrganizando)
+          if (widget.isEditing && !_flujoRegistrarAportes)
             IconButton(
               icon: const Icon(Icons.delete_forever_outlined),
               tooltip: l10n.tr('deleteMatchTitle'),
@@ -1019,7 +1036,8 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                         children: [
-                          if (widget.isEditing) _buildInfoEdicion(),
+                          if (widget.isEditing && !_flujoRegistrarAportes)
+                            _buildInfoEdicion(),
                           _buildDatosPartido(),
                           if (_esOrganizando) ...[
                             const SizedBox(height: 12),

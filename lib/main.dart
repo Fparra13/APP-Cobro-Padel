@@ -199,7 +199,10 @@ class MatchPayApp extends StatelessWidget {
         if (settings.name == '/registrar-partido') {
           final id = settings.arguments as int;
           return MaterialPageRoute(
-            builder: (_) => NuevoPartidoScreen(partidoId: id),
+            builder: (_) => NuevoPartidoScreen(
+              partidoId: id,
+              registrarAportes: true,
+            ),
           );
         }
         // Crear encuentro/partido solo vía FeatureGate (abrirOrganizarPartido /
