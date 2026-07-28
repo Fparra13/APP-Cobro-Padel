@@ -1065,21 +1065,30 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                           else
                             _buildDatosPartido(),
                           if (context.repos.isCloud && _flujoRegistrarAportes) ...[
-                            const SizedBox(height: 12),
-                            Card(
+                            const SizedBox(height: 8),
+                            Material(
                               color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(10),
                               child: Padding(
-                                padding: const EdgeInsets.all(12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
                                 child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(Icons.cloud_sync,
-                                        color: Colors.blue.shade800),
-                                    const SizedBox(width: 10),
+                                    Icon(
+                                      Icons.cloud_sync,
+                                      size: 18,
+                                      color: Colors.blue.shade800,
+                                    ),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         l10n.tr('collaborativeModeHint'),
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 11,
+                                          height: 1.3,
                                           color: Colors.blue.shade900,
                                         ),
                                       ),
@@ -1124,13 +1133,23 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   Widget _buildResumenEncuentroReadonly() {
     final l10n = context.l10n;
     final lang = context.readSettings().locale.languageCode;
-    final fechaStr =
-        '${_fechaPartido.day}/${_fechaPartido.month}/${_fechaPartido.year} · '
-        '${_fechaPartido.hour.toString().padLeft(2, '0')}:'
-        '${_fechaPartido.minute.toString().padLeft(2, '0')}';
     final recinto = _recintoCtrl.text.trim();
     final notas = _notasCtrl.text.trim();
     final sportLabel = _sportType.labelForLocale(lang);
+    final fechaHora = formatMesDiaHora(_fechaPartido);
+    final participantsLabel = _asistentes.length == 1
+        ? l10n.tr('onePlayer')
+        : l10n.tr('matchPlayersCount', params: {
+            'count': '${_asistentes.length}',
+          });
+    final confirmedLine = l10n.tr('matchConfirmedLine', params: {
+      'participants': participantsLabel,
+    });
+    final metaStyle = TextStyle(
+      fontSize: 12,
+      color: Colors.green.shade800,
+      height: 1.35,
+    );
 
     return Card(
       elevation: 0,
@@ -1138,91 +1157,73 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: Colors.green.shade200),
       ),
+      color: Colors.green.shade50,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.green.shade50, Colors.teal.shade50],
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SportIcon(
+                  sport: _sportType,
+                  size: 20,
+                  color: context.sportPrimaryDark,
                 ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.green.shade200),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: context.sportPalette.surfaceTint,
-                    child: SportIcon(
-                      sport: _sportType,
-                      color: context.sportPrimaryDark,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '$sportLabel · $confirmedLine',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: Colors.green.shade900,
+                      height: 1.3,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.tr('matchConfirmedLine', params: {
-                            'players': _asistentes.length == 1
-                                ? l10n.tr('onePlayer')
-                                : l10n.tr('matchPlayersCount', params: {
-                                    'count': '${_asistentes.length}',
-                                  }),
-                          }),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green.shade900,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          sportLabel,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.green.shade800,
-                          ),
-                        ),
-                      ],
-                    ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 4,
+              runSpacing: 2,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Icon(
+                  Icons.calendar_today,
+                  size: 14,
+                  color: context.sportPrimary,
+                ),
+                Text(fechaHora, style: metaStyle),
+                if (recinto.isNotEmpty) ...[
+                  Text('·', style: metaStyle),
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 14,
+                    color: context.sportPrimary,
+                  ),
+                  Text(
+                    recinto,
+                    style: metaStyle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
-              ),
+              ],
             ),
-            const SizedBox(height: 12),
-            _buildEncabezadoSeccion(
-              titulo: l10n.tr('matchDetailsTitle'),
-              icono: Icons.event,
-              color: context.sportPrimary,
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.calendar_today, color: context.sportPrimary),
-              title: Text(l10n.tr('dateAndTime')),
-              subtitle: Text(fechaStr),
-            ),
-            if (recinto.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading:
-                    Icon(Icons.location_on_outlined, color: context.sportPrimary),
-                title: Text(l10n.tr('venueClubLabel')),
-                subtitle: Text(recinto),
-              ),
-            ],
             if (notas.isNotEmpty) ...[
               const SizedBox(height: 4),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.notes, color: context.sportPrimary),
-                title: Text(l10n.tr('notesOptionalLabel')),
-                subtitle: Text(notas),
+              Text(
+                notas,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade700,
+                  height: 1.3,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ],
