@@ -108,8 +108,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   ConvocatoriaCompleta? _convocatoriaCompleta;
   bool _editarSeguimiento = false;
 
-  bool get _modoSeguimiento => _convocatoriaEnviada && !_partidoConfirmado;
-
   /// Entrada por contrato de navegación (PR2): manda sobre flags legacy.
   bool get _isAttendanceSurface =>
       widget.surface == OrganizerSurface.attendance;
@@ -1445,7 +1443,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                     ),
                   ],
                 ],
-                if (_cupoImposible && _partidoId != null && !_modoSeguimiento) ...[
+                if (_cupoImposible &&
+                    _partidoId != null &&
+                    (!_convocatoriaEnviada || _partidoConfirmado)) ...[
                   const SizedBox(height: 8),
                   ConvocatoriaDecisionPanel(
                     partidoId: _partidoId,
@@ -1894,7 +1894,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 ],
               ),
             ),
-          if (_modoSeguimiento) ...[
+          if (_convocatoriaEnviada && !_partidoConfirmado) ...[
             Text(
               context.l10n.tr('organizeTrackingSectionTitle'),
               style: MatchPayTokens.sectionLabelStyle(
@@ -2364,7 +2364,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   ],
                 ),
                 Text(
-                  _modoSeguimiento
+                  _convocatoriaEnviada && !_partidoConfirmado
                       ? context.l10n.tr('organizeStartersHintTracking')
                       : context.l10n.tr(
                           'organizeStartersHintDraft',
@@ -2375,7 +2375,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: _jugadoresBusquedaCtrl,
-                  enabled: !_formularioBloqueado || _modoSeguimiento,
+                  enabled: !_formularioBloqueado ||
+                      (_convocatoriaEnviada && !_partidoConfirmado),
                   decoration: InputDecoration(
                     hintText: context.l10n.tr('organizeSearchHint'),
                     prefixIcon: const Icon(Icons.search, size: 20),
