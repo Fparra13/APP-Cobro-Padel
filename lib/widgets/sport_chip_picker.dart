@@ -13,6 +13,11 @@ class SportChipPicker extends StatelessWidget {
   final String? moreLabel;
   /// Si false, no marca ningún chip como seleccionado (p. ej. aún sin elegir).
   final bool highlightSelection;
+  /// Muestra el ActionChip «Ver todas…» (p. ej. preferencias).
+  /// En Organizar encuentro se oculta: la única vía es «Otra actividad».
+  final bool showMoreChip;
+  /// No muestra [SportType.other] como chip destacado.
+  final bool excludeOther;
 
   const SportChipPicker({
     super.key,
@@ -21,57 +26,28 @@ class SportChipPicker extends StatelessWidget {
     this.enabled = true,
     this.moreLabel,
     this.highlightSelection = true,
+    this.showMoreChip = true,
+    this.excludeOther = false,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final settings = context.watchSettings();
-    final lang = settings.locale.languageCode;
-    final label = moreLabel ?? context.l10n.tr('sportSeeMore');
-    final featured = settings.featuredSports;
-    final valueInFeatured = featured.contains(value);
-    final showSelected = highlightSelection;
+  /// Catálogo completo (sheet). Usado por «Ver todas» (otros flujos) y
+  /// «Otra actividad» (Organizar encuentro).
+  static Future<SportType?> openFullCatalog(
+    BuildContext context, {
+    SportType? current,
+    bool excludeOther = false,
+  }) {
+    final sports = SportType.values
+        .where((s) => !excludeOther || s != SportType.other)
+        .toList(growable: false);
 
-    final chips = <Widget>[
-      for (final sport in featured)
-        _SportChoiceChip(
-          sport: sport,
-          lang: lang,
-          selected: showSelected && value == sport,
-          enabled: enabled && onChanged != null,
-          onSelected: () => onChanged?.call(sport),
-        ),
-      if (showSelected && !valueInFeatured)
-        _SportChoiceChip(
-          sport: value,
-          lang: lang,
-          selected: true,
-          enabled: enabled && onChanged != null,
-          onSelected: () {},
-        ),
-      ActionChip(
-        avatar: const Icon(Icons.grid_view_rounded, size: 16),
-        label: Text(label),
-        onPressed: !enabled || onChanged == null
-            ? null
-            : () => _openAllSportsSheet(context, lang),
-      ),
-    ];
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: chips,
-    );
-  }
-
-  Future<void> _openAllSportsSheet(BuildContext context, String lang) async {
-    final selected = await showModalBottomSheet<SportType>(
+    return showModalBottomSheet<SportType>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (ctx) {
         final l10n = ctx.l10n;
+        final lang = Localizations.localeOf(ctx).languageCode;
         return DraggableScrollableSheet(
           expand: false,
           initialChildSize: 0.72,
@@ -94,11 +70,11 @@ class SportChipPicker extends StatelessWidget {
                 Expanded(
                   child: ListView.builder(
                     controller: scrollController,
-                    itemCount: SportType.values.length,
+                    itemCount: sports.length,
                     itemBuilder: (ctx, i) {
-                      final sport = SportType.values[i];
+                      final sport = sports[i];
                       final palette = SportThemeConfig.paletteFor(sport);
-                      final isSelected = sport == value;
+                      final isSelected = current != null && sport == current;
                       return ListTile(
                         leading: Text(
                           palette.emoji,
@@ -123,7 +99,62 @@ class SportChipPicker extends StatelessWidget {
         );
       },
     );
-    if (selected != null) onChanged?.call(selected);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = context.watchSettings();
+    final lang = settings.locale.languageCode;
+    final label = moreLabel ?? context.l10n.tr('sportSeeMore');
+    final featured = settings.featuredSports
+        .where((s) => !excludeOther || s != SportType.other)
+        .toList(growable: false);
+    final valueInFeatured = featured.contains(value);
+    final showSelected = highlightSelection;
+    // No pintar chip huérfano de «Otro» cuando está excluido de destacados.
+    final showValueChip = showSelected &&
+        !valueInFeatured &&
+        !(excludeOther && value == SportType.other);
+
+    final chips = <Widget>[
+      for (final sport in featured)
+        _SportChoiceChip(
+          sport: sport,
+          lang: lang,
+          selected: showSelected && value == sport,
+          enabled: enabled && onChanged != null,
+          onSelected: () => onChanged?.call(sport),
+        ),
+      if (showValueChip)
+        _SportChoiceChip(
+          sport: value,
+          lang: lang,
+          selected: true,
+          enabled: enabled && onChanged != null,
+          onSelected: () {},
+        ),
+      if (showMoreChip)
+        ActionChip(
+          avatar: const Icon(Icons.grid_view_rounded, size: 16),
+          label: Text(label),
+          onPressed: !enabled || onChanged == null
+              ? null
+              : () async {
+                  final selected = await openFullCatalog(
+                    context,
+                    current: highlightSelection ? value : null,
+                    excludeOther: excludeOther,
+                  );
+                  if (selected != null) onChanged?.call(selected);
+                },
+        ),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: chips,
+    );
   }
 }
 

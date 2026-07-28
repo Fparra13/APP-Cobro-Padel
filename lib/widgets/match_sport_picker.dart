@@ -64,13 +64,13 @@ class MatchSportPicker extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (ctx) {
+      builder: (sheetCtx) {
         return DraggableScrollableSheet(
           expand: false,
           initialChildSize: 0.72,
           minChildSize: 0.45,
           maxChildSize: 0.92,
-          builder: (ctx, scrollController) {
+          builder: (sheetCtx, scrollController) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -99,16 +99,19 @@ class MatchSportPicker extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                     children: [
                       SportChipPicker(
-                        value: value ?? SportType.other,
+                        // Valor neutro solo para layout; no se resalta sin selección.
+                        value: value ?? SportType.padel,
                         highlightSelection: value != null,
-                        onChanged: (sport) => Navigator.pop(ctx, sport),
+                        // Un solo camino al catálogo: «Otra actividad».
+                        showMoreChip: false,
+                        excludeOther: true,
+                        onChanged: (sport) => Navigator.pop(sheetCtx, sport),
                         enabled: true,
                       ),
                       const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: () => Navigator.pop(ctx, SportType.other),
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: Text(l10n.tr('sportOtherActivity')),
+                      OutlinedButton(
+                        onPressed: () => _pickFromFullCatalog(sheetCtx),
+                        child: Text(l10n.tr('sportOtherActivity')),
                       ),
                     ],
                   ),
@@ -120,6 +123,20 @@ class MatchSportPicker extends StatelessWidget {
       },
     );
     if (selected != null) onChanged!(selected);
+  }
+
+  /// Abre el catálogo completo sin cerrar el sheet de actividad ni
+  /// seleccionar [SportType.other] de forma temporal.
+  Future<void> _pickFromFullCatalog(BuildContext sheetContext) async {
+    final picked = await SportChipPicker.openFullCatalog(
+      sheetContext,
+      current: value,
+      // «Otro» no es una actividad elegible aquí; el botón solo abre el catálogo.
+      excludeOther: true,
+    );
+    if (picked == null) return;
+    if (!sheetContext.mounted) return;
+    Navigator.pop(sheetContext, picked);
   }
 }
 
@@ -139,9 +156,6 @@ class _CompactActivityCard extends StatelessWidget {
     final l10n = context.l10n;
     final lang = Localizations.localeOf(context).languageCode;
     final selected = value;
-    final palette = selected != null
-        ? SportThemeConfig.paletteFor(selected)
-        : null;
 
     return Material(
       color: Colors.transparent,
@@ -149,64 +163,56 @@ class _CompactActivityCard extends StatelessWidget {
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
         child: Ink(
-          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
             border: Border.all(color: MatchPayTokens.borderSubtle),
             color: Colors.white,
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (selected != null)
-                Text(palette!.emoji, style: const TextStyle(fontSize: 22))
-              else
-                Icon(
-                  Icons.sports_outlined,
+              Text(
+                l10n.tr('matchSportLabel'),
+                style: MatchPayTokens.bodySmallStyle(
                   color: MatchPayTokens.inkMuted,
-                  size: 22,
-                ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.tr('matchSportLabel'),
-                      style: MatchPayTokens.bodySmallStyle(
-                        color: MatchPayTokens.inkMuted,
-                      ).copyWith(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      selected != null
-                          ? selected.labelForLang(lang)
-                          : l10n.tr('matchActivityPrompt'),
-                      style: MatchPayTokens.titleSmallStyle().copyWith(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+                ).copyWith(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+              const SizedBox(height: 6),
               Text(
                 selected != null
-                    ? l10n.tr('matchActivityChange')
-                    : l10n.tr('matchActivityChoose'),
-                style: TextStyle(
-                  fontSize: 13,
+                    ? '${SportThemeConfig.paletteFor(selected).emoji} '
+                        '${selected.labelForLang(lang)}'
+                    : l10n.tr('matchActivityPrompt'),
+                style: MatchPayTokens.titleSmallStyle().copyWith(
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1AA89B),
+                  height: 1.25,
                 ),
               ),
-              const SizedBox(width: 2),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: MatchPayTokens.inkMuted,
-                size: 20,
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    selected != null
+                        ? l10n.tr('matchActivityChange')
+                        : l10n.tr('matchActivityChoose'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1AA89B),
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: MatchPayTokens.inkMuted,
+                    size: 18,
+                  ),
+                ],
               ),
             ],
           ),
