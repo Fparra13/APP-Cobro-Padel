@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../domain/organizer_cycle_logic.dart';
 import '../domain/organizer_surface.dart';
 import '../domain/partido_lifecycle.dart';
+import '../widgets/organizer_cycle_hero.dart';
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../core/matchpay_design_tokens.dart';
@@ -490,6 +491,7 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
       context,
       partidoId: partidoId,
       surface: OrganizerSurface.attendance,
+      cyclePhase: OrganizerCycleSnapshot.phaseForConvocatoria(convocatoria),
     );
     if (mounted) _load();
   }

@@ -192,6 +192,7 @@ class MatchPayApp extends StatelessWidget {
             builder: (_) => OrganizarPartidoScreen(
               partidoId: id,
               surface: OrganizerSurface.attendance,
+              // Deep link sin snapshot de ciclo → fallback legacy en Attendance.
             ),
           );
         }

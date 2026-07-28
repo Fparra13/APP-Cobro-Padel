@@ -217,10 +217,22 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       return;
     }
+    ConvocatoriaCompleta? conv;
+    for (final c in _convocatorias) {
+      if (c.partido.id == partidoId) {
+        conv = c;
+        break;
+      }
+    }
+    // Sin convocatoria en memoria → cyclePhase null → fallback legacy en Attendance.
+    final phase = conv == null
+        ? null
+        : OrganizerCycleSnapshot.phaseForConvocatoria(conv);
     await abrirOrganizarPartido(
       context,
       partidoId: partidoId,
       surface: OrganizerSurface.attendance,
+      cyclePhase: phase,
     );
     if (mounted) _load(silent: true);
   }
@@ -382,6 +394,7 @@ class _HomeScreenState extends State<HomeScreen> {
             context,
             partidoId: id,
             surface: snap.surface,
+            cyclePhase: snap.phase,
           );
         }
       case OrganizerCyclePhase.registerExpenses:

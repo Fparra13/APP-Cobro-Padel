@@ -319,4 +319,19 @@ void main() {
     expect(snap.phase, OrganizerCyclePhase.confirmed);
     expect(snap.convocatoria?.partido.id, 20);
   });
+
+  test('phaseForConvocatoria alinea confirmed y preparing', () {
+    expect(
+      OrganizerCycleSnapshot.phaseForConvocatoria(
+        convFutura(estado: EstadoPartido.confirmado),
+      ),
+      OrganizerCyclePhase.confirmed,
+    );
+    expect(
+      OrganizerCycleSnapshot.phaseForConvocatoria(
+        convFutura(estado: EstadoPartido.organizando),
+      ),
+      OrganizerCyclePhase.preparing,
+    );
+  });
 }

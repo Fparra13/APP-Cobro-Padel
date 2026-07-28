@@ -713,6 +713,7 @@ class NotificationService {
         builder: (_) => OrganizarPartidoScreen(
           partidoId: partidoId,
           surface: OrganizerSurface.attendance,
+          // Push sin phase → Attendance usa flags legacy.
         ),
       ),
     );

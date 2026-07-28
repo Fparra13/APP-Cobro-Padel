@@ -177,6 +177,29 @@ class OrganizerCycleSnapshot {
     return const OrganizerCycleSnapshot(phase: OrganizerCyclePhase.empty);
   }
 
+  /// Phase de un solo encuentro (mismas reglas que [resolve], sin cobros/grupo).
+  ///
+  /// Para entry points que tienen [ConvocatoriaCompleta] pero no el snapshot
+  /// featured de Home. Cobros (`collecting` / `allPaid`) no aplican aquí.
+  static OrganizerCyclePhase phaseForConvocatoria(ConvocatoriaCompleta c) {
+    final situacion = PartidoLifecycle.situacionOrganizador(c);
+    if (situacion == ConvocatoriaOrganizadorSituacion.sinResolver) {
+      return OrganizerCyclePhase.needsResolution;
+    }
+    if (PartidoEstadoPublicoView.resolve(c).cupoImposible) {
+      return OrganizerCyclePhase.atRisk;
+    }
+    if (situacion == ConvocatoriaOrganizadorSituacion.listoParaGastos) {
+      return OrganizerCyclePhase.registerExpenses;
+    }
+    if (situacion == ConvocatoriaOrganizadorSituacion.preparando) {
+      return c.partido.esConfirmado
+          ? OrganizerCyclePhase.confirmed
+          : OrganizerCyclePhase.preparing;
+    }
+    return OrganizerCyclePhase.empty;
+  }
+
   /// Surface de navegación según la phase del ciclo (SSOT → intención).
   OrganizerSurface get surface {
     switch (phase) {

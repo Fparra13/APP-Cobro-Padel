@@ -7,6 +7,7 @@ import '../l10n/matchpay_strings.dart';
 import '../domain/organizer_surface.dart';
 import '../screens/nuevo_partido_screen.dart';
 import '../screens/organizar_partido_screen.dart';
+import '../widgets/organizer_cycle_hero.dart';
 import '../services/notification_service.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../utils/matchpay_context.dart';
@@ -168,6 +169,7 @@ Future<bool?> abrirOrganizarPartido(
   BuildContext context, {
   int? partidoId,
   OrganizerSurface? surface,
+  OrganizerCyclePhase? cyclePhase,
 }) async {
   final resolvedSurface = surface ??
       (partidoId == null
@@ -190,6 +192,9 @@ Future<bool?> abrirOrganizarPartido(
         child: OrganizarPartidoScreen(
           partidoId: partidoId,
           surface: resolvedSurface,
+          cyclePhase: resolvedSurface == OrganizerSurface.attendance
+              ? cyclePhase
+              : null,
         ),
       ),
     ),

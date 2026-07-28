@@ -30,6 +30,7 @@ import '../utils/matchpay_context.dart';
 import '../utils/reprogramar_convocatoria_flow.dart';
 import '../domain/organizer_surface.dart';
 import '../widgets/convocatoria_asistencias_view.dart';
+import '../widgets/organizer_cycle_hero.dart';
 import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/convocatoria_decision_panel.dart';
 import '../widgets/partido_estado_publico.dart';
@@ -50,10 +51,15 @@ class OrganizarPartidoScreen extends StatefulWidget {
   /// [OrganizerSurface.attendance] gobierna la composición (sin form Build).
   final OrganizerSurface surface;
 
+  /// Phase del ciclo cuando [surface] es attendance (SSOT de Home/resolver).
+  /// Si es null (historial/push sin phase), Attendance usa flags legacy.
+  final OrganizerCyclePhase? cyclePhase;
+
   const OrganizarPartidoScreen({
     super.key,
     this.partidoId,
     this.surface = OrganizerSurface.build,
+    this.cyclePhase,
   });
 
   bool get isEditing => partidoId != null;
@@ -104,6 +110,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   /// Entrada por contrato de navegación (PR2): manda sobre flags legacy.
   bool get _isAttendanceSurface =>
       widget.surface == OrganizerSurface.attendance;
+
+  /// Phase SSOT en Attendance; null → fallback legacy.
+  OrganizerCyclePhase? get _attendanceCyclePhase =>
+      _isAttendanceSurface ? widget.cyclePhase : null;
 
   bool get _formularioBloqueado => _convocatoriaEnviada || _partidoConfirmado;
 
@@ -1257,11 +1267,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         foregroundColor: Colors.white,
         title: Text(
           _isAttendanceSurface
-              ? (_editarSeguimiento
-                  ? context.l10n.tr('matchDetailTitle')
-                  : _partidoConfirmado
-                      ? context.l10n.tr('organizeMatchConfirmedTitle')
-                      : context.l10n.tr('organizeTrackingTitle'))
+              ? _attendanceAppBarTitle(context.l10n)
               : _partidoConfirmado
                   ? context.l10n.tr('organizeMatchConfirmedTitle')
                   : _modoSeguimiento && _editarSeguimiento
@@ -1507,6 +1513,11 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   },
                   onCancelSuccess: _salirTrasCancelar,
                 )
+              else if (_attendanceCyclePhase ==
+                      OrganizerCyclePhase.confirmed ||
+                  _attendanceCyclePhase ==
+                      OrganizerCyclePhase.needsResolution)
+                const SizedBox.shrink()
               else ...[
                 FilledButton.icon(
                   onPressed: _pendientes > 0 ? _recordarPendientesAsistencias : null,
@@ -1561,6 +1572,29 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     ),
     ),
     );
+  }
+
+  /// Título AppBar en Attendance: prioriza [cyclePhase]; si null, flags legacy.
+  String _attendanceAppBarTitle(MatchPayStrings l10n) {
+    if (_editarSeguimiento) return l10n.tr('matchDetailTitle');
+    switch (_attendanceCyclePhase) {
+      case OrganizerCyclePhase.confirmed:
+        return l10n.tr('organizeMatchConfirmedTitle');
+      case OrganizerCyclePhase.atRisk:
+        return l10n.tr('organizerCyclePhaseAtRisk');
+      case OrganizerCyclePhase.needsResolution:
+        return l10n.tr('organizerCyclePhaseNeedsResolution');
+      case OrganizerCyclePhase.preparing:
+        return l10n.tr('organizeTrackingTitle');
+      case OrganizerCyclePhase.empty:
+      case OrganizerCyclePhase.registerExpenses:
+      case OrganizerCyclePhase.collecting:
+      case OrganizerCyclePhase.allPaid:
+      case null:
+        break;
+    }
+    if (_partidoConfirmado) return l10n.tr('organizeMatchConfirmedTitle');
+    return l10n.tr('organizeTrackingTitle');
   }
 
   Widget _buildAsistenciasBody() {
