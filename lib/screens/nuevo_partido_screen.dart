@@ -837,25 +837,27 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         _showError(l10n.tr('errorMarkAtLeastOnePlayer'));
         return;
       }
-      final pago = _pagoDe(id);
-      final total = _netoAPagarPartido(j);
-      if (pago.tipo == TipoPago.parcial && total > 0) {
-        final m = parseMoney(pago.montoParcial.text);
-        if (m <= 0) {
-          _showError(l10n.tr('errorPlayerPartialAmount', params: {'name': j.nombre}));
-          return;
+      if (!_flujoRegistrarAportes) {
+        final pago = _pagoDe(id);
+        final total = _netoAPagarPartido(j);
+        if (pago.tipo == TipoPago.parcial && total > 0) {
+          final m = parseMoney(pago.montoParcial.text);
+          if (m <= 0) {
+            _showError(l10n.tr('errorPlayerPartialAmount', params: {'name': j.nombre}));
+            return;
+          }
+          if (!pago.abonoConfirmado) {
+            _showError(l10n.tr('errorConfirmPartialFirst', params: {'name': j.nombre}));
+            return;
+          }
         }
-        if (!pago.abonoConfirmado) {
-          _showError(l10n.tr('errorConfirmPartialFirst', params: {'name': j.nombre}));
-          return;
-        }
-      }
-      for (final cobro in _cobrosIndividuales[id] ?? []) {
-        if (!cobro.guardado && cobro.tieneDatos) {
-          _showError(
-            l10n.tr('errorSaveExtraChargeFirst', params: {'name': j.nombre}),
-          );
-          return;
+        for (final cobro in _cobrosIndividuales[id] ?? []) {
+          if (!cobro.guardado && cobro.tieneDatos) {
+            _showError(
+              l10n.tr('errorSaveExtraChargeFirst', params: {'name': j.nombre}),
+            );
+            return;
+          }
         }
       }
     }
@@ -1939,7 +1941,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
               onTap: _toggleJugadoresExpandido,
               borderRadius: BorderRadius.circular(12),
               child: _buildEncabezadoSeccion(
-                titulo: context.repos.isCloud
+                titulo: _flujoRegistrarAportes || context.repos.isCloud
                     ? l10n.tr('confirmedPlayersTitle')
                     : l10n.tr('playersAndPaymentsTitle'),
                 subtitulo: conteo,
