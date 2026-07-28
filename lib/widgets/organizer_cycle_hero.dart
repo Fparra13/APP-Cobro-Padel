@@ -249,12 +249,16 @@ class _CycleHeroShell extends StatelessWidget {
   final String title;
   final String? subtitle;
   final String? contextLine;
+  /// Línea secundaria bajo [contextLine] (p. ej. fecha/hora en register).
+  final String? metaLine;
   final Widget? body;
   final String? ctaLabel;
   final VoidCallback? onTap;
   final bool celebratory;
   final bool interactiveBody;
   final bool riskIndicator;
+  /// Si true: phase → title → identidad → subtitle (solo register).
+  final bool leadWithTitle;
 
   const _CycleHeroShell({
     required this.palette,
@@ -262,12 +266,14 @@ class _CycleHeroShell extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.contextLine,
+    this.metaLine,
     this.body,
     this.ctaLabel,
     this.onTap,
     this.celebratory = false,
     this.interactiveBody = false,
     this.riskIndicator = false,
+    this.leadWithTitle = false,
   });
 
   BoxDecoration _cardDecoration() {
@@ -316,44 +322,25 @@ class _CycleHeroShell extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildPhaseHeader(),
-              if (contextLine != null && contextLine!.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  contextLine!,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.96),
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.15,
-                    height: 1.25,
-                  ),
+              if (phaseLabel.trim().isNotEmpty) _buildPhaseHeader(),
+              if (leadWithTitle) ...[
+                if (phaseLabel.trim().isNotEmpty) const SizedBox(height: 12),
+                ..._titleBlock(),
+                ..._identityBlock(topGap: 12),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 12),
+                  _subtitleText(),
+                ],
+              ] else ...[
+                ..._identityBlock(topGap: 10),
+                SizedBox(
+                  height: _hasIdentity ? 14 : 12,
                 ),
-              ],
-              SizedBox(height: contextLine != null ? 14 : 12),
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: riskIndicator ? 20 : 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.35,
-                  height: 1.2,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  subtitle!,
-                  style: TextStyle(
-                    color: Colors.white.withValues(
-                      alpha: riskIndicator ? 0.84 : 0.9,
-                    ),
-                    fontSize: riskIndicator ? 13.5 : 14,
-                    fontWeight: FontWeight.w500,
-                    height: 1.4,
-                  ),
-                ),
+                ..._titleBlock(),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 6),
+                  _subtitleText(),
+                ],
               ],
               if (body != null) ...[
                 const SizedBox(height: 14),
@@ -385,6 +372,74 @@ class _CycleHeroShell extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  bool get _hasIdentity =>
+      (contextLine != null && contextLine!.isNotEmpty) ||
+      (metaLine != null && metaLine!.isNotEmpty);
+
+  List<Widget> _identityBlock({required double topGap}) {
+    final hasContext = contextLine != null && contextLine!.isNotEmpty;
+    final hasMeta = metaLine != null && metaLine!.isNotEmpty;
+    if (!hasContext && !hasMeta) return const [];
+
+    return [
+      SizedBox(height: topGap),
+      if (hasContext)
+        Text(
+          contextLine!,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.96),
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.15,
+            height: 1.3,
+          ),
+        ),
+      if (hasMeta) ...[
+        SizedBox(height: hasContext ? 4 : 0),
+        Text(
+          metaLine!,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.88),
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
+            height: 1.3,
+          ),
+        ),
+      ],
+    ];
+  }
+
+  List<Widget> _titleBlock() {
+    return [
+      Text(
+        title,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: riskIndicator ? 20 : 22,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.35,
+          height: 1.2,
+        ),
+      ),
+    ];
+  }
+
+  Widget _subtitleText() {
+    return Text(
+      subtitle!,
+      style: TextStyle(
+        color: Colors.white.withValues(
+          alpha: riskIndicator ? 0.84 : 0.9,
+        ),
+        fontSize: riskIndicator ? 13.5 : 14,
+        fontWeight: FontWeight.w500,
+        height: 1.4,
+      ),
     );
   }
 
@@ -799,24 +854,23 @@ class _RegisterHero extends StatelessWidget {
     final l10n = context.l10n;
     final p = convocatoria.partido;
     final palette = SportThemeConfig.paletteFor(p.sportType);
-    final cuando = formatTiempoRelativo(p.fecha);
+    final lang = Localizations.localeOf(context).languageCode;
+    final venue = p.recinto?.trim();
+    // Una línea: emoji + deporte · lugar (omitir lugar vacío).
+    final identityLine = [
+      '${palette.emoji} ${p.sportType.labelForLang(lang)}',
+      if (venue != null && venue.isNotEmpty) venue,
+    ].join(' · ');
 
     return _CycleHeroShell(
       palette: palette,
-      phaseLabel: l10n.tr('organizerCyclePhaseRegister'),
-      title: l10n.tr('organizerCycleRegisterTitle'),
-      subtitle: l10n.tr(
-        'organizerCycleRegisterBody',
-        params: {'when': cuando},
-      ),
-      body: Text(
-        formatDiaCompleto(p.fecha),
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.88),
-          fontSize: 13.5,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      // Sin eyebrow: el title ya es el estado; reduce altura.
+      phaseLabel: '',
+      leadWithTitle: true,
+      title: l10n.tr('organizerCyclePhaseRegister'),
+      contextLine: identityLine,
+      metaLine: formatDiaCompleto(p.fecha),
+      subtitle: l10n.tr('organizerCycleRegisterBody'),
       ctaLabel: l10n.tr('organizerCycleRegisterCta'),
       onTap: onTap,
     );

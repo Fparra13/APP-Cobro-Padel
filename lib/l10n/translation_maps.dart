@@ -121,7 +121,7 @@ class TranslationMaps {
     'convocatoriaCupImpossibleBody':
         'El encuentro no reúne las confirmaciones necesarias para jugar.',
     'organizerCyclePhaseNeedsResolution': 'Resolver encuentro',
-    'organizerCyclePhaseRegister': 'Registrar gastos',
+    'organizerCyclePhaseRegister': 'Encuentro finalizado',
     'organizerCyclePhaseCollecting': 'Aportes pendientes',
     'organizerCyclePhaseDone': 'Aportes al día',
     'organizerCycleEmptyTitle': 'Organiza tu próximo encuentro',
@@ -185,7 +185,7 @@ class TranslationMaps {
         'Elige una fecha y hora futuras para reprogramar.',
     'organizerCycleRegisterTitle': '¿Ya se realizó?',
     'organizerCycleRegisterBody':
-        'El encuentro terminó {when}. Registra los gastos para generar los aportes.',
+        'Registra los gastos para calcular los aportes de los participantes.',
     'organizerCycleRegisterCta': 'Registrar gastos',
     'organizerCycleCollectingTitle': 'Aportes pendientes',
     'organizerCycleCollectingSingleTitle': '{emoji} {date}',
@@ -1970,7 +1970,7 @@ class TranslationMaps {
     'convocatoriaCupImpossibleBody':
         'The session does not have the confirmations needed to play.',
     'organizerCyclePhaseNeedsResolution': 'Resolve session',
-    'organizerCyclePhaseRegister': 'Log expenses',
+    'organizerCyclePhaseRegister': 'Match finished',
     'organizerCyclePhaseCollecting': 'Pending contributions',
     'organizerCyclePhaseDone': 'Contributions up to date',
     'organizerCycleEmptyTitle': 'Organize your next session',
@@ -2033,7 +2033,7 @@ class TranslationMaps {
         'Pick a future date and time to reschedule.',
     'organizerCycleRegisterTitle': 'Did the session happen?',
     'organizerCycleRegisterBody':
-        'The session ended {when}. Log expenses to generate contributions.',
+        'Register expenses to calculate participant contributions.',
     'organizerCycleRegisterCta': 'Log expenses',
     'organizerCycleCollectingTitle': 'Pending contributions',
     'organizerCycleCollectingSingleTitle': '{emoji} {date}',
@@ -3802,7 +3802,7 @@ class TranslationMaps {
     'convocatoriaCupImpossibleBody':
         'O encontro não reúne as confirmações necessárias para jogar.',
     'organizerCyclePhaseNeedsResolution': 'Resolver encontro',
-    'organizerCyclePhaseRegister': 'Registrar gastos',
+    'organizerCyclePhaseRegister': 'Encontro finalizado',
     'organizerCyclePhaseCollecting': 'Contribuições pendentes',
     'organizerCyclePhaseDone': 'Contribuições em dia',
     'organizerCycleEmptyTitle': 'Organize seu próximo encontro',
@@ -3866,7 +3866,7 @@ class TranslationMaps {
         'Escolha uma data e hora futuras para reprogramar.',
     'organizerCycleRegisterTitle': 'Já aconteceu?',
     'organizerCycleRegisterBody':
-        'O encontro terminou {when}. Registre os gastos para gerar as contribuições.',
+        'Registre os gastos para calcular as contribuições dos participantes.',
     'organizerCycleRegisterCta': 'Registrar gastos',
     'organizerCycleCollectingTitle': 'Contribuições pendentes',
     'organizerCycleCollectingSingleTitle': '{emoji} {date}',
