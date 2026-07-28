@@ -32,7 +32,6 @@ class ConvocatoriaAsistenciasView extends StatefulWidget {
   final String recinto;
   final SportType sportType;
   final int cuposMax;
-  final int cuposSuplentesMax;
   final String statusLabel;
   final List<ConvocatoriaAsistenciaItem> titulares;
   final List<ConvocatoriaAsistenciaItem> suplentes;
@@ -46,7 +45,6 @@ class ConvocatoriaAsistenciasView extends StatefulWidget {
     required this.recinto,
     required this.sportType,
     required this.cuposMax,
-    this.cuposSuplentesMax = 5,
     required this.statusLabel,
     required this.titulares,
     required this.suplentes,
@@ -319,28 +317,26 @@ class _ConvocatoriaAsistenciasViewState
           highlightId: _highlightId ?? _holdingDeclinedId,
         ),
         const SizedBox(height: 12),
-        _SectionCard(
-          icon: Icons.person_add_alt_1_rounded,
-          iconColor: MatchPayTokens.accentUrgent,
-          title: l10n.tr(
-            'asistenciasSubsTitle',
-            params: {'count': '${widget.suplentes.length}'},
+        if (widget.suplentes.isNotEmpty) ...[
+          _SectionCard(
+            icon: Icons.person_add_alt_1_rounded,
+            iconColor: MatchPayTokens.accentUrgent,
+            title: l10n.tr('asistenciasSubsTitle'),
+            badge: '${widget.suplentes.length}',
+            badgeColor: MatchPayTokens.accentUrgent,
+            items: widget.suplentes,
+            expanded: _expandSuplentes,
+            previewLimit: _previewLimit,
+            onToggleExpand: () =>
+                setState(() => _expandSuplentes = !_expandSuplentes),
+            expandLabel: l10n.tr('asistenciasSeeAllSubs'),
+            collapseLabel: l10n.tr('asistenciasCollapse'),
+            onCycleEstado:
+                widget.onCycleEstado == null ? null : _onCycleEstado,
+            highlightId: _highlightId,
           ),
-          badge: '${widget.suplentes.length}/${widget.cuposSuplentesMax}',
-          badgeColor: MatchPayTokens.accentUrgent,
-          items: widget.suplentes,
-          expanded: _expandSuplentes,
-          previewLimit: _previewLimit,
-          onToggleExpand: () =>
-              setState(() => _expandSuplentes = !_expandSuplentes),
-          expandLabel: l10n.tr('asistenciasSeeAllSubs'),
-          collapseLabel: l10n.tr('asistenciasCollapse'),
-          emptyLabel: l10n.tr('asistenciasSubsEmpty'),
-          onCycleEstado:
-              widget.onCycleEstado == null ? null : _onCycleEstado,
-          highlightId: _highlightId,
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         _SectionCard(
           icon: Icons.cancel_outlined,
           iconColor: MatchPayTokens.accentError,
