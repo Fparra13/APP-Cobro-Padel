@@ -425,6 +425,12 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     }
 
     if (mounted) {
+      if (widget.registrarAportes) {
+        setState(() => _loading = false);
+        _showError(context.l10n.tr('errorGeneric'));
+        Navigator.pop(context);
+        return;
+      }
       setState(() {
         _habituales = habituales;
         _recintosSugeridos = recintos;
@@ -1001,10 +1007,24 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     }
   }
 
+  /// Icono visible en tarjetas de gasto; presets cancha/pelotas según deporte del encuentro.
+  IconData _iconoGastoCompartido(SharedExpenseEntry entry) {
+    if (GastoPresetLogic.isVenuePreset(entry.label)) {
+      return sportVenueIcon(_sportType);
+    }
+    if (GastoPresetLogic.isEquipmentPreset(entry.label)) {
+      return sportBallsIcon(_sportType);
+    }
+    return entry.iconKey.icon;
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final themed = context.readSettings().themeForSport(_sportType);
+    final settings = context.readSettings();
+    // Evita flash de tema padel antes de cargar sport_type del encuentro.
+    final themed =
+        _loading ? settings.theme : settings.themeForSport(_sportType);
     return Theme(
       data: themed,
       child: Scaffold(
@@ -1604,12 +1624,26 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       children: [
         Row(
           children: [
-            ExpenseIconPicker(
-              selected: entry.iconKey,
-              onSelected: esPreset
-                  ? null
-                  : (k) => setState(() => entry.iconKey = k),
-            ),
+            if (esPreset)
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: color, width: 2),
+                ),
+                child: Icon(
+                  _iconoGastoCompartido(entry),
+                  color: color.withValues(alpha: 0.55),
+                  size: 22,
+                ),
+              )
+            else
+              ExpenseIconPicker(
+                selected: entry.iconKey,
+                onSelected: (k) => setState(() => entry.iconKey = k),
+              ),
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 20),
               color: Colors.red.shade400,
@@ -1623,7 +1657,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           InputDecorator(
             decoration: InputDecoration(
               labelText: l10n.tr('expensePresetLabel'),
-              prefixIcon: Icon(entry.iconKey.icon, color: color),
+              prefixIcon: Icon(_iconoGastoCompartido(entry), color: color),
               border: const OutlineInputBorder(),
               isDense: true,
             ),
@@ -1637,7 +1671,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             controller: entry.labelCtrl,
             decoration: InputDecoration(
               labelText: l10n.expenseLabelHint,
-              prefixIcon: Icon(entry.iconKey.icon, color: color),
+              prefixIcon: Icon(_iconoGastoCompartido(entry), color: color),
               border: const OutlineInputBorder(),
               isDense: true,
             ),
