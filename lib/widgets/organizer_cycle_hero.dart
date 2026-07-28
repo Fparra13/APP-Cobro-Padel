@@ -19,6 +19,7 @@ import 'matchpay_ui.dart';
 enum OrganizerCyclePhase {
   empty,
   preparing,
+  confirmed,
   atRisk,
   needsResolution,
   registerExpenses,
@@ -153,10 +154,23 @@ class OrganizerCycleSnapshot {
         .toList()
       ..sort((a, b) => a.partido.fecha.compareTo(b.partido.fecha));
 
-    if (proximas.isNotEmpty) {
+    final confirmadasFuturas = proximas
+        .where((c) => c.partido.esConfirmado)
+        .toList();
+    if (confirmadasFuturas.isNotEmpty) {
+      return OrganizerCycleSnapshot(
+        phase: OrganizerCyclePhase.confirmed,
+        convocatoria: confirmadasFuturas.first,
+      );
+    }
+
+    final preparandoRespuestas = proximas
+        .where((c) => !c.partido.esConfirmado)
+        .toList();
+    if (preparandoRespuestas.isNotEmpty) {
       return OrganizerCycleSnapshot(
         phase: OrganizerCyclePhase.preparing,
-        convocatoria: proximas.first,
+        convocatoria: preparandoRespuestas.first,
       );
     }
 
@@ -169,6 +183,7 @@ class OrganizerCycleSnapshot {
       case OrganizerCyclePhase.empty:
         return OrganizerSurface.build;
       case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.confirmed:
       case OrganizerCyclePhase.atRisk:
       case OrganizerCyclePhase.needsResolution:
         return OrganizerSurface.attendance;
@@ -186,6 +201,8 @@ class OrganizerCycleSnapshot {
         return l10n.tr('organizerCyclePhaseEmpty');
       case OrganizerCyclePhase.preparing:
         return l10n.tr('organizerCyclePhasePreparing');
+      case OrganizerCyclePhase.confirmed:
+        return l10n.tr('organizerCyclePhaseConfirmed');
       case OrganizerCyclePhase.atRisk:
         return l10n.tr('organizerCyclePhaseAtRisk');
       case OrganizerCyclePhase.needsResolution:
@@ -231,6 +248,8 @@ class OrganizerCycleHero extends StatelessWidget {
       case OrganizerCyclePhase.empty:
         return _EmptyHero(onCreateMatch: onCreateMatch ?? onPrimaryAction);
       case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.confirmed:
+        // PR3: misma hero shell; copy específico de confirmed queda para UI posterior.
         return _PreparingHero(
           convocatoria: snapshot.convocatoria!,
           onTap: onPrimaryAction,

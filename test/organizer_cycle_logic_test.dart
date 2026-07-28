@@ -1,6 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:matchpay/core/sport_type.dart';
 import 'package:matchpay/domain/organizer_cycle_logic.dart';
+import 'package:matchpay/domain/organizer_surface.dart';
+import 'package:matchpay/models/convocatoria_jugador.dart';
 import 'package:matchpay/models/detalle_partido.dart';
+import 'package:matchpay/models/estado_partido.dart';
 import 'package:matchpay/models/jugador.dart';
 import 'package:matchpay/models/partido.dart';
 import 'package:matchpay/repositories/partido_repository.dart';
@@ -259,5 +263,60 @@ void main() {
     expect(snap.partidosCobroPendiente, 3);
     expect(snap.jugadoresCobroPendiente, 1);
     expect(snap.montoCobroPendienteTotal, 5000);
+  });
+
+  ConvocatoriaCompleta convFutura({
+    required EstadoPartido estado,
+    int id = 1,
+  }) {
+    final now = DateTime.now();
+    final partido = Partido(
+      id: id,
+      fecha: now.add(const Duration(days: 2)),
+      estado: estado,
+      cuposMax: 4,
+      sportType: SportType.padel,
+      createdAt: now,
+    );
+    return ConvocatoriaCompleta(
+      partido: partido,
+      jugadores: [
+        ConvocatoriaJugadorEntry(
+          partidoId: id,
+          jugador: Jugador(nombre: 'Ana', createdAt: now),
+          estado: EstadoConfirmacion.confirmado,
+        ),
+      ],
+    );
+  }
+
+  test('encuentro futuro confirmado → phase confirmed y surface attendance', () {
+    final snap = OrganizerCycleSnapshot.resolve(
+      convocatorias: [convFutura(estado: EstadoPartido.confirmado)],
+      partidosJugadosRecientes: const [],
+    );
+    expect(snap.phase, OrganizerCyclePhase.confirmed);
+    expect(snap.surface, OrganizerSurface.attendance);
+  });
+
+  test('encuentro futuro organizando → phase preparing y surface attendance', () {
+    final snap = OrganizerCycleSnapshot.resolve(
+      convocatorias: [convFutura(estado: EstadoPartido.organizando)],
+      partidosJugadosRecientes: const [],
+    );
+    expect(snap.phase, OrganizerCyclePhase.preparing);
+    expect(snap.surface, OrganizerSurface.attendance);
+  });
+
+  test('confirmed tiene prioridad sobre preparing en el featured', () {
+    final snap = OrganizerCycleSnapshot.resolve(
+      convocatorias: [
+        convFutura(estado: EstadoPartido.organizando, id: 10),
+        convFutura(estado: EstadoPartido.confirmado, id: 20),
+      ],
+      partidosJugadosRecientes: const [],
+    );
+    expect(snap.phase, OrganizerCyclePhase.confirmed);
+    expect(snap.convocatoria?.partido.id, 20);
   });
 }

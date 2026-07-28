@@ -264,6 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (cycle.phase) {
       case OrganizerCyclePhase.empty:
       case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.confirmed:
       case OrganizerCyclePhase.atRisk:
       case OrganizerCyclePhase.needsResolution:
       case OrganizerCyclePhase.registerExpenses:
@@ -279,6 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final featuredId = snap.convocatoria?.partido.id;
     if (featuredId == null ||
         (snap.phase != OrganizerCyclePhase.preparing &&
+            snap.phase != OrganizerCyclePhase.confirmed &&
             snap.phase != OrganizerCyclePhase.needsResolution &&
             snap.phase != OrganizerCyclePhase.atRisk &&
             snap.phase != OrganizerCyclePhase.registerExpenses)) {
@@ -371,6 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
         await showOrganizerMatchMenu(context);
       case OrganizerCyclePhase.preparing:
+      case OrganizerCyclePhase.confirmed:
       case OrganizerCyclePhase.atRisk:
       case OrganizerCyclePhase.needsResolution:
         final id = snap.convocatoria?.partido.id;
