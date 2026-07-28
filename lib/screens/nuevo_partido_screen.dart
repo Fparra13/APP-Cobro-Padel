@@ -1060,7 +1060,9 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                   children: [
                     Expanded(
                       child: ListView(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        padding: _flujoRegistrarAportes
+                            ? const EdgeInsets.fromLTRB(8, 8, 8, 0)
+                            : const EdgeInsets.fromLTRB(12, 12, 12, 0),
                         children: [
                           if (widget.isEditing && !_flujoRegistrarAportes)
                             _buildInfoEdicion(),
@@ -1068,46 +1070,11 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                             _buildResumenEncuentroReadonly()
                           else
                             _buildDatosPartido(),
-                          if (context.repos.isCloud && _flujoRegistrarAportes) ...[
-                            const SizedBox(height: 6),
-                            Material(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 5,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.cloud_sync,
-                                      size: 16,
-                                      color: Colors.blue.shade800,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        l10n.tr('collaborativeModeHint'),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          height: 1.2,
-                                          color: Colors.blue.shade900,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
+                          SizedBox(height: _flujoRegistrarAportes ? 8 : 12),
                           _buildJugadoresPartido(),
-                          const SizedBox(height: 12),
+                          SizedBox(height: _flujoRegistrarAportes ? 8 : 12),
                           _buildItemsCobro(),
-                          const SizedBox(height: 12),
+                          SizedBox(height: _flujoRegistrarAportes ? 8 : 12),
                         ],
                       ),
                     ),
@@ -1156,83 +1123,75 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       height: 1.35,
     );
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.green.shade200),
-      ),
-      color: Colors.green.shade50,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SportIcon(
-                  sport: _sportType,
-                  size: 20,
-                  color: context.sportPrimaryDark,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '$sportLabel · $confirmedLine',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: Colors.green.shade900,
-                      height: 1.3,
-                    ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SportIcon(
+                sport: _sportType,
+                size: 20,
+                color: context.sportPrimaryDark,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '$sportLabel · $confirmedLine',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Colors.green.shade900,
+                    height: 1.3,
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 4,
-              runSpacing: 2,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 4,
+            runSpacing: 2,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Icon(
+                Icons.calendar_today,
+                size: 14,
+                color: context.sportPrimary,
+              ),
+              Text(fechaHora, style: metaStyle),
+              if (recinto.isNotEmpty) ...[
+                Text('·', style: metaStyle),
                 Icon(
-                  Icons.calendar_today,
+                  Icons.location_on_outlined,
                   size: 14,
                   color: context.sportPrimary,
                 ),
-                Text(fechaHora, style: metaStyle),
-                if (recinto.isNotEmpty) ...[
-                  Text('·', style: metaStyle),
-                  Icon(
-                    Icons.location_on_outlined,
-                    size: 14,
-                    color: context.sportPrimary,
-                  ),
-                  Text(
-                    recinto,
-                    style: metaStyle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-            if (notas.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                notas,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade700,
-                  height: 1.3,
+                Text(
+                  recinto,
+                  style: metaStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
+              ],
             ],
+          ),
+          if (notas.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              notas,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade700,
+                height: 1.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -1365,6 +1324,86 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     final l10n = context.l10n;
     final nAsistentes = _asistentes.length;
     final suggestions = GastoSportSuggestions.chipsFor(_sportType);
+    final sectionPad = _flujoRegistrarAportes ? 10.0 : 16.0;
+    final gapBeforeGastos = _flujoRegistrarAportes ? 8.0 : 16.0;
+
+    final gastosHijos = <Widget>[
+      ..._gastosCompartidos.map(_buildTarjetaGastoCompartido),
+      OutlinedButton.icon(
+        onPressed: _agregarGastoCompartido,
+        icon: const Icon(Icons.add),
+        label: Text(l10n.addExpense),
+      ),
+    ];
+
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildEncabezadoSeccion(
+          titulo: l10n.tr('matchExpensesTitle'),
+          subtitulo: l10n.tr('enterExpensesHint'),
+          icono: Icons.receipt_long,
+          color: Colors.teal.shade700,
+        ),
+        if (suggestions.isNotEmpty) ...[
+          SizedBox(height: _flujoRegistrarAportes ? 8 : 12),
+          Text(
+            l10n.tr('expensePresetsHint'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final s in suggestions) _buildSuggestionChip(s, l10n),
+            ],
+          ),
+        ],
+        // Slot fijo: evita remount del TextField al aparecer el chip.
+        ListenableBuilder(
+          listenable: _gastosMontosListenable,
+          builder: (context, _) {
+            final totalFijo = _monto(ConceptosCobro.cancha) +
+                _monto(ConceptosCobro.pelotas);
+            if (nAsistentes <= 0 || totalFijo <= 0) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: _buildChipProrrateo(
+                l10n.tr('courtAndBallsPerPerson', params: {
+                  'court': formatMoney(_prorrateoCancha()),
+                  'balls': formatMoney(_prorrateoPelotas()),
+                }),
+                color: Colors.green.shade700,
+              ),
+            );
+          },
+        ),
+        SizedBox(height: gapBeforeGastos),
+        if (_flujoRegistrarAportes)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: gastosHijos,
+          )
+        else
+          _buildGrupoCobro(
+            titulo: l10n.groupExpensesTitle,
+            subtitulo: l10n.groupExpensesSubtitle,
+            icono: Icons.playlist_add_check_rounded,
+            color: Colors.deepOrange.shade700,
+            hijos: gastosHijos,
+          ),
+      ],
+    );
+
+    if (_flujoRegistrarAportes) {
+      return Padding(
+        padding: EdgeInsets.all(sectionPad),
+        child: body,
+      );
+    }
 
     return Card(
       elevation: 0,
@@ -1373,71 +1412,8 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildEncabezadoSeccion(
-              titulo: l10n.tr('matchExpensesTitle'),
-              subtitulo: l10n.tr('enterExpensesHint'),
-              icono: Icons.receipt_long,
-              color: Colors.teal.shade700,
-            ),
-            if (suggestions.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                l10n.tr('expensePresetsHint'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final s in suggestions)
-                    _buildSuggestionChip(s, l10n),
-                ],
-              ),
-            ],
-            // Slot fijo: evita remount del TextField al aparecer el chip.
-            ListenableBuilder(
-              listenable: _gastosMontosListenable,
-              builder: (context, _) {
-                final totalFijo = _monto(ConceptosCobro.cancha) +
-                    _monto(ConceptosCobro.pelotas);
-                if (nAsistentes <= 0 || totalFijo <= 0) {
-                  return const SizedBox.shrink();
-                }
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: _buildChipProrrateo(
-                    l10n.tr('courtAndBallsPerPerson', params: {
-                      'court': formatMoney(_prorrateoCancha()),
-                      'balls': formatMoney(_prorrateoPelotas()),
-                    }),
-                    color: Colors.green.shade700,
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildGrupoCobro(
-              titulo: l10n.groupExpensesTitle,
-              subtitulo: l10n.groupExpensesSubtitle,
-              icono: Icons.playlist_add_check_rounded,
-              color: Colors.deepOrange.shade700,
-              showHeader: !_flujoRegistrarAportes,
-              hijos: [
-                ..._gastosCompartidos.map(_buildTarjetaGastoCompartido),
-                OutlinedButton.icon(
-                  onPressed: _agregarGastoCompartido,
-                  icon: const Icon(Icons.add),
-                  label: Text(l10n.addExpense),
-                ),
-              ],
-            ),
-          ],
-        ),
+        padding: EdgeInsets.all(sectionPad),
+        child: body,
       ),
     );
   }
@@ -1972,40 +1948,38 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                 'total': '$nTotal',
               });
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            InkWell(
-              onTap: _toggleJugadoresExpandido,
-              borderRadius: BorderRadius.circular(12),
-              child: _buildEncabezadoSeccion(
-                titulo: _flujoRegistrarAportes || context.repos.isCloud
-                    ? l10n.tr('confirmedPlayersTitle')
-                    : l10n.tr('playersAndPaymentsTitle'),
-                subtitulo: conteo,
-                icono: Icons.people,
+    final sectionPad = _flujoRegistrarAportes ? 10.0 : 16.0;
+    final headerGap = _flujoRegistrarAportes ? 8.0 : 12.0;
+
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: _toggleJugadoresExpandido,
+            borderRadius: BorderRadius.circular(12),
+            child: _buildEncabezadoSeccion(
+              titulo: _flujoRegistrarAportes || context.repos.isCloud
+                  ? l10n.tr('confirmedPlayersTitle')
+                  : l10n.tr('playersAndPaymentsTitle'),
+              subtitulo: conteo,
+              icono: Icons.people,
+              color: color,
+              trailing: Icon(
+                _jugadoresExpandido
+                    ? Icons.expand_less_rounded
+                    : Icons.expand_more_rounded,
                 color: color,
-                trailing: Icon(
-                  _jugadoresExpandido
-                      ? Icons.expand_less_rounded
-                      : Icons.expand_more_rounded,
-                  color: color,
-                  size: 28,
-                ),
+                size: 28,
               ),
             ),
-            const SizedBox(height: 12),
-            if (!_jugadoresExpandido)
-              _buildJugadoresColapsado(seleccionados)
-            else ...[
+          ),
+        ),
+        SizedBox(height: headerGap),
+        if (!_jugadoresExpandido)
+          _buildJugadoresColapsado(seleccionados)
+        else ...[
               TextField(
                 controller: _jugadoresBusquedaCtrl,
                 decoration: InputDecoration(
@@ -2136,8 +2110,25 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                 ),
               ],
             ],
-          ],
-        ),
+      ],
+    );
+
+    if (_flujoRegistrarAportes) {
+      return Padding(
+        padding: EdgeInsets.all(sectionPad),
+        child: body,
+      );
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(sectionPad),
+        child: body,
       ),
     );
   }
@@ -2160,128 +2151,137 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   Widget _buildJugadoresColapsado(List<Jugador> seleccionados) {
     final l10n = context.l10n;
     const maxChips = 8;
+    final pad = _flujoRegistrarAportes ? 8.0 : 12.0;
+
+    final content = Padding(
+      padding: EdgeInsets.all(pad),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (seleccionados.isEmpty)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.person_add_alt_1_outlined,
+                        size: 20, color: Colors.indigo.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        l10n.tr('playersTapToSelect'),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.indigo.shade900,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, color: Colors.indigo.shade400),
+                  ],
+                ),
+                if (_flujoRegistrarAportes) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: _toggleJugadoresExpandido,
+                      icon: Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: Colors.indigo.shade700,
+                      ),
+                      label: Text(l10n.tr('playersTapToEditList')),
+                    ),
+                  ),
+                ],
+              ],
+            )
+          else if (_flujoRegistrarAportes) ...[
+            Text(
+              seleccionados.length == 1
+                  ? l10n.tr('onePlayer')
+                  : l10n.tr('matchPlayersCount', params: {
+                      'count': '${seleccionados.length}',
+                    }),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.indigo.shade900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _toggleJugadoresExpandido,
+                icon: Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: Colors.indigo.shade700,
+                ),
+                label: Text(l10n.tr('playersTapToEditList')),
+              ),
+            ),
+          ] else ...[
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final j in seleccionados.take(maxChips))
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    label: Text(
+                      j.nombre,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    backgroundColor: Colors.white,
+                    side: BorderSide(color: Colors.indigo.shade100),
+                    padding: EdgeInsets.zero,
+                  ),
+                if (seleccionados.length > maxChips)
+                  Chip(
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    label: Text(
+                      '+${seleccionados.length - maxChips}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.indigo.shade800,
+                      ),
+                    ),
+                    backgroundColor: Colors.indigo.shade100,
+                    side: BorderSide.none,
+                    padding: EdgeInsets.zero,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.tr('playersTapToEditList'),
+              style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    final materialType = _flujoRegistrarAportes
+        ? MaterialType.transparency
+        : MaterialType.canvas;
+    final materialColor =
+        _flujoRegistrarAportes ? null : Colors.indigo.shade50;
 
     return Material(
-      color: Colors.indigo.shade50,
+      type: materialType,
+      color: materialColor,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: _toggleJugadoresExpandido,
         borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (seleccionados.isEmpty)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.person_add_alt_1_outlined,
-                            size: 20, color: Colors.indigo.shade700),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.tr('playersTapToSelect'),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.indigo.shade900,
-                            ),
-                          ),
-                        ),
-                        Icon(Icons.chevron_right,
-                            color: Colors.indigo.shade400),
-                      ],
-                    ),
-                    if (_flujoRegistrarAportes) ...[
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton.icon(
-                          onPressed: _toggleJugadoresExpandido,
-                          icon: Icon(
-                            Icons.edit_outlined,
-                            size: 18,
-                            color: Colors.indigo.shade700,
-                          ),
-                          label: Text(l10n.tr('playersTapToEditList')),
-                        ),
-                      ),
-                    ],
-                  ],
-                )
-              else if (_flujoRegistrarAportes) ...[
-                Text(
-                  seleccionados.length == 1
-                      ? l10n.tr('onePlayer')
-                      : l10n.tr('matchPlayersCount', params: {
-                          'count': '${seleccionados.length}',
-                        }),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.indigo.shade900,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _toggleJugadoresExpandido,
-                    icon: Icon(
-                      Icons.edit_outlined,
-                      size: 18,
-                      color: Colors.indigo.shade700,
-                    ),
-                    label: Text(l10n.tr('playersTapToEditList')),
-                  ),
-                ),
-              ] else ...[
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final j in seleccionados.take(maxChips))
-                      Chip(
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        label: Text(
-                          j.nombre,
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        backgroundColor: Colors.white,
-                        side: BorderSide(color: Colors.indigo.shade100),
-                        padding: EdgeInsets.zero,
-                      ),
-                    if (seleccionados.length > maxChips)
-                      Chip(
-                        visualDensity: VisualDensity.compact,
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        label: Text(
-                          '+${seleccionados.length - maxChips}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.indigo.shade800,
-                          ),
-                        ),
-                        backgroundColor: Colors.indigo.shade100,
-                        side: BorderSide.none,
-                        padding: EdgeInsets.zero,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  l10n.tr('playersTapToEditList'),
-                  style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
-                ),
-              ],
-            ],
-          ),
-        ),
+        child: content,
       ),
     );
   }
