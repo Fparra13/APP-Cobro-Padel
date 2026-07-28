@@ -1245,13 +1245,15 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         title: Text(
           _partidoConfirmado
               ? context.l10n.tr('organizeMatchConfirmedTitle')
-              : _modoSeguimiento || (_loading && widget.isEditing)
-                  // Encuentro existente: "Asistencias" desde el primer frame
-                  // (evita flash "Convocatoria" mientras llega el fetch).
-                  ? context.l10n.tr('organizeTrackingTitle')
-                  : widget.isEditing
-                      ? context.l10n.tr('convocatoriaTitle')
-                      : context.l10n.tr('organizeTitle'),
+              : _modoSeguimiento && _editarSeguimiento
+                  ? context.l10n.tr('matchDetailTitle')
+                  : _modoSeguimiento || (_loading && widget.isEditing)
+                      // Encuentro existente: "Asistencias" desde el primer frame
+                      // (evita flash "Convocatoria" mientras llega el fetch).
+                      ? context.l10n.tr('organizeTrackingTitle')
+                      : widget.isEditing
+                          ? context.l10n.tr('convocatoriaTitle')
+                          : context.l10n.tr('organizeTitle'),
         ),
         actions: [
           if (_modoSeguimiento)
@@ -1325,7 +1327,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 )
               : _modoSeguimiento && !_editarSeguimiento
                   ? _buildAsistenciasBody()
-                  : ListView(
+                  : _modoSeguimiento && _editarSeguimiento
+                      ? _buildDetalleSeguimientoBody()
+                      : ListView(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
               children: [
                 AyudaTip(
@@ -1334,22 +1338,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       ? context.l10n.tr('organizePastDateBanner')
                       : _partidoConfirmado
                           ? context.l10n.tr('organizeHelpConfirmed')
-                          : _modoSeguimiento
-                              ? context.l10n.tr('organizeHelpTracking')
-                              : context.l10n.tr('organizeHelpDraft'),
+                          : context.l10n.tr('organizeHelpDraft'),
                 ),
-                if (_modoSeguimiento && _editarSeguimiento) ...[
-                  const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () =>
-                          setState(() => _editarSeguimiento = false),
-                      icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                      label: Text(context.l10n.tr('organizeTrackingTitle')),
-                    ),
-                  ),
-                ],
                 if (_convocatoriaEnviada && _convocatoriaCompleta != null) ...[
                   if (_shouldShowEstadoSeguimiento) ...[
                     const SizedBox(height: 8),
@@ -1612,6 +1602,114 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
               unawaited(_ciclarEstado(id));
             }
           : null,
+    );
+  }
+
+  /// Detalle solo lectura del encuentro (icono info en seguimiento).
+  /// No reutiliza el formulario de organizar.
+  Widget _buildDetalleSeguimientoBody() {
+    final l10n = context.l10n;
+    final lang = context.readSettings().locale.languageCode;
+    final sport = _sportType;
+    final fecha = _fechaPartido;
+    final lugar = _recintoSeleccionado?.nombre.trim().isNotEmpty == true
+        ? _recintoSeleccionado!.nombre.trim()
+        : (_convocatoriaCompleta?.partido.recinto ?? '').trim();
+    final notas = _notasCtrl.text.trim();
+
+    // Plazo real persistido en invitaciones; sin proxy ni cálculo.
+    DateTime? plazoLimite;
+    final titularesConv = _convocatoriaCompleta?.titulares;
+    if (titularesConv != null) {
+      for (final entry in titularesConv) {
+        final limite = entry.tiempoLimite;
+        if (limite != null) {
+          plazoLimite = limite;
+          break;
+        }
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        MatchPaySurfaceCard(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.tr('matchDetailTitle'),
+                style: MatchPayTokens.titleMediumStyle().copyWith(fontSize: 17),
+              ),
+              const SizedBox(height: 14),
+              if (sport != null) ...[
+                Text(
+                  '${sport.emoji} ${sport.labelForLang(lang)}',
+                  style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 16),
+                ),
+                const SizedBox(height: 4),
+              ],
+              Text(
+                lugar.isEmpty ? '—' : lugar,
+                style: MatchPayTokens.bodySmallStyle(
+                  color: MatchPayTokens.inkMuted,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (fecha != null) ...[
+                Text(
+                  formatDiaCompleto(fecha),
+                  style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  formatHora(fecha),
+                  style: MatchPayTokens.titleMediumStyle().copyWith(fontSize: 22),
+                ),
+              ] else
+                Text(
+                  '—',
+                  style: MatchPayTokens.bodySmallStyle(
+                    color: MatchPayTokens.inkMuted,
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.tr(
+                  'organizeDetailCupos',
+                  params: {'count': '$_cuposMax'},
+                ),
+                style: MatchPayTokens.bodySmallStyle(color: MatchPayTokens.ink),
+              ),
+              if (plazoLimite != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  l10n.tr(
+                    'organizeDetailDeadline',
+                    params: {'time': formatHora(plazoLimite)},
+                  ),
+                  style: MatchPayTokens.bodySmallStyle(color: MatchPayTokens.ink),
+                ),
+              ],
+              if (notas.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  l10n.tr('notesLabel'),
+                  style: MatchPayTokens.bodySmallStyle(
+                    color: MatchPayTokens.inkMuted,
+                  ).copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  notas,
+                  style: MatchPayTokens.bodySmallStyle(color: MatchPayTokens.ink),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
