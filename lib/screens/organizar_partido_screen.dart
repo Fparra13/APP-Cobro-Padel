@@ -30,6 +30,9 @@ import '../utils/matchpay_context.dart';
 import '../utils/reprogramar_convocatoria_flow.dart';
 import '../domain/organizer_surface.dart';
 import '../widgets/convocatoria_asistencias_view.dart';
+import '../widgets/organizer_attendance_body.dart';
+import '../widgets/organizer_attendance_bottom_bar.dart';
+import '../widgets/organizer_attendance_chrome.dart';
 import '../widgets/organizer_cycle_hero.dart';
 import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/convocatoria_decision_panel.dart';
@@ -117,7 +120,55 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
   bool get _formularioBloqueado => _convocatoriaEnviada || _partidoConfirmado;
 
-  bool get _puedeEditarEstados => _modoSeguimiento;
+  /// Seguimiento activo (Recordar / ciclar / hint): preparing | atRisk.
+  /// Si [cyclePhase] es null → mismo criterio que `_modoSeguimiento`.
+  bool get _activeAttendanceTracking {
+    final phase = _attendanceCyclePhase;
+    if (phase != null) {
+      return phase == OrganizerCyclePhase.preparing ||
+          phase == OrganizerCyclePhase.atRisk;
+    }
+    return _modoSeguimiento;
+  }
+
+  /// Bottom Attendance (CTAs o resolución), no Build/cobros.
+  bool get _showAttendanceBottomBar {
+    final phase = _attendanceCyclePhase;
+    if (phase != null) {
+      return phase == OrganizerCyclePhase.preparing ||
+          phase == OrganizerCyclePhase.atRisk ||
+          phase == OrganizerCyclePhase.needsResolution;
+    }
+    return _modoSeguimiento;
+  }
+
+  /// Ciclar estados de asistencia.
+  bool get _puedeEditarEstados => _activeAttendanceTracking;
+
+  /// DecisionPanel / resolución de cupo en Attendance.
+  bool get _showAttendanceDecisionPanel {
+    if (_partidoId == null) return false;
+    final phase = _attendanceCyclePhase;
+    if (phase != null) {
+      switch (phase) {
+        case OrganizerCyclePhase.needsResolution:
+          return true;
+        case OrganizerCyclePhase.atRisk:
+          return _cupoImposible;
+        case OrganizerCyclePhase.preparing:
+        case OrganizerCyclePhase.confirmed:
+        case OrganizerCyclePhase.empty:
+        case OrganizerCyclePhase.registerExpenses:
+        case OrganizerCyclePhase.collecting:
+        case OrganizerCyclePhase.allPaid:
+          return false;
+      }
+    }
+    return _cupoImposible;
+  }
+
+  bool get _showAttendanceAutoConfirmHint =>
+      _activeAttendanceTracking && _cuposLlenos;
 
   bool get _puedeEditarListaEspera =>
       _convocatoriaEnviada && !_fechaPartidoPasada;
@@ -139,7 +190,20 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   bool get _shouldShowEstadoSeguimiento {
-    if (!_modoSeguimiento || _convocatoriaCompleta == null) return false;
+    if (_convocatoriaCompleta == null) return false;
+    final phase = _attendanceCyclePhase;
+    if (phase != null) {
+      if (phase == OrganizerCyclePhase.confirmed ||
+          phase == OrganizerCyclePhase.needsResolution) {
+        return false;
+      }
+      if (phase != OrganizerCyclePhase.preparing &&
+          phase != OrganizerCyclePhase.atRisk) {
+        return false;
+      }
+    } else if (!_modoSeguimiento) {
+      return false;
+    }
     if (_cupoImposible) return false;
     final view = PartidoEstadoPublicoView.resolve(_convocatoriaCompleta!);
     return view.estado == EstadoPartidoPublico.reprogramado;
@@ -1262,39 +1326,41 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       },
       child: Scaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
-      appBar: AppBar(
+      appBar: _isAttendanceSurface
+          ? OrganizerAttendanceChrome(
+              cyclePhase: widget.cyclePhase,
+              showingDetail: _editarSeguimiento,
+              onToggleDetail: () => setState(
+                () => _editarSeguimiento = !_editarSeguimiento,
+              ),
+              confirmedFallback: _partidoConfirmado,
+              backgroundColor: themed.colorScheme.primary,
+              actions: [
+                if (_partidoId != null)
+                  IconButton(
+                    icon: Icon(
+                      _confirmados > 0
+                          ? Icons.event_busy_outlined
+                          : Icons.delete_outline,
+                    ),
+                    tooltip: _confirmados > 0
+                        ? context.l10n.tr('organizerCycleAtRiskCancel')
+                        : context.l10n.tr('deleteTooltip'),
+                    onPressed: _eliminarConvocatoria,
+                  ),
+              ],
+            )
+          : AppBar(
         backgroundColor: themed.colorScheme.primary,
         foregroundColor: Colors.white,
         title: Text(
-          _isAttendanceSurface
-              ? _attendanceAppBarTitle(context.l10n)
-              : _partidoConfirmado
-                  ? context.l10n.tr('organizeMatchConfirmedTitle')
-                  : _modoSeguimiento && _editarSeguimiento
-                      ? context.l10n.tr('matchDetailTitle')
-                      : _modoSeguimiento || (_loading && widget.isEditing)
-                          // Encuentro existente: "Asistencias" desde el primer frame
-                          // (evita flash "Convocatoria" mientras llega el fetch).
-                          ? context.l10n.tr('organizeTrackingTitle')
-                          : widget.isEditing
-                              ? context.l10n.tr('convocatoriaTitle')
-                              : context.l10n.tr('organizeTitle'),
+          _partidoConfirmado
+              ? context.l10n.tr('organizeMatchConfirmedTitle')
+              : widget.isEditing
+                  ? context.l10n.tr('convocatoriaTitle')
+                  : context.l10n.tr('organizeTitle'),
         ),
         actions: [
-          if (_isAttendanceSurface || _modoSeguimiento)
-            IconButton(
-              icon: Icon(
-                _editarSeguimiento
-                    ? Icons.fact_check_outlined
-                    : Icons.info_outline_rounded,
-              ),
-              tooltip: _editarSeguimiento
-                  ? context.l10n.tr('organizeTrackingTitle')
-                  : context.l10n.tr('asistenciasEditDetails'),
-              onPressed: () => setState(
-                () => _editarSeguimiento = !_editarSeguimiento,
-              ),
-            ),
           if (_partidoId != null)
             IconButton(
               icon: Icon(
@@ -1351,14 +1417,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   ],
                 )
               : _isAttendanceSurface
-                  ? (_editarSeguimiento
-                      ? _buildDetalleSeguimientoBody()
-                      : _buildAsistenciasBody())
-                  : _modoSeguimiento && !_editarSeguimiento
-                      ? _buildAsistenciasBody()
-                      : _modoSeguimiento && _editarSeguimiento
-                          ? _buildDetalleSeguimientoBody()
-                          : ListView(
+                  ? _buildOrganizerAttendanceBody()
+                  : ListView(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
               children: [
                 AyudaTip(
@@ -1503,68 +1563,30 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   textAlign: TextAlign.center,
                 ),
               )
-            else if (_modoSeguimiento) ...[
-              if (_cupoImposible && _partidoId != null)
-                ConvocatoriaDecisionPanel(
-                  showHeader: false,
-                  partidoId: _partidoId,
-                  onCompleted: () {
-                    if (mounted) unawaited(_load());
-                  },
-                  onCancelSuccess: _salirTrasCancelar,
-                )
-              else if (_attendanceCyclePhase ==
-                      OrganizerCyclePhase.confirmed ||
-                  _attendanceCyclePhase ==
-                      OrganizerCyclePhase.needsResolution)
-                const SizedBox.shrink()
-              else ...[
-                FilledButton.icon(
-                  onPressed: _pendientes > 0 ? _recordarPendientesAsistencias : null,
-                  icon: const Icon(Icons.campaign_rounded),
-                  label: Text(context.l10n.tr('asistenciasRemindPending')),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: context.sportPalette.primary,
-                    minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(MatchPayTokens.radiusButton),
-                    ),
-                  ),
-                ),
-                if (_titularesSinApp.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: _mostrarWhatsAppSinAppSheet,
-                    icon: const Icon(
-                      Icons.chat_outlined,
-                      color: Color(0xFF25D366),
-                    ),
-                    label: Text(context.l10n.tr('organizeWhatsAppNoAppButton')),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                      foregroundColor: const Color(0xFF1B8F4E),
-                      side: const BorderSide(color: Color(0xFF25D366)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(MatchPayTokens.radiusButton),
-                      ),
-                    ),
-                  ),
-                ],
-                if (_cuposLlenos)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      context.l10n.tr('organizeAutoConfirmInProgress'),
-                      style: MatchPayTokens.titleSmallStyle(
-                        color: MatchPayTokens.accentUrgent,
-                      ).copyWith(fontSize: 13),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-              ],
-            ],
+            else if (_showAttendanceBottomBar)
+              OrganizerAttendanceBottomBar(
+                showDecisionPanel: _showAttendanceDecisionPanel,
+                decisionPanel: _showAttendanceDecisionPanel
+                    ? ConvocatoriaDecisionPanel(
+                        showHeader: false,
+                        partidoId: _partidoId,
+                        onCompleted: () {
+                          if (mounted) unawaited(_load());
+                        },
+                        onCancelSuccess: _salirTrasCancelar,
+                      )
+                    : null,
+                hideActions: !_activeAttendanceTracking,
+                canRemind: _pendientes > 0,
+                canShowWhatsApp: _titularesSinApp.isNotEmpty,
+                showAutoConfirmHint: _showAttendanceAutoConfirmHint,
+                onRemind: () {
+                  unawaited(_recordarPendientesAsistencias());
+                },
+                onWhatsApp: () {
+                  unawaited(_mostrarWhatsAppSinAppSheet());
+                },
+              ),
             ],
           ),
         ),
@@ -1574,33 +1596,14 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     );
   }
 
-  /// Título AppBar en Attendance: prioriza [cyclePhase]; si null, flags legacy.
-  String _attendanceAppBarTitle(MatchPayStrings l10n) {
-    if (_editarSeguimiento) return l10n.tr('matchDetailTitle');
-    switch (_attendanceCyclePhase) {
-      case OrganizerCyclePhase.confirmed:
-        return l10n.tr('organizeMatchConfirmedTitle');
-      case OrganizerCyclePhase.atRisk:
-        return l10n.tr('organizerCyclePhaseAtRisk');
-      case OrganizerCyclePhase.needsResolution:
-        return l10n.tr('organizerCyclePhaseNeedsResolution');
-      case OrganizerCyclePhase.preparing:
-        return l10n.tr('organizeTrackingTitle');
-      case OrganizerCyclePhase.empty:
-      case OrganizerCyclePhase.registerExpenses:
-      case OrganizerCyclePhase.collecting:
-      case OrganizerCyclePhase.allPaid:
-      case null:
-        break;
-    }
-    if (_partidoConfirmado) return l10n.tr('organizeMatchConfirmedTitle');
-    return l10n.tr('organizeTrackingTitle');
-  }
-
-  Widget _buildAsistenciasBody() {
+  /// Mapea estado del screen → [OrganizerAttendanceBody] (datos ya resueltos).
+  Widget _buildOrganizerAttendanceBody() {
     final fecha = _fechaPartido ?? DateTime.now();
     final recinto = _recintoSeleccionado?.nombre.trim() ??
         (_convocatoriaCompleta?.partido.recinto ?? '').trim();
+    final lugar = _recintoSeleccionado?.nombre.trim().isNotEmpty == true
+        ? _recintoSeleccionado!.nombre.trim()
+        : (_convocatoriaCompleta?.partido.recinto ?? '').trim();
     final titulares = _titulares
         .map((id) {
           final j = _jugadorPorId(id);
@@ -1626,7 +1629,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         .toList();
 
     Widget? banner;
-    if (_cupoImposible && _partidoId != null) {
+    if (_showAttendanceDecisionPanel) {
       banner = ConvocatoriaDecisionPanel(
         partidoId: _partidoId,
         onCompleted: () {
@@ -1645,35 +1648,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       );
     }
 
-    return ConvocatoriaAsistenciasView(
-      fecha: fecha,
-      recinto: recinto,
-      sportType: _sportType!,
-      cuposMax: _cuposMax,
-      statusLabel: context.l10n.tr('asistenciasStatusInProgress'),
-      titulares: titulares,
-      suplentes: suplentes,
-      topBanner: banner,
-      onCycleEstado: _puedeEditarEstados
-          ? (id) {
-              unawaited(_ciclarEstado(id));
-            }
-          : null,
-    );
-  }
-
-  /// Detalle solo lectura del encuentro (icono info en seguimiento).
-  /// No reutiliza el formulario de organizar.
-  Widget _buildDetalleSeguimientoBody() {
-    final l10n = context.l10n;
-    final lang = context.readSettings().locale.languageCode;
-    final sport = _sportType;
-    final fecha = _fechaPartido;
-    final lugar = _recintoSeleccionado?.nombre.trim().isNotEmpty == true
-        ? _recintoSeleccionado!.nombre.trim()
-        : (_convocatoriaCompleta?.partido.recinto ?? '').trim();
-    final notas = _notasCtrl.text.trim();
-
     // Plazo real persistido en invitaciones; sin proxy ni cálculo.
     DateTime? plazoLimite;
     final titularesConv = _convocatoriaCompleta?.titulares;
@@ -1687,86 +1661,26 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       }
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: [
-        MatchPaySurfaceCard(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.tr('matchDetailTitle'),
-                style: MatchPayTokens.titleMediumStyle().copyWith(fontSize: 17),
-              ),
-              const SizedBox(height: 14),
-              if (sport != null) ...[
-                Text(
-                  '${sport.emoji} ${sport.labelForLang(lang)}',
-                  style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 16),
-                ),
-                const SizedBox(height: 4),
-              ],
-              Text(
-                lugar.isEmpty ? '—' : lugar,
-                style: MatchPayTokens.bodySmallStyle(
-                  color: MatchPayTokens.inkMuted,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (fecha != null) ...[
-                Text(
-                  formatDiaCompleto(fecha),
-                  style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  formatHora(fecha),
-                  style: MatchPayTokens.titleMediumStyle().copyWith(fontSize: 22),
-                ),
-              ] else
-                Text(
-                  '—',
-                  style: MatchPayTokens.bodySmallStyle(
-                    color: MatchPayTokens.inkMuted,
-                  ),
-                ),
-              const SizedBox(height: 16),
-              Text(
-                l10n.tr(
-                  'organizeDetailCupos',
-                  params: {'count': '$_cuposMax'},
-                ),
-                style: MatchPayTokens.bodySmallStyle(color: MatchPayTokens.ink),
-              ),
-              if (plazoLimite != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  l10n.tr(
-                    'organizeDetailDeadline',
-                    params: {'time': formatHora(plazoLimite)},
-                  ),
-                  style: MatchPayTokens.bodySmallStyle(color: MatchPayTokens.ink),
-                ),
-              ],
-              if (notas.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Text(
-                  l10n.tr('notesLabel'),
-                  style: MatchPayTokens.bodySmallStyle(
-                    color: MatchPayTokens.inkMuted,
-                  ).copyWith(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  notas,
-                  style: MatchPayTokens.bodySmallStyle(color: MatchPayTokens.ink),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
+    return OrganizerAttendanceBody(
+      showingDetail: _editarSeguimiento,
+      fecha: fecha,
+      recinto: recinto,
+      sportType: _sportType!,
+      cuposMax: _cuposMax,
+      statusLabel: context.l10n.tr('asistenciasStatusInProgress'),
+      titulares: titulares,
+      suplentes: suplentes,
+      topBanner: banner,
+      onCycleEstado: _puedeEditarEstados
+          ? (id) {
+              unawaited(_ciclarEstado(id));
+            }
+          : null,
+      lugar: lugar,
+      notas: _notasCtrl.text.trim(),
+      plazoLimite: plazoLimite,
+      fechaDetalle: _fechaPartido,
+      sportTypeDetalle: _sportType,
     );
   }
 
