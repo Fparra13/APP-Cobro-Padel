@@ -1245,7 +1245,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         title: Text(
           _partidoConfirmado
               ? context.l10n.tr('organizeMatchConfirmedTitle')
-              : _modoSeguimiento
+              : _modoSeguimiento || (_loading && widget.isEditing)
+                  // Encuentro existente: "Asistencias" desde el primer frame
+                  // (evita flash "Convocatoria" mientras llega el fetch).
                   ? context.l10n.tr('organizeTrackingTitle')
                   : widget.isEditing
                       ? context.l10n.tr('convocatoriaTitle')
@@ -1257,7 +1259,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
               icon: Icon(
                 _editarSeguimiento
                     ? Icons.fact_check_outlined
-                    : Icons.edit_outlined,
+                    : Icons.info_outline_rounded,
               ),
               tooltip: _editarSeguimiento
                   ? context.l10n.tr('organizeTrackingTitle')

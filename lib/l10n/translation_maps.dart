@@ -1010,7 +1010,7 @@ class TranslationMaps {
     'asistenciasManualSnackDeclined': '{name} · No asiste',
     'asistenciasManualSnackPending': '{name} · Pendiente',
     'asistenciasRemindPending': 'Recordar a pendientes',
-    'asistenciasEditDetails': 'Editar participantes',
+    'asistenciasEditDetails': 'Ver detalle del encuentro',
     'organizeAutoConfirmedSnack':
         'Cupos completos: encuentro confirmado automáticamente',
     'organizePromotedFromWaitlist':
@@ -2855,7 +2855,7 @@ class TranslationMaps {
     'asistenciasManualSnackDeclined': '{name} · Not going',
     'asistenciasManualSnackPending': '{name} · Pending',
     'asistenciasRemindPending': 'Remind pending',
-    'asistenciasEditDetails': 'Edit participants',
+    'asistenciasEditDetails': 'View encounter details',
     'organizeAutoConfirmedSnack':
         'All slots filled: session confirmed automatically',
     'organizePromotedFromWaitlist':
@@ -4689,7 +4689,7 @@ class TranslationMaps {
     'asistenciasManualSnackDeclined': '{name} · Não vai',
     'asistenciasManualSnackPending': '{name} · Pendente',
     'asistenciasRemindPending': 'Lembrar pendentes',
-    'asistenciasEditDetails': 'Editar participantes',
+    'asistenciasEditDetails': 'Ver detalhe do encontro',
     'organizeAutoConfirmedSnack':
         'Vagas completas: encontro confirmado automaticamente',
     'organizePromotedFromWaitlist':
