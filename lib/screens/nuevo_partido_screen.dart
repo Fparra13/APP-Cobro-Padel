@@ -795,7 +795,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       builder: (ctx) => AlertDialog(
         title: Text(l10n.tr('confirmSaveMatchTitle')),
         content: Text(
-          _esOrganizando
+          _flujoRegistrarAportes
               ? l10n.tr('confirmSaveChargesBody')
               : l10n.tr('confirmSaveMatchBody'),
         ),
@@ -807,7 +807,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              _esOrganizando
+              _flujoRegistrarAportes
                   ? l10n.tr('confirmCharges')
                   : l10n.tr('saveMatch'),
             ),
@@ -948,7 +948,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _esOrganizando
+            _flujoRegistrarAportes
                 ? l10n.tr('matchRegisteredWithCharges')
                 : widget.isEditing
                     ? l10n.tr('matchUpdated')
@@ -1039,11 +1039,11 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                           if (widget.isEditing && !_flujoRegistrarAportes)
                             _buildInfoEdicion(),
                           _buildDatosPartido(),
-                          if (_esOrganizando) ...[
+                          if (_flujoRegistrarAportes) ...[
                             const SizedBox(height: 12),
                             _buildBannerCobro(),
                           ],
-                          if (context.repos.isCloud && _esOrganizando) ...[
+                          if (context.repos.isCloud && _flujoRegistrarAportes) ...[
                             const SizedBox(height: 12),
                             Card(
                               color: Colors.blue.shade50,
@@ -1967,7 +1967,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                     label: Text(l10n.tr('playersClearSelection')),
                     onPressed: nSel == 0 ? null : _limpiarAsistentes,
                   ),
-                  if (!context.repos.isCloud) ...[
+                  if (!context.repos.isCloud && !_flujoRegistrarAportes) ...[
                     ActionChip(
                       avatar: const Icon(Icons.payments, size: 18),
                       label: Text(l10n.tr('payAllFull')),
@@ -2166,7 +2166,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                if (asistio && !modoNube && !_esOrganizando)
+                if (asistio && !modoNube && !_flujoRegistrarAportes)
                   Text(
                     l10n.tr('toTransfer', params: {
                       'amount': formatMoney(aTransferir),
@@ -2176,7 +2176,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                   ),
               ],
             ),
-            if (asistio && pago != null && !modoNube && !_esOrganizando) ...[
+            if (asistio && pago != null && !modoNube && !_flujoRegistrarAportes) ...[
               const SizedBox(height: 8),
               SegmentedButton<TipoPago>(
                 segments: [
@@ -2580,7 +2580,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           label: Text(
             _guardando
                 ? l10n.tr('saving')
-                : _esOrganizando
+                : _flujoRegistrarAportes
                     ? l10n.tr('confirmCharges')
                     : l10n.tr('saveMatch'),
           ),
