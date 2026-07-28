@@ -1624,15 +1624,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   ThemeData _organizeTheme(BuildContext context) {
     final sport = _sportType;
     if (sport == null) {
-      // Marca Kloovi hasta elegir actividad.
-      return ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2EC4B6),
-          primary: const Color(0xFF1AA89B),
-          brightness: Brightness.light,
-        ),
-      );
+      // Misma base tipográfica/componentes que themeFor; solo paleta mint.
+      return SportThemeConfig.klooviBrandTheme();
     }
     return context.readSettings().themeForSport(sport);
   }

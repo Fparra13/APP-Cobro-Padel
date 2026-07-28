@@ -153,8 +153,24 @@ class SportThemeConfig {
     );
   }
 
-  static ThemeData themeFor(SportType sport) {
-    final p = paletteFor(sport);
+  /// Marca Kloovi (mint) con la misma base tipográfica/componentes que
+  /// [themeFor], para no romper interpolación de TextStyle al elegir deporte.
+  static const klooviBrandPalette = SportThemePalette(
+    primary: Color(0xFF1AA89B),
+    primaryDark: Color(0xFF0E7A70),
+    accent: Color(0xFF2EC4B6),
+    cardBackground: Color(0xFFE6F7F5),
+    surfaceTint: Color(0xFFB8EDE7),
+    chipBackground: Color(0xFFE0F5F2),
+    emoji: '',
+  );
+
+  static ThemeData klooviBrandTheme() => themeFromPalette(klooviBrandPalette);
+
+  static ThemeData themeFor(SportType sport) =>
+      themeFromPalette(paletteFor(sport));
+
+  static ThemeData themeFromPalette(SportThemePalette p) {
     final scheme = ColorScheme.fromSeed(
       seedColor: p.primary,
       primary: p.primary,
@@ -163,13 +179,15 @@ class SportThemeConfig {
       brightness: Brightness.light,
     );
 
+    final textTheme = MatchPayTokens.applyTextTheme(
+      ThemeData.light().textTheme,
+    );
+
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
       scaffoldBackgroundColor: MatchPayTokens.surfaceBase,
-      textTheme: MatchPayTokens.applyTextTheme(
-        ThemeData.light().textTheme,
-      ),
+      textTheme: textTheme,
       cardTheme: CardThemeData(
         color: p.cardBackground,
         elevation: 0,
@@ -205,14 +223,14 @@ class SportThemeConfig {
       chipTheme: ChipThemeData(
         backgroundColor: p.chipBackground,
         selectedColor: p.accent.withValues(alpha: 0.35),
-        labelStyle: TextStyle(color: p.primaryDark),
+        labelStyle: textTheme.labelLarge!.copyWith(color: p.primaryDark),
       ),
       navigationBarTheme: NavigationBarThemeData(
         indicatorColor: p.surfaceTint,
         backgroundColor: Colors.white,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
-          return TextStyle(
+          return textTheme.labelSmall!.copyWith(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
             color: selected ? p.primaryDark : Colors.grey.shade600,
