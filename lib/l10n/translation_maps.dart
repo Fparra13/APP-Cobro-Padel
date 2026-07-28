@@ -1032,11 +1032,10 @@ class TranslationMaps {
         'Si agregaste o quitaste gente de la lista y aún no alcanzó a guardarse, '
         'esos cambios se perderán.',
     'organizeExitDraftBody':
-        'Puedes guardar un borrador y retomarlo desde Inicio.',
+        'Si sales ahora, los cambios que no enviaste se perderán.',
     'organizeKeepEditing': 'Seguir editando',
     'organizeExitWithoutSaving': 'Salir sin guardar',
     'organizeExitConfirmAction': 'Salir',
-    'organizeSaveDraft': 'Guardar borrador',
     'organizeMatchAlreadyConfirmed': 'El encuentro ya está confirmado',
     'organizeInviteAlreadySent': 'La convocatoria ya fue enviada',
     'organizeSelectAtLeastOneStarter': 'Selecciona al menos un participante',
@@ -2876,11 +2875,11 @@ class TranslationMaps {
     'organizeExitStatesSavedBody':
         'If you added or removed people from the list and it has not saved yet, '
         'those changes will be lost.',
-    'organizeExitDraftBody': 'You can save a draft and resume it from Home.',
+    'organizeExitDraftBody':
+        'If you leave now, unsent changes will be lost.',
     'organizeKeepEditing': 'Keep editing',
     'organizeExitWithoutSaving': 'Leave without saving',
     'organizeExitConfirmAction': 'Leave',
-    'organizeSaveDraft': 'Save draft',
     'organizeMatchAlreadyConfirmed': 'The session is already confirmed',
     'organizeInviteAlreadySent': 'The invite was already sent',
     'organizeSelectAtLeastOneStarter': 'Select at least one participant',
@@ -4713,11 +4712,10 @@ class TranslationMaps {
         'Se você adicionou ou removeu pessoas da lista e ainda não salvou, '
         'essas mudanças serão perdidas.',
     'organizeExitDraftBody':
-        'Você pode salvar um rascunho e retomá-lo no Início.',
+        'Se sair agora, as alterações não enviadas serão perdidas.',
     'organizeKeepEditing': 'Continuar editando',
     'organizeExitWithoutSaving': 'Sair sem salvar',
     'organizeExitConfirmAction': 'Sair',
-    'organizeSaveDraft': 'Salvar rascunho',
     'organizeMatchAlreadyConfirmed': 'O encontro já está confirmada',
     'organizeInviteAlreadySent': 'O convite já foi enviado',
     'organizeSelectAtLeastOneStarter': 'Selecione pelo menos um participante',

@@ -1059,23 +1059,12 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   : ctx.l10n.tr('organizeExitWithoutSaving'),
             ),
           ),
-          if (!enviada)
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, 'borrador'),
-              child: Text(ctx.l10n.tr('organizeSaveDraft')),
-            ),
         ],
       ),
     );
 
     if (action == 'cancelar' || !mounted) return false;
-    if (action == 'descartar') return true;
-    if (action == 'borrador') {
-      if (!await _guardar(silencioso: true)) return false;
-      if (mounted) Navigator.pop(context, true);
-      return false;
-    }
-    return false;
+    return action == 'descartar';
   }
 
   Future<void> _enviarConvocatoria() async {
