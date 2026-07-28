@@ -224,16 +224,26 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       }
     }
-    // Sin convocatoria en memoria → cyclePhase null → fallback legacy en Attendance.
-    final phase = conv == null
-        ? null
-        : OrganizerCycleSnapshot.phaseForConvocatoria(conv);
-    await abrirOrganizarPartido(
-      context,
-      partidoId: partidoId,
-      surface: OrganizerSurface.attendance,
-      cyclePhase: phase,
-    );
+    if (conv != null) {
+      final phase = OrganizerCycleSnapshot.phaseForConvocatoria(conv);
+      final surface = OrganizerCycleSnapshot(
+        phase: phase,
+        convocatoria: conv,
+      ).surface;
+      if (surface == OrganizerSurface.expenses && _readOnly) {
+        _showOfflineWriteBlocked();
+        return;
+      }
+      // phase → surface antes de navegar (no forzar Attendance).
+      await abrirOrganizerDesdeConvocatoria(context, convocatoria: conv);
+    } else {
+      // Sin convocatoria en memoria → fallback legacy (attendance, phase null).
+      await abrirOrganizarPartido(
+        context,
+        partidoId: partidoId,
+        surface: OrganizerSurface.attendance,
+      );
+    }
     if (mounted) _load(silent: true);
   }
 

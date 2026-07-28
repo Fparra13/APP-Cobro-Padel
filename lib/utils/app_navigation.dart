@@ -5,6 +5,7 @@ import '../core/feature_gate.dart';
 import '../core/subscription_service.dart';
 import '../l10n/matchpay_strings.dart';
 import '../domain/organizer_surface.dart';
+import '../models/convocatoria_jugador.dart';
 import '../screens/nuevo_partido_screen.dart';
 import '../screens/organizar_partido_screen.dart';
 import '../widgets/organizer_cycle_hero.dart';
@@ -199,6 +200,59 @@ Future<bool?> abrirOrganizarPartido(
       ),
     ),
   );
+}
+
+/// Abre el destino del ciclo a partir de una [ConvocatoriaCompleta] ya cargada.
+///
+/// SSOT: [OrganizerCycleSnapshot.phaseForConvocatoria] → [OrganizerCycleSnapshot.surface].
+/// No monta Attendance cuando la phase pide expenses/collection.
+Future<bool?> abrirOrganizerDesdeConvocatoria(
+  BuildContext context, {
+  required ConvocatoriaCompleta convocatoria,
+}) async {
+  final partidoId = convocatoria.partido.id;
+  if (partidoId == null) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.l10n.tr('convocatoriaOpenUnavailable')),
+        ),
+      );
+    }
+    return null;
+  }
+
+  final phase = OrganizerCycleSnapshot.phaseForConvocatoria(convocatoria);
+  final surface = OrganizerCycleSnapshot(
+    phase: phase,
+    convocatoria: convocatoria,
+  ).surface;
+
+  switch (surface) {
+    case OrganizerSurface.build:
+      return abrirOrganizarPartido(
+        context,
+        partidoId: partidoId,
+        surface: OrganizerSurface.build,
+      );
+    case OrganizerSurface.attendance:
+      return abrirOrganizarPartido(
+        context,
+        partidoId: partidoId,
+        surface: OrganizerSurface.attendance,
+        cyclePhase: phase,
+      );
+    case OrganizerSurface.expenses:
+      if (!context.mounted) return null;
+      final result = await Navigator.of(context, rootNavigator: true).pushNamed(
+        '/registrar-partido',
+        arguments: partidoId,
+      );
+      return result is bool ? result : null;
+    case OrganizerSurface.collection:
+      // phaseForConvocatoria no produce collecting/allPaid; no forzar Attendance.
+      return null;
+  }
 }
 
 Future<bool?> abrirNuevoPartidoJugado(BuildContext context) async {

@@ -482,21 +482,21 @@ class _HistorialPartidosScreenState extends State<HistorialPartidosScreen>
   }
 
   Future<void> _abrirConvocatoria(ConvocatoriaCompleta convocatoria) async {
-    final partidoId = convocatoria.partido.id;
-    if (partidoId == null) {
+    final phase = OrganizerCycleSnapshot.phaseForConvocatoria(convocatoria);
+    final surface = OrganizerCycleSnapshot(
+      phase: phase,
+      convocatoria: convocatoria,
+    ).surface;
+    if (surface == OrganizerSurface.expenses && _readOnly) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.tr('convocatoriaOpenUnavailable')),
-        ),
+        SnackBar(content: Text(context.l10n.tr('offlineWriteBlocked'))),
       );
       return;
     }
-    await abrirOrganizarPartido(
+    await abrirOrganizerDesdeConvocatoria(
       context,
-      partidoId: partidoId,
-      surface: OrganizerSurface.attendance,
-      cyclePhase: OrganizerCycleSnapshot.phaseForConvocatoria(convocatoria),
+      convocatoria: convocatoria,
     );
     if (mounted) _load();
   }
