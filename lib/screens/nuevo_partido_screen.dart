@@ -1069,30 +1069,31 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                           else
                             _buildDatosPartido(),
                           if (context.repos.isCloud && _flujoRegistrarAportes) ...[
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 6),
                             Material(
                               color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(8),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 8,
+                                  horizontal: 8,
+                                  vertical: 5,
                                 ),
                                 child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Icon(
                                       Icons.cloud_sync,
-                                      size: 18,
+                                      size: 16,
                                       color: Colors.blue.shade800,
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         l10n.tr('collaborativeModeHint'),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontSize: 11,
-                                          height: 1.3,
+                                          height: 1.2,
                                           color: Colors.blue.shade900,
                                         ),
                                       ),
@@ -1425,6 +1426,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
               subtitulo: l10n.groupExpensesSubtitle,
               icono: Icons.playlist_add_check_rounded,
               color: Colors.deepOrange.shade700,
+              showHeader: !_flujoRegistrarAportes,
               hijos: [
                 ..._gastosCompartidos.map(_buildTarjetaGastoCompartido),
                 OutlinedButton.icon(
@@ -1533,6 +1535,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     required IconData icono,
     required Color color,
     required List<Widget> hijos,
+    bool showHeader = true,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -1543,41 +1546,43 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-            ),
-            child: Row(
-              children: [
-                Icon(icono, color: color, size: 22),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        titulo,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: color,
+          if (showHeader)
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(15)),
+              ),
+              child: Row(
+                children: [
+                  Icon(icono, color: color, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          titulo,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: color,
+                          ),
                         ),
-                      ),
-                      Text(
-                        subtitulo,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: color.withValues(alpha: 0.85),
+                        Text(
+                          subtitulo,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: color.withValues(alpha: 0.85),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
             child: Column(children: hijos),
@@ -1959,9 +1964,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
           )
         : (priority: const <Jugador>[], rest: jugadoresVisibles);
     final conteo = _flujoRegistrarAportes
-        ? (nSel == 1
-            ? l10n.tr('onePlayer')
-            : l10n.tr('matchPlayersCount', params: {'count': '$nSel'}))
+        ? null
         : nSel == 0
             ? l10n.tr('playersNoneSelected', params: {'total': '$nTotal'})
             : l10n.tr('playersSelectedCount', params: {
