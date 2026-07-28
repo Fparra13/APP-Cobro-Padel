@@ -1069,8 +1069,7 @@ class TranslationMaps {
         'La fecha del encuentro ya pasó. Registra los aportes con quienes '
         'asistieron o elimina la convocatoria si no se realizó.',
     'organizeHelpDraft':
-        'Define cuándo, la actividad, el lugar y a quién invitar. '
-        'Luego pulsa "Enviar invitación".',
+        'Cuándo · actividad · lugar · participantes. Luego envía la invitación.',
     'organizeConfirmedBar': 'Confirmado · {confirmed}/{max} participantes',
     'organizeTrackingBar':
         'Seguimiento activo · {confirmed}/{max} confirmados · {pending} pendientes',
@@ -2913,8 +2912,7 @@ class TranslationMaps {
         'The session date has passed. Register contributions for those who '
         'attended or delete the invite if it was cancelled.',
     'organizeHelpDraft':
-        'Set when, the activity, the place, and who to invite. '
-        'Then tap "Send invitation".',
+        'When · activity · place · participants. Then send the invitation.',
     'organizeConfirmedBar': 'Confirmed · {confirmed}/{max} participants',
     'organizeTrackingBar':
         'Active tracking · {confirmed}/{max} confirmed · {pending} pending',
@@ -4750,8 +4748,7 @@ class TranslationMaps {
         'A data do encontro já passou. Registre as contribuições de quem '
         'compareceu ou exclua o convite se não aconteceu.',
     'organizeHelpDraft':
-        'Defina quando, a atividade, o local e quem convidar. '
-        'Depois toque em "Enviar convite".',
+        'Quando · atividade · local · participantes. Depois envie o convite.',
     'organizeConfirmedBar': 'Confirmado · {confirmed}/{max} participantes',
     'organizeTrackingBar':
         'Acompanhamento ativo · {confirmed}/{max} confirmados · {pending} pendentes',

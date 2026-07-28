@@ -1324,9 +1324,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
               : _modoSeguimiento && !_editarSeguimiento
                   ? _buildAsistenciasBody()
                   : ListView(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
               children: [
                 AyudaTip(
+                  dense: true,
                   texto: _fechaPartidoPasada && _convocatoriaEnviada
                       ? context.l10n.tr('organizePastDateBanner')
                       : _partidoConfirmado
@@ -1336,7 +1337,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                               : context.l10n.tr('organizeHelpDraft'),
                 ),
                 if (_modoSeguimiento && _editarSeguimiento) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
@@ -1349,7 +1350,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 ],
                 if (_convocatoriaEnviada && _convocatoriaCompleta != null) ...[
                   if (_shouldShowEstadoSeguimiento) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     MatchPaySurfaceCard(
                       padding: const EdgeInsets.all(14),
                       child: PartidoEstadoPublicoMessage(
@@ -1363,7 +1364,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   ],
                 ],
                 if (_cupoImposible && _partidoId != null && !_modoSeguimiento) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   ConvocatoriaDecisionPanel(
                     partidoId: _partidoId,
                     onCompleted: () {
@@ -1372,23 +1373,23 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                     onCancelSuccess: _salirTrasCancelar,
                   ),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
                 _buildFechaHoraHero(),
                 if (_mostrarResumenConvocatoria) ...[
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   _buildResumen(),
                 ],
-                const SizedBox(height: 12),
+                const SizedBox(height: 6),
                 _buildActividadCard(),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 _buildLugarCard(),
-                const SizedBox(height: 10),
+                const SizedBox(height: 6),
                 _buildCuposCard(),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 _buildListaJugadores(),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 _buildPlazoCard(),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 _buildNotasCard(),
                 const SizedBox(height: 80),
               ],
@@ -1665,7 +1666,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
             ),
             boxShadow: MatchPayTokens.shadowCard(elevated: fecha != null),
           ),
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           child: fecha == null
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1673,7 +1674,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: MatchPayTokens.accentCredit
                                 .withValues(alpha: 0.15),
@@ -1682,10 +1683,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                           child: const Icon(
                             Icons.event_rounded,
                             color: MatchPayTokens.accentCredit,
-                            size: 28,
+                            size: 22,
                           ),
                         ),
-                        const SizedBox(width: 14),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1694,12 +1695,13 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                                 l10n.tr('organizePickMatchWhenTitle'),
                                 style: MatchPayTokens.titleMediumStyle(
                                   color: MatchPayTokens.accentCredit,
-                                ),
+                                ).copyWith(fontSize: 17, height: 1.2),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Text(
                                 l10n.tr('organizePickMatchWhenSubtitle'),
-                                style: MatchPayTokens.bodySmallStyle(),
+                                style: MatchPayTokens.bodySmallStyle()
+                                    .copyWith(fontSize: 12, height: 1.25),
                               ),
                             ],
                           ),
@@ -1707,14 +1709,15 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       ],
                     ),
                     if (!bloqueado) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 8),
                       FilledButton.icon(
                         onPressed: _pickFecha,
-                        icon: const Icon(Icons.calendar_month_rounded),
+                        icon: const Icon(Icons.calendar_month_rounded, size: 18),
                         label: Text(l10n.tr('organizePickMatchWhenAction')),
                         style: FilledButton.styleFrom(
                           backgroundColor: MatchPayTokens.accentCredit,
-                          minimumSize: const Size.fromHeight(44),
+                          minimumSize: const Size.fromHeight(40),
+                          visualDensity: VisualDensity.compact,
                         ),
                       ),
                     ],
@@ -1727,30 +1730,30 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       l10n.tr('dateAndTime').toUpperCase(),
                       style: MatchPayTokens.sectionLabelStyle(
                         color: palette.primary,
-                      ).copyWith(letterSpacing: 0.8),
+                      ).copyWith(letterSpacing: 0.8, fontSize: 11),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Text(
                       formatDiaCompleto(fecha),
                       style: MatchPayTokens.titleMediumStyle(
                         color: palette.primaryDark,
                       ).copyWith(
-                        fontSize: bloqueado ? 22 : 20,
+                        fontSize: bloqueado ? 20 : 18,
                         fontWeight: FontWeight.w800,
-                        height: 1.2,
+                        height: 1.15,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 2),
                     Text(
                       formatEnCuanto(fecha),
                       style: MatchPayTokens.bodySmallStyle(
                         color: MatchPayTokens.inkSecondary,
-                      ).copyWith(fontWeight: FontWeight.w600),
+                      ).copyWith(fontWeight: FontWeight.w600, fontSize: 12),
                     ),
                     if (bloqueado &&
                         _recintoSeleccionado?.nombre.trim().isNotEmpty ==
                             true) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           Icon(
@@ -1771,12 +1774,12 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                       ),
                     ],
                     if (!bloqueado) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 6),
                       Text(
                         l10n.tr('organizePickMatchWhenChange'),
                         style: MatchPayTokens.bodySmallStyle(
                           color: palette.primary,
-                        ).copyWith(fontWeight: FontWeight.w700),
+                        ).copyWith(fontWeight: FontWeight.w700, fontSize: 12),
                       ),
                     ],
                   ],
@@ -1915,14 +1918,14 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       final sport = _sportType;
       if (sport == null) return const SizedBox.shrink();
       return MatchPaySurfaceCard(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         child: Row(
           children: [
             Text(
               SportThemeConfig.paletteFor(sport).emoji,
-              style: const TextStyle(fontSize: 22),
+              style: const TextStyle(fontSize: 20),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1931,7 +1934,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                     context.l10n.tr('matchSportLabel'),
                     style: MatchPayTokens.bodySmallStyle(
                       color: MatchPayTokens.inkMuted,
-                    ).copyWith(fontSize: 11, fontWeight: FontWeight.w700),
+                    ).copyWith(fontSize: 10, fontWeight: FontWeight.w700),
                   ),
                   SportChargeChip(sport: sport),
                 ],
@@ -1943,7 +1946,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     }
 
     return MatchPaySurfaceCard(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(6),
       child: MatchSportPicker(
         value: _sportType,
         compact: true,
@@ -1995,34 +1998,35 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     }
 
     return MatchPaySurfaceCard(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             context.l10n.tr('organizeVenueCardTitle'),
             style: MatchPayTokens.titleSmallStyle().copyWith(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 1),
           Text(
             context.l10n.tr('organizeVenueCardHint'),
             style: MatchPayTokens.bodySmallStyle(
               color: MatchPayTokens.inkSecondary,
-            ).copyWith(fontSize: 12),
+            ).copyWith(fontSize: 11, height: 1.25),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Text(
             recinto?.nombre ?? context.l10n.tr('venuePickHint'),
             style: TextStyle(
+              fontSize: 13,
               fontWeight: recinto == null ? FontWeight.normal : FontWeight.w600,
               color: recinto == null ? MatchPayTokens.inkMuted : null,
             ),
           ),
           if (recinto != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               recinto.location.hasExactLocation
                   ? context.l10n.tr('venueHasExactMap')
@@ -2031,42 +2035,61 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 color: recinto.location.hasExactLocation
                     ? MatchPayTokens.accentSuccess
                     : MatchPayTokens.accentUrgent,
-              ).copyWith(fontSize: 12),
+              ).copyWith(fontSize: 11),
             ),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 4,
             children: [
               FilledButton.tonalIcon(
                 onPressed: _elegirRecintoGuardado,
-                icon: const Icon(Icons.list_alt, size: 18),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const Icon(Icons.list_alt, size: 16),
                 label: Text(
                   _recintosGuardados.isEmpty
                       ? context.l10n.tr('venueManageInSettings')
                       : context.l10n.tr('venueChooseSaved'),
+                  style: const TextStyle(fontSize: 13),
                 ),
               ),
               TextButton(
                 onPressed: _administrarRecintos,
-                child: Text(context.l10n.tr('venueManageShort')),
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  context.l10n.tr('venueManageShort'),
+                  style: const TextStyle(fontSize: 13),
+                ),
               ),
               OutlinedButton.icon(
                 onPressed: recinto == null ? null : _abrirMapaRecinto,
-                icon: const Icon(Icons.map_outlined, size: 18),
-                label: Text(context.l10n.tr('openVenueMapTooltip')),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const Icon(Icons.map_outlined, size: 16),
+                label: Text(
+                  context.l10n.tr('openVenueMapTooltip'),
+                  style: const TextStyle(fontSize: 13),
+                ),
               ),
             ],
           ),
           if (_recintosGuardados.isEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.only(top: 4),
               child: Text(
                 context.l10n.tr('venueOrganizeEmptyHint'),
                 style: MatchPayTokens.bodySmallStyle(
                   color: MatchPayTokens.accentUrgent,
-                ).copyWith(fontSize: 12),
+                ).copyWith(fontSize: 11),
               ),
             ),
         ],
@@ -2080,25 +2103,27 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     final bloqueado = _formularioBloqueado;
 
     return MatchPaySurfaceCard(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             context.l10n.tr('organizeMaxSlotsLabel'),
             style: MatchPayTokens.titleSmallStyle().copyWith(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 6,
+            runSpacing: 4,
             children: [
               for (final n in _cuposPresets)
                 ChoiceChip(
                   label: Text('$n'),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   selected: !mostrarInput && cuposActual == n,
                   onSelected: bloqueado
                       ? null
@@ -2106,13 +2131,15 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 ),
               ChoiceChip(
                 label: Text(context.l10n.tr('organizeSlotsOther')),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 selected: mostrarInput,
                 onSelected: bloqueado ? null : (_) => _selectCuposOtro(),
               ),
             ],
           ),
           if (mostrarInput) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
             TextField(
               controller: _cuposCtrl,
               readOnly: bloqueado,
@@ -2121,9 +2148,13 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: InputDecoration(
                 labelText: context.l10n.tr('organizeMaxSlotsLabel'),
-                prefixIcon: const Icon(Icons.people),
+                prefixIcon: const Icon(Icons.people, size: 20),
                 isDense: true,
                 border: const OutlineInputBorder(),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
             ),
           ],
