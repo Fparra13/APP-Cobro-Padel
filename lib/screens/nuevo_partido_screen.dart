@@ -2212,7 +2212,33 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                     ],
                   ],
                 )
-              else ...[
+              else if (_flujoRegistrarAportes) ...[
+                Text(
+                  seleccionados.length == 1
+                      ? l10n.tr('onePlayer')
+                      : l10n.tr('matchPlayersCount', params: {
+                          'count': '${seleccionados.length}',
+                        }),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.indigo.shade900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _toggleJugadoresExpandido,
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      size: 18,
+                      color: Colors.indigo.shade700,
+                    ),
+                    label: Text(l10n.tr('playersTapToEditList')),
+                  ),
+                ),
+              ] else ...[
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -2248,24 +2274,10 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                if (_flujoRegistrarAportes)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: _toggleJugadoresExpandido,
-                      icon: Icon(
-                        Icons.edit_outlined,
-                        size: 18,
-                        color: Colors.indigo.shade700,
-                      ),
-                      label: Text(l10n.tr('playersTapToEditList')),
-                    ),
-                  )
-                else
-                  Text(
-                    l10n.tr('playersTapToEditList'),
-                    style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
-                  ),
+                Text(
+                  l10n.tr('playersTapToEditList'),
+                  style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
+                ),
               ],
             ],
           ),
