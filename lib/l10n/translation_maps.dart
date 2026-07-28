@@ -1327,7 +1327,7 @@ class TranslationMaps {
     'enterExpensesHere': 'Ingresa los gastos aquí',
     'enterExpensesHint':
         'Cancha, pelotas u otros. Se reparten entre los participantes '
-        'marcados en el paso 2.',
+        'marcados.',
     'onePlayerSplitsExpenses': '1 participante reparte los gastos del grupo',
     'nPlayersSplitExpenses':
         '{count} participantes reparten los gastos del grupo',
@@ -3167,8 +3167,8 @@ class TranslationMaps {
     'matchExpensesSubtitle': 'How much it cost and how it splits',
     'enterExpensesHere': 'Enter expenses here',
     'enterExpensesHint':
-        'Court, balls, or other costs. Split among participants '
-        'selected in step 2.',
+        'Court, balls, or other costs. Split among selected '
+        'participants.',
     'onePlayerSplitsExpenses': '1 participant splits group expenses',
     'nPlayersSplitExpenses': '{count} participants split group expenses',
     'forWholeGroup': 'For the whole group',
@@ -5009,7 +5009,7 @@ class TranslationMaps {
     'enterExpensesHere': 'Informe as despesas aqui',
     'enterExpensesHint':
         'Quadra, bolas ou outros. Dividem-se entre os participantes '
-        'marcados no passo 2.',
+        'marcados.',
     'onePlayerSplitsExpenses': '1 participante divide as despesas do grupo',
     'nPlayersSplitExpenses':
         '{count} participantes dividem as despesas do grupo',
