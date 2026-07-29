@@ -12,17 +12,18 @@ import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/saldo_historico.dart';
 import '../utils/cobro_jugador_ui.dart';
+import '../utils/formatters.dart';
 import '../utils/nav_shell_layout.dart';
 import '../utils/player_pay_bridge.dart';
 import '../widgets/cobro_pago_flow.dart';
 import '../widgets/cobro_ver_detalle_sheet.dart';
 import '../widgets/friendly_error_panel.dart';
 import '../widgets/matchpay_ui.dart';
-import '../widgets/player_match_history_tile.dart';
 import '../widgets/player_matches_to_close.dart';
 import '../widgets/shimmer_loading.dart';
 
-/// Cobros del jugador: una fila/pago por organizador + historial.
+/// Pestaña Pendientes: solo asuntos financieros (aportes / cobros).
+/// Los encuentros viven en la pestaña Mis encuentros.
 class MisCobrosScreen extends StatefulWidget {
   const MisCobrosScreen({super.key});
 
@@ -32,7 +33,6 @@ class MisCobrosScreen extends StatefulWidget {
 
 class _MisCobrosScreenState extends State<MisCobrosScreen> {
   List<DetallePartido> _deudas = [];
-  List<DetallePartido> _partidosJugados = [];
   final Map<int, DesgloseJugador?> _desglosePorPartido = {};
   final Map<int, double> _saldoAnteriorPorPartido = {};
   List<CuentaSaldo> _cuentas = [];
@@ -108,10 +108,7 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
           await repos.getMisDeudasPendientes(reconciliar: false);
       final cuentasFuture = repos.listarMisCuentasSaldo();
       final totalFuture = repos.getMiTotalDeudaHome();
-      final partidosJugadosFuture = repos.getMisPartidosJugados(limit: 30);
       final partidoIds = rawDeudas.map((d) => d.partidoId).toSet();
-      final partidosJugados = await partidosJugadosFuture;
-      partidoIds.addAll(partidosJugados.map((p) => p.partidoId));
       final saldosAnteriores =
           await repos.getMisSaldosAnterioresPartidos(partidoIds);
       final cuentas = await cuentasFuture;
@@ -153,7 +150,6 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
       if (mounted) {
         setState(() {
           _deudas = rawDeudas;
-          _partidosJugados = partidosJugados;
           _desglosePorPartido
             ..clear()
             ..addAll(desgloseMap);
@@ -290,6 +286,7 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
           : RefreshIndicator(
               onRefresh: () => _load(silent: true),
               child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: NavShellScope.listPadding(context),
                 children: [
                   if (_error != null) ...[
@@ -300,48 +297,124 @@ class _MisCobrosScreenState extends State<MisCobrosScreen> {
                     const SizedBox(height: 12),
                   ],
                   if (!tieneDeuda)
-                    PlayerCuentaAlDiaCard(
-                      saldoAFavor: creditoAlDia,
-                    )
+                    _PendientesEmptyState(saldoAFavor: creditoAlDia)
                   else ...[
                     PlayerMisCobrosTotalResumen(total: total),
                     const SizedBox(height: 16),
                     for (final cuenta in cuentasDeuda) ...[
-                      PlayerCuentaOrganizadorPendienteCard(
-                        organizadorNombre: cuenta.nombreOrganizador,
-                        fotoUrl: cuenta.fotoUrl,
-                        deuda: cuenta.deuda,
-                        pagando: _pagandoOrgId == cuenta.organizadorId,
-                        comprobanteEnRevision: _cuentaEnRevision(cuenta),
-                        onPayTotal: () =>
-                            _pagar(cuenta: cuenta, esTotal: true),
-                        onPayAbono: () =>
-                            _pagar(cuenta: cuenta, esTotal: false),
-                        onVerDetalle: () => _verDetalle(cuenta),
+                      Builder(
+                        builder: (context) {
+                          final deudasOrg = deudasDeOrganizador(
+                            _deudas,
+                            cuenta.organizadorId,
+                          );
+                          final revision = resumenAporteEnRevision(deudasOrg);
+                          return PlayerCuentaOrganizadorPendienteCard(
+                            organizadorNombre: cuenta.nombreOrganizador,
+                            fotoUrl: cuenta.fotoUrl,
+                            deuda: cuenta.deuda,
+                            pagando: _pagandoOrgId == cuenta.organizadorId,
+                            comprobanteEnRevision: _cuentaEnRevision(cuenta),
+                            montoDeclaradoEnRevision: revision.monto,
+                            fechaEncuentroEnRevision: revision.fecha,
+                            recintoEnRevision: revision.recinto,
+                            sportTypeEnRevision: revision.sport,
+                            onPayTotal: () =>
+                                _pagar(cuenta: cuenta, esTotal: true),
+                            onPayAbono: () =>
+                                _pagar(cuenta: cuenta, esTotal: false),
+                            onVerDetalle: () => _verDetalle(cuenta),
+                          );
+                        },
                       ),
                       const SizedBox(height: 12),
-                    ],
-                    if (_partidosJugados.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      MatchPaySectionHeader(
-                        title: l10n.tr('playerMatchHistorySection'),
-                      ),
-                      const SizedBox(height: 8),
-                      PlayerMatchHistoryList(
-                        partidos: _partidosJugados,
-                        saldosPorPartido: _saldoAnteriorPorPartido,
-                        modo: PlayerMatchHistorialModo.cuentaConDeuda,
-                        historialSaldo: cuentasDeuda.length == 1
-                            ? (_historialPorOrg[
-                                    cuentasDeuda.first.organizadorId] ??
-                                const [])
-                            : const [],
-                      ),
                     ],
                   ],
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// Empty state financiero: sin listados de encuentros.
+class _PendientesEmptyState extends StatelessWidget {
+  final double saldoAFavor;
+
+  const _PendientesEmptyState({required this.saldoAFavor});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 48),
+      child: MatchPaySurfaceCard(
+        padding: const EdgeInsets.fromLTRB(28, 40, 28, 36),
+        child: Column(
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: MatchPayTokens.accentSuccess.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.check_rounded,
+                size: 36,
+                color: MatchPayTokens.accentSuccess,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              l10n.tr('noPendingDebts'),
+              style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 18),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.tr('playerStatusUpToDateSub'),
+              style: MatchPayTokens.bodySmallStyle().copyWith(height: 1.4),
+              textAlign: TextAlign.center,
+            ),
+            if (saldoAFavor > 0.005) ...[
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: MatchPayTokens.accentSuccess.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      l10n.tr(
+                        'playerCreditBalance',
+                        params: {
+                          'amount': formatMoney(saldoAFavor),
+                        },
+                      ),
+                      style: MatchPayTokens.bodySmallStyle().copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      l10n.tr('playerCreditBalanceHint'),
+                      style: MatchPayTokens.bodySmallStyle(),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
