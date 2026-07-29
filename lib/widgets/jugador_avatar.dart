@@ -42,8 +42,31 @@ class JugadorAvatar extends StatefulWidget {
       _avatarColors[nombre.hashCode.abs() % _avatarColors.length];
 
   static String inicialDe(String nombre) {
-    final t = nombre.trim();
-    return t.isNotEmpty ? t[0].toUpperCase() : '?';
+    final partes = nombre
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (partes.isEmpty) return '?';
+
+    String letra(String parte) {
+      final limpia = parte.replaceAll('.', '').trim();
+      return limpia.isEmpty ? '' : limpia[0].toUpperCase();
+    }
+
+    if (partes.length >= 2) {
+      final a = letra(partes.first);
+      final b = letra(partes.last);
+      if (a.isEmpty && b.isEmpty) return '?';
+      if (a.isEmpty) return b;
+      if (b.isEmpty) return a;
+      return '$a$b';
+    }
+
+    final unica = partes.first.replaceAll('.', '').trim();
+    if (unica.isEmpty) return '?';
+    if (unica.length == 1) return unica.toUpperCase();
+    return unica.substring(0, 2).toUpperCase();
   }
 
   @override
@@ -212,6 +235,7 @@ class _JugadorAvatarState extends State<JugadorAvatar> {
   }
 
   Widget _initials(String inicial, Color color) {
+    final isTwoChars = inicial.length >= 2;
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -223,10 +247,16 @@ class _JugadorAvatarState extends State<JugadorAvatar> {
       alignment: Alignment.center,
       child: Text(
         inicial,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.visible,
+        textAlign: TextAlign.center,
         style: TextStyle(
           color: Colors.white,
-          fontSize: widget.size * 0.42,
+          fontSize: widget.size * (isTwoChars ? 0.32 : 0.42),
           fontWeight: FontWeight.bold,
+          height: 1,
+          letterSpacing: isTwoChars ? -0.4 : 0,
         ),
       ),
     );
