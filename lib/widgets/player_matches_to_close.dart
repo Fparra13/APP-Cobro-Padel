@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/matchpay_design_tokens.dart';
 import '../core/sport_theme.dart';
+import '../core/sport_type.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
@@ -9,11 +10,147 @@ import '../domain/deuda_explicacion.dart';
 import '../utils/cobro_jugador_ui.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
-import 'cobro_pago_flow.dart';
 import '../widgets/desglose_cobro_panel.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/sport_icon.dart';
+
+/// Monto declarado en revisión + encuentro asociado.
+({
+  double monto,
+  DateTime? fecha,
+  String? recinto,
+  SportType? sport,
+}) resumenAporteEnRevision(
+  Iterable<DetallePartido> deudas,
+) {
+  final enRev =
+      deudas.where((d) => d.comprobantePendienteValidacion).toList();
+  if (enRev.isEmpty) {
+    return (monto: 0, fecha: null, recinto: null, sport: null);
+  }
+  var monto = 0.0;
+  DateTime? fecha;
+  String? recinto;
+  SportType? sport;
+  for (final d in enRev) {
+    final declarado = d.montoPagoDeclarado ?? 0;
+    monto += declarado > 0.005 ? declarado : 0;
+    fecha ??= d.fechaPartido;
+    sport ??= d.sportType;
+    final r = d.recintoPartido?.trim();
+    if (recinto == null && r != null && r.isNotEmpty) recinto = r;
+  }
+  return (monto: monto, fecha: fecha, recinto: recinto, sport: sport);
+}
+
+/// Banner compacto: aporte ya declarado, a la espera del organizador.
+class PlayerAporteEnRevisionBanner extends StatelessWidget {
+  final double monto;
+  final DateTime? fechaEncuentro;
+  final String? recinto;
+  final SportType? sportType;
+  final String? organizadorNombre;
+
+  const PlayerAporteEnRevisionBanner({
+    super.key,
+    required this.monto,
+    this.fechaEncuentro,
+    this.recinto,
+    this.sportType,
+    this.organizadorNombre,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final lang = context.readSettings().locale.languageCode;
+    final fechaTxt = fechaEncuentro != null
+        ? formatFechaEncuentro(
+            fechaEncuentro!,
+            contexto: FechaEncuentroContexto.pasado,
+          )
+        : null;
+    final sportLabel = sportType?.labelForLocale(lang).trim();
+    // Una sola línea de contexto: fecha · deporte · lugar
+    final contextoEncuentro = [
+      if (fechaTxt != null && fechaTxt.isNotEmpty) fechaTxt,
+      if (sportLabel != null && sportLabel.isNotEmpty) sportLabel,
+      if (recinto != null && recinto!.trim().isNotEmpty) recinto!.trim(),
+    ].join(' · ');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: MatchPayTokens.accentUrgentBg,
+        borderRadius: BorderRadius.circular(MatchPayTokens.radiusCard),
+        border: Border.all(
+          color: MatchPayTokens.accentUrgentBorder,
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.hourglass_top_rounded,
+                size: 16,
+                color: MatchPayTokens.accentUrgent,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  l10n.tr('paymentUnderOrganizerReview'),
+                  style: MatchPayTokens.bodySmallStyle().copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: MatchPayTokens.accentUrgent,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (monto > 0.005) ...[
+            const SizedBox(height: 6),
+            Text(
+              formatMoney(monto),
+              style: MatchPayTokens.titleSmallStyle().copyWith(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: MatchPayTokens.ink,
+              ),
+            ),
+          ],
+          if (contextoEncuentro.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              contextoEncuentro,
+              style: MatchPayTokens.bodySmallStyle().copyWith(
+                fontWeight: FontWeight.w600,
+                fontSize: 12.5,
+                height: 1.35,
+                color: MatchPayTokens.ink,
+              ),
+            ),
+          ],
+          if (organizadorNombre != null &&
+              organizadorNombre!.trim().isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              organizadorNombre!.trim(),
+              style: MatchPayTokens.bodySmallStyle(
+                color: MatchPayTokens.inkSecondary,
+              ).copyWith(fontSize: 12, height: 1.3),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 /// Resumen único de cobros pendientes (Home y Mis cobros).
 class PlayerPendingSummaryCard extends StatelessWidget {
@@ -198,6 +335,10 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
   final ExplicacionDeudaJugador? explicacion;
   final String? partidoLinea;
   final int encuentrosPendientes;
+  final double? montoDeclaradoEnRevision;
+  final DateTime? fechaEncuentroEnRevision;
+  final String? recintoEnRevision;
+  final SportType? sportTypeEnRevision;
   final VoidCallback onPayTotal;
   final VoidCallback onPayOther;
   final VoidCallback? onVerDetalle;
@@ -210,6 +351,10 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
     this.explicacion,
     this.partidoLinea,
     this.encuentrosPendientes = 1,
+    this.montoDeclaradoEnRevision,
+    this.fechaEncuentroEnRevision,
+    this.recintoEnRevision,
+    this.sportTypeEnRevision,
     required this.onPayTotal,
     required this.onPayOther,
     this.onVerDetalle,
@@ -218,6 +363,19 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    if (comprobanteEnRevision) {
+      final monto = (montoDeclaradoEnRevision != null &&
+              montoDeclaradoEnRevision! > 0.005)
+          ? montoDeclaradoEnRevision!
+          : total;
+      return PlayerAporteEnRevisionBanner(
+        monto: monto,
+        fechaEncuentro: fechaEncuentroEnRevision,
+        recinto: recintoEnRevision,
+        sportType: sportTypeEnRevision,
+      );
+    }
+
     final subtituloExplicacion = explicacion?.subtituloKey != null
         ? l10n.tr(
             explicacion!.subtituloKey!,
@@ -246,19 +404,11 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
     })();
 
     return MatchPaySurfaceCard(
-      urgent: !comprobanteEnRevision,
+      urgent: true,
       elevated: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (comprobanteEnRevision) ...[
-            MatchPayStatusBanner(
-              icon: Icons.hourglass_top_rounded,
-              message: l10n.tr('paymentPendingApprovalBody'),
-              urgent: true,
-            ),
-            const SizedBox(height: 12),
-          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -327,15 +477,7 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
             width: double.infinity,
             height: 46,
             child: FilledButton(
-              onPressed: pagando
-                  ? null
-                  : () {
-                      if (comprobanteEnRevision) {
-                        CobroPagoFlow.mostrarComprobanteEnRevision(context);
-                        return;
-                      }
-                      onPayTotal();
-                    },
+              onPressed: pagando ? null : onPayTotal,
               style: FilledButton.styleFrom(
                 backgroundColor: MatchPayTokens.accentUrgent,
               ),
@@ -354,36 +496,46 @@ class PlayerHomeCobrosTeaser extends StatelessWidget {
                     ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: OutlinedButton(
-                    onPressed: pagando
-                        ? null
-                        : () {
-                            if (comprobanteEnRevision) {
-                              CobroPagoFlow.mostrarComprobanteEnRevision(
-                                context,
-                              );
-                              return;
-                            }
-                            onPayOther();
-                          },
-                    child: Text(l10n.tr('cobrosAbonoShort')),
+              TextButton(
+                onPressed: pagando ? null : onPayOther,
+                style: TextButton.styleFrom(
+                  foregroundColor: MatchPayTokens.inkSecondary,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  minimumSize: const Size(0, 40),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  l10n.tr('cobrosAbonoShort'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
                   ),
                 ),
               ),
               if (onVerDetalle != null) ...[
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    height: 44,
-                    child: OutlinedButton(
-                      onPressed: pagando ? null : onVerDetalle,
-                      child: Text(l10n.tr('cobrosViewDetail')),
+                Text(
+                  '·',
+                  style: MatchPayTokens.bodySmallStyle(
+                    color: MatchPayTokens.inkMuted,
+                  ),
+                ),
+                TextButton(
+                  onPressed: pagando ? null : onVerDetalle,
+                  style: TextButton.styleFrom(
+                    foregroundColor: MatchPayTokens.inkSecondary,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    minimumSize: const Size(0, 40),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    l10n.tr('cobrosViewDetail'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
                     ),
                   ),
                 ),
@@ -432,6 +584,13 @@ class PlayerMisCobrosHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    if (comprobanteEnRevision) {
+      return PlayerAporteEnRevisionBanner(
+        monto: total,
+        fechaEncuentro: null,
+        recinto: null,
+      );
+    }
     final subtitulo = explicacion?.subtituloKey != null
         ? l10n.tr(
             explicacion!.subtituloKey!,
@@ -440,19 +599,11 @@ class PlayerMisCobrosHeroCard extends StatelessWidget {
         : partidoLinea;
 
     return MatchPaySurfaceCard(
-      urgent: !comprobanteEnRevision,
+      urgent: true,
       elevated: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (comprobanteEnRevision) ...[
-            MatchPayStatusBanner(
-              icon: Icons.hourglass_top_rounded,
-              message: l10n.tr('paymentPendingApprovalBody'),
-              urgent: true,
-            ),
-            const SizedBox(height: 14),
-          ],
           Text(
             formatMoney(total),
             style: MatchPayTokens.headlineStyle().copyWith(fontSize: 34),
@@ -611,6 +762,10 @@ class PlayerCuentaOrganizadorPendienteCard extends StatelessWidget {
   final double deuda;
   final bool pagando;
   final bool comprobanteEnRevision;
+  final double? montoDeclaradoEnRevision;
+  final DateTime? fechaEncuentroEnRevision;
+  final String? recintoEnRevision;
+  final SportType? sportTypeEnRevision;
   final VoidCallback onPayTotal;
   final VoidCallback onPayAbono;
   final VoidCallback? onVerDetalle;
@@ -622,6 +777,10 @@ class PlayerCuentaOrganizadorPendienteCard extends StatelessWidget {
     required this.deuda,
     required this.pagando,
     required this.comprobanteEnRevision,
+    this.montoDeclaradoEnRevision,
+    this.fechaEncuentroEnRevision,
+    this.recintoEnRevision,
+    this.sportTypeEnRevision,
     required this.onPayTotal,
     required this.onPayAbono,
     this.onVerDetalle,
@@ -630,20 +789,25 @@ class PlayerCuentaOrganizadorPendienteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final bloqueado = pagando || comprobanteEnRevision;
+    if (comprobanteEnRevision) {
+      final monto = (montoDeclaradoEnRevision != null &&
+              montoDeclaradoEnRevision! > 0.005)
+          ? montoDeclaradoEnRevision!
+          : deuda;
+      return PlayerAporteEnRevisionBanner(
+        monto: monto,
+        fechaEncuentro: fechaEncuentroEnRevision,
+        recinto: recintoEnRevision,
+        sportType: sportTypeEnRevision,
+        organizadorNombre: organizadorNombre,
+      );
+    }
+
     return MatchPaySurfaceCard(
-      urgent: !comprobanteEnRevision,
+      urgent: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (comprobanteEnRevision) ...[
-            MatchPayStatusBanner(
-              icon: Icons.hourglass_top_rounded,
-              message: l10n.tr('paymentPendingApprovalBody'),
-              urgent: true,
-            ),
-            const SizedBox(height: 12),
-          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -689,7 +853,7 @@ class PlayerCuentaOrganizadorPendienteCard extends StatelessWidget {
             height: 44,
             width: double.infinity,
             child: FilledButton(
-              onPressed: bloqueado ? null : onPayTotal,
+              onPressed: pagando ? null : onPayTotal,
               style: FilledButton.styleFrom(
                 backgroundColor: MatchPayTokens.accentUrgent,
               ),
@@ -715,7 +879,7 @@ class PlayerCuentaOrganizadorPendienteCard extends StatelessWidget {
                 child: SizedBox(
                   height: 40,
                   child: OutlinedButton(
-                    onPressed: bloqueado ? null : onPayAbono,
+                    onPressed: pagando ? null : onPayAbono,
                     child: Text(l10n.tr('cobrosAbonoShort')),
                   ),
                 ),
