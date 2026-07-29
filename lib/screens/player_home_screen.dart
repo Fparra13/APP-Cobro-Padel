@@ -1278,7 +1278,10 @@ class _HeroMatchCard extends StatelessWidget {
                     ),
                     const Spacer(),
                     Text(
-                      formatDiaCompleto(p.fecha),
+                      formatFechaEncuentro(
+                        p.fecha,
+                        contexto: FechaEncuentroContexto.futuro,
+                      ),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -1655,7 +1658,10 @@ class _SecondaryMatchCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      formatDiaCompleto(p.fecha),
+                      formatFechaEncuentro(
+                        p.fecha,
+                        contexto: FechaEncuentroContexto.futuro,
+                      ),
                       style: MatchPayTokens.titleSmallStyle(),
                     ),
                     const SizedBox(height: 2),

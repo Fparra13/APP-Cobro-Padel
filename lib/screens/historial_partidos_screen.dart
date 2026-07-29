@@ -596,8 +596,6 @@ class _ConvocatoriaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final p = convocatoria.partido;
-    final fecha = formatFechaLegibleCorta(p.fecha);
-    final hora = formatHora(p.fecha);
     final recinto = p.recinto?.isNotEmpty ?? false
         ? p.recinto!
         : l10n.tr('noVenue');
@@ -606,6 +604,12 @@ class _ConvocatoriaCard extends StatelessWidget {
         situacion == ConvocatoriaOrganizadorSituacion.sinResolver;
     final listoGastos =
         situacion == ConvocatoriaOrganizadorSituacion.listoParaGastos;
+    final fecha = formatFechaEncuentro(
+      p.fecha,
+      contexto: (sinResolver || listoGastos)
+          ? FechaEncuentroContexto.pasado
+          : FechaEncuentroContexto.futuro,
+    );
     final dayColor = sinResolver
         ? MatchPayTokens.accentUrgent
         : listoGastos
@@ -675,7 +679,7 @@ class _ConvocatoriaCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '$hora · $recinto',
+                      recinto,
                       style: MatchPayTokens.bodySmallStyle(
                         color: MatchPayTokens.inkSecondary,
                       ),
@@ -785,8 +789,10 @@ class _PartidoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final fecha = formatFechaLegibleCorta(completo.partido.fecha);
-    final hora = formatHora(completo.partido.fecha);
+    final fecha = formatFechaEncuentro(
+      completo.partido.fecha,
+      contexto: FechaEncuentroContexto.pasado,
+    );
     final recinto = completo.partido.recinto?.trim();
     final asistentes = completo.detalles.where((d) => d.asistio).length;
     final pendientes = completo.contarAsistentesConDeudaNeta();
@@ -869,15 +875,14 @@ class _PartidoCard extends StatelessWidget {
                   SportChargeChip(sport: completo.partido.sportType),
                   const SizedBox(height: 6),
                   Text(fecha, style: MatchPayTokens.titleSmallStyle()),
-                  Text(
-                    recinto != null && recinto.isNotEmpty
-                        ? '$hora · $recinto'
-                        : hora,
-                    style: MatchPayTokens.bodySmallStyle(
-                      color: MatchPayTokens.inkSecondary,
+                  if (recinto != null && recinto.isNotEmpty)
+                    Text(
+                      recinto,
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.inkSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,

@@ -105,7 +105,12 @@ class _ConvocatoriaRespuestaObligatoriaCardState
           confirmo
               ? context.tr(
                   'respondConfirmBodyMarked',
-                  params: {'date': formatDiaCompleto(partido.fecha)},
+                  params: {
+                    'date': formatFechaEncuentro(
+                      partido.fecha,
+                      contexto: FechaEncuentroContexto.futuro,
+                    ),
+                  },
                 )
               : context.tr('respondDeclineBodyConvocate'),
         ),
@@ -259,7 +264,10 @@ class _ConvocatoriaRespuestaObligatoriaCardState
           ),
           const SizedBox(height: 14),
           Text(
-            formatDiaCompleto(partido.fecha),
+            formatFechaEncuentro(
+              partido.fecha,
+              contexto: FechaEncuentroContexto.futuro,
+            ),
             style: MatchPayTokens.headlineStyle().copyWith(fontSize: 20),
           ),
           const SizedBox(height: 6),

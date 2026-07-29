@@ -107,14 +107,11 @@ class OrganizerAttendanceBody extends StatelessWidget {
               const SizedBox(height: 16),
               if (fecha != null) ...[
                 Text(
-                  formatDiaCompleto(fecha),
-                  style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  formatHora(fecha),
-                  style:
-                      MatchPayTokens.titleMediumStyle().copyWith(fontSize: 22),
+                  formatFechaEncuentro(
+                    fecha,
+                    contexto: FechaEncuentroContexto.futuro,
+                  ),
+                  style: MatchPayTokens.titleMediumStyle().copyWith(fontSize: 20),
                 ),
               ] else
                 Text(

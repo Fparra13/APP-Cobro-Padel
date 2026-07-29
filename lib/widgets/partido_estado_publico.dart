@@ -98,7 +98,14 @@ class PartidoEstadoPublicoMessage extends StatelessWidget {
       'max': '${view.cuposMax}',
       'missing': '${view.faltan}',
       'pending': '${view.pendientes}',
-      'date': fechaPartido != null ? formatDiaCompleto(fechaPartido!) : '',
+      'date': fechaPartido != null
+          ? formatFechaEncuentro(
+              fechaPartido!,
+              contexto: view.estado == EstadoPartidoPublico.jugado
+                  ? FechaEncuentroContexto.pasado
+                  : FechaEncuentroContexto.futuro,
+            )
+          : '',
       'maxPossible': '${view.confirmados + view.pendientes}',
     };
 

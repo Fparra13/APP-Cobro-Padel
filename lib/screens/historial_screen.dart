@@ -987,7 +987,10 @@ class _HistorialScreenState extends State<HistorialScreen> {
 
   Widget _buildMovimientoCard(SaldoHistorico h, {required bool esUltimo}) {
     final tipo = _tipoDe(h);
-    final fecha = formatMesDiaHora(h.fecha);
+    final fecha = formatFechaEncuentro(
+      h.fecha,
+      contexto: FechaEncuentroContexto.pasado,
+    );
     final titulo = context.l10n.translateConcept(h.concepto);
     final neto = h.cargoPartido - h.abono;
     final montoPrincipal = switch (tipo) {

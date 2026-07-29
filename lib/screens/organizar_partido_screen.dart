@@ -602,8 +602,12 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
     }
   }
 
-  String _formatoFechaHora(DateTime? fecha) =>
-      fecha == null ? '' : formatDiaCompleto(fecha);
+  String _formatoFechaHora(DateTime? fecha) => fecha == null
+      ? ''
+      : formatFechaEncuentro(
+          fecha,
+          contexto: FechaEncuentroContexto.futuro,
+        );
 
   Future<void> _pickFecha() async {
     if (_formularioBloqueado) return;
@@ -1806,7 +1810,10 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      formatDiaCompleto(fecha),
+                      formatFechaEncuentro(
+                        fecha,
+                        contexto: FechaEncuentroContexto.futuro,
+                      ),
                       style: MatchPayTokens.titleMediumStyle(
                         color: palette.primaryDark,
                       ).copyWith(

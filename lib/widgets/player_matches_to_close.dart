@@ -880,7 +880,10 @@ String? lineaPartidoDetalle(DetallePartido? detalle) {
   if (detalle == null) return null;
   final recinto = detalle.recintoPartido?.trim();
   if (detalle.fechaPartido != null) {
-    final fecha = formatDiaCompleto(detalle.fechaPartido!);
+    final fecha = formatFechaEncuentro(
+      detalle.fechaPartido!,
+      contexto: FechaEncuentroContexto.pasado,
+    );
     if (recinto != null && recinto.isNotEmpty) return '$fecha · $recinto';
     return fecha;
   }

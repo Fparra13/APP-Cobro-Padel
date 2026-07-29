@@ -222,7 +222,12 @@ class ReprogramarConvocatoriaFlow {
         content: Text(
           l10n.tr(
             'reprogramConfirmBody',
-            params: {'date': formatDiaCompleto(nueva)},
+            params: {
+              'date': formatFechaEncuentro(
+                nueva,
+                contexto: FechaEncuentroContexto.futuro,
+              ),
+            },
           ),
         ),
         actions: [

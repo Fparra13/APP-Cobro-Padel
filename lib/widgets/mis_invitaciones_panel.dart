@@ -119,7 +119,10 @@ class _ProximoPartidoTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    formatDiaCompleto(p.fecha),
+                    formatFechaEncuentro(
+                      p.fecha,
+                      contexto: FechaEncuentroContexto.futuro,
+                    ),
                     style: MatchPayTokens.titleSmallStyle(),
                   ),
                   const SizedBox(height: 2),
@@ -166,7 +169,10 @@ class _ProximoPartidoTile extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                formatDiaCompleto(p.fecha),
+                formatFechaEncuentro(
+                  p.fecha,
+                  contexto: FechaEncuentroContexto.futuro,
+                ),
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
               if (recinto != null && recinto.isNotEmpty) ...[

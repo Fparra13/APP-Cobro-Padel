@@ -385,7 +385,6 @@ class PlayerMatchHistoryTile extends StatelessWidget {
 
   Widget _buildPremium(BuildContext context) {
     final l10n = context.l10n;
-    final lang = context.readSettings().locale.languageCode;
     final fecha = detalle.fechaPartido;
     final recinto = detalle.recintoPartido?.trim();
     final sportPalette = detalle.sportType != null
@@ -398,9 +397,11 @@ class PlayerMatchHistoryTile extends StatelessWidget {
         : detalle.montoPagado;
 
     final tituloFecha = fecha != null
-        ? capitalize(DateFormat('EEEE d MMM', lang).format(fecha))
+        ? formatFechaEncuentro(
+            fecha,
+            contexto: FechaEncuentroContexto.pasado,
+          )
         : l10n.tr('matchNumber', params: {'id': '${detalle.partidoId}'});
-    final hora = fecha != null ? formatHora(fecha) : null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -443,48 +444,27 @@ class PlayerMatchHistoryTile extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    if (hora != null) ...[
+                if (recinto != null && recinto.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
                       Icon(
-                        Icons.schedule_rounded,
+                        Icons.place_outlined,
                         size: 13,
                         color: MatchPayTokens.inkMuted,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        hora,
-                        style: MatchPayTokens.bodySmallStyle().copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (recinto != null && recinto.isNotEmpty)
-                        const SizedBox(width: 8),
-                    ],
-                    if (recinto != null && recinto.isNotEmpty)
+                      const SizedBox(width: 3),
                       Expanded(
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.place_outlined,
-                              size: 13,
-                              color: MatchPayTokens.inkMuted,
-                            ),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                recinto,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: MatchPayTokens.bodySmallStyle(),
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          recinto,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: MatchPayTokens.bodySmallStyle(),
                         ),
                       ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
                 if (cuentaConDeuda && montoAbonadoAlRegistrar > 0.005) ...[
                   const SizedBox(height: 4),
                   Text(
@@ -565,7 +545,10 @@ class PlayerMatchHistoryTile extends StatelessWidget {
         ? SportThemeConfig.paletteFor(detalle.sportType!)
         : null;
     final titulo = fecha != null
-        ? formatDiaCompleto(fecha)
+        ? formatFechaEncuentro(
+            fecha,
+            contexto: FechaEncuentroContexto.pasado,
+          )
         : l10n.tr('matchNumber', params: {'id': '${detalle.partidoId}'});
     final subtitulo = [
       if (detalle.sportType != null)
@@ -1007,17 +990,16 @@ class PlayerHistorialCanceladoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final lang = context.readSettings().locale.languageCode;
     final partido = convocatoria.partido;
     final fecha = partido.fecha;
     final recinto = partido.recinto?.trim();
     const muted = Color(0xFF525252);
     const mutedBg = Color(0xFFF3F4F6);
 
-    final tituloFecha = capitalize(
-      DateFormat('EEEE d MMM', lang).format(fecha),
+    final tituloFecha = formatFechaEncuentro(
+      fecha,
+      contexto: FechaEncuentroContexto.pasado,
     );
-    final hora = formatHora(fecha);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -1049,46 +1031,27 @@ class PlayerHistorialCanceladoTile extends StatelessWidget {
                     color: MatchPayTokens.inkSecondary,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.schedule_rounded,
-                      size: 13,
-                      color: MatchPayTokens.inkMuted,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      hora,
-                      style: MatchPayTokens.bodySmallStyle().copyWith(
-                        fontWeight: FontWeight.w600,
+                if (recinto != null && recinto.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.place_outlined,
+                        size: 13,
+                        color: MatchPayTokens.inkMuted,
                       ),
-                    ),
-                    if (recinto != null && recinto.isNotEmpty) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 3),
                       Expanded(
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.place_outlined,
-                              size: 13,
-                              color: MatchPayTokens.inkMuted,
-                            ),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                recinto,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: MatchPayTokens.bodySmallStyle(),
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          recinto,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: MatchPayTokens.bodySmallStyle(),
                         ),
                       ),
                     ],
-                  ],
-                ),
+                  ),
+                ],
                 const SizedBox(height: 4),
                 Text(
                   l10n.tr('matchStatusCancelledBody'),

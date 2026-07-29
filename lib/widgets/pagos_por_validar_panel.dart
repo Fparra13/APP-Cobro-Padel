@@ -156,7 +156,11 @@ class _PagoPorValidarCardState extends State<PagoPorValidarCard> {
     final recinto = detalle.recintoPartido?.trim();
     final parts = <String>[
       if (sportLabel != null && sportLabel.isNotEmpty) sportLabel,
-      if (detalle.fechaPartido != null) formatDiaCompleto(detalle.fechaPartido!),
+      if (detalle.fechaPartido != null)
+        formatFechaEncuentro(
+          detalle.fechaPartido!,
+          contexto: FechaEncuentroContexto.pasado,
+        ),
       if (recinto != null && recinto.isNotEmpty) recinto,
     ];
     if (parts.isNotEmpty) return parts.join(' · ');

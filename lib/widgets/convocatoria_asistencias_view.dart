@@ -187,8 +187,10 @@ class _ConvocatoriaAsistenciasViewState
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final palette = context.sportPalette;
-    final fechaLine =
-        '${formatFechaLegibleCorta(widget.fecha)} · ${formatHora(widget.fecha)}';
+    final fechaLine = formatFechaEncuentro(
+      widget.fecha,
+      contexto: FechaEncuentroContexto.futuro,
+    );
     final lugarLine =
         '${widget.recinto.isEmpty ? '—' : widget.recinto} · ${widget.sportType.labelEs}';
 

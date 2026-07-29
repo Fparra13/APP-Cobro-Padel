@@ -34,7 +34,10 @@ class QuickActionsPanel extends StatelessWidget {
   String _ultimoPartidoLineas(MatchPayStrings l10n) {
     final p = ultimoPartido;
     if (p == null) return l10n.tr('lastMatchEmptyHint');
-    return formatFechaCorta(p.partido.fecha);
+    return formatFechaEncuentro(
+      p.partido.fecha,
+      contexto: FechaEncuentroContexto.pasado,
+    );
   }
 
   String? _ultimoPartidoRecinto(MatchPayStrings l10n) {

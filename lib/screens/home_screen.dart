@@ -958,8 +958,6 @@ class _ConvocatoriaTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final c = convocatoria;
-    final fecha = formatFechaLegibleCorta(c.partido.fecha);
-    final hora = formatHora(c.partido.fecha);
     final pendientes = c.invitados - c.confirmados - c.rechazados;
     final recinto = c.partido.recinto ?? l10n.tr('noVenue');
     final confirmadosLine = l10n.tr(
@@ -974,6 +972,12 @@ class _ConvocatoriaTile extends StatelessWidget {
         situacion == ConvocatoriaOrganizadorSituacion.sinResolver;
     final listoGastos =
         situacion == ConvocatoriaOrganizadorSituacion.listoParaGastos;
+    final fecha = formatFechaEncuentro(
+      c.partido.fecha,
+      contexto: (sinResolver || listoGastos)
+          ? FechaEncuentroContexto.pasado
+          : FechaEncuentroContexto.futuro,
+    );
     final estadoPublico = !sinResolver && !listoGastos
         ? PartidoEstadoPublicoView.resolve(c)
         : null;
@@ -1043,7 +1047,7 @@ class _ConvocatoriaTile extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '$hora · $recinto',
+                      recinto,
                       style: MatchPayTokens.bodySmallStyle(
                         color: MatchPayTokens.inkSecondary,
                       ),

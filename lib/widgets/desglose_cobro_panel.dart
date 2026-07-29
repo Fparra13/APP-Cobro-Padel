@@ -154,11 +154,15 @@ class CobroPartidoCard extends StatelessWidget {
 
   String _titulo(BuildContext context) {
     if (detalle.fechaPartido != null) {
+      final fecha = formatFechaEncuentro(
+        detalle.fechaPartido!,
+        contexto: FechaEncuentroContexto.pasado,
+      );
       final recinto = detalle.recintoPartido?.trim();
       if (recinto != null && recinto.isNotEmpty) {
-        return '${formatDiaCompleto(detalle.fechaPartido!)} · $recinto';
+        return '$fecha · $recinto';
       }
-      return formatDiaCompleto(detalle.fechaPartido!);
+      return fecha;
     }
     return context.tr('matchNumber', params: {'id': '${detalle.partidoId}'});
   }
@@ -273,11 +277,15 @@ class _Fila extends StatelessWidget {
 /// Título legible para un detalle de partido.
 String tituloDetallePartido(DetallePartido d, MatchPayStrings l10n) {
   if (d.fechaPartido != null) {
+    final fecha = formatFechaEncuentro(
+      d.fechaPartido!,
+      contexto: FechaEncuentroContexto.pasado,
+    );
     final recinto = d.recintoPartido?.trim();
     if (recinto != null && recinto.isNotEmpty) {
-      return '${formatDiaCompleto(d.fechaPartido!)} · $recinto';
+      return '$fecha · $recinto';
     }
-    return formatDiaCompleto(d.fechaPartido!);
+    return fecha;
   }
   return l10n.tr('matchNumber', params: {'id': '${d.partidoId}'});
 }

@@ -138,7 +138,10 @@ class _PartidoCanceladoDialogState extends State<PartidoCanceladoDialog>
                       l10n.tr(
                         'playerCancelPopupBody',
                         params: {
-                          'date': formatFechaHora(partido.fecha),
+                          'date': formatFechaEncuentro(
+                            partido.fecha,
+                            contexto: FechaEncuentroContexto.pasado,
+                          ),
                           'venue': venue,
                         },
                       ),
@@ -174,7 +177,10 @@ class _PartidoCanceladoDialogState extends State<PartidoCanceladoDialog>
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  formatFechaHora(partido.fecha),
+                                  formatFechaEncuentro(
+                                    partido.fecha,
+                                    contexto: FechaEncuentroContexto.pasado,
+                                  ),
                                   style: MatchPayTokens.bodySmallStyle(),
                                 ),
                                 if (venue != '—')

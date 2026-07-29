@@ -765,7 +765,10 @@ class _AtRiskHero extends StatelessWidget {
 
     final venue = p.recinto?.trim();
     final matchLine = [
-      formatDiaCompleto(p.fecha),
+      formatFechaEncuentro(
+        p.fecha,
+        contexto: FechaEncuentroContexto.futuro,
+      ),
       if (venue != null && venue.isNotEmpty) venue,
     ].join(' · ');
 
@@ -843,7 +846,10 @@ class _ResolutionHero extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            formatDiaCompleto(p.fecha),
+            formatFechaEncuentro(
+              p.fecha,
+              contexto: FechaEncuentroContexto.pasado,
+            ),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.88),
               fontSize: 13.5,
@@ -929,7 +935,10 @@ class _RegisterHero extends StatelessWidget {
       leadWithTitle: true,
       title: l10n.tr('organizerCyclePhaseRegister'),
       contextLine: identityLine,
-      metaLine: formatDiaCompleto(p.fecha),
+      metaLine: formatFechaEncuentro(
+        p.fecha,
+        contexto: FechaEncuentroContexto.pasado,
+      ),
       subtitle: l10n.tr('organizerCycleRegisterBody'),
       ctaLabel: l10n.tr('organizerCycleRegisterCta'),
       onTap: onTap,
@@ -947,7 +956,10 @@ class _AllPaidHero extends StatelessWidget {
     final l10n = context.l10n;
     final p = completo.partido;
     final recinto = p.recinto?.trim();
-    final fecha = formatDiaMensaje(p.fecha);
+    final fecha = formatFechaEncuentro(
+      p.fecha,
+      contexto: FechaEncuentroContexto.pasado,
+    );
     final matchRef = recinto != null && recinto.isNotEmpty
         ? l10n.tr(
             'organizerCycleAllPaidMatchRef',

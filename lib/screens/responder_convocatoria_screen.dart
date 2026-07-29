@@ -147,7 +147,12 @@ class _ResponderConvocatoriaScreenState
               ? (confirmo
                   ? ctx.l10n.tr(
                       'respondConfirmBodyWithDate',
-                      params: {'date': formatDiaCompleto(partido.fecha)},
+                      params: {
+                        'date': formatFechaEncuentro(
+                          partido.fecha,
+                          contexto: FechaEncuentroContexto.futuro,
+                        ),
+                      },
                     )
                   : ctx.l10n.tr('respondDeclineBodyOrganizer'))
               : (confirmo
@@ -268,7 +273,10 @@ class _ResponderConvocatoriaScreenState
                           message: context.l10n.tr(
                             'matchStatusRescheduledBody',
                             params: {
-                              'date': formatDiaCompleto(_data!.partido.fecha),
+                              'date': formatFechaEncuentro(
+                                _data!.partido.fecha,
+                                contexto: FechaEncuentroContexto.futuro,
+                              ),
                             },
                           ),
                         ),
@@ -487,7 +495,10 @@ class _DetallePartidoCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        formatDiaCompleto(partido.fecha),
+                        formatFechaEncuentro(
+                          partido.fecha,
+                          contexto: FechaEncuentroContexto.futuro,
+                        ),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 18,
