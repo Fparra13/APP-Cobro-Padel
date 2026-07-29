@@ -30,11 +30,9 @@ enum PlayerMatchHistoryVisual {
   premium,
 }
 
-/// Cabecera visual de la pestaña Partidos (resumen sin chips).
+/// Cabecera visual de la pestaña Partidos (resumen sin chips ni deudas).
 class PlayerMatchHistoryHero extends StatelessWidget {
   final int totalPartidos;
-  final int pagados;
-  final int pendientes;
   final Map<SportType, int> conteoPorDeporte;
   final SportType? deporteSeleccionado;
   final ValueChanged<SportType?> onDeporteSeleccionado;
@@ -42,8 +40,6 @@ class PlayerMatchHistoryHero extends StatelessWidget {
   const PlayerMatchHistoryHero({
     super.key,
     required this.totalPartidos,
-    required this.pagados,
-    required this.pendientes,
     required this.conteoPorDeporte,
     required this.deporteSeleccionado,
     required this.onDeporteSeleccionado,
@@ -137,21 +133,6 @@ class PlayerMatchHistoryHero extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  l10n.tr(
-                    'playerMatchHistoryHeroPaidLine',
-                    params: {
-                      'paid': '$pagados',
-                      'pending': '$pendientes',
-                    },
-                  ),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.78),
-                    fontSize: 12.5,
-                    height: 1.3,
                   ),
                 ),
                 if (mostrarFiltros) ...[

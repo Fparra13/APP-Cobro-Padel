@@ -841,6 +841,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     final partidoLineaCobro = multiOrgPendiente
         ? null
         : lineaPartidoDetalle(cobrosVisibles.ancla);
+    final revisionResumen = resumenAporteEnRevision(deudasTeaser);
 
     return ShellTabScaffold(
       backgroundColor: MatchPayTokens.surfaceBase,
@@ -980,9 +981,13 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                         // Urgencia: aporte pendiente primero.
                         if (!alDia) ...[
                           MatchPaySectionHeader(
-                            title: l10n.tr('playerHomeCobrosSection'),
-                            accent: true,
-                            pulseDot: true,
+                            title: l10n.tr(
+                              comprobanteEnRevision
+                                  ? 'cobroStatusReceiptReview'
+                                  : 'playerHomeCobrosSection',
+                            ),
+                            accent: !comprobanteEnRevision,
+                            pulseDot: !comprobanteEnRevision,
                           ),
                           const SizedBox(height: 10),
                           PlayerHomeCobrosTeaser(
@@ -992,6 +997,10 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                             explicacion: explicacion,
                             partidoLinea: partidoLineaCobro,
                             encuentrosPendientes: encuentrosPendientesCount,
+                            montoDeclaradoEnRevision: revisionResumen.monto,
+                            fechaEncuentroEnRevision: revisionResumen.fecha,
+                            recintoEnRevision: revisionResumen.recinto,
+                            sportTypeEnRevision: revisionResumen.sport,
                             onPayTotal: readOnly
                                 ? _showOfflineWriteBlocked
                                 : _pagarTotalDesdeHomeTeaser,

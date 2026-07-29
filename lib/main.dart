@@ -662,9 +662,7 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
           onPayTotalFromHome: _payTotalFromHome,
           onPayOtherFromHome: _payOtherFromHome,
         ),
-    () => MiHistorialScreen(
-          onOpenMisCobros: () => setState(() => _index = 2),
-        ),
+    () => const MiHistorialScreen(),
     () => const MisCobrosScreen(),
     () => const ConfiguracionScreen(),
   ];
