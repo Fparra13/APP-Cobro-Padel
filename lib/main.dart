@@ -658,7 +658,6 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
   late final List<Widget Function()> _screenBuilders = [
     () => PlayerHomeScreen(
           onOpenMisCobros: () => setState(() => _index = 2),
-          onOpenPartidos: () => setState(() => _index = 1),
           onPayTotalFromHome: _payTotalFromHome,
           onPayOtherFromHome: _payOtherFromHome,
         ),

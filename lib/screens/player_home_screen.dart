@@ -15,7 +15,6 @@ import '../core/sport_theme.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
-import '../models/estadisticas_jugador.dart';
 import '../models/jugador.dart';
 import '../models/cuenta_saldo.dart';
 import '../models/comprobante_gasto_grupo.dart';
@@ -35,12 +34,10 @@ import '../widgets/offline_no_data_panel.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/kloovi_brand.dart';
 import '../widgets/partido_estado_publico.dart';
-import '../widgets/player_match_history_tile.dart';
 import '../services/convocatoria_lista_espera_service.dart';
 import '../services/notification_service.dart';
 import '../domain/deuda_explicacion.dart';
 import '../domain/estado_partido_publico.dart';
-import '../domain/player_invite_response.dart';
 import '../models/saldo_historico.dart';
 import '../offline/player_loader.dart';
 import '../offline/offline_snapshot_store.dart';
@@ -56,14 +53,12 @@ import 'responder_convocatoria_screen.dart';
 /// Home jugador: funcionalidad intacta, estética premium y deportiva.
 class PlayerHomeScreen extends StatefulWidget {
   final VoidCallback? onOpenMisCobros;
-  final VoidCallback? onOpenPartidos;
   final VoidCallback? onPayTotalFromHome;
   final VoidCallback? onPayOtherFromHome;
 
   const PlayerHomeScreen({
     super.key,
     this.onOpenMisCobros,
-    this.onOpenPartidos,
     this.onPayTotalFromHome,
     this.onPayOtherFromHome,
   });
@@ -85,8 +80,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   List<CuentaSaldo> _cuentasSaldo = [];
   double _totalDeudaHome = 0;
   Jugador? _perfil;
-  EstadisticasJugador? _misStats;
-  MisInvitacionesResumen _invitacionesResumen = MisInvitacionesResumen.empty;
   bool _loading = true;
   bool _primeraCarga = true;
   bool _showOrganizerNudge = false;
@@ -104,9 +97,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       _todas.where((c) => !c.entry.esSuplente).toList();
 
   int get _invitesRecibidas => _invitacionesTitular.length;
-
-  int get _invitesConfirmadas =>
-      _invitacionesTitular.where((c) => c.estaConfirmado).length;
 
   List<MiConvocatoria> get _pendientes =>
       _todas.where((c) => c.requiereRespuesta).toList();
@@ -238,8 +228,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
             _cuentasSaldo = [];
             _totalDeudaHome = 0;
             _perfil = null;
-            _misStats = null;
-            _invitacionesResumen = MisInvitacionesResumen.empty;
             _heroConvocatoriaCompleta = null;
             _rosterPorPartido.clear();
             _showOrganizerNudge = false;
@@ -298,8 +286,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       _totalDeudaHome = data.totalDeudaHome ??
           totalDeudaDesdeCuentas(data.cuentasSaldo);
       _perfil = data.perfil;
-      _misStats = data.misStats;
-      _invitacionesResumen = data.invitacionesResumen;
       _showOrganizerNudge = showNudge;
       _offlineEmpty = false;
       _error = null;
@@ -726,10 +712,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     );
   }
 
-  void _openHistorial() {
-    widget.onOpenPartidos?.call();
-  }
-
   Future<void> _cambiarFoto() async {
     if (_readOnly) {
       _showOfflineWriteBlocked();
@@ -756,13 +738,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
       ),
     );
     if (mounted) _load();
-  }
-
-  bool get _hasActivityData {
-    if (_partidosJugados.isNotEmpty) return true;
-    if (_misStats != null && _misStats!.partidosJugados > 0) return true;
-    if (_semanasJugando >= 2) return true;
-    return _invitesRecibidas > 0 || _invitesConfirmadas > 0;
   }
 
   ({String titleKey, String bodyKey}) _organizerEmpathyCopy() {
@@ -1059,8 +1034,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                                 : null,
                             forOrganizerPlayer: esAdmin,
                           ),
-                          const SizedBox(height: 12),
-                          _PlayerUpToDateStrip(proximoPartido: null),
                           const SizedBox(height: 20),
                         ] else if (mostrarUnirseGrupo) ...[
                           Align(
@@ -1072,14 +1045,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                        ],
-
-                        if (alDia && hero != null) ...[
-                          _PlayerUpToDateStrip(
-                            proximoPartido:
-                                hero.estaConfirmado ? hero : null,
-                          ),
-                          const SizedBox(height: 8),
                         ],
 
                         // Invitaciones / próximos a peso completo solo si al día.
@@ -1127,28 +1092,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 24),
                         ],
 
-                        // 4. Actividad: siempre visible (vacío motivador para jugadores nuevos)
-                        MatchPaySectionHeader(
-                          title: l10n.tr('playerActivityTitle'),
-                        ),
-                        const SizedBox(height: 8),
-                        if (!_hasActivityData) ...[
-                          Text(
-                            l10n.tr('playerActivityEmptyHint'),
-                            style: MatchPayTokens.bodySmallStyle(
-                              color: MatchPayTokens.inkSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                        ],
-                        _StatsStrip(
-                          stats: _misStats,
-                          invitaciones: _invitacionesResumen,
-                          semanasJugando: _semanasJugando,
-                          showPlaceholders: !_hasActivityData,
-                        ),
-                        const SizedBox(height: 24),
-
                         // Con deuda: invitaciones y próximos como sección inferior liviana.
                         if (!alDia && _pendientes.isNotEmpty) ...[
                           _PendingInvitesCompactSection(
@@ -1170,30 +1113,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                                   : null,
                               onTap: () => _openConvocatoria(c),
                             ),
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-
-                        // 5. Historial reciente solo al día (evita duplicar deuda)
-                        if (alDia && _partidosJugados.isNotEmpty) ...[
-                          Row(
-                            children: [
-                              Expanded(
-                                child: MatchPaySectionHeader(
-                                  title: l10n.tr('playerRecentMatchesTitle'),
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: _openHistorial,
-                                child: Text(l10n.tr('playerMatchHistorySeeAll')),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          _MatchHistoryList(
-                            partidos: _partidosJugados.take(3).toList(),
-                            saldosPorPartido: _saldosPorPartido,
-                            modo: PlayerMatchHistorialModo.porPartido,
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -1616,51 +1535,6 @@ class _HeroEmptyCard extends StatelessWidget {
   }
 }
 
-class _PlayerUpToDateStrip extends StatelessWidget {
-  final MiConvocatoria? proximoPartido;
-
-  const _PlayerUpToDateStrip({this.proximoPartido});
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    return MatchPaySurfaceCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Row(
-        children: [
-          Icon(
-            Icons.check_circle_rounded,
-            color: MatchPayTokens.accentSuccess,
-            size: 22,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.tr('playerStatusUpToDate'),
-                  style: MatchPayTokens.titleSmallStyle().copyWith(
-                    color: const Color(0xFF065F46),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  proximoPartido != null
-                      ? l10n.tr('playerStatusUpToDateNext')
-                      : l10n.tr('playerStatusUpToDateSub'),
-                  style: MatchPayTokens.bodySmallStyle().copyWith(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─── Secciones ────────────────────────────────────────────────
 
 /// Invitaciones livianas cuando hay aportes: sin Voy/No puedo masivos.
@@ -1882,156 +1756,6 @@ class _SecondaryMatchCard extends StatelessWidget {
   }
 }
 
-class _StatsStrip extends StatelessWidget {
-  final EstadisticasJugador? stats;
-  final MisInvitacionesResumen invitaciones;
-  final int semanasJugando;
-  final bool showPlaceholders;
-
-  const _StatsStrip({
-    required this.stats,
-    required this.invitaciones,
-    required this.semanasJugando,
-    this.showPlaceholders = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-
-    final partidos = stats?.partidosJugados ?? 0;
-    final secondary = resolvePrideSecondaryMetric(
-      invitaciones: invitaciones,
-      semanasJugando: semanasJugando,
-    );
-
-    final (String secondaryEmoji, String secondaryValue, String secondaryLabel) =
-        switch (secondary.kind) {
-      PlayerPrideSecondaryKind.respuesta => (
-          '🤝',
-          '${secondary.porcentaje}%',
-          l10n.tr('playerStatResponsePride'),
-        ),
-      PlayerPrideSecondaryKind.racha => (
-          '🔥',
-          '${secondary.semanas}',
-          l10n.tr('playerStatWeeksPride'),
-        ),
-      PlayerPrideSecondaryKind.vacio => (
-          '🤝',
-          '—',
-          l10n.tr('playerStatResponsePride'),
-        ),
-    };
-
-    final pagosAlDiaValue = (partidos > 0 && stats != null)
-        ? '${stats!.porcentajePagoAlDia.toStringAsFixed(0)}%'
-        : '—';
-
-    // Siempre las 3 fichas principales (también en 0) para que el jugador
-    // vea qué mide la app; no ocultar métricas solo porque valen cero.
-    final items = <(String, String, String)>[
-      (
-        '🏆',
-        '$partidos',
-        l10n.tr('playerStatMatchesPride'),
-      ),
-      (
-        secondaryEmoji,
-        secondaryValue,
-        secondaryLabel,
-      ),
-      (
-        '💚',
-        pagosAlDiaValue,
-        l10n.tr('playerStatOnTimePride'),
-      ),
-    ];
-
-    final visible = items.take(3).toList();
-    final muted = showPlaceholders &&
-        partidos == 0 &&
-        invitaciones.recibidas == 0 &&
-        semanasJugando < 2;
-
-    return SizedBox(
-      height: 116,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: visible.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final e = visible[index];
-          return Opacity(
-            opacity: muted ? 0.72 : 1,
-            child: Container(
-              width: 148,
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-              decoration: BoxDecoration(
-                color: MatchPayTokens.surfaceCard,
-                borderRadius:
-                    BorderRadius.circular(MatchPayTokens.radiusCardSm),
-                border: Border.all(color: MatchPayTokens.borderSubtle),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(e.$1, style: const TextStyle(fontSize: 20, height: 1)),
-                  const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        e.$2,
-                        maxLines: 1,
-                        style: MatchPayTokens.statValueStyle(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    e.$3,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: MatchPayTokens.bodySmallStyle().copyWith(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-
-class _MatchHistoryList extends StatelessWidget {
-  final List<DetallePartido> partidos;
-  final Map<int, double> saldosPorPartido;
-  final PlayerMatchHistorialModo modo;
-
-  const _MatchHistoryList({
-    required this.partidos,
-    required this.saldosPorPartido,
-    this.modo = PlayerMatchHistorialModo.porPartido,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return PlayerMatchHistoryList(
-      partidos: partidos,
-      saldosPorPartido: saldosPorPartido,
-      modo: modo,
-    );
-  }
-}
 
 /// CTA empático: vende alivio, no suscripción ni rol de organizador.
 class _OrganizerUpgradeCard extends StatelessWidget {
