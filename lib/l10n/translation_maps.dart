@@ -137,43 +137,43 @@ class TranslationMaps {
     'playerProfileMetricCompanions': 'Compañeros',
     'playerTodayTitle': 'Hoy para ti',
     'playerTodayMilestoneTitle': '¡Hito desbloqueado!',
-    'playerTodayMilestoneBody': '🎉 ¡Encuentro #{n} alcanzado! Gran constancia.',
+    'playerTodayMilestoneBody': '¡Encuentro #{n} alcanzado! Gran constancia.',
     'playerTodayMilestoneCta': 'Sigue sumando tu historia',
     'playerTodayStreakTitle': 'Tu racha sigue viva',
     'playerTodayStreakBody':
         'Llevas {racha} semanas seguidas. Una más y mantienes el impulso.',
     'playerTodayStreakCta': 'Reserva tu próxima cancha',
     'playerTodayNextGoalTitle': 'Próximo objetivo cercano',
-    'playerTodayNextGoalBody': '🎯 Te falta {n} encuentro para tu siguiente hito.',
+    'playerTodayNextGoalBody': 'Te falta {n} encuentro para tu siguiente hito.',
     'playerTodayNextGoalCta': 'Estás muy cerca',
     'playerTodayCommunityTitle': 'Juego compartido',
-    'playerTodayCommunityBody': '🤝 Este mes conectaste con {n} compañeros.',
+    'playerTodayCommunityBody': 'Este mes conectaste con {n} compañeros.',
     'playerTodayCommunityCta': 'El deporte se disfruta en equipo',
     'playerTodayWelcomeTitle': 'Tu recorrido comienza',
     'playerTodayWelcomeBody':
-        '✨ Cada encuentro cuenta. Tu perfil irá mostrando tus hitos.',
+        'Cada encuentro cuenta. Tu perfil irá mostrando tus hitos.',
     'playerTodayWelcomeCta': 'Empieza con tu próximo partido',
     'playerStoryExploreTitle': 'Modo explorador',
     'playerStoryExploreBody':
-        '🧭 Ya sumaste {n} deportes distintos. La variedad también es constancia.',
+        'Ya sumaste {n} deportes distintos. La variedad también es constancia.',
     'playerStoryIdentityTitle': 'Tu sello de asistencia',
     'playerStoryIdentityBody':
-        '🏆 Estás en {n}% de respuesta. Así se construye una identidad fiable.',
+        'Estás en {n}% de respuesta. Así se construye una identidad fiable.',
     'playerStoryEvolutionTitle': 'Vas en subida',
     'playerStoryEvolutionBody':
-        '📈 Este mes llevas {actual} encuentros (antes {prev}). Buen impulso.',
+        'Este mes llevas {actual} encuentros (antes {prev}). Buen impulso.',
     'playerStoryMemoryTitle': 'Un recuerdo activo',
     'playerStoryMemoryBody':
-        '📷 Hoy se cumple {n} año(s) desde tu primera actividad aquí.',
+        'Hoy se cumple {n} año(s) desde tu primera actividad aquí.',
     'playerStoryCuriosityEarlyTitle': 'Firma de madrugador',
     'playerStoryCuriosityEarlyBody':
-        '🌅 Tus encuentros tempranos ya son un patrón. El día es tuyo.',
+        'Tus encuentros tempranos ya son un patrón. El día es tuyo.',
     'playerStoryCuriosityNightTitle': 'Firma nocturna',
     'playerStoryCuriosityNightBody':
-        '🌙 Juegas fuerte de noche. Ese ritmo también cuenta.',
+        'Juegas fuerte de noche. Ese ritmo también cuenta.',
     'playerStoryCuriosityDayTitle': 'Tu día preferido',
     'playerStoryCuriosityDayBody':
-        '🗓️ Sueles concentrar juego los {day}.',
+        'Sueles concentrar juego los {day}.',
     'playerArchetypeConstantTitle': 'EL CONSTANTE',
     'playerArchetypeConstantBody':
         'Rara vez falta y mantiene una actividad deportiva regular.',
@@ -2100,43 +2100,44 @@ class TranslationMaps {
     'playerProfileMetricCompanions': 'Teammates',
     'playerTodayTitle': 'Today for you',
     'playerTodayMilestoneTitle': 'Milestone unlocked!',
-    'playerTodayMilestoneBody': '🎉 Session #{n} reached! Great consistency.',
+    'playerTodayMilestoneBody': 'Session #{n} reached! Great consistency.',
     'playerTodayMilestoneCta': 'Keep building your story',
     'playerTodayStreakTitle': 'Your streak is alive',
     'playerTodayStreakBody':
         'You are on {racha} straight weeks. One more keeps the momentum.',
     'playerTodayStreakCta': 'Book your next court',
     'playerTodayNextGoalTitle': 'Next goal ahead',
-    'playerTodayNextGoalBody': '🎯 You are {n} session away from your next milestone.',
+    'playerTodayNextGoalBody':
+        'You are {n} session away from your next milestone.',
     'playerTodayNextGoalCta': 'You are very close',
     'playerTodayCommunityTitle': 'Shared play',
-    'playerTodayCommunityBody': '🤝 This month you connected with {n} teammates.',
+    'playerTodayCommunityBody': 'This month you connected with {n} teammates.',
     'playerTodayCommunityCta': 'Sport feels better together',
     'playerTodayWelcomeTitle': 'Your journey starts now',
     'playerTodayWelcomeBody':
-        '✨ Every session counts. Your profile will reflect your milestones.',
+        'Every session counts. Your profile will reflect your milestones.',
     'playerTodayWelcomeCta': 'Start with your next match',
     'playerStoryExploreTitle': 'Explorer mode',
     'playerStoryExploreBody':
-        '🧭 You have played {n} different sports. Variety is consistency too.',
+        'You have played {n} different sports. Variety is consistency too.',
     'playerStoryIdentityTitle': 'Your attendance mark',
     'playerStoryIdentityBody':
-        '🏆 You are at {n}% response rate. That builds a reliable identity.',
+        'You are at {n}% response rate. That builds a reliable identity.',
     'playerStoryEvolutionTitle': 'You are trending up',
     'playerStoryEvolutionBody':
-        '📈 This month you have {actual} sessions (was {prev}). Nice momentum.',
+        'This month you have {actual} sessions (was {prev}). Nice momentum.',
     'playerStoryMemoryTitle': 'An active memory',
     'playerStoryMemoryBody':
-        '📷 Today marks {n} year(s) since your first activity here.',
+        'Today marks {n} year(s) since your first activity here.',
     'playerStoryCuriosityEarlyTitle': 'Early-bird signature',
     'playerStoryCuriosityEarlyBody':
-        '🌅 Early sessions are already a pattern. The day is yours.',
+        'Early sessions are already a pattern. The day is yours.',
     'playerStoryCuriosityNightTitle': 'Night signature',
     'playerStoryCuriosityNightBody':
-        '🌙 You play strong at night. That rhythm counts too.',
+        'You play strong at night. That rhythm counts too.',
     'playerStoryCuriosityDayTitle': 'Your preferred day',
     'playerStoryCuriosityDayBody':
-        '🗓️ You often play on {day}.',
+        'You often play on {day}.',
     'playerArchetypeConstantTitle': 'THE STEADY ONE',
     'playerArchetypeConstantBody':
         'Rarely misses and keeps a regular sports rhythm.',
@@ -4048,43 +4049,44 @@ class TranslationMaps {
     'playerProfileMetricCompanions': 'Companheiros',
     'playerTodayTitle': 'Hoje para você',
     'playerTodayMilestoneTitle': 'Marco desbloqueado!',
-    'playerTodayMilestoneBody': '🎉 Encontro #{n} alcançado! Ótima constância.',
+    'playerTodayMilestoneBody': 'Encontro #{n} alcançado! Ótima constância.',
     'playerTodayMilestoneCta': 'Continue construindo sua história',
     'playerTodayStreakTitle': 'Sua sequência continua',
     'playerTodayStreakBody':
         'Você está em {racha} semanas seguidas. Mais uma mantém o ritmo.',
     'playerTodayStreakCta': 'Agende sua próxima quadra',
     'playerTodayNextGoalTitle': 'Próxima meta adiante',
-    'playerTodayNextGoalBody': '🎯 Falta {n} encontro para seu próximo marco.',
+    'playerTodayNextGoalBody': 'Falta {n} encontro para seu próximo marco.',
     'playerTodayNextGoalCta': 'Você está muito perto',
     'playerTodayCommunityTitle': 'Jogo compartilhado',
-    'playerTodayCommunityBody': '🤝 Neste mês você se conectou com {n} companheiros.',
+    'playerTodayCommunityBody':
+        'Neste mês você se conectou com {n} companheiros.',
     'playerTodayCommunityCta': 'Esporte fica melhor em equipe',
     'playerTodayWelcomeTitle': 'Sua trajetória começa agora',
     'playerTodayWelcomeBody':
-        '✨ Cada encontro conta. Seu perfil vai refletir seus marcos.',
+        'Cada encontro conta. Seu perfil vai refletir seus marcos.',
     'playerTodayWelcomeCta': 'Comece com seu próximo jogo',
     'playerStoryExploreTitle': 'Modo explorador',
     'playerStoryExploreBody':
-        '🧭 Você já somou {n} esportes diferentes. Variedade também é constância.',
+        'Você já somou {n} esportes diferentes. Variedade também é constância.',
     'playerStoryIdentityTitle': 'Seu selo de presença',
     'playerStoryIdentityBody':
-        '🏆 Você está em {n}% de resposta. Assim se constrói uma identidade confiável.',
+        'Você está em {n}% de resposta. Assim se constrói uma identidade confiável.',
     'playerStoryEvolutionTitle': 'Você está em alta',
     'playerStoryEvolutionBody':
-        '📈 Este mês você tem {actual} encontros (antes {prev}). Bom impulso.',
+        'Este mês você tem {actual} encontros (antes {prev}). Bom impulso.',
     'playerStoryMemoryTitle': 'Uma memória ativa',
     'playerStoryMemoryBody':
-        '📷 Hoje completa {n} ano(s) desde sua primeira atividade aqui.',
+        'Hoje completa {n} ano(s) desde sua primeira atividade aqui.',
     'playerStoryCuriosityEarlyTitle': 'Assinatura madrugadora',
     'playerStoryCuriosityEarlyBody':
-        '🌅 Seus encontros cedo já são um padrão. O dia é seu.',
+        'Seus encontros cedo já são um padrão. O dia é seu.',
     'playerStoryCuriosityNightTitle': 'Assinatura noturna',
     'playerStoryCuriosityNightBody':
-        '🌙 Você joga forte à noite. Esse ritmo também conta.',
+        'Você joga forte à noite. Esse ritmo também conta.',
     'playerStoryCuriosityDayTitle': 'Seu dia preferido',
     'playerStoryCuriosityDayBody':
-        '🗓️ Você costuma jogar em {day}.',
+        'Você costuma jogar em {day}.',
     'playerArchetypeConstantTitle': 'O CONSTANTE',
     'playerArchetypeConstantBody':
         'Raramente falta e mantém uma atividade esportiva regular.',
