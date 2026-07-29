@@ -114,8 +114,20 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
   List<MiConvocatoria> get _proximos =>
       _todas.where((c) => c.estaConfirmado && c.esProximo).toList();
 
-  /// Elemento principal: primero lo que requiere acción, luego el próximo partido.
+  /// Deuda neta visible en Home (misma regla que el body).
+  bool get _alDiaHome {
+    final deuda = _totalDeudaHome > 0.005
+        ? _totalDeudaHome
+        : totalDeudaDesdeCuentas(_cuentasSaldo);
+    return deuda <= 0.005;
+  }
+
+  /// Héroe según cascada UX: deuda domina → invite → próximo confirmado.
+  ///
+  /// Con aportes pendientes no hay héroe de encuentro (cobros es el único
+  /// bloque dominante); invitaciones y próximos van a las listas debajo.
   MiConvocatoria? get _heroConvocatoria {
+    if (!_alDiaHome) return null;
     if (_pendientes.isNotEmpty) return _pendientes.first;
     if (_proximos.isNotEmpty) return _proximos.first;
     return null;
@@ -506,9 +518,15 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
     double deudaTotal,
     MiConvocatoria? hero,
   ) {
+    // Con aportes, el monto vive solo en la tarjeta: saludo limpio.
+    if (deudaTotal > 0.005) {
+      return '';
+    }
+    // Prioridad 2: invitaciones por responder.
     if (_pendientes.isNotEmpty) {
       return l10n.tr('playerContextPendingInvite');
     }
+    // Prioridad 3: próximo encuentro confirmado / estado general.
     if (hero != null && hero.estaConfirmado) {
       final emoji = SportThemeConfig.paletteFor(hero.partido.sportType).emoji;
       final fecha = hero.partido.fecha;
@@ -529,9 +547,6 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
         'playerContextMatchAt',
         params: {'emoji': emoji, 'time': formatHora(fecha)},
       );
-    }
-    if (deudaTotal > 0.005) {
-      return '';
     }
     final mes = _partidosEsteMes;
     if (mes >= 3) {
@@ -1058,8 +1073,10 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 8),
                         ],
 
-                        // Otras convocatorias pendientes / próximas
-                        if (_otrasPendientes.isNotEmpty) ...[
+                        // Invitaciones / próximos a peso completo solo si al día.
+                        // Con deuda: cobros es el único bloque de acción masiva;
+                        // invites van abajo en vista compacta.
+                        if (alDia && _otrasPendientes.isNotEmpty) ...[
                           MatchPaySectionHeader(
                             title: l10n.tr('playerInvitedTitle'),
                             count: _otrasPendientes.length,
@@ -1074,7 +1091,7 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           const SizedBox(height: 24),
                         ],
 
-                        if (_otrosProximos.isNotEmpty) ...[
+                        if (alDia && _otrosProximos.isNotEmpty) ...[
                           MatchPaySectionHeader(
                             title: l10n.tr('playerUpcomingTitle'),
                           ),
@@ -1122,6 +1139,31 @@ class _PlayerHomeScreenState extends State<PlayerHomeScreen> {
                           showPlaceholders: !_hasActivityData,
                         ),
                         const SizedBox(height: 24),
+
+                        // Con deuda: invitaciones y próximos como sección inferior liviana.
+                        if (!alDia && _pendientes.isNotEmpty) ...[
+                          _PendingInvitesCompactSection(
+                            convocatorias: _pendientes,
+                            onOpen: _openConvocatoria,
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        if (!alDia && _proximos.isNotEmpty) ...[
+                          MatchPaySectionHeader(
+                            title: l10n.tr('playerUpcomingTitle'),
+                          ),
+                          const SizedBox(height: 8),
+                          ..._proximos.map(
+                            (c) => _SecondaryMatchCard(
+                              convocatoria: c,
+                              completa: c.partido.id != null
+                                  ? _rosterPorPartido[c.partido.id!]
+                                  : null,
+                              onTap: () => _openConvocatoria(c),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
 
                         // 5. Historial reciente solo al día (evita duplicar deuda)
                         if (alDia && _partidosJugados.isNotEmpty) ...[
@@ -1611,6 +1653,117 @@ class _PlayerUpToDateStrip extends StatelessWidget {
 }
 
 // ─── Secciones ────────────────────────────────────────────────
+
+/// Invitaciones livianas cuando hay aportes: sin Voy/No puedo masivos.
+class _PendingInvitesCompactSection extends StatelessWidget {
+  final List<MiConvocatoria> convocatorias;
+  final void Function(MiConvocatoria) onOpen;
+
+  const _PendingInvitesCompactSection({
+    required this.convocatorias,
+    required this.onOpen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    if (convocatorias.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MatchPaySectionHeader(
+          title: l10n.tr('playerInvitedTitle'),
+          count: convocatorias.length,
+        ),
+        const SizedBox(height: 8),
+        MatchPaySurfaceCard(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Column(
+            children: [
+              for (var i = 0; i < convocatorias.length; i++) ...[
+                if (i > 0)
+                  const Divider(height: 1, indent: 14, endIndent: 14),
+                _PendingInviteCompactRow(
+                  convocatoria: convocatorias[i],
+                  onTap: () => onOpen(convocatorias[i]),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PendingInviteCompactRow extends StatelessWidget {
+  final MiConvocatoria convocatoria;
+  final VoidCallback onTap;
+
+  const _PendingInviteCompactRow({
+    required this.convocatoria,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final p = convocatoria.partido;
+    final palette = SportThemeConfig.paletteFor(p.sportType);
+    final recinto = p.recinto?.trim();
+    final fecha = formatFechaEncuentro(
+      p.fecha,
+      contexto: FechaEncuentroContexto.futuro,
+    );
+    final subtitle = [
+      fecha,
+      if (recinto != null && recinto.isNotEmpty) recinto,
+    ].join(' · ');
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Text(palette.emoji, style: const TextStyle(fontSize: 20)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.tr('inviteRespondEyebrow'),
+                    style: MatchPayTokens.bodySmallStyle().copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: MatchPayTokens.bodySmallStyle(
+                      color: MatchPayTokens.inkSecondary,
+                    ).copyWith(fontSize: 12.5),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: MatchPayTokens.inkMuted,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _SecondaryMatchCard extends StatelessWidget {
   final MiConvocatoria convocatoria;
