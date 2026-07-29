@@ -451,6 +451,9 @@ class TranslationMaps {
         'Ya declaraste un aporte (total o parcial) y el organizador aún no lo valida. Cuando lo apruebe, se actualizará tu saldo. No es necesario enviar otro.',
     'paymentPendingApprovalShort':
         'El organizador aún no valida tu aporte. No puedes enviar otro.',
+    'paymentUnderOrganizerReview': 'En revisión por el organizador',
+    'paymentDeclaredOn': 'Declarado · {date}',
+    'paymentReviewEncounter': 'Encuentro · {date}',
     'cobroStatusPending': 'Aporte pendiente',
     'cobroStatusPartialRegistered': 'Aporte parcial registrado',
     'cobroStatusPaid': 'Al día',
@@ -1082,6 +1085,8 @@ class TranslationMaps {
     'organizeBannerConfirmed': 'Encuentro confirmado · visible en Inicio',
     'organizeBannerSent': 'Invitación enviada · seguimiento en tiempo real',
     'organizeTrackingSectionTitle': 'RESPUESTAS',
+    'organizeDetailCupos': 'Cupos: {count}',
+    'organizeDetailDeadline': 'Plazo respuesta: {time}',
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmados · {pending} pendientes · {waiting} en espera',
     'organizeSummarySlotsFull': 'Cupos llenos · {starters} invitados',
@@ -2295,6 +2300,9 @@ class TranslationMaps {
         'You already declared a contribution and the organizer hasn’t validated it yet. When approved, your balance updates. No need to send another.',
     'paymentPendingApprovalShort':
         'The organizer hasn’t validated your contribution yet. You can’t send another.',
+    'paymentUnderOrganizerReview': 'Under review by the organizer',
+    'paymentDeclaredOn': 'Declared · {date}',
+    'paymentReviewEncounter': 'Session · {date}',
     'cobroStatusReceiptReviewAmount': '{type} {amount} · receipt under review',
     'cobroStatusPending': 'Contribution pending',
     'cobroStatusPartialRegistered': 'Partial contribution recorded',
@@ -2927,6 +2935,8 @@ class TranslationMaps {
     'organizeBannerConfirmed': 'Session confirmed · visible on Home',
     'organizeBannerSent': 'Invitation sent · real-time tracking',
     'organizeTrackingSectionTitle': 'RESPONSES',
+    'organizeDetailCupos': 'Slots: {count}',
+    'organizeDetailDeadline': 'Response deadline: {time}',
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmed · {pending} pending · {waiting} waiting',
     'organizeSummarySlotsFull': 'Slots full · {starters} invited',
@@ -4130,6 +4140,9 @@ class TranslationMaps {
         'Você já declarou uma contribuição (total ou parcial) e o organizador ainda não validou. Quando aprovar, seu saldo atualiza. Não precisa enviar outro.',
     'paymentPendingApprovalShort':
         'O organizador ainda não validou sua contribuição. Você não pode enviar outra.',
+    'paymentUnderOrganizerReview': 'Em revisão pelo organizador',
+    'paymentDeclaredOn': 'Declarado · {date}',
+    'paymentReviewEncounter': 'Encontro · {date}',
     'cobroStatusReceiptReviewAmount':
         '{type} {amount} · comprovante em revisão',
     'cobroStatusPending': 'Contribuição pendente',
@@ -4764,6 +4777,8 @@ class TranslationMaps {
     'organizeBannerConfirmed': 'Encontro confirmado · visível no Início',
     'organizeBannerSent': 'Convite enviado · acompanhamento em tempo real',
     'organizeTrackingSectionTitle': 'RESPOSTAS',
+    'organizeDetailCupos': 'Vagas: {count}',
+    'organizeDetailDeadline': 'Prazo de resposta: {time}',
     'organizeSummaryCounts':
         '{confirmed}/{max} confirmados · {pending} pendentes · {waiting} em espera',
     'organizeSummarySlotsFull': 'Vagas cheias · {starters} convidados',
