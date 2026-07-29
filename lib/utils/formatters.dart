@@ -218,6 +218,68 @@ String formatFechaArchivo(DateTime fecha) =>
 String formatMesDiaHora(DateTime fecha) =>
     DateFormat('dd/MM · HH:mm', _activeDateLocale).format(fecha);
 
+/// Contexto de presentación para fechas de encuentro (regla UX Kloovi).
+enum FechaEncuentroContexto {
+  /// Convocatorias / próximos: puede usar Hoy / Mañana.
+  futuro,
+
+  /// Registrar gastos / historial / detalle: siempre absoluto (nunca Hoy/Mañana/Ayer).
+  pasado,
+}
+
+/// Fecha de encuentro según [contexto] (API explícita; no inferir por reloj solo).
+///
+/// Futuro: Hoy · HH:mm | Mañana · HH:mm | Lun 28 Jul · HH:mm | Lun 28 Jul 2027 · HH:mm
+/// Pasado: Lun 28 Jul · HH:mm | Lun 28 Jul 2025 · HH:mm
+///
+/// UX decision:
+/// Encounter headers intentionally use a unified visual pattern
+/// across locales (EEE d MMM · HH:mm) instead of locale-specific
+/// date ordering for consistency throughout the app.
+String formatFechaEncuentro(
+  DateTime fecha, {
+  required FechaEncuentroContexto contexto,
+  DateTime? now,
+}) {
+  final reference = now ?? DateTime.now();
+
+  if (contexto == FechaEncuentroContexto.futuro) {
+    final dayFecha = DateTime(fecha.year, fecha.month, fecha.day);
+    final dayNow = DateTime(reference.year, reference.month, reference.day);
+    final calendarDays = dayFecha.difference(dayNow).inDays;
+    final time = formatHora(fecha);
+
+    if (calendarDays == 0) {
+      return _relativeLocalePhrase(
+        es: 'Hoy · $time',
+        en: 'Today · $time',
+        pt: 'Hoje · $time',
+      );
+    }
+    if (calendarDays == 1) {
+      return _relativeLocalePhrase(
+        es: 'Mañana · $time',
+        en: 'Tomorrow · $time',
+        pt: 'Amanhã · $time',
+      );
+    }
+  }
+
+  return _formatFechaEncuentroAbsoluta(fecha, referenceYear: reference.year);
+}
+
+/// Absoluto corto: "Lun 28 Jul · HH:mm" o con año si [fecha] es de otro año.
+String _formatFechaEncuentroAbsoluta(
+  DateTime fecha, {
+  required int referenceYear,
+}) {
+  final locale = _activeDateLocale;
+  final pattern = fecha.year == referenceYear ? 'EEE d MMM' : 'EEE d MMM y';
+  final raw = DateFormat(pattern, locale).format(fecha);
+  final cleaned = raw.replaceAll('.', '').trim();
+  return '${capitalize(cleaned)} · ${formatHora(fecha)}';
+}
+
 String capitalize(String text) {
   if (text.isEmpty) return text;
   return text[0].toUpperCase() + text.substring(1);
