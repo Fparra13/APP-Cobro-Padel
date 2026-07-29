@@ -37,6 +37,7 @@ import 'screens/onboarding/acquisition_screen.dart';
 import 'screens/onboarding/sport_selection_screen.dart';
 import 'screens/mi_historial_screen.dart';
 import 'screens/player_home_screen.dart';
+import 'screens/player_profile_screen.dart';
 import 'services/fcm_service.dart' show FcmService, firebaseMessagingBackgroundHandler;
 import 'services/notification_service.dart';
 import 'services/supabase_realtime_service.dart';
@@ -663,6 +664,7 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
         ),
     () => const MiHistorialScreen(),
     () => const MisCobrosScreen(),
+    () => const PlayerProfileScreen(),
     () => const ConfiguracionScreen(),
   ];
 
@@ -828,6 +830,11 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
                 icon: const Icon(Icons.receipt_long_outlined),
                 selectedIcon: Icon(Icons.receipt_long_rounded, color: palette.primary),
                 label: l10n.navMyCobros,
+              ),
+              NavigationDestination(
+                icon: const Icon(Icons.shield_outlined),
+                selectedIcon: Icon(Icons.shield_rounded, color: palette.primary),
+                label: l10n.navProfile,
               ),
               NavigationDestination(
                 icon: const Icon(Icons.settings_outlined),

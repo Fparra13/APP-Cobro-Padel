@@ -46,6 +46,7 @@ class MatchPayStrings {
   String get navConfig => tr('navConfig');
   String get navMyCobros => tr('navMyCobros');
   String get navMyMatches => tr('navMyMatches');
+  String get navProfile => tr('navProfile');
   String get navOrganizerCobros => tr('navOrganizerCobros');
   String get homeAdminTitle => tr('homeAdminTitle');
   String get configScreenTitle => tr('configScreenTitle');
