@@ -1,7 +1,6 @@
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
 import '../domain/organizer_cycle_logic.dart';
-import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/convocatoria_jugador.dart';
 import '../models/mi_convocatoria.dart';
@@ -126,6 +125,8 @@ Future<OrganizerHomeData> _fetchFromRepos(AppRepositories repos) async {
   try {
     // Parallel como el home del jugador: el waterfall serial sumaba ~4s.
     // Cada bloque sigue aislado con _safeEmpty para no tumbar el Inicio.
+    // Desglose del último partido NO va aquí: QuickActions lo carga on-tap
+    // (ahorra 1 RTT secuencial en el path crítico de las tarjetas).
     final results = await Future.wait([
       _safeEmpty(
         () => repos.getResumenJugadores(reconciliar: false),
@@ -164,19 +165,6 @@ Future<OrganizerHomeData> _fetchFromRepos(AppRepositories repos) async {
     final misDeudas = results[4] as List<DetallePartido>;
     final partidos = results[5] as List<PartidoCompleto>;
 
-    var desglose = <DesgloseJugador>[];
-    final id = partidos.isEmpty ? null : partidos.first.partido.id;
-    if (id != null) {
-      desglose = await _safeEmpty(
-        () => repos.getDesglose(
-          id,
-          reconciliar: false,
-          repararCuenta: false,
-        ),
-        <DesgloseJugador>[],
-      );
-    }
-
     return OrganizerHomeData(
       resumenes: resumenes,
       convocatorias: convocatorias,
@@ -184,7 +172,7 @@ Future<OrganizerHomeData> _fetchFromRepos(AppRepositories repos) async {
       pagosPorValidar: pagosPorValidar,
       misDeudas: ordenarDeudasPorFecha(misDeudas),
       partidosJugadosRecientes: partidos,
-      ultimoPartidoDesglose: desglose,
+      ultimoPartidoDesglose: const [],
       cobrosResumen: cobrosResumenDesdeResumenes(resumenes),
     );
   } catch (_) {

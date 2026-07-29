@@ -14,7 +14,6 @@ import '../offline/offline_snapshot_store.dart';
 import '../models/desglose_jugador.dart';
 import '../models/detalle_partido.dart';
 import '../models/convocatoria_jugador.dart';
-import '../models/jugador.dart';
 import '../models/mi_convocatoria.dart';
 import '../repositories/partido_repository.dart';
 import '../widgets/partido_estado_publico.dart';
@@ -121,16 +120,24 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      final results = await Future.wait([
-        loadOrganizerHome(repos: repos, snapshotStore: snapshotStore),
-        repos.getJugadores(soloActivos: true, incluirUsuarioActual: false),
-      ]);
-      final result = results[0] as OrganizerHomeLoadResult;
-      final jugadoresGrupo = results[1] as List<Jugador>;
+      final result = await loadOrganizerHome(
+        repos: repos,
+        snapshotStore: snapshotStore,
+      );
+      // Roster ya viene en resumenes (getResumenJugadores → getAll).
+      // Evita un segundo round-trip getJugadores en paralelo con el Home.
       final orgId = AuthService.instance.currentUser?.id;
-      _participantesExternosActivos = jugadoresGrupo
-          .where((j) => j.supabaseId != null && j.supabaseId != orgId)
-          .length;
+      _participantesExternosActivos = result.data == null
+          ? 0
+          : result.data!.resumenes
+              .where((r) {
+                final sid = r.jugador.supabaseId;
+                return r.jugador.activo &&
+                    sid != null &&
+                    sid.isNotEmpty &&
+                    sid != orgId;
+              })
+              .length;
 
       if (!mounted) return;
 

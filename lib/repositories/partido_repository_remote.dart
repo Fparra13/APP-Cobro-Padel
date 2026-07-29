@@ -748,25 +748,26 @@ class PartidoRepositoryRemote {
     });
   }
 
-  /// Lista ligera para historial: partido + detalles en 2 consultas (sin costos).
+  /// Lista ligera para historial: partido + detalles en consultas en paralelo (sin costos).
   Future<List<PartidoCompleto>> getCompletosListaResumen(
     List<int> partidoIds,
   ) async {
     if (partidoIds.isEmpty) return [];
     return SupabaseHelpers.guard('Listar encuentros (resumen)', () async {
-      final partidoRows = await _client
-          .from('partidos')
-          .select()
-          .inFilter('id', partidoIds);
+      // IDs ya conocidos: partidos, detalles e historial de saldo en paralelo
+      // (antes: 4 awaits secuenciales ≈ 4 RTT en Home).
+      final parallel = await Future.wait<dynamic>([
+        _client.from('partidos').select().inFilter('id', partidoIds),
+        _client
+            .from('detalles_partido')
+            .select('*, profiles:jugador_id(nombre)')
+            .inFilter('partido_id', partidoIds),
+        _fetchSnapshotsSaldoAnteriorCobroBatch(partidoIds: partidoIds),
+      ]);
 
-      final detalleRows = await _client
-          .from('detalles_partido')
-          .select('*, profiles:jugador_id(nombre)')
-          .inFilter('partido_id', partidoIds);
-
-      final histRows = await _fetchSnapshotsSaldoAnteriorCobroBatch(
-        partidoIds: partidoIds,
-      );
+      final partidoRows = parallel[0] as List;
+      final detalleRows = parallel[1] as List;
+      final histRows = parallel[2] as Map<String, double>;
 
       final saldosPorPartido = <int, Map<String, double>>{};
       for (final entry in histRows.entries) {
@@ -779,7 +780,7 @@ class PartidoRepositoryRemote {
       }
 
       final partidoMap = <int, Partido>{
-        for (final row in partidoRows as List)
+        for (final row in partidoRows)
           SupabaseParse.toInt(row['id']): Partido.fromSupabaseMap(
             Map<String, dynamic>.from(row),
           ),
@@ -787,8 +788,8 @@ class PartidoRepositoryRemote {
 
       final detallesPorPartido = <int, List<DetallePartido>>{};
       final jugadorIds = <String>{};
-      for (final row in detalleRows as List) {
-        final map = Map<String, dynamic>.from(row);
+      for (final row in detalleRows) {
+        final map = Map<String, dynamic>.from(row as Map);
         final pid = SupabaseParse.toInt(map['partido_id']);
         final profile = map['profiles'] as Map?;
         final detalle = DetallePartido.fromSupabaseMap(
