@@ -96,6 +96,16 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
 
   String _nuevoExpenseId() => 'exp_${_expenseIdSeq++}';
 
+  /// Copy solo para registrar gastos (sin tocar translation_maps).
+  String _copyRegistrar(String es, {required String en, required String pt}) {
+    final lang = context.readSettings().locale.languageCode;
+    return switch (lang) {
+      'en' => en,
+      'pt' => pt,
+      _ => es,
+    };
+  }
+
   void _agregarGastoCompartido({
     String label = '',
     ExpenseIconKey icon = ExpenseIconKey.general,
@@ -1032,7 +1042,9 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     return Theme(
       data: themed,
       child: Scaffold(
-      backgroundColor: MatchPayTokens.surfaceBase,
+      backgroundColor: _flujoRegistrarAportes
+          ? MatchPayTokens.surfaceInset
+          : MatchPayTokens.surfaceBase,
       appBar: AppBar(
         backgroundColor: themed.colorScheme.primary,
         foregroundColor: Colors.white,
@@ -1061,7 +1073,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                     Expanded(
                       child: ListView(
                         padding: _flujoRegistrarAportes
-                            ? const EdgeInsets.fromLTRB(8, 8, 8, 0)
+                            ? const EdgeInsets.fromLTRB(16, 12, 16, 16)
                             : const EdgeInsets.fromLTRB(12, 12, 12, 0),
                         children: [
                           if (widget.isEditing && !_flujoRegistrarAportes)
@@ -1070,11 +1082,12 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                             _buildResumenEncuentroReadonly()
                           else
                             _buildDatosPartido(),
-                          SizedBox(height: _flujoRegistrarAportes ? 8 : 12),
+                          SizedBox(height: _flujoRegistrarAportes ? 10 : 12),
                           _buildJugadoresPartido(),
-                          SizedBox(height: _flujoRegistrarAportes ? 8 : 12),
+                          SizedBox(height: _flujoRegistrarAportes ? 10 : 12),
                           _buildItemsCobro(),
-                          SizedBox(height: _flujoRegistrarAportes ? 8 : 12),
+                          if (!_flujoRegistrarAportes)
+                            const SizedBox(height: 12),
                         ],
                       ),
                     ),
@@ -1082,6 +1095,58 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                   ],
                 ),
     ),
+    );
+  }
+
+  /// Contenedor visual del flujo registrar (superficie + sombra sutil M3).
+  Widget _registrarSurface({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(14, 12, 14, 12),
+  }) {
+    return Material(
+      color: MatchPayTokens.surfaceCard,
+      elevation: 1,
+      shadowColor: Colors.black.withValues(alpha: 0.06),
+      surfaceTintColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(MatchPayTokens.radiusCardSm),
+          border: Border.all(
+            color: MatchPayTokens.borderSubtle.withValues(alpha: 0.45),
+          ),
+        ),
+        padding: padding,
+        child: child,
+      ),
+    );
+  }
+
+  /// Título de sección compacto (sin caja de color) — solo registrar.
+  Widget _registrarSectionTitle(
+    String titulo, {
+    IconData? icono,
+    Widget? trailing,
+  }) {
+    return Row(
+      children: [
+        if (icono != null) ...[
+          Icon(icono, size: 18, color: MatchPayTokens.inkMuted),
+          const SizedBox(width: 8),
+        ],
+        Expanded(
+          child: Text(
+            titulo,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: MatchPayTokens.ink,
+              letterSpacing: -0.2,
+            ),
+          ),
+        ),
+        ?trailing,
+      ],
     );
   }
 
@@ -1103,92 +1168,83 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   }
 
   Widget _buildResumenEncuentroReadonly() {
-    final l10n = context.l10n;
     final lang = context.readSettings().locale.languageCode;
     final recinto = _recintoCtrl.text.trim();
-    final notas = _notasCtrl.text.trim();
     final sportLabel = _sportType.labelForLocale(lang);
-    final fechaHora = formatMesDiaHora(_fechaPartido);
-    final participantsLabel = _asistentes.length == 1
-        ? l10n.tr('onePlayer')
-        : l10n.tr('matchPlayersCount', params: {
-            'count': '${_asistentes.length}',
-          });
-    final confirmedLine = l10n.tr('matchConfirmedLine', params: {
-      'participants': participantsLabel,
-    });
-    final metaStyle = TextStyle(
-      fontSize: 12,
-      color: Colors.green.shade800,
-      height: 1.35,
+    final fechaHora = formatFechaEncuentro(
+      _fechaPartido,
+      contexto: FechaEncuentroContexto.pasado,
     );
+    final accent = Theme.of(context).colorScheme.primary;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+    return _registrarSurface(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SportIcon(
-                sport: _sportType,
-                size: 20,
-                color: context.sportPrimaryDark,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '$sportLabel · $confirmedLine',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Colors.green.shade900,
-                    height: 1.3,
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent.withValues(alpha: 0.12),
+            ),
+            alignment: Alignment.center,
+            child: SportIcon(
+              sport: _sportType,
+              size: 28,
+              color: accent,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            sportLabel,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 22,
+              color: MatchPayTokens.ink,
+              letterSpacing: -0.5,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            fechaHora,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: MatchPayTokens.inkMuted,
+              height: 1.35,
+            ),
+          ),
+          if (recinto.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 15,
+                  color: MatchPayTokens.inkMuted,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    recinto,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: MatchPayTokens.inkMuted,
+                      height: 1.35,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 4,
-            runSpacing: 2,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Icon(
-                Icons.calendar_today,
-                size: 14,
-                color: context.sportPrimary,
-              ),
-              Text(fechaHora, style: metaStyle),
-              if (recinto.isNotEmpty) ...[
-                Text('·', style: metaStyle),
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 14,
-                  color: context.sportPrimary,
-                ),
-                Text(
-                  recinto,
-                  style: metaStyle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
               ],
-            ],
-          ),
-          if (notas.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(
-              notas,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade700,
-                height: 1.3,
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ],
@@ -1324,70 +1380,135 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     final l10n = context.l10n;
     final nAsistentes = _asistentes.length;
     final suggestions = GastoSportSuggestions.chipsFor(_sportType);
-    final sectionPad = _flujoRegistrarAportes ? 10.0 : 16.0;
-    final gapBeforeGastos = _flujoRegistrarAportes ? 8.0 : 16.0;
+    final sectionPad = _flujoRegistrarAportes ? 8.0 : 16.0;
+    final gapBeforeGastos = _flujoRegistrarAportes ? 6.0 : 16.0;
 
-    final gastosHijos = <Widget>[
+    final addExpenseButton = OutlinedButton.icon(
+      onPressed: _agregarGastoCompartido,
+      icon: const Icon(Icons.add),
+      label: Text(l10n.addExpense),
+    );
+
+    final gastosLista = <Widget>[
       ..._gastosCompartidos.map(_buildTarjetaGastoCompartido),
-      OutlinedButton.icon(
-        onPressed: _agregarGastoCompartido,
-        icon: const Icon(Icons.add),
-        label: Text(l10n.addExpense),
-      ),
     ];
 
-    final body = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildEncabezadoSeccion(
-          titulo: l10n.tr('matchExpensesTitle'),
-          subtitulo: l10n.tr('enterExpensesHint'),
-          icono: Icons.receipt_long,
-          color: Colors.teal.shade700,
+    final gastosHijos = <Widget>[
+      ...gastosLista,
+      addExpenseButton,
+    ];
+
+    final prorrateoSlot = ListenableBuilder(
+      listenable: _gastosMontosListenable,
+      builder: (context, _) {
+        final totalFijo = _monto(ConceptosCobro.cancha) +
+            _monto(ConceptosCobro.pelotas);
+        if (nAsistentes <= 0 || totalFijo <= 0) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: _buildChipProrrateo(
+            l10n.tr('courtAndBallsPerPerson', params: {
+              'court': formatMoney(_prorrateoCancha()),
+              'balls': formatMoney(_prorrateoPelotas()),
+            }),
+            color: Colors.green.shade700,
+          ),
+        );
+      },
+    );
+
+    final Widget body;
+    if (_flujoRegistrarAportes) {
+      final addPrimary = FilledButton.icon(
+        onPressed: _agregarGastoCompartido,
+        icon: const Icon(Icons.add, size: 20),
+        label: Text(l10n.addExpense),
+        style: FilledButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(MatchPayTokens.radiusButton),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
         ),
-        if (suggestions.isNotEmpty) ...[
-          SizedBox(height: _flujoRegistrarAportes ? 8 : 12),
-          Text(
-            l10n.tr('expensePresetsHint'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+      );
+
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _registrarSectionTitle(
+            l10n.tr('matchExpensesTitle'),
+            icono: Icons.receipt_long_outlined,
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final s in suggestions) _buildSuggestionChip(s, l10n),
-            ],
-          ),
-        ],
-        // Slot fijo: evita remount del TextField al aparecer el chip.
-        ListenableBuilder(
-          listenable: _gastosMontosListenable,
-          builder: (context, _) {
-            final totalFijo = _monto(ConceptosCobro.cancha) +
-                _monto(ConceptosCobro.pelotas);
-            if (nAsistentes <= 0 || totalFijo <= 0) {
-              return const SizedBox.shrink();
-            }
-            return Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: _buildChipProrrateo(
-                l10n.tr('courtAndBallsPerPerson', params: {
-                  'court': formatMoney(_prorrateoCancha()),
-                  'balls': formatMoney(_prorrateoPelotas()),
-                }),
-                color: Colors.green.shade700,
+          if (gastosLista.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ...gastosLista,
+            const SizedBox(height: 12),
+            addPrimary,
+          ] else ...[
+            const SizedBox(height: 12),
+            addPrimary,
+          ],
+          if (suggestions.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              _copyRegistrar(
+                'Accesos rápidos',
+                en: 'Quick add',
+                pt: 'Atalhos',
               ),
-            );
-          },
-        ),
-        SizedBox(height: gapBeforeGastos),
-        if (_flujoRegistrarAportes)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: gastosHijos,
-          )
-        else
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: MatchPayTokens.inkMuted,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final s in suggestions)
+                  _buildSuggestionChip(s, l10n, compact: true),
+              ],
+            ),
+          ],
+          prorrateoSlot,
+        ],
+      );
+    } else {
+      body = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildEncabezadoSeccion(
+            titulo: l10n.tr('matchExpensesTitle'),
+            subtitulo: l10n.tr('enterExpensesHint'),
+            icono: Icons.receipt_long,
+            color: Colors.teal.shade700,
+          ),
+          if (suggestions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              l10n.tr('expensePresetsHint'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final s in suggestions) _buildSuggestionChip(s, l10n),
+              ],
+            ),
+          ],
+          // Slot fijo: evita remount del TextField al aparecer el chip.
+          prorrateoSlot,
+          SizedBox(height: gapBeforeGastos),
           _buildGrupoCobro(
             titulo: l10n.groupExpensesTitle,
             subtitulo: l10n.groupExpensesSubtitle,
@@ -1395,14 +1516,12 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             color: Colors.deepOrange.shade700,
             hijos: gastosHijos,
           ),
-      ],
-    );
+        ],
+      );
+    }
 
     if (_flujoRegistrarAportes) {
-      return Padding(
-        padding: EdgeInsets.all(sectionPad),
-        child: body,
-      );
+      return _registrarSurface(child: body);
     }
 
     return Card(
@@ -1420,8 +1539,9 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
 
   Widget _buildSuggestionChip(
     GastoSportSuggestion suggestion,
-    MatchPayStrings l10n,
-  ) {
+    MatchPayStrings l10n, {
+    bool compact = false,
+  }) {
     final alreadyAdded = switch (suggestion.kind) {
       GastoSuggestionKind.venue =>
         GastoPresetLogic.findPreset(_gastosCompartidos, ConceptosCobro.cancha) !=
@@ -1450,12 +1570,31 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     };
 
     return ActionChip(
+      visualDensity: compact ? VisualDensity.compact : VisualDensity.standard,
+      materialTapTargetSize: compact
+          ? MaterialTapTargetSize.shrinkWrap
+          : MaterialTapTargetSize.padded,
+      backgroundColor: compact ? MatchPayTokens.surfaceInset : null,
+      side: compact
+          ? const BorderSide(color: MatchPayTokens.borderSubtle)
+          : null,
       avatar: Icon(
         avatarIcon,
-        size: 18,
-        color: alreadyAdded ? Colors.grey : color,
+        size: compact ? 14 : 18,
+        color: alreadyAdded
+            ? Colors.grey
+            : (compact ? MatchPayTokens.inkMuted : color),
       ),
-      label: Text(l10n.tr(suggestion.labelKey)),
+      label: Text(
+        l10n.tr(suggestion.labelKey),
+        style: TextStyle(
+          fontSize: compact ? 12 : 14,
+          fontWeight: compact ? FontWeight.w500 : FontWeight.w500,
+          color: alreadyAdded
+              ? Colors.grey
+              : (compact ? MatchPayTokens.inkSecondary : null),
+        ),
+      ),
       onPressed:
           alreadyAdded ? null : () => _agregarSugerenciaGasto(suggestion),
     );
@@ -1948,34 +2087,62 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                 'total': '$nTotal',
               });
 
-    final sectionPad = _flujoRegistrarAportes ? 10.0 : 16.0;
+    final sectionPad = _flujoRegistrarAportes ? 8.0 : 16.0;
     final headerGap = _flujoRegistrarAportes ? 8.0 : 12.0;
+
+    final tituloAsistencia = _flujoRegistrarAportes
+        ? _copyRegistrar(
+            'Asistieron al encuentro',
+            en: 'Attended the session',
+            pt: 'Compareceram ao encontro',
+          )
+        : (context.repos.isCloud
+            ? l10n.tr('confirmedPlayersTitle')
+            : l10n.tr('playersAndPaymentsTitle'));
+
+    final expandIcon = Icon(
+      _jugadoresExpandido
+          ? Icons.expand_less_rounded
+          : Icons.expand_more_rounded,
+      color: _flujoRegistrarAportes ? MatchPayTokens.inkMuted : color,
+      size: _flujoRegistrarAportes ? 22 : 28,
+    );
+
+    final Widget header = _flujoRegistrarAportes
+        ? Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: _toggleJugadoresExpandido,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: _registrarSectionTitle(
+                  tituloAsistencia,
+                  icono: Icons.people_outline,
+                  trailing: expandIcon,
+                ),
+              ),
+            ),
+          )
+        : Material(
+            type: MaterialType.transparency,
+            child: InkWell(
+              onTap: _toggleJugadoresExpandido,
+              borderRadius: BorderRadius.circular(12),
+              child: _buildEncabezadoSeccion(
+                titulo: tituloAsistencia,
+                subtitulo: conteo,
+                icono: Icons.people,
+                color: color,
+                trailing: expandIcon,
+              ),
+            ),
+          );
 
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            onTap: _toggleJugadoresExpandido,
-            borderRadius: BorderRadius.circular(12),
-            child: _buildEncabezadoSeccion(
-              titulo: _flujoRegistrarAportes || context.repos.isCloud
-                  ? l10n.tr('confirmedPlayersTitle')
-                  : l10n.tr('playersAndPaymentsTitle'),
-              subtitulo: conteo,
-              icono: Icons.people,
-              color: color,
-              trailing: Icon(
-                _jugadoresExpandido
-                    ? Icons.expand_less_rounded
-                    : Icons.expand_more_rounded,
-                color: color,
-                size: 28,
-              ),
-            ),
-          ),
-        ),
+        header,
         SizedBox(height: headerGap),
         if (!_jugadoresExpandido)
           _buildJugadoresColapsado(seleccionados)
@@ -2114,10 +2281,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     );
 
     if (_flujoRegistrarAportes) {
-      return Padding(
-        padding: EdgeInsets.all(sectionPad),
-        child: body,
-      );
+      return _registrarSurface(child: body);
     }
 
     return Card(
@@ -2151,7 +2315,12 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   Widget _buildJugadoresColapsado(List<Jugador> seleccionados) {
     final l10n = context.l10n;
     const maxChips = 8;
-    final pad = _flujoRegistrarAportes ? 8.0 : 12.0;
+    final pad = _flujoRegistrarAportes ? 0.0 : 12.0;
+    final ctaEditarAsistencia = _copyRegistrar(
+      'Editar asistencia',
+      en: 'Edit attendance',
+      pt: 'Editar presença',
+    );
 
     final content = Padding(
       padding: EdgeInsets.all(pad),
@@ -2183,45 +2352,67 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                 if (_flujoRegistrarAportes) ...[
                   const SizedBox(height: 8),
                   Align(
-                    alignment: Alignment.centerLeft,
+                    alignment: Alignment.centerRight,
                     child: TextButton.icon(
                       onPressed: _toggleJugadoresExpandido,
-                      icon: Icon(
-                        Icons.edit_outlined,
-                        size: 18,
-                        color: Colors.indigo.shade700,
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: Text(ctaEditarAsistencia),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        minimumSize: const Size(0, 40),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                      label: Text(l10n.tr('playersTapToEditList')),
                     ),
                   ),
                 ],
               ],
             )
           else if (_flujoRegistrarAportes) ...[
-            Text(
-              seleccionados.length == 1
-                  ? l10n.tr('onePlayer')
-                  : l10n.tr('matchPlayersCount', params: {
-                      'count': '${seleccionados.length}',
-                    }),
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.indigo.shade900,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: _toggleJugadoresExpandido,
-                icon: Icon(
-                  Icons.edit_outlined,
-                  size: 18,
-                  color: Colors.indigo.shade700,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    seleccionados.length == 1
+                        ? l10n.tr('onePlayer')
+                        : l10n.tr('matchPlayersCount', params: {
+                            'count': '${seleccionados.length}',
+                          }),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: MatchPayTokens.inkSecondary,
+                      height: 1.3,
+                    ),
+                  ),
                 ),
-                label: Text(l10n.tr('playersTapToEditList')),
-              ),
+                TextButton.icon(
+                  onPressed: _toggleJugadoresExpandido,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: Text(ctaEditarAsistencia),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    minimumSize: const Size(0, 40),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ] else ...[
             Wrap(
@@ -2273,6 +2464,11 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         : MaterialType.canvas;
     final materialColor =
         _flujoRegistrarAportes ? null : Colors.indigo.shade50;
+
+    // En registrar el bloque ya va dentro de _registrarSurface.
+    if (_flujoRegistrarAportes) {
+      return content;
+    }
 
     return Material(
       type: materialType,
