@@ -1,7 +1,8 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
@@ -11,10 +12,12 @@ import '../domain/player_home_stats.dart';
 import '../domain/player_invite_response.dart';
 import '../domain/player_profile_badges.dart';
 import '../domain/player_profile_pride.dart';
+import '../domain/story_models.dart';
 import '../l10n/matchpay_strings.dart';
 import '../models/detalle_partido.dart';
 import '../models/jugador.dart';
 import '../models/mi_convocatoria.dart';
+import '../services/story_engine_service.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
@@ -38,9 +41,11 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
   PlayerProfilePrideData? _pride;
   List<PlayerBehaviorBadgeView> _badges = const [];
   List<_ProfileActivityPoint> _activities = const [];
+  StoryCard? _todayStory;
   int _companeros = 0;
   bool _loading = true;
   String? _error;
+  final _storyEngine = StoryEngineService();
 
   @override
   void initState() {
@@ -100,14 +105,44 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
         convocatorias: convocatorias,
         invitaciones: invitaciones,
       );
+      final companeros = _countCompaneros(partidos, uid);
+      final activities = _buildActivityPoints(partidos);
+      final fechas = activities.map((a) => a.date).toList();
+      final mensual = pride.actividadMensual;
+      final mesActual = mensual.isNotEmpty ? mensual.last : 0;
+      final mesAnterior =
+          mensual.length >= 2 ? mensual[mensual.length - 2] : 0;
+
+      bool badgeUnlocked(PlayerBehaviorBadge id) =>
+          badges.any((b) => b.id == id && b.unlocked);
+
+      final story = await _storyEngine.selectStory(
+        StoryEngineInput(
+          encuentrosTotal: pride.encuentrosTotal,
+          rachaSemanas: pride.rachaSemanasConsecutivas,
+          porcentajeAsistencia: pride.porcentajeAsistencia,
+          deportesCount: pride.deportesJugados.length,
+          companeros: companeros,
+          actividadMesActual: mesActual,
+          actividadMesAnterior: mesAnterior,
+          badgeAlwaysPresent:
+              badgeUnlocked(PlayerBehaviorBadge.alwaysPresent),
+          badgeExplorer: badgeUnlocked(PlayerBehaviorBadge.explorer),
+          badgeEarlyBird: badgeUnlocked(PlayerBehaviorBadge.earlyBird),
+          badgeNightOwl: badgeUnlocked(PlayerBehaviorBadge.nightOwl),
+          primeraActividad: fechas.isEmpty ? null : fechas.first,
+          fechasActividad: fechas,
+        ),
+      );
 
       if (!mounted) return;
       setState(() {
         _perfil = perfil;
         _pride = pride;
         _badges = badges;
-        _activities = _buildActivityPoints(partidos);
-        _companeros = _countCompaneros(partidos, uid);
+        _activities = activities;
+        _companeros = companeros;
+        _todayStory = story;
         _loading = false;
         _error = null;
       });
@@ -189,18 +224,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                         ),
                       if (pride != null) ...[
                         const SizedBox(height: 28),
-                        _TodayForYouCard(
-                          insight: _buildTodayInsight(
-                            pride: pride,
-                            companions: _companeros,
-                          ),
-                          encounters: pride.encuentrosTotal,
-                          streak: pride.rachaSemanasConsecutivas,
-                          companions: _companeros,
-                          currentMonthActivity: pride.actividadMensual.isNotEmpty
-                              ? pride.actividadMensual.last
-                              : 0,
-                        ),
+                        _TodayForYouCard(story: _todayStory),
                         const SizedBox(height: 14),
                         _PrideMetricsStrip(
                           pride: pride,
@@ -330,110 +354,42 @@ class _SportsIdentityHero extends StatelessWidget {
   }
 }
 
-enum _TodayInsightType { milestone, streakGoal, nextGoal, community, welcome }
-
-class _TodayInsight {
-  final _TodayInsightType type;
-  final String emoji;
-  final String title;
-  final String body;
-
-  const _TodayInsight({
-    required this.type,
-    required this.emoji,
-    required this.title,
-    required this.body,
-  });
-}
-
-_TodayInsight _buildTodayInsight({
-  required PlayerProfilePrideData pride,
-  required int companions,
-}) {
-  final encuentros = pride.encuentrosTotal;
-  final racha = pride.rachaSemanasConsecutivas;
-  final actividadMes = pride.actividadMensual.isNotEmpty
-      ? pride.actividadMensual.last
-      : 0;
-
-  if (encuentros >= 10 && encuentros % 10 == 0) {
-    return _TodayInsight(
-      type: _TodayInsightType.milestone,
-      emoji: '🎉',
-      title: 'playerTodayMilestoneTitle',
-      body: 'playerTodayMilestoneBody',
-    );
-  }
-  if (racha >= 2) {
-    return _TodayInsight(
-      type: _TodayInsightType.streakGoal,
-      emoji: '🔥',
-      title: 'playerTodayStreakTitle',
-      body: 'playerTodayStreakBody',
-    );
-  }
-  if (encuentros > 0) {
-    return _TodayInsight(
-      type: _TodayInsightType.nextGoal,
-      emoji: '🎯',
-      title: 'playerTodayNextGoalTitle',
-      body: 'playerTodayNextGoalBody',
-    );
-  }
-  if (companions > 0 || actividadMes > 0) {
-    return _TodayInsight(
-      type: _TodayInsightType.community,
-      emoji: '🤝',
-      title: 'playerTodayCommunityTitle',
-      body: 'playerTodayCommunityBody',
-    );
-  }
-  return _TodayInsight(
-    type: _TodayInsightType.welcome,
-    emoji: '✨',
-    title: 'playerTodayWelcomeTitle',
-    body: 'playerTodayWelcomeBody',
-  );
-}
-
+/// Tarjeta "Hoy para ti" alimentada por el Story Engine.
 class _TodayForYouCard extends StatelessWidget {
-  final _TodayInsight insight;
-  final int encounters;
-  final int streak;
-  final int companions;
-  final int currentMonthActivity;
+  final StoryCard? story;
 
-  const _TodayForYouCard({
-    required this.insight,
-    required this.encounters,
-    required this.streak,
-    required this.companions,
-    required this.currentMonthActivity,
-  });
+  const _TodayForYouCard({required this.story});
+
+  static String _localizeWeekdayParam(
+    BuildContext context,
+    Map<String, String> params,
+  ) {
+    final raw = params['day'];
+    if (raw == null) return '';
+    final weekday = int.tryParse(raw);
+    if (weekday == null || weekday < 1 || weekday > 7) return raw;
+    // 2024-01-01 was Monday → weekday N maps to DateTime(2024, 1, N).
+    final locale = Localizations.localeOf(context).toString();
+    return DateFormat.EEEE(locale).format(DateTime(2024, 1, weekday));
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final palette = context.sportPalette;
-    final remaining = (((encounters ~/ 10) + 1) * 10 - encounters).clamp(1, 10);
+    final card = story;
 
-    String trBody() {
-      switch (insight.type) {
-        case _TodayInsightType.milestone:
-          return l10n.tr(insight.body, params: {'n': '$encounters'});
-        case _TodayInsightType.streakGoal:
-          return l10n.tr(insight.body, params: {'racha': '$streak'});
-        case _TodayInsightType.nextGoal:
-          return l10n.tr(insight.body, params: {'n': '$remaining'});
-        case _TodayInsightType.community:
-          return l10n.tr(
-            insight.body,
-            params: {'n': '${companions > 0 ? companions : currentMonthActivity}'},
-          );
-        case _TodayInsightType.welcome:
-          return l10n.tr(insight.body);
-      }
+    final titleText = card == null
+        ? l10n.tr('playerTodayWelcomeTitle')
+        : '${card.emoji} ${l10n.tr(card.title)}';
+
+    final params = Map<String, String>.from(card?.params ?? const {});
+    if (params.containsKey('day')) {
+      params['day'] = _localizeWeekdayParam(context, params);
     }
+    final bodyText = card == null
+        ? l10n.tr('playerTodayWelcomeBody')
+        : l10n.tr(card.subtitle, params: params);
 
     return Container(
       width: double.infinity,
@@ -461,12 +417,12 @@ class _TodayForYouCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            '${insight.emoji} ${l10n.tr(insight.title)}',
+            titleText,
             style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 16),
           ),
           const SizedBox(height: 6),
           Text(
-            trBody(),
+            bodyText,
             style: MatchPayTokens.bodySmallStyle(
               color: MatchPayTokens.inkSecondary,
             ).copyWith(height: 1.35),
@@ -476,6 +432,7 @@ class _TodayForYouCard extends StatelessWidget {
     );
   }
 }
+
 /// Métricas compactas en una sola fila scrolleable (sin wraps/overflow).
 class _PrideMetricsStrip extends StatelessWidget {
   final PlayerProfilePrideData pride;
