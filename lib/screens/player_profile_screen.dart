@@ -20,11 +20,11 @@ import '../services/local_narrative_engine.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
+import '../widgets/badges/badge_showcase_board.dart';
 import '../widgets/friendly_error_panel.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/matchpay_ui.dart';
 import '../widgets/narrative/story_card_view.dart';
-import '../widgets/player_profile_badges_section.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sport_icon.dart';
 
@@ -286,7 +286,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                         ),
                       ],
                       const SizedBox(height: 28),
-                      PlayerProfileBadgesSection(badges: _badges),
+                      BadgeShowcaseBoard(badges: _badges),
                     ],
                   ),
                 ),
