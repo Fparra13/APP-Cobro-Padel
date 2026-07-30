@@ -123,6 +123,74 @@ class TranslationMaps {
         'Participó en encuentros tempranos (antes de las 9:00).',
     'playerBadgeNightOwlTitle': 'Nocturno',
     'playerBadgeNightOwlBody': 'Activo en encuentros tardíos.',
+    'playerBadgeFirstStepTitle': 'Primer paso',
+    'playerBadgeFirstStepBody': 'Completó su primer encuentro en Kloovi.',
+    'playerBadgeSeasonedPlayerTitle': 'Veterano',
+    'playerBadgeSeasonedPlayerBody': 'Completó 100 encuentros.',
+    'playerBadgeLegendTitle': 'Leyenda',
+    'playerBadgeLegendBody': 'Completó 500 encuentros.',
+    'playerBadgeStreakKeeperTitle': 'En racha',
+    'playerBadgeStreakKeeperBody':
+        'Participó en encuentros durante 4 semanas consecutivas.',
+    'playerBadgeUnstoppableTitle': 'Imparable',
+    'playerBadgeUnstoppableBody':
+        'Participó en encuentros durante 12 semanas consecutivas.',
+    'playerBadgeConsistentTitle': 'Constante',
+    'playerBadgeConsistentBody':
+        'Participó al menos una vez por mes durante 6 meses consecutivos.',
+    'playerBadgeYearRoundTitle': 'Todo el año',
+    'playerBadgeYearRoundBody':
+        'Participó al menos una vez en cada mes del año.',
+    'playerBadgeWeekendWarriorTitle': 'Guerrero de fin de semana',
+    'playerBadgeWeekendWarriorBody':
+        'Participó en 10 encuentros realizados un sábado o domingo.',
+    'playerBadgeAfterWorkTitle': 'Después del trabajo',
+    'playerBadgeAfterWorkBody':
+        'Participó en 15 encuentros realizados desde las 18:00 en adelante.',
+    'playerBadgeAllDayAthleteTitle': 'Todo el día',
+    'playerBadgeAllDayAthleteBody':
+        'Participó tanto en encuentros antes de las 09:00 como después de las 20:00.',
+    'playerBadgeTeamPlayerTitle': 'Buen compañero',
+    'playerBadgeTeamPlayerBody':
+        'Compartió encuentros con al menos 20 jugadores distintos.',
+    'playerBadgeCommunityBuilderTitle': 'Conector',
+    'playerBadgeCommunityBuilderBody':
+        'Compartió encuentros con al menos 100 jugadores distintos.',
+    'playerBadgeFamiliarFacesTitle': 'Caras conocidas',
+    'playerBadgeFamiliarFacesBody':
+        'Participó en 20 encuentros junto al mismo jugador.',
+    'playerBadgeAllRounderTitle': 'Todo terreno',
+    'playerBadgeAllRounderBody': 'Participó en al menos 4 deportes distintos.',
+    'playerBadgeSportCollectorTitle': 'Multideportista',
+    'playerBadgeSportCollectorBody': 'Participó en 8 deportes distintos.',
+    'playerBadgeVenueExplorerTitle': 'Conocedor',
+    'playerBadgeVenueExplorerBody':
+        'Jugó en al menos 10 complejos deportivos distintos.',
+    'playerBadgeTravelerTitle': 'Viajero',
+    'playerBadgeTravelerBody':
+        'Participó en encuentros realizados en al menos 5 ciudades distintas.',
+    'playerBadgeWinterSpiritTitle': 'Espíritu de invierno',
+    'playerBadgeWinterSpiritBody':
+        'Participó en al menos un encuentro durante el invierno.',
+    'playerBadgeSummerSpiritTitle': 'Espíritu de verano',
+    'playerBadgeSummerSpiritBody':
+        'Participó en al menos un encuentro durante el verano.',
+    'playerBadgeRainOrShineTitle': 'Llueva o truene',
+    'playerBadgeRainOrShineBody':
+        'Participó en encuentros durante las cuatro estaciones del año.',
+    'playerBadgeEarlySeasonTitle': 'Sin perder tiempo',
+    'playerBadgeEarlySeasonBody':
+        'Completó 10 encuentros dentro de sus primeros 60 días en Kloovi.',
+    'playerBadgeMilestone50Title': 'Medio centenar',
+    'playerBadgeMilestone50Body': 'Completó 50 encuentros.',
+    'playerBadgeMilestone250Title': 'Referente',
+    'playerBadgeMilestone250Body': 'Completó 250 encuentros.',
+    'playerBadgeAnniversaryTitle': 'Un año juntos',
+    'playerBadgeAnniversaryBody':
+        'Cumplió un año desde su primer encuentro registrado.',
+    'playerBadgeFiveYearsTitle': 'Parte de la historia',
+    'playerBadgeFiveYearsBody':
+        'Cumplió cinco años desde su primer encuentro registrado.',
     'playerProfileStreakTitle': 'Tu ritmo',
     'playerProfileStreakHint': 'Tu actividad en los últimos 12 meses',
     'playerProfileChartPastWeeks': 'Últimas 12 semanas',
@@ -2082,6 +2150,73 @@ class TranslationMaps {
         'Joined early sessions (before 9:00 AM).',
     'playerBadgeNightOwlTitle': 'Night owl',
     'playerBadgeNightOwlBody': 'Active in late sessions.',
+    'playerBadgeFirstStepTitle': 'First step',
+    'playerBadgeFirstStepBody': 'Completed their first session in Kloovi.',
+    'playerBadgeSeasonedPlayerTitle': 'Veteran',
+    'playerBadgeSeasonedPlayerBody': 'Completed 100 sessions.',
+    'playerBadgeLegendTitle': 'Legend',
+    'playerBadgeLegendBody': 'Completed 500 sessions.',
+    'playerBadgeStreakKeeperTitle': 'On a streak',
+    'playerBadgeStreakKeeperBody':
+        'Took part in sessions across 4 consecutive weeks.',
+    'playerBadgeUnstoppableTitle': 'Unstoppable',
+    'playerBadgeUnstoppableBody':
+        'Took part in sessions across 12 consecutive weeks.',
+    'playerBadgeConsistentTitle': 'Consistent',
+    'playerBadgeConsistentBody':
+        'Took part at least once a month for 6 consecutive months.',
+    'playerBadgeYearRoundTitle': 'Year-round',
+    'playerBadgeYearRoundBody': 'Took part at least once in every month of the year.',
+    'playerBadgeWeekendWarriorTitle': 'Weekend warrior',
+    'playerBadgeWeekendWarriorBody':
+        'Took part in 10 sessions on a Saturday or Sunday.',
+    'playerBadgeAfterWorkTitle': 'After work',
+    'playerBadgeAfterWorkBody':
+        'Took part in 15 sessions from 18:00 onward.',
+    'playerBadgeAllDayAthleteTitle': 'All-day athlete',
+    'playerBadgeAllDayAthleteBody':
+        'Took part in sessions both before 09:00 and after 20:00.',
+    'playerBadgeTeamPlayerTitle': 'Good teammate',
+    'playerBadgeTeamPlayerBody':
+        'Shared sessions with at least 20 different players.',
+    'playerBadgeCommunityBuilderTitle': 'Connector',
+    'playerBadgeCommunityBuilderBody':
+        'Shared sessions with at least 100 different players.',
+    'playerBadgeFamiliarFacesTitle': 'Familiar faces',
+    'playerBadgeFamiliarFacesBody':
+        'Took part in 20 sessions with the same player.',
+    'playerBadgeAllRounderTitle': 'All-rounder',
+    'playerBadgeAllRounderBody': 'Took part in at least 4 different sports.',
+    'playerBadgeSportCollectorTitle': 'Multi-sport',
+    'playerBadgeSportCollectorBody': 'Took part in 8 different sports.',
+    'playerBadgeVenueExplorerTitle': 'Venue know-it-all',
+    'playerBadgeVenueExplorerBody':
+        'Played at at least 10 different sports venues.',
+    'playerBadgeTravelerTitle': 'Traveler',
+    'playerBadgeTravelerBody':
+        'Took part in sessions in at least 5 different cities.',
+    'playerBadgeWinterSpiritTitle': 'Winter spirit',
+    'playerBadgeWinterSpiritBody':
+        'Took part in at least one session during winter.',
+    'playerBadgeSummerSpiritTitle': 'Summer spirit',
+    'playerBadgeSummerSpiritBody':
+        'Took part in at least one session during summer.',
+    'playerBadgeRainOrShineTitle': 'Rain or shine',
+    'playerBadgeRainOrShineBody':
+        'Took part in sessions across all four seasons of the year.',
+    'playerBadgeEarlySeasonTitle': 'No time wasted',
+    'playerBadgeEarlySeasonBody':
+        'Completed 10 sessions within their first 60 days on Kloovi.',
+    'playerBadgeMilestone50Title': 'Half century',
+    'playerBadgeMilestone50Body': 'Completed 50 sessions.',
+    'playerBadgeMilestone250Title': 'Benchmark',
+    'playerBadgeMilestone250Body': 'Completed 250 sessions.',
+    'playerBadgeAnniversaryTitle': 'One year together',
+    'playerBadgeAnniversaryBody':
+        'Reached one year since their first recorded session.',
+    'playerBadgeFiveYearsTitle': 'Part of the story',
+    'playerBadgeFiveYearsBody':
+        'Reached five years since their first recorded session.',
     'playerProfileStreakTitle': 'Your rhythm',
     'playerProfileStreakHint': 'Your activity over the last 12 months',
     'playerProfileChartPastWeeks': 'Past 12 weeks',
@@ -4027,6 +4162,74 @@ class TranslationMaps {
         'Participou de encontros cedo (antes das 9:00).',
     'playerBadgeNightOwlTitle': 'Noturno',
     'playerBadgeNightOwlBody': 'Ativo em encontros tardios.',
+    'playerBadgeFirstStepTitle': 'Primeiro passo',
+    'playerBadgeFirstStepBody': 'Completou seu primeiro encontro no Kloovi.',
+    'playerBadgeSeasonedPlayerTitle': 'Veterano',
+    'playerBadgeSeasonedPlayerBody': 'Completou 100 encontros.',
+    'playerBadgeLegendTitle': 'Lenda',
+    'playerBadgeLegendBody': 'Completou 500 encontros.',
+    'playerBadgeStreakKeeperTitle': 'Em sequência',
+    'playerBadgeStreakKeeperBody':
+        'Participou de encontros durante 4 semanas consecutivas.',
+    'playerBadgeUnstoppableTitle': 'Imparável',
+    'playerBadgeUnstoppableBody':
+        'Participou de encontros durante 12 semanas consecutivas.',
+    'playerBadgeConsistentTitle': 'Constante',
+    'playerBadgeConsistentBody':
+        'Participou pelo menos uma vez por mês durante 6 meses consecutivos.',
+    'playerBadgeYearRoundTitle': 'O ano todo',
+    'playerBadgeYearRoundBody':
+        'Participou pelo menos uma vez em cada mês do ano.',
+    'playerBadgeWeekendWarriorTitle': 'Guerreiro de fim de semana',
+    'playerBadgeWeekendWarriorBody':
+        'Participou de 10 encontros realizados em um sábado ou domingo.',
+    'playerBadgeAfterWorkTitle': 'Depois do trabalho',
+    'playerBadgeAfterWorkBody':
+        'Participou de 15 encontros realizados a partir das 18:00.',
+    'playerBadgeAllDayAthleteTitle': 'O dia todo',
+    'playerBadgeAllDayAthleteBody':
+        'Participou tanto de encontros antes das 09:00 quanto depois das 20:00.',
+    'playerBadgeTeamPlayerTitle': 'Bom companheiro',
+    'playerBadgeTeamPlayerBody':
+        'Compartilhou encontros com pelo menos 20 jogadores distintos.',
+    'playerBadgeCommunityBuilderTitle': 'Conector',
+    'playerBadgeCommunityBuilderBody':
+        'Compartilhou encontros com pelo menos 100 jogadores distintos.',
+    'playerBadgeFamiliarFacesTitle': 'Caras conhecidas',
+    'playerBadgeFamiliarFacesBody':
+        'Participou de 20 encontros com o mesmo jogador.',
+    'playerBadgeAllRounderTitle': 'Versátil',
+    'playerBadgeAllRounderBody': 'Participou de pelo menos 4 esportes distintos.',
+    'playerBadgeSportCollectorTitle': 'Multiesportista',
+    'playerBadgeSportCollectorBody': 'Participou de 8 esportes distintos.',
+    'playerBadgeVenueExplorerTitle': 'Conhecedor',
+    'playerBadgeVenueExplorerBody':
+        'Jogou em pelo menos 10 complexos esportivos distintos.',
+    'playerBadgeTravelerTitle': 'Viajante',
+    'playerBadgeTravelerBody':
+        'Participou de encontros realizados em pelo menos 5 cidades distintas.',
+    'playerBadgeWinterSpiritTitle': 'Espírito de inverno',
+    'playerBadgeWinterSpiritBody':
+        'Participou de pelo menos um encontro durante o inverno.',
+    'playerBadgeSummerSpiritTitle': 'Espírito de verão',
+    'playerBadgeSummerSpiritBody':
+        'Participou de pelo menos um encontro durante o verão.',
+    'playerBadgeRainOrShineTitle': 'Chova ou faça sol',
+    'playerBadgeRainOrShineBody':
+        'Participou de encontros durante as quatro estações do ano.',
+    'playerBadgeEarlySeasonTitle': 'Sem perder tempo',
+    'playerBadgeEarlySeasonBody':
+        'Completou 10 encontros nos primeiros 60 dias no Kloovi.',
+    'playerBadgeMilestone50Title': 'Meio centenário',
+    'playerBadgeMilestone50Body': 'Completou 50 encontros.',
+    'playerBadgeMilestone250Title': 'Referência',
+    'playerBadgeMilestone250Body': 'Completou 250 encontros.',
+    'playerBadgeAnniversaryTitle': 'Um ano juntos',
+    'playerBadgeAnniversaryBody':
+        'Completou um ano desde o primeiro encontro registrado.',
+    'playerBadgeFiveYearsTitle': 'Parte da história',
+    'playerBadgeFiveYearsBody':
+        'Completou cinco anos desde o primeiro encontro registrado.',
     'playerProfileStreakTitle': 'Seu ritmo',
     'playerProfileStreakHint': 'Sua atividade nos últimos 12 meses',
     'playerProfileChartPastWeeks': 'Últimas 12 semanas',

@@ -104,6 +104,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
         partidos: partidos,
         convocatorias: convocatorias,
         invitaciones: invitaciones,
+        accountCreatedAt: perfil?.createdAt,
       );
       final companeros = _countCompaneros(partidos, uid);
       final activities = _buildActivityPoints(partidos);
