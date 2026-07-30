@@ -20,9 +20,9 @@ import '../services/notification_service.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/single_action.dart';
-import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/matchpay_ui.dart';
+import '../widgets/participante_capsule_strip.dart';
 import '../widgets/sport_icon.dart';
 
 /// Detalle de convocatoria con confirmación explícita (nunca automática).
@@ -406,8 +406,6 @@ class _ResponderConvocatoriaScreenState
                             const SizedBox(height: 14),
                             _BloqueSocialConfirmados(
                               titulares: _completa!.titulares,
-                              cuposMax: partido?.cuposMax ??
-                                  _completa!.partido.cuposMax,
                             ),
                           ],
                         ],
@@ -613,16 +611,13 @@ class _OrganizadorHeader extends StatelessWidget {
 
 class _BloqueSocialConfirmados extends StatelessWidget {
   final List<ConvocatoriaJugadorEntry> titulares;
-  final int cuposMax;
 
   const _BloqueSocialConfirmados({
     required this.titulares,
-    required this.cuposMax,
   });
 
-  static String resumenNumerico(
+  static ({int confirmados, int pendientes, int noVa}) _counts(
     List<ConvocatoriaJugadorEntry> titulares,
-    MatchPayStrings l10n,
   ) {
     var confirmados = 0;
     var pendientes = 0;
@@ -638,66 +633,102 @@ class _BloqueSocialConfirmados extends StatelessWidget {
           noVa++;
       }
     }
-
-    if (confirmados == 0 && pendientes == 0 && noVa == 0) {
-      return l10n.tr('respondNobodyConfirmedYet');
-    }
-
-    final parts = <String>[
-      if (confirmados > 0)
-        l10n.tr(
-          'respondSummaryConfirmed',
-          params: {'n': '$confirmados'},
-        ),
-      if (pendientes > 0)
-        l10n.tr(
-          pendientes == 1
-              ? 'respondSummaryPendingOne'
-              : 'respondSummaryPending',
-          params: {'n': '$pendientes'},
-        ),
-      if (noVa > 0)
-        l10n.tr(
-          noVa == 1 ? 'respondSummaryDeclinedOne' : 'respondSummaryDeclined',
-          params: {'n': '$noVa'},
-        ),
-    ];
-    return parts.join(' · ');
+    return (confirmados: confirmados, pendientes: pendientes, noVa: noVa);
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final hasInvitees = titulares.isNotEmpty;
+    final counts = _counts(titulares);
+    final emptyCopy = counts.confirmados == 0 &&
+            counts.pendientes == 0 &&
+            counts.noVa == 0
+        ? l10n.tr('respondNobodyConfirmedYet')
+        : null;
+
     return MatchPaySurfaceCard(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             l10n.tr('respondWhoIsGoing'),
-            style: MatchPayTokens.titleSmallStyle(),
-          ),
-          if (hasInvitees) ...[
-            const SizedBox(height: 10),
-            ConvocatoriaAvatarStrip(
-              titulares: titulares,
-              cuposMax: cuposMax,
-              size: 56,
-              overlap: 40,
-              mode: ConvocatoriaAvatarStripMode.player,
-              filter: ConvocatoriaAvatarStripFilter.allInvitees,
-              showStatusBadges: true,
-              maxVisible: 8,
+            style: MatchPayTokens.titleMediumStyle().copyWith(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+              height: 1.15,
             ),
-          ],
-          const SizedBox(height: 10),
-          Text(
-            resumenNumerico(titulares, l10n),
-            style: MatchPayTokens.bodySmallStyle(
-              color: MatchPayTokens.inkSecondary,
-            ).copyWith(fontSize: 13, height: 1.35, fontWeight: FontWeight.w600),
           ),
+          const SizedBox(height: 6),
+          if (emptyCopy != null)
+            Text(
+              emptyCopy,
+              style: MatchPayTokens.bodySmallStyle(
+                color: MatchPayTokens.inkSecondary,
+              ).copyWith(fontSize: 13, height: 1.35, fontWeight: FontWeight.w500),
+            )
+          else
+            Text.rich(
+              TextSpan(
+                style: MatchPayTokens.bodySmallStyle(
+                  color: MatchPayTokens.inkMuted,
+                ).copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                ),
+                children: [
+                  if (counts.confirmados > 0)
+                    TextSpan(
+                      text: l10n.tr(
+                        'respondSummaryConfirmed',
+                        params: {'n': '${counts.confirmados}'},
+                      ),
+                      style: const TextStyle(
+                        color: MatchPayTokens.accentSuccess,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  if (counts.confirmados > 0 &&
+                      (counts.pendientes > 0 || counts.noVa > 0))
+                    const TextSpan(text: '  ·  '),
+                  if (counts.pendientes > 0)
+                    TextSpan(
+                      text: l10n.tr(
+                        counts.pendientes == 1
+                            ? 'respondSummaryPendingOne'
+                            : 'respondSummaryPending',
+                        params: {'n': '${counts.pendientes}'},
+                      ),
+                      style: const TextStyle(
+                        color: MatchPayTokens.inkMuted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  if (counts.pendientes > 0 && counts.noVa > 0)
+                    const TextSpan(text: '  ·  '),
+                  if (counts.noVa > 0)
+                    TextSpan(
+                      text: l10n.tr(
+                        counts.noVa == 1
+                            ? 'respondSummaryDeclinedOne'
+                            : 'respondSummaryDeclined',
+                        params: {'n': '${counts.noVa}'},
+                      ),
+                      style: const TextStyle(
+                        color: Color(0xFF9F1239),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          if (hasInvitees) ...[
+            const SizedBox(height: 14),
+            ParticipanteCapsuleStrip(titulares: titulares),
+          ],
         ],
       ),
     );

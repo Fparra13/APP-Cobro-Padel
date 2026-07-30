@@ -34,8 +34,8 @@ import '../widgets/organizer_attendance_body.dart';
 import '../widgets/organizer_attendance_bottom_bar.dart';
 import '../widgets/organizer_attendance_chrome.dart';
 import '../widgets/organizer_cycle_hero.dart';
-import '../widgets/convocatoria_avatar_strip.dart';
 import '../widgets/convocatoria_decision_panel.dart';
+import '../widgets/participante_capsule_strip.dart';
 import '../widgets/partido_estado_publico.dart';
 import '../widgets/ayuda_tip.dart';
 import '../core/matchpay_design_tokens.dart';
@@ -1910,55 +1910,49 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
             ),
             const SizedBox(height: 10),
           ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ConvocatoriaAvatarStrip(
-                titulares: _titularesConvocatoriaEntries(),
-                cuposMax: _cuposMax,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.l10n.tr(
-                        'organizeSummaryCounts',
-                        params: {
-                          'confirmed': '$_confirmados',
-                          'max': '$_cuposMax',
-                          'pending': '$_pendientes',
-                          'waiting': '$_enEsperaCount',
-                        },
-                      ),
-                      style: MatchPayTokens.titleMediumStyle(
-                        color: _cuposLlenos
-                            ? MatchPayTokens.accentUrgent
-                            : palette.primaryDark,
-                      ),
-                    ),
-                    Text(
-                      _cuposLlenos
-                          ? context.l10n.tr(
-                              'organizeSummarySlotsFull',
-                              params: {'starters': '${_titulares.length}'},
-                            )
-                          : context.l10n.tr(
-                              'organizeSummarySlotsAvailable',
-                              params: {
-                                'available': '$_cuposDisponibles',
-                                'starters': '${_titulares.length}',
-                                'subs': '$_enEsperaCount',
-                              },
-                            ),
-                      style: MatchPayTokens.bodySmallStyle(
-                        color: palette.primaryDark,
-                      ),
-                    ),
-                  ],
+              Text(
+                context.l10n.tr(
+                  'organizeSummaryCounts',
+                  params: {
+                    'confirmed': '$_confirmados',
+                    'max': '$_cuposMax',
+                    'pending': '$_pendientes',
+                    'waiting': '$_enEsperaCount',
+                  },
+                ),
+                style: MatchPayTokens.titleMediumStyle(
+                  color: _cuposLlenos
+                      ? MatchPayTokens.accentUrgent
+                      : palette.primaryDark,
                 ),
               ),
+              Text(
+                _cuposLlenos
+                    ? context.l10n.tr(
+                        'organizeSummarySlotsFull',
+                        params: {'starters': '${_titulares.length}'},
+                      )
+                    : context.l10n.tr(
+                        'organizeSummarySlotsAvailable',
+                        params: {
+                          'available': '$_cuposDisponibles',
+                          'starters': '${_titulares.length}',
+                          'subs': '$_enEsperaCount',
+                        },
+                      ),
+                style: MatchPayTokens.bodySmallStyle(
+                  color: palette.primaryDark,
+                ),
+              ),
+              if (_titularesConvocatoriaEntries().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                ParticipanteCapsuleStrip(
+                  titulares: _titularesConvocatoriaEntries(),
+                ),
+              ],
             ],
           ),
         ],
