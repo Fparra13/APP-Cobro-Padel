@@ -1,34 +1,71 @@
 import 'story_models.dart';
 
-/// Contrato del motor narrativo «Hoy para ti».
+/// Motor narrativo «Hoy para ti»: selección pura + contrato de persistencia.
 ///
-/// No contiene la lógica de detección ni selección (eso vive en una
-/// implementación futura). Solo define qué debe poder hacer el motor:
-/// entregar la historia del día y registrar visualizaciones para cooldowns.
+/// [getStoryOfTheDay] **no escribe** en el log. Solo filtra y elige.
+/// La mutación del historial ocurre exclusivamente en [markStoryAsSeen].
 ///
-/// Convivencia (prioridad de familia):
-/// 1. [NarrativeFamily.momento]
-/// 2. [NarrativeFamily.memoria]
-/// 3. [NarrativeFamily.recordatorio]
-///
-/// El motor actual ([StoryEngineService]) sigue siendo el runtime vigente;
-/// este contrato es la superficie hacia la que evolucionará.
+/// Convivencia (One Voice Rule):
+/// Momento > Memoria > Recordatorio → luego intensidad → priority → id.
 abstract class NarrativeEngine {
-  /// Evalúa señales del jugador y devuelve la historia sticky del día.
-  ///
-  /// [playerId] identifica al dueño del historial de sightings.
-  /// [input] aporta señales ya calculadas en dominio (sin I/O de red aquí).
-  /// [now] inyectable para tests / reloj del dispositivo.
-  Future<DailyNarrativeStory> getStoryOfTheDay({
-    required String playerId,
-    required StoryEngineInput input,
-    DateTime? now,
-  });
+  /// Ventana de fatiga global para la familia [NarrativeFamily.memoria]
+  /// («no más de una Memoria a la semana» por defecto).
+  Duration get memoriaFamilyCooldown => const Duration(days: 7);
 
-  /// Registra que [storyId] fue mostrada (anti-fatiga / eclipses de Memorias).
+  /// Elige la única historia del día entre [candidates].
   ///
-  /// Si [cooldown] es null, la implementación elige duración según familia
-  /// (p. ej. Memorias ~11 meses; Recordatorios días; Momentos no re-narrar).
+  /// Función pura respecto a persistencia: no llama a [markStoryAsSeen]
+  /// ni altera [log]. Retorna `null` si no hay candidatos elegibles
+  /// (silencio fértil).
+  StoryCard? getStoryOfTheDay({
+    required List<StoryCard> candidates,
+    required NarrativeSightingLog log,
+    DateTime? now,
+  }) {
+    final clock = now ?? DateTime.now();
+    final day = NarrativeSightingLog.calendarDay(clock);
+
+    // Sticky: misma voz todo el día calendario (sin re-rankear).
+    final sticky = _resolveSticky(
+      candidates: candidates,
+      log: log,
+      day: day,
+    );
+    if (sticky != null) return sticky;
+
+    final eligible = filterNarrativeCooldowns(
+      candidates: candidates,
+      log: log,
+      now: clock,
+      memoriaFamilyCooldown: memoriaFamilyCooldown,
+    );
+    return pickNarrativeWinner(eligible);
+  }
+
+  /// Envuelve el resultado con metadatos de sticky / día (sin mutar el log).
+  DailyNarrativeStory? resolveDailyStory({
+    required List<StoryCard> candidates,
+    required NarrativeSightingLog log,
+    DateTime? now,
+  }) {
+    final clock = now ?? DateTime.now();
+    final day = NarrativeSightingLog.calendarDay(clock);
+    final wasSticky = log.hasStickyFor(day) &&
+        candidates.any((c) => c.id == log.stickyStoryId);
+    final story = getStoryOfTheDay(
+      candidates: candidates,
+      log: log,
+      now: clock,
+    );
+    if (story == null) return null;
+    return DailyNarrativeStory(
+      story: story,
+      calendarDay: day,
+      wasSticky: wasSticky && story.id == log.stickyStoryId,
+    );
+  }
+
+  /// Registra visualización y cooldowns. **Único** punto de mutación del log.
   Future<void> markStoryAsSeen({
     required String playerId,
     required String storyId,
@@ -38,8 +75,82 @@ abstract class NarrativeEngine {
     DateTime? seenAt,
   });
 
-  /// Historial local de visualizaciones (solo lectura; para debug / políticas).
+  /// Historial local de visualizaciones (solo lectura desde el caller).
   Future<NarrativeSightingLog> loadSightingLog(String playerId);
+
+  StoryCard? _resolveSticky({
+    required List<StoryCard> candidates,
+    required NarrativeSightingLog log,
+    required DateTime day,
+  }) {
+    if (!log.hasStickyFor(day)) return null;
+    final id = log.stickyStoryId;
+    if (id == null) return null;
+    for (final c in candidates) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+}
+
+/// Descarta candidatos en eclipse (cooldown por id / fatiga de Memorias).
+List<StoryCard> filterNarrativeCooldowns({
+  required List<StoryCard> candidates,
+  required NarrativeSightingLog log,
+  required DateTime now,
+  Duration memoriaFamilyCooldown = const Duration(days: 7),
+}) {
+  final memoriaFatigue = log.isMemoriaFamilyInCooldown(
+    now,
+    window: memoriaFamilyCooldown,
+  );
+
+  return [
+    for (final card in candidates)
+      if (!_isEclipsed(
+        card: card,
+        log: log,
+        now: now,
+        memoriaFatigue: memoriaFatigue,
+      ))
+        card,
+  ];
+}
+
+bool _isEclipsed({
+  required StoryCard card,
+  required NarrativeSightingLog log,
+  required DateTime now,
+  required bool memoriaFatigue,
+}) {
+  if (log.isStoryInCooldown(card.id, now)) return true;
+  if (card.family == NarrativeFamily.memoria && memoriaFatigue) return true;
+  return false;
+}
+
+/// One Voice Rule: familia → intensidad → priority → id.
+StoryCard? pickNarrativeWinner(List<StoryCard> eligible) {
+  if (eligible.isEmpty) return null;
+
+  var bestRank = -1;
+  for (final c in eligible) {
+    if (c.familyRank > bestRank) bestRank = c.familyRank;
+  }
+
+  final inFamily = [
+    for (final c in eligible)
+      if (c.familyRank == bestRank) c,
+  ];
+
+  inFamily.sort((a, b) {
+    final byIntensity = b.intensity.index.compareTo(a.intensity.index);
+    if (byIntensity != 0) return byIntensity;
+    final byPriority = b.priority.compareTo(a.priority);
+    if (byPriority != 0) return byPriority;
+    return a.id.compareTo(b.id);
+  });
+
+  return inFamily.first;
 }
 
 /// Resultado diario del motor: carta + contexto de selección.

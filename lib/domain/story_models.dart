@@ -238,6 +238,26 @@ class NarrativeSightingLog {
 
   bool isStoryInCooldown(String storyId, DateTime now) =>
       latestForStory(storyId)?.isInCooldown(now) ?? false;
+
+  /// Fatiga global de Memorias: hubo una Memoria en la ventana [window].
+  ///
+  /// Usa [lastFamily]/[lastFamilyAt] y, como respaldo, sightings recientes
+  /// de [NarrativeFamily.memoria] (regla «eclipse semanal»).
+  bool isMemoriaFamilyInCooldown(
+    DateTime now, {
+    Duration window = const Duration(days: 7),
+  }) {
+    if (lastFamily == NarrativeFamily.memoria && lastFamilyAt != null) {
+      final elapsed = now.difference(lastFamilyAt!);
+      if (elapsed < window) return true;
+    }
+    final cutoff = now.subtract(window);
+    for (final s in sightings) {
+      if (s.family != NarrativeFamily.memoria) continue;
+      if (!s.seenAt.isBefore(cutoff)) return true;
+    }
+    return false;
+  }
 }
 
 /// Señales de entrada del motor (privadas, sin cobros/deudas).
