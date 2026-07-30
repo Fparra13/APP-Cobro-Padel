@@ -581,30 +581,66 @@ class _OrganizadorHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        JugadorAvatar(
-          nombre: nombre,
-          fotoUrl: fotoUrl,
-          size: 36,
-          borderRadius: 18,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            context.l10n.tr(
-              'respondOrganizedBy',
-              params: {'name': nombre},
+    final l10n = context.l10n;
+    final palette = context.sportPalette;
+
+    return MatchPaySurfaceCard(
+      elevated: true,
+      borderColor: palette.primary.withValues(alpha: 0.28),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: palette.primary.withValues(alpha: 0.35),
+                width: 1.5,
+              ),
             ),
-            style: MatchPayTokens.bodySmallStyle(
-              color: MatchPayTokens.inkSecondary,
-            ).copyWith(
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
+            child: JugadorAvatar(
+              nombre: nombre,
+              fotoUrl: fotoUrl,
+              size: 52,
+              borderRadius: 26,
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  nombre,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: MatchPayTokens.titleMediumStyle(
+                    color: MatchPayTokens.ink,
+                  ).copyWith(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    height: 1.2,
+                    letterSpacing: -0.25,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.tr('roleOrganizer'),
+                  style: MatchPayTokens.bodySmallStyle(
+                    color: palette.primaryDark,
+                  ).copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -752,10 +788,10 @@ class _DetallePartidoCard extends StatelessWidget {
     final palette = SportThemeConfig.paletteFor(sport);
     final lang = context.readSettings().locale.languageCode;
     final recinto = partido.recinto?.trim();
-    final fecha = formatFechaEncuentro(
-      partido.fecha,
-      contexto: FechaEncuentroContexto.futuro,
-    );
+    final fecha = formatFechaEncuentroCompleta(partido.fecha);
+
+    // Ancho del bloque deporte (padding 10 + icono 26 + padding 10) + gap 12.
+    const leadingInset = 10.0 + 26.0 + 10.0 + 12.0;
 
     return MatchPaySurfaceCard(
       padding: const EdgeInsets.all(18),
@@ -784,19 +820,38 @@ class _DetallePartidoCard extends StatelessWidget {
                   children: [
                     Text(
                       sport.labelForLocale(lang),
+                      softWrap: true,
                       style: MatchPayTokens.titleMediumStyle(
                         color: palette.primaryDark,
-                      ).copyWith(fontSize: 17),
+                      ).copyWith(fontSize: 17, height: 1.25),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      fecha,
-                      style: MatchPayTokens.bodySmallStyle(
-                        color: MatchPayTokens.inkSecondary,
-                      ).copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14.5,
-                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 1.5),
+                          child: Icon(
+                            Icons.schedule_rounded,
+                            size: 18,
+                            color: MatchPayTokens.inkMuted,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            fecha,
+                            softWrap: true,
+                            style: MatchPayTokens.bodySmallStyle(
+                              color: MatchPayTokens.inkSecondary,
+                            ).copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14.5,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -805,44 +860,83 @@ class _DetallePartidoCard extends StatelessWidget {
           ),
           if (recinto != null && recinto.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.place_outlined,
-                  size: 18,
-                  color: MatchPayTokens.inkMuted,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    recinto,
-                    style: MatchPayTokens.bodySmallStyle(
-                      color: MatchPayTokens.ink,
-                    ).copyWith(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14.5,
+            Padding(
+              padding: const EdgeInsets.only(left: leadingInset),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1.5),
+                    child: Icon(
+                      Icons.place_outlined,
+                      size: 18,
+                      color: MatchPayTokens.inkMuted,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      recinto,
+                      softWrap: true,
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.ink,
+                      ).copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             if (onOpenMap != null) ...[
               const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: onOpenMap,
-                icon: Icon(
-                  mapIsExact ? Icons.map : Icons.map_outlined,
-                  size: 18,
+              Material(
+                color: MatchPayTokens.surfaceInset,
+                shape: const StadiumBorder(
+                  side: BorderSide(
+                    color: MatchPayTokens.borderSubtle,
+                    width: 1,
+                  ),
                 ),
-                label: Text(
-                  mapIsExact
-                      ? context.l10n.tr('openExactVenueMap')
-                      : context.l10n.tr('openVenueMapTooltip'),
-                ),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(40),
-                  visualDensity: VisualDensity.compact,
+                child: InkWell(
+                  onTap: onOpenMap,
+                  customBorder: const StadiumBorder(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.map_outlined,
+                          size: 16,
+                          color: MatchPayTokens.inkMuted,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            mapIsExact
+                                ? context.l10n.tr('openExactVenueMap')
+                                : context.l10n.tr('openVenueMapTooltip'),
+                            softWrap: true,
+                            textAlign: TextAlign.center,
+                            style: MatchPayTokens.bodySmallStyle(
+                              color: MatchPayTokens.inkSecondary,
+                            ).copyWith(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
               if (!mapIsExact)
@@ -850,29 +944,41 @@ class _DetallePartidoCard extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     context.l10n.tr('venueMapSearchHint'),
+                    softWrap: true,
                     style: MatchPayTokens.bodySmallStyle(
                       color: MatchPayTokens.inkMuted,
-                    ).copyWith(fontSize: 11),
+                    ).copyWith(fontSize: 11, height: 1.3),
                   ),
                 ),
             ],
           ],
           if (partido.notas != null && partido.notas!.trim().isNotEmpty) ...[
             const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.notes, size: 18, color: MatchPayTokens.inkMuted),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    partido.notas!.trim(),
-                    style: MatchPayTokens.bodySmallStyle(
-                      color: MatchPayTokens.inkSecondary,
+            Padding(
+              padding: const EdgeInsets.only(left: leadingInset),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1.5),
+                    child: Icon(
+                      Icons.notes,
+                      size: 18,
+                      color: MatchPayTokens.inkMuted,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      partido.notas!.trim(),
+                      softWrap: true,
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.inkSecondary,
+                      ).copyWith(height: 1.35),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ],

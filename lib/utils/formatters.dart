@@ -268,6 +268,45 @@ String formatFechaEncuentro(
   return _formatFechaEncuentroAbsoluta(fecha, referenceYear: reference.year);
 }
 
+/// Fecha larga para ficha de convocatoria: "Viernes 31 de julio · 23:00 hrs".
+String formatFechaEncuentroCompleta(
+  DateTime fecha, {
+  DateTime? now,
+}) {
+  final reference = now ?? DateTime.now();
+  final time = '${formatHora(fecha)} hrs';
+  final dayFecha = DateTime(fecha.year, fecha.month, fecha.day);
+  final dayNow = DateTime(reference.year, reference.month, reference.day);
+  final calendarDays = dayFecha.difference(dayNow).inDays;
+
+  if (calendarDays == 0) {
+    return _relativeLocalePhrase(
+      es: 'Hoy · $time',
+      en: 'Today · $time',
+      pt: 'Hoje · $time',
+    );
+  }
+  if (calendarDays == 1) {
+    return _relativeLocalePhrase(
+      es: 'Mañana · $time',
+      en: 'Tomorrow · $time',
+      pt: 'Amanhã · $time',
+    );
+  }
+
+  final locale = _activeDateLocale;
+  final withYear = fecha.year != reference.year;
+  final String pattern;
+  if (locale.startsWith('en')) {
+    pattern = withYear ? 'EEEE, MMMM d y' : 'EEEE, MMMM d';
+  } else {
+    // es / pt: "viernes 31 de julio"
+    pattern = withYear ? "EEEE d 'de' MMMM y" : "EEEE d 'de' MMMM";
+  }
+  final raw = DateFormat(pattern, locale).format(fecha);
+  return '${capitalize(raw.replaceAll('.', '').trim())} · $time';
+}
+
 /// Absoluto corto: "Lun 28 Jul · HH:mm" o con año si [fecha] es de otro año.
 String _formatFechaEncuentroAbsoluta(
   DateTime fecha, {
