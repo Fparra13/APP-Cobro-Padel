@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../core/app_repositories.dart';
 import '../core/auth_service.dart';
@@ -17,13 +16,14 @@ import '../l10n/matchpay_strings.dart';
 import '../models/detalle_partido.dart';
 import '../models/jugador.dart';
 import '../models/mi_convocatoria.dart';
-import '../services/story_engine_service.dart';
+import '../services/local_narrative_engine.dart';
 import '../utils/formatters.dart';
 import '../utils/matchpay_context.dart';
 import '../utils/nav_shell_layout.dart';
 import '../widgets/friendly_error_panel.dart';
 import '../widgets/jugador_avatar.dart';
 import '../widgets/matchpay_ui.dart';
+import '../widgets/narrative/story_card_view.dart';
 import '../widgets/player_profile_badges_section.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/sport_icon.dart';
@@ -45,7 +45,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
   int _companeros = 0;
   bool _loading = true;
   String? _error;
-  final _storyEngine = StoryEngineService();
+  final _narrativeEngine = LocalNarrativeEngine();
 
   @override
   void initState() {
@@ -117,24 +117,46 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
       bool badgeUnlocked(PlayerBehaviorBadge id) =>
           badges.any((b) => b.id == id && b.unlocked);
 
-      final story = await _storyEngine.selectStory(
-        StoryEngineInput(
-          encuentrosTotal: pride.encuentrosTotal,
-          rachaSemanas: pride.rachaSemanasConsecutivas,
-          porcentajeAsistencia: pride.porcentajeAsistencia,
-          deportesCount: pride.deportesJugados.length,
-          companeros: companeros,
-          actividadMesActual: mesActual,
-          actividadMesAnterior: mesAnterior,
-          badgeAlwaysPresent:
-              badgeUnlocked(PlayerBehaviorBadge.alwaysPresent),
-          badgeExplorer: badgeUnlocked(PlayerBehaviorBadge.explorer),
-          badgeEarlyBird: badgeUnlocked(PlayerBehaviorBadge.earlyBird),
-          badgeNightOwl: badgeUnlocked(PlayerBehaviorBadge.nightOwl),
-          primeraActividad: fechas.isEmpty ? null : fechas.first,
-          fechasActividad: fechas,
-        ),
+      final storyInput = StoryEngineInput(
+        encuentrosTotal: pride.encuentrosTotal,
+        rachaSemanas: pride.rachaSemanasConsecutivas,
+        porcentajeAsistencia: pride.porcentajeAsistencia,
+        deportesCount: pride.deportesJugados.length,
+        companeros: companeros,
+        actividadMesActual: mesActual,
+        actividadMesAnterior: mesAnterior,
+        badgeAlwaysPresent:
+            badgeUnlocked(PlayerBehaviorBadge.alwaysPresent),
+        badgeExplorer: badgeUnlocked(PlayerBehaviorBadge.explorer),
+        badgeEarlyBird: badgeUnlocked(PlayerBehaviorBadge.earlyBird),
+        badgeNightOwl: badgeUnlocked(PlayerBehaviorBadge.nightOwl),
+        primeraActividad: fechas.isEmpty ? null : fechas.first,
+        fechasActividad: fechas,
       );
+
+      final playerId = uid ?? perfil?.keyId ?? 'local';
+      final log = await _narrativeEngine.loadSightingLog(playerId);
+      final story = await _narrativeEngine.fetchStoryOfTheDay(
+        playerId: playerId,
+        input: storyInput,
+      );
+
+      // Silencio fértil: bienvenida suave sin hueco vacío.
+      final dailyStory = story ??
+          LocalNarrativeEngine.enrichCandidate(
+            const StoryCard(
+              id: 'identidad_welcome',
+              category: StoryCategory.identidad,
+              priority: 10,
+              title: 'playerTodayWelcomeTitle',
+              subtitle: 'playerTodayWelcomeBody',
+              emoji: '✨',
+            ),
+          );
+
+      final today = NarrativeSightingLog.calendarDay(DateTime.now());
+      final alreadyShownToday =
+          log.hasStickyFor(today) && log.stickyStoryId == dailyStory.id;
 
       if (!mounted) return;
       setState(() {
@@ -143,10 +165,20 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
         _badges = badges;
         _activities = activities;
         _companeros = companeros;
-        _todayStory = story;
+        _todayStory = dailyStory;
         _loading = false;
         _error = null;
       });
+
+      // Mutación del log solo cuando la historia se expone por primera vez hoy.
+      if (!alreadyShownToday && story != null) {
+        await _narrativeEngine.markStoryAsSeen(
+          playerId: playerId,
+          storyId: dailyStory.id,
+          family: dailyStory.family,
+          intensity: dailyStory.intensity,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -225,7 +257,11 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                         ),
                       if (pride != null) ...[
                         const SizedBox(height: 28),
-                        _TodayForYouCard(story: _todayStory),
+                        if (_todayStory != null)
+                          StoryCardView(
+                            card: _todayStory!,
+                            sectionLabel: l10n.tr('playerTodayTitle'),
+                          ),
                         const SizedBox(height: 14),
                         _PrideMetricsStrip(
                           pride: pride,
@@ -348,85 +384,6 @@ class _SportsIdentityHero extends StatelessWidget {
               fontSize: 13,
               height: 1.4,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Tarjeta "Hoy para ti" alimentada por el Story Engine.
-class _TodayForYouCard extends StatelessWidget {
-  final StoryCard? story;
-
-  const _TodayForYouCard({required this.story});
-
-  static String _localizeWeekdayParam(
-    BuildContext context,
-    Map<String, String> params,
-  ) {
-    final raw = params['day'];
-    if (raw == null) return '';
-    final weekday = int.tryParse(raw);
-    if (weekday == null || weekday < 1 || weekday > 7) return raw;
-    // 2024-01-01 was Monday → weekday N maps to DateTime(2024, 1, N).
-    final locale = Localizations.localeOf(context).toString();
-    return DateFormat.EEEE(locale).format(DateTime(2024, 1, weekday));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final palette = context.sportPalette;
-    final card = story;
-
-    final titleText = card == null
-        ? l10n.tr('playerTodayWelcomeTitle')
-        : '${card.emoji} ${l10n.tr(card.title)}';
-
-    final params = Map<String, String>.from(card?.params ?? const {});
-    if (params.containsKey('day')) {
-      params['day'] = _localizeWeekdayParam(context, params);
-    }
-    final bodyText = card == null
-        ? l10n.tr('playerTodayWelcomeBody')
-        : l10n.tr(card.subtitle, params: params);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            palette.primary.withValues(alpha: 0.14),
-            palette.primary.withValues(alpha: 0.06),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: palette.primary.withValues(alpha: 0.22)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.tr('playerTodayTitle'),
-            style: MatchPayTokens.bodySmallStyle(
-              color: MatchPayTokens.inkMuted,
-            ).copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.2),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            titleText,
-            style: MatchPayTokens.titleSmallStyle().copyWith(fontSize: 16),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            bodyText,
-            style: MatchPayTokens.bodySmallStyle(
-              color: MatchPayTokens.inkSecondary,
-            ).copyWith(height: 1.35),
           ),
         ],
       ),
