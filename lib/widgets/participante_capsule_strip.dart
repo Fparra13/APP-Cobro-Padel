@@ -117,62 +117,57 @@ class _ParticipanteCapsule extends StatelessWidget {
         : entry.jugador.nombre.trim();
     final statusKey = _statusKey(entry.estado);
     final chrome = _chromeFor(entry.estado);
-    final isDeclined = entry.estado == EstadoConfirmacion.rechazado ||
-        entry.estado == EstadoConfirmacion.noRespondio;
 
-    final capsule = SizedBox.expand(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: chrome.background,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: chrome.border, width: 1),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _StatusAvatar(
-                  estado: entry.estado,
-                  child: JugadorAvatar(
-                    nombre: nombre,
-                    fotoUrl: entry.jugador.fotoUrl,
-                    fotoPath: entry.jugador.fotoPath,
-                    size: avatarSize,
-                    borderRadius: avatarSize / 2,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    nombre,
-                    maxLines: 2,
-                    softWrap: true,
-                    overflow: TextOverflow.ellipsis,
-                    style: MatchPayTokens.bodySmallStyle(
-                      color: chrome.foreground,
-                    ).copyWith(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      height: 1.15,
-                      letterSpacing: -0.15,
+    return Semantics(
+      label: '$nombre, ${context.l10n.tr(statusKey)}',
+      child: SizedBox.expand(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: chrome.background,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: chrome.border, width: 1),
+            boxShadow: chrome.shadow,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _StatusAvatar(
+                    estado: entry.estado,
+                    child: JugadorAvatar(
+                      nombre: nombre,
+                      fotoUrl: entry.jugador.fotoUrl,
+                      fotoPath: entry.jugador.fotoPath,
+                      size: avatarSize,
+                      borderRadius: avatarSize / 2,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      nombre,
+                      maxLines: 2,
+                      softWrap: true,
+                      overflow: TextOverflow.ellipsis,
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: chrome.foreground,
+                      ).copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        height: 1.15,
+                        letterSpacing: -0.15,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    );
-
-    return Semantics(
-      label: '$nombre, ${context.l10n.tr(statusKey)}',
-      child: isDeclined
-          ? Opacity(opacity: 0.5, child: capsule)
-          : capsule,
     );
   }
 
@@ -188,21 +183,28 @@ class _ParticipanteCapsule extends StatelessWidget {
     switch (estado) {
       case EstadoConfirmacion.confirmado:
         return const _CapsuleChrome(
-          background: Color(0xFFF3F4F6),
-          border: Color(0xFFE5E7EB),
+          background: Color(0xFFFFFFFF),
+          border: Color(0xFFE8E8EA),
           foreground: MatchPayTokens.ink,
+          shadow: [
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
         );
       case EstadoConfirmacion.invitado:
         return const _CapsuleChrome(
-          background: Color(0xFFF3F4F6),
+          background: Color(0xFFF4F5F6),
           border: Color(0xFFE5E7EB),
           foreground: MatchPayTokens.ink,
         );
       case EstadoConfirmacion.rechazado:
       case EstadoConfirmacion.noRespondio:
         return const _CapsuleChrome(
-          background: Color(0xFFF8EFEF),
-          border: Color(0xFFE8C9C9),
+          background: Color(0xFFFFF6F6),
+          border: Color(0xFFF3D6D6),
           foreground: Color(0xFF6B4F4F),
         );
     }
@@ -213,11 +215,13 @@ class _CapsuleChrome {
   final Color background;
   final Color border;
   final Color foreground;
+  final List<BoxShadow> shadow;
 
   const _CapsuleChrome({
     required this.background,
     required this.border,
     required this.foreground,
+    this.shadow = const [],
   });
 }
 
@@ -230,6 +234,14 @@ class _StatusAvatar extends StatelessWidget {
     required this.estado,
     required this.child,
   });
+
+  /// Escala de grises + tinte rosado sutil (rechazados / ausentes).
+  static const ColorFilter _kRoseGreyFilter = ColorFilter.matrix(<double>[
+    0.35, 0.45, 0.08, 0, 28,
+    0.25, 0.40, 0.08, 0, 12,
+    0.25, 0.35, 0.10, 0, 12,
+    0, 0, 0, 1, 0,
+  ]);
 
   @override
   Widget build(BuildContext context) {
@@ -244,8 +256,8 @@ class _StatusAvatar extends StatelessWidget {
       case EstadoConfirmacion.noRespondio:
       case EstadoConfirmacion.rechazado:
         return ColorFiltered(
-          colorFilter: _kGreyscaleFilter,
-          child: Opacity(opacity: 0.75, child: child),
+          colorFilter: _kRoseGreyFilter,
+          child: child,
         );
     }
   }

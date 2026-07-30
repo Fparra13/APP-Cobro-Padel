@@ -52,7 +52,8 @@ class NuevoPartidoScreen extends StatefulWidget {
 class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
   final _prefs = PreferencesService();
 
-  final _notasCtrl = TextEditingController();
+  /// Notas ya persistidas (solo lectura; el formulario ya no las edita).
+  String? _notasExistentes;
   final _recintoCtrl = TextEditingController();
   final _jugadoresBusquedaCtrl = TextEditingController();
 
@@ -274,7 +275,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         if (conv != null) {
           _esOrganizando = true;
           _createdAtOriginal = conv.partido.createdAt;
-          _notasCtrl.text = conv.partido.notas ?? '';
+          _notasExistentes = conv.partido.notas;
           _recintoCtrl.text = conv.partido.recinto ?? '';
           _fechaPartido = conv.partido.fecha;
           _sportType = conv.partido.sportType;
@@ -332,7 +333,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
       final historicos = await repos.getSaldosByPartido(widget.partidoId!);
 
       if (completo != null) {
-        _notasCtrl.text = completo.partido.notas ?? '';
+        _notasExistentes = completo.partido.notas;
         _recintoCtrl.text = completo.partido.recinto ?? '';
         _fechaPartido = completo.partido.fecha;
         _sportType = completo.partido.sportType;
@@ -590,7 +591,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
     for (final g in _gastosCompartidos) {
       g.dispose();
     }
-    _notasCtrl.dispose();
     _recintoCtrl.dispose();
     _jugadoresBusquedaCtrl.dispose();
     super.dispose();
@@ -910,7 +910,9 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
         costoCancha: _monto(ConceptosCobro.cancha),
         costoPelotas: _monto(ConceptosCobro.pelotas),
         recinto: recinto.isEmpty ? null : recinto,
-        notas: _notasCtrl.text.trim().isEmpty ? null : _notasCtrl.text.trim(),
+        notas: (_notasExistentes?.trim().isEmpty ?? true)
+            ? null
+            : _notasExistentes!.trim(),
         comprobanteCancha: GastoPresetLogic.comprobantePreset(
           _gastosCompartidos,
           ConceptosCobro.cancha,
@@ -1291,6 +1293,7 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
             const SizedBox(height: 16),
             MatchSportPicker(
               value: _sportType,
+              compact: true,
               onChanged: (sport) => setState(() => _sportType = sport),
             ),
             const SizedBox(height: 12),
@@ -1332,17 +1335,6 @@ class _NuevoPartidoScreenState extends State<NuevoPartidoScreen> {
                       ),
               ),
               textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _notasCtrl,
-              decoration: InputDecoration(
-                labelText: l10n.tr('notesOptionalLabel'),
-                prefixIcon: const Icon(Icons.notes),
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
-              maxLines: 2,
             ),
           ],
         ),
