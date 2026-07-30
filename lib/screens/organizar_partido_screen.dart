@@ -79,7 +79,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
   static const _cuposPresets = <int>[4, 6, 8];
 
-  final _notasCtrl = TextEditingController();
   final _cuposCtrl = TextEditingController(text: '4');
   final _jugadoresBusquedaCtrl = TextEditingController();
   /// `true` cuando el organizador eligió «Otro» (muestra el input numérico).
@@ -95,6 +94,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   final Map<String, EstadoConfirmacion> _estados = {};
   int _horasLimite = 24;
   DateTime? _fechaPartido;
+  /// Notas ya persistidas (solo lectura; el formulario ya no las edita).
+  String? _notasExistentes;
   SportType? _sportType;
   bool _loading = true;
   bool _guardando = false;
@@ -232,8 +233,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   bool get _fechaPartidoPasada =>
       _fechaPartido == null || !_fechaPartido!.isAfter(DateTime.now());
 
-  bool get _tieneFechaPartido => _fechaPartido != null;
-
   List<int> get _opcionesPlazo {
     if (_fechaPartido == null) {
       return ConvocatoriaPlazoRespuesta.opcionesExtendidas;
@@ -370,7 +369,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   @override
   void dispose() {
     SupabaseRealtimeService.instance.unsubscribeConvocatoria();
-    _notasCtrl.dispose();
     _cuposCtrl.dispose();
     _jugadoresBusquedaCtrl.dispose();
     super.dispose();
@@ -428,7 +426,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
         _fechaPartido = conv.partido.fecha;
         _sportType = conv.partido.sportType;
         recintoSel = _recintoDesdePartido(conv.partido, recintosGuardados);
-        _notasCtrl.text = conv.partido.notas ?? '';
+        _notasExistentes = conv.partido.notas;
         _cuposCtrl.text = conv.partido.cuposMax.toString();
         _cuposOtro = !_cuposPresets.contains(conv.partido.cuposMax);
         _horasLimite = conv.partido.horasLimiteRespuesta;
@@ -957,7 +955,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
     if (actualizarGuardando) setState(() => _guardando = true);
     try {
-      final notas = _notasCtrl.text.trim();
+      final notas = _notasExistentes?.trim();
       final jugadores = _buildJugadoresInput();
 
       final repos = context.repos;
@@ -969,7 +967,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           recintoMapsUrl: recinto.mapsUrl,
           recintoLat: recinto.lat,
           recintoLng: recinto.lng,
-          notas: notas.isEmpty ? null : notas,
+          notas: null,
           cuposMax: _cuposMax,
           horasLimiteRespuesta: _horasLimite,
           jugadores: jugadores,
@@ -1010,7 +1008,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           recintoMapsUrl: recinto.mapsUrl,
           recintoLat: recinto.lat,
           recintoLng: recinto.lng,
-          notas: notas.isEmpty ? null : notas,
+          notas: (notas == null || notas.isEmpty) ? null : notas,
           cuposMax: _cuposMax,
           horasLimiteRespuesta: _horasLimite,
           jugadores: jugadores,
@@ -1461,6 +1459,8 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 ],
                 const SizedBox(height: 6),
                 _buildFechaHoraHero(),
+                const SizedBox(height: 6),
+                _buildPlazoCard(),
                 if (_mostrarResumenConvocatoria) ...[
                   const SizedBox(height: 8),
                   _buildResumen(),
@@ -1473,10 +1473,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                 _buildCuposCard(),
                 const SizedBox(height: 10),
                 _buildListaJugadores(),
-                const SizedBox(height: 8),
-                _buildPlazoCard(),
-                const SizedBox(height: 8),
-                _buildNotasCard(),
                 const SizedBox(height: 80),
               ],
             ),
@@ -1682,7 +1678,7 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
             }
           : null,
       lugar: lugar,
-      notas: _notasCtrl.text.trim(),
+      notas: _notasExistentes?.trim() ?? '',
       plazoLimite: plazoLimite,
       fechaDetalle: _fechaPartido,
       sportTypeDetalle: _sportType,
@@ -1821,13 +1817,6 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                         fontWeight: FontWeight.w800,
                         height: 1.15,
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      formatEnCuanto(fecha),
-                      style: MatchPayTokens.bodySmallStyle(
-                        color: MatchPayTokens.inkSecondary,
-                      ).copyWith(fontWeight: FontWeight.w600, fontSize: 12),
                     ),
                     if (bloqueado &&
                         _recintoSeleccionado?.nombre.trim().isNotEmpty ==
@@ -2250,61 +2239,93 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       });
     }
 
+    final palette = context.sportPalette;
+    final tieneFecha = _fechaPartido != null;
+    final helper = tieneFecha ? _buildPlazoHelperText() : null;
+    final bloqueado = _formularioBloqueado;
+
     return MatchPaySurfaceCard(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: DropdownButtonFormField<int>(
-        key: ValueKey('plazo-${opciones.join('-')}'),
-        value: valor,
-        decoration: InputDecoration(
-          labelText: context.l10n.tr('organizeResponseDeadlineLabel'),
-          prefixIcon: const Icon(Icons.timer_outlined),
-          helperText: _fechaPartido == null
-              ? context.l10n.tr('organizeResponseDeadlineNeedDate')
-              : _buildPlazoHelperText(),
-          helperMaxLines: 2,
-          isDense: true,
-          border: const OutlineInputBorder(),
-        ),
-        items: opciones
-            .map(
-              (h) => DropdownMenuItem(
-                value: h,
-                child: Text(
-                  context.l10n.tr(
-                    'organizeHoursCount',
-                    params: {'n': '$h'},
-                  ),
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            context.l10n.tr('organizeResponseDeadlineLabel'),
+            style: MatchPayTokens.titleSmallStyle().copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<int>(
+            key: ValueKey('plazo-${opciones.join('-')}-$valor'),
+            initialValue: valor,
+            decoration: InputDecoration(
+              prefixIcon: Icon(
+                Icons.timer_outlined,
+                color: tieneFecha ? palette.primary : MatchPayTokens.inkMuted,
+              ),
+              isDense: true,
+              filled: true,
+              fillColor: tieneFecha
+                  ? palette.primary.withValues(alpha: 0.06)
+                  : MatchPayTokens.surfaceInset,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+                borderSide: BorderSide(
+                  color: tieneFecha
+                      ? palette.primary.withValues(alpha: 0.28)
+                      : MatchPayTokens.borderSubtle,
                 ),
               ),
-            )
-            .toList(),
-        onChanged: _formularioBloqueado || _fechaPartido == null
-            ? null
-            : (v) {
-                if (v == null) return;
-                setState(() {
-                  _horasLimite = v;
-                  _dirty = true;
-                });
-              },
-      ),
-    );
-  }
-
-  Widget _buildNotasCard() {
-    return MatchPaySurfaceCard(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-      child: TextField(
-        controller: _notasCtrl,
-        readOnly: _formularioBloqueado,
-        onChanged: _formularioBloqueado ? null : (_) => _marcarDirty(),
-        maxLines: 2,
-        decoration: InputDecoration(
-          labelText: context.l10n.tr('notesOptionalLabel'),
-          prefixIcon: const Icon(Icons.notes),
-          isDense: true,
-          border: const OutlineInputBorder(),
-        ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+                borderSide: BorderSide(
+                  color: tieneFecha
+                      ? palette.primary.withValues(alpha: 0.28)
+                      : MatchPayTokens.borderSubtle,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(MatchPayTokens.radiusChip),
+                borderSide: BorderSide(
+                  color: palette.primary.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+            items: opciones
+                .map(
+                  (h) => DropdownMenuItem(
+                    value: h,
+                    child: Text(
+                      context.l10n.tr(
+                        'organizeHoursCount',
+                        params: {'n': '$h'},
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: bloqueado || !tieneFecha
+                ? null
+                : (v) {
+                    if (v == null) return;
+                    setState(() {
+                      _horasLimite = v;
+                      _dirty = true;
+                    });
+                  },
+          ),
+          if (helper != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              helper,
+              style: MatchPayTokens.bodySmallStyle(
+                color: MatchPayTokens.inkSecondary,
+              ).copyWith(fontSize: 11, height: 1.25, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -2464,32 +2485,34 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
                   style:
                       MatchPayTokens.titleSmallStyle().copyWith(fontSize: 15),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  context.l10n.tr('organizeWaitlistHint'),
-                  style:
-                      MatchPayTokens.bodySmallStyle().copyWith(fontSize: 12),
-                ),
-                if (_puedeEditarListaEspera) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    context.l10n.tr('organizeWaitlistHintTracking'),
-                    style: MatchPayTokens.bodySmallStyle(
-                      color: MatchPayTokens.accentCredit,
-                    ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ],
                 if (_listaEspera.isEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    padding: const EdgeInsets.fromLTRB(0, 10, 0, 4),
                     child: Text(
                       context.l10n.tr('organizeWaitlistEmpty'),
                       style: MatchPayTokens.bodySmallStyle(
                         color: MatchPayTokens.inkMuted,
-                      ),
+                      ).copyWith(fontSize: 13, height: 1.35),
                     ),
                   )
                 else ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    context.l10n.tr('organizeWaitlistHint'),
+                    style: MatchPayTokens.bodySmallStyle().copyWith(
+                      fontSize: 12,
+                      height: 1.35,
+                    ),
+                  ),
+                  if (_puedeEditarListaEspera) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      context.l10n.tr('organizeWaitlistHintTracking'),
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: MatchPayTokens.accentCredit,
+                      ).copyWith(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   ReorderableListView(
                     shrinkWrap: true,

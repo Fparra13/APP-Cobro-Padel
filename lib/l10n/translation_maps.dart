@@ -1191,7 +1191,7 @@ class TranslationMaps {
         '{available} cupo(s) libre(s) · {starters} invitados · {subs} en espera',
     'organizeRecentVenues': 'Recintos recientes',
     'organizeMaxSlotsLabel': '¿Cuántas personas participarán?',
-    'organizeResponseDeadlineLabel': 'Plazo para responder',
+    'organizeResponseDeadlineLabel': 'Plazo de respuesta participantes',
     'organizeResponseDeadlineNeedDate':
         'Primero elige la fecha del encuentro para calcular el plazo.',
     'organizeResponseDeadlineHint': 'Hasta el {deadline}.',
@@ -1214,8 +1214,7 @@ class TranslationMaps {
     'organizeStartersHintTracking':
         'Con app: responden solos. Sin app: toca su estado para registrar respuesta.',
     'organizeStartersHintDraft':
-        'Selecciona quiénes recibirán la invitación. '
-        'Si el encuentro se completa, los siguientes quedarán en lista de espera.',
+        'Selecciona a quiénes deseas enviar la invitación.',
     'organizeVenueCardTitle': '¿Dónde será?',
     'organizeVenueCardHint': 'Selecciona dónde será el encuentro',
     'organizeSlotsCardTitle': 'Participantes',
@@ -1231,15 +1230,12 @@ class TranslationMaps {
     'organizeStatusRespondInApp': 'Responde desde la app',
     'organizeWaitlistTitle': 'Lista de espera (orden de prioridad)',
     'organizeWaitlistHint':
-        'Vacía hasta que marques más personas en la lista de arriba. '
-        'Arrastra para cambiar prioridad (1 = primero).',
+        'Arrastra para ordenar la prioridad de ingreso (1 = primera opción).',
     'organizeWaitlistHintTracking':
         'Puedes reordenar la prioridad mientras el encuentro no haya empezado.',
     'organizeWaitlistNeedFullSlots':
         'Completa los cupos de la convocatoria para poder armar la lista de espera.',
-    'organizeWaitlistEmpty':
-        'Nadie en espera. Con los cupos llenos, marca más personas arriba '
-        'para añadirlas aquí.',
+    'organizeWaitlistEmpty': 'Nadie en espera todavía.',
     'organizeWaitlistBadge': 'En espera',
     'organizeWaitlistRemove': 'Quitar de lista de espera',
     'organizeWaitlistAddedSnack': '{name} añadido a lista de espera',
@@ -3150,7 +3146,7 @@ class TranslationMaps {
         '{available} slot(s) available · {starters} invited · {subs} waiting',
     'organizeRecentVenues': 'Recent venues',
     'organizeMaxSlotsLabel': 'How many people will join?',
-    'organizeResponseDeadlineLabel': 'Response deadline',
+    'organizeResponseDeadlineLabel': 'Participant response deadline',
     'organizeResponseDeadlineNeedDate':
         'Pick the session date first to calculate the deadline.',
     'organizeResponseDeadlineHint': 'Until {deadline}.',
@@ -3171,8 +3167,7 @@ class TranslationMaps {
     'organizeStartersHintTracking':
         'With app: they respond on their own. No app: tap their status to record.',
     'organizeStartersHintDraft':
-        'Select who will receive the invitation. '
-        'If the session fills up, the next people go on the waitlist.',
+        'Select who you want to send the invitation to.',
     'organizeVenueCardTitle': 'Where will it be?',
     'organizeVenueCardHint': 'Choose where the session will take place',
     'organizeSlotsCardTitle': 'Participants',
@@ -3188,15 +3183,12 @@ class TranslationMaps {
     'organizeStatusRespondInApp': 'Responds in the app',
     'organizeWaitlistTitle': 'Waitlist (priority order)',
     'organizeWaitlistHint':
-        'Empty until you select more people in the list above. '
-        'Drag to change priority (1 = first).',
+        'Drag to set entry priority (1 = first choice).',
     'organizeWaitlistHintTracking':
         'You can reorder priority until session time.',
     'organizeWaitlistNeedFullSlots':
         'Fill all invite slots before building the waitlist.',
-    'organizeWaitlistEmpty':
-        'Nobody waiting. Once slots are full, check more people above '
-        'to add them here.',
+    'organizeWaitlistEmpty': 'Nobody on the waitlist yet.',
     'organizeWaitlistBadge': 'Waiting',
     'organizeWaitlistRemove': 'Remove from waitlist',
     'organizeWaitlistAddedSnack': '{name} added to waitlist',
@@ -5101,7 +5093,7 @@ class TranslationMaps {
         '{available} vaga(s) livre(s) · {starters} convidados · {subs} em espera',
     'organizeRecentVenues': 'Locais recentes',
     'organizeMaxSlotsLabel': 'Quantas pessoas vão participar?',
-    'organizeResponseDeadlineLabel': 'Prazo para responder',
+    'organizeResponseDeadlineLabel': 'Prazo de resposta dos participantes',
     'organizeResponseDeadlineNeedDate':
         'Escolha primeiro a data do encontro para calcular o prazo.',
     'organizeResponseDeadlineHint': 'Até {deadline}.',
@@ -5124,8 +5116,7 @@ class TranslationMaps {
     'organizeStartersHintTracking':
         'Com app: respondem sozinhos. Sem app: toque o status para registrar.',
     'organizeStartersHintDraft':
-        'Selecione quem receberá o convite. '
-        'Se o encontro lotar, os seguintes ficam na lista de espera.',
+        'Selecione para quem deseja enviar o convite.',
     'organizeVenueCardTitle': 'Onde será?',
     'organizeVenueCardHint': 'Escolha onde será o encontro',
     'organizeSlotsCardTitle': 'Participantes',
@@ -5141,15 +5132,12 @@ class TranslationMaps {
     'organizeStatusRespondInApp': 'Responde pelo app',
     'organizeWaitlistTitle': 'Lista de espera (ordem de prioridade)',
     'organizeWaitlistHint':
-        'Vazia até você marcar mais pessoas na lista acima. '
-        'Arraste para mudar a prioridade (1 = primeiro).',
+        'Arraste para ordenar a prioridade de entrada (1 = primeira opção).',
     'organizeWaitlistHintTracking':
         'Você pode reordenar a prioridade até a hora do encontro.',
     'organizeWaitlistNeedFullSlots':
         'Complete as vagas do convite para montar a lista de espera.',
-    'organizeWaitlistEmpty':
-        'Ninguém na espera. Com as vagas cheias, marque mais pessoas acima '
-        'para adicioná-las aqui.',
+    'organizeWaitlistEmpty': 'Ninguém na espera ainda.',
     'organizeWaitlistBadge': 'Na espera',
     'organizeWaitlistRemove': 'Remover da lista de espera',
     'organizeWaitlistAddedSnack': '{name} adicionado à lista de espera',
