@@ -99,6 +99,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   SportType? _sportType;
   bool _loading = true;
   bool _guardando = false;
+  /// Serializa guardados del roster (evita carreras entre toggles rápidos).
+  Future<void>? _guardarCola;
+  bool _guardarPendiente = false;
   String? _errorCarga;
   int? _partidoId;
   bool _dirty = false;
@@ -750,21 +753,25 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           _estados.remove(id);
         }
         _dirty = true;
-      } else if (value == true) {
-        if (_esTitular(id) || _esSuplente(id)) return;
-        if (_titulares.length < _cuposMax) {
-          _listaEspera.remove(id);
-          _titulares.add(id);
-        } else {
-          // Cupos de invitación llenos → pasa a lista de espera.
-          if (!_listaEspera.contains(id)) _listaEspera.add(id);
-        }
-        _estados.putIfAbsent(id, () => EstadoConfirmacion.invitado);
-        _dirty = true;
       } else {
-        _titulares.remove(id);
-        _listaEspera.remove(id);
-        _estados.remove(id);
+        final next = ConvocatoriaCupoLogic.aplicarToggleSeleccionBorrador(
+          titulares: _titulares,
+          reservas: _listaEspera,
+          cuposMax: _cuposMax,
+          jugadorId: id,
+          seleccionar: value == true,
+        );
+        _titulares
+          ..clear()
+          ..addAll(next.titulares);
+        _listaEspera
+          ..clear()
+          ..addAll(next.reservas);
+        if (value == true) {
+          _estados.putIfAbsent(id, () => EstadoConfirmacion.invitado);
+        } else {
+          _estados.remove(id);
+        }
         _dirty = true;
       }
     });
@@ -893,6 +900,39 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
   }
 
   Future<bool> _guardar({
+    bool silencioso = false,
+    bool actualizarGuardando = true,
+  }) async {
+    // Un solo write en vuelo. Toggles concurrentes marcan pendiente y el
+    // líder reintenta con el estado más reciente (sin parallel writes).
+    if (_guardarCola != null) {
+      _guardarPendiente = true;
+      await _guardarCola;
+      return true;
+    }
+
+    final done = Completer<void>();
+    _guardarCola = done.future;
+    try {
+      var ok = await _guardarImpl(
+        silencioso: silencioso,
+        actualizarGuardando: actualizarGuardando,
+      );
+      while (_guardarPendiente) {
+        _guardarPendiente = false;
+        ok = await _guardarImpl(
+          silencioso: true,
+          actualizarGuardando: false,
+        );
+      }
+      return ok;
+    } finally {
+      done.complete();
+      if (_guardarCola == done.future) _guardarCola = null;
+    }
+  }
+
+  Future<bool> _guardarImpl({
     bool silencioso = false,
     bool actualizarGuardando = true,
   }) async {
