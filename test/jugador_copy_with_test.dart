@@ -2,44 +2,58 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:matchpay/models/jugador.dart';
 
 void main() {
-  test('copyWith preserves fcmToken so tieneMatchPayApp stays true', () {
+  test('copyWith preserves appLastSeenAt so tieneMatchPayApp stays true', () {
     final base = Jugador(
-      supabaseId: 'org-1',
-      nombre: 'Organizador',
-      fcmToken: 'token-abc',
+      nombre: 'Ana',
+      appLastSeenAt: DateTime.utc(2026, 1, 1),
       createdAt: DateTime.utc(2026, 1, 1),
     );
-
     final withSaldo = base.copyWith(saldoAcumulado: 12.5);
-
-    expect(withSaldo.fcmToken, 'token-abc');
-    expect(withSaldo.tieneMatchPayApp, isTrue);
     expect(withSaldo.saldoAcumulado, 12.5);
+    expect(withSaldo.appLastSeenAt, DateTime.utc(2026, 1, 1));
+    expect(withSaldo.tieneMatchPayApp, isTrue);
   });
 
-  test('copyWith can clear fcmToken explicitly', () {
+  test('copyWith can clear appLastSeenAt explicitly', () {
     final base = Jugador(
-      supabaseId: 'j-1',
-      nombre: 'Jugador',
-      fcmToken: 'token-abc',
+      nombre: 'Ana',
+      appLastSeenAt: DateTime.utc(2026, 1, 1),
       createdAt: DateTime.utc(2026, 1, 1),
     );
-
-    final cleared = base.copyWith(clearFcmToken: true);
-
-    expect(cleared.fcmToken, isNull);
+    final cleared = base.copyWith(clearAppLastSeenAt: true);
+    expect(cleared.appLastSeenAt, isNull);
     expect(cleared.tieneMatchPayApp, isFalse);
   });
 
-  test('tieneMatchPayApp true with appLastSeenAt even without fcmToken', () {
+  test('tieneMatchPayApp false without appLastSeenAt', () {
     final base = Jugador(
-      supabaseId: 'j-1',
-      nombre: 'Catalina',
-      appLastSeenAt: DateTime.utc(2026, 7, 20),
+      nombre: 'Ana',
       createdAt: DateTime.utc(2026, 1, 1),
     );
+    expect(base.tieneMatchPayApp, isFalse);
+  });
 
-    expect(base.puedeRecibirPush, isFalse);
-    expect(base.tieneMatchPayApp, isTrue);
+  test('fromSupabaseMap ignores fcm_token and uses app_last_seen_at', () {
+    final j = Jugador.fromSupabaseMap({
+      'id': 'u1',
+      'nombre': 'Ana',
+      'activo': true,
+      'fcm_token': 'should-be-ignored',
+      'app_last_seen_at': '2026-01-02T00:00:00Z',
+      'created_at': '2026-01-01T00:00:00Z',
+    });
+    expect(j.tieneMatchPayApp, isTrue);
+    expect(j.appLastSeenAt, isNotNull);
+  });
+
+  test('fromSupabaseMap usa_app without timestamp still marks app user', () {
+    final j = Jugador.fromSupabaseMap({
+      'id': 'u1',
+      'nombre': 'Ana',
+      'activo': true,
+      'usa_app': true,
+      'created_at': '2026-01-01T00:00:00Z',
+    });
+    expect(j.tieneMatchPayApp, isTrue);
   });
 }

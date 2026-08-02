@@ -14,9 +14,7 @@ class Jugador {
   final String? fotoPath;
   /// URL pública en Supabase Storage.
   final String? fotoUrl;
-  /// Token FCM para push (puede faltar aunque use la app).
-  final String? fcmToken;
-  /// Última apertura de la app; marca "Tiene Kloovi" aunque falte FCM.
+  /// Última apertura de la app; marca "Tiene Kloovi" (sin exponer fcm_token).
   final DateTime? appLastSeenAt;
   final DateTime createdAt;
 
@@ -30,7 +28,6 @@ class Jugador {
     this.telefono,
     this.fotoPath,
     this.fotoUrl,
-    this.fcmToken,
     this.appLastSeenAt,
     required this.createdAt,
   });
@@ -57,12 +54,8 @@ class Jugador {
   /// Perfil vinculado a Supabase (puede tener o no la app instalada).
   bool get tienePerfilRemoto => supabaseId != null && supabaseId!.isNotEmpty;
 
-  /// Puede recibir push en este dispositivo.
-  bool get puedeRecibirPush =>
-      fcmToken != null && fcmToken!.trim().isNotEmpty;
-
-  /// Cuenta que abrió Kloovi (no solo ficha manual del organizador).
-  bool get tieneMatchPayApp => puedeRecibirPush || appLastSeenAt != null;
+  /// Cuenta que abrió Kloovi (dato no sensible; no usa fcm_token).
+  bool get tieneMatchPayApp => appLastSeenAt != null;
 
   bool get puedeEnviarWhatsApp =>
       normalizeWhatsAppDigits(contactWhatsApp) != null;
@@ -82,12 +75,10 @@ class Jugador {
     String? telefono,
     String? fotoPath,
     String? fotoUrl,
-    String? fcmToken,
     DateTime? appLastSeenAt,
     bool clearFoto = false,
     bool clearTelefono = false,
     bool clearEmail = false,
-    bool clearFcmToken = false,
     bool clearAppLastSeenAt = false,
     DateTime? createdAt,
   }) {
@@ -101,7 +92,6 @@ class Jugador {
       telefono: clearTelefono ? null : (telefono ?? this.telefono),
       fotoPath: clearFoto ? null : (fotoPath ?? this.fotoPath),
       fotoUrl: clearFoto ? null : (fotoUrl ?? this.fotoUrl),
-      fcmToken: clearFcmToken ? null : (fcmToken ?? this.fcmToken),
       appLastSeenAt: clearAppLastSeenAt
           ? null
           : (appLastSeenAt ?? this.appLastSeenAt),
@@ -132,6 +122,14 @@ class Jugador {
       );
 
   factory Jugador.fromSupabaseMap(Map<String, dynamic> map) {
+    final seenRaw = map['app_last_seen_at'];
+    DateTime? seen = seenRaw == null
+        ? null
+        : SupabaseParse.toDateTime(seenRaw);
+    // Contrato UI: `usa_app` sin timestamp → sentinel para la heurística.
+    if (seen == null && SupabaseParse.toBool(map['usa_app'])) {
+      seen = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+    }
     return Jugador(
       supabaseId: SupabaseParse.toStringOrNull(map['id']),
       nombre: SupabaseParse.asString(map['nombre'], fallback: 'Sin nombre'),
@@ -142,10 +140,7 @@ class Jugador {
       email: SupabaseParse.toStringOrNull(map['email'])?.toLowerCase(),
       telefono: SupabaseParse.toStringOrNull(map['telefono']),
       fotoUrl: SupabaseParse.toStringOrNull(map['foto_url']),
-      fcmToken: SupabaseParse.toStringOrNull(map['fcm_token']),
-      appLastSeenAt: map['app_last_seen_at'] == null
-          ? null
-          : SupabaseParse.toDateTime(map['app_last_seen_at']),
+      appLastSeenAt: seen,
       createdAt: SupabaseParse.toDateTime(map['created_at']),
     );
   }

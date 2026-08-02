@@ -65,8 +65,13 @@ class JugadorRepositoryRemote {
                 (map['saldo_acumulado'] as num?)?.toDouble() ?? 0;
           }
           if (ids.isNotEmpty) {
-            var profileQuery =
-                _client.from('profiles').select().inFilter('id', ids);
+            var profileQuery = _client
+                .from('profiles')
+                .select(
+                  'id,nombre,email,telefono,activo,role,foto_url,'
+                  'app_last_seen_at,created_at',
+                )
+                .inFilter('id', ids);
             if (soloActivos == true) {
               profileQuery = profileQuery.eq('activo', true);
             }
@@ -103,14 +108,20 @@ class JugadorRepositoryRemote {
     });
   }
 
+  static const _profileSafeCols =
+      'id,nombre,email,telefono,activo,role,foto_url,app_last_seen_at,created_at';
+
   /// Perfil + saldo de cuenta con [organizadorId] (default: org autenticado).
   ///
   /// Sin [organizadorId] ni sesión de org, [Jugador.saldoAcumulado] queda en 0
   /// (el saldo global en profiles ya no existe).
   Future<Jugador?> getById(String id, {String? organizadorId}) async {
     return SupabaseHelpers.guard('Obtener jugador', () async {
-      final row =
-          await _client.from('profiles').select().eq('id', id).maybeSingle();
+      final row = await _client
+          .from('profiles')
+          .select(_profileSafeCols)
+          .eq('id', id)
+          .maybeSingle();
       if (row == null) return null;
       final base = Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
       final orgId = organizadorId ?? SupabaseHelpers.currentUserId;
@@ -129,7 +140,7 @@ class JugadorRepositoryRemote {
     return SupabaseHelpers.guard('Buscar jugador por email', () async {
       final row = await _client
           .from('profiles')
-          .select()
+          .select(_profileSafeCols)
           .eq('email', normalized)
           .maybeSingle();
       if (row == null) return null;
@@ -336,7 +347,7 @@ class JugadorRepositoryRemote {
       final row = await _client
           .from('profiles')
           .insert(payload)
-          .select()
+          .select(_profileSafeCols)
           .single();
       final creado = Jugador.fromSupabaseMap(Map<String, dynamic>.from(row));
       final uid = SupabaseHelpers.currentUserId;

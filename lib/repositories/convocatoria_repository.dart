@@ -158,23 +158,57 @@ class ConvocatoriaRepository {
         whereArgs: [partidoId],
       );
 
-      await txn.delete(
+      final prevRows = await txn.query(
         'convocatoria_jugadores',
         where: 'partido_id = ?',
         whereArgs: [partidoId],
       );
+      final prevByJugador = <int, Map<String, Object?>>{
+        for (final row in prevRows)
+          if (row['jugador_id'] is int) row['jugador_id'] as int: row,
+      };
 
+      final desiredIds = <int>{};
       for (final input in jugadores) {
         final jugadorId = int.parse(input.jugadorId);
-        await txn.insert(
-          'convocatoria_jugadores',
-          _rowForInput(
-            partidoId: partidoId,
-            jugadorId: jugadorId,
-            input: input,
-            horasLimite: horasLimiteRespuesta,
-          ),
-        );
+        desiredIds.add(jugadorId);
+        final prev = prevByJugador[jugadorId];
+        if (prev == null) {
+          await txn.insert(
+            'convocatoria_jugadores',
+            _rowForInput(
+              partidoId: partidoId,
+              jugadorId: jugadorId,
+              input: input,
+              horasLimite: horasLimiteRespuesta,
+            ),
+          );
+        } else {
+          final prevSuplente = (prev['es_suplente'] as int? ?? 0) == 1;
+          final prevOrden = prev['orden_espera'] as int?;
+          final nextOrden = input.esSuplente ? input.ordenEspera : null;
+          if (prevSuplente != input.esSuplente || prevOrden != nextOrden) {
+            await txn.update(
+              'convocatoria_jugadores',
+              {
+                'es_suplente': input.esSuplente ? 1 : 0,
+                'orden_espera': nextOrden,
+              },
+              where: 'partido_id = ? AND jugador_id = ?',
+              whereArgs: [partidoId, jugadorId],
+            );
+          }
+        }
+      }
+
+      for (final prevId in prevByJugador.keys) {
+        if (!desiredIds.contains(prevId)) {
+          await txn.delete(
+            'convocatoria_jugadores',
+            where: 'partido_id = ? AND jugador_id = ?',
+            whereArgs: [partidoId, prevId],
+          );
+        }
       }
     });
   }

@@ -42,7 +42,6 @@ Map<String, dynamic> jugadorToSnapshotJson(Jugador j) => {
       ...j.toMap(),
       'supabase_id': j.supabaseId,
       'foto_url': j.fotoUrl,
-      'fcm_token': j.fcmToken,
       'app_last_seen_at': j.appLastSeenAt?.toIso8601String(),
     };
 
@@ -52,7 +51,6 @@ Jugador jugadorFromSnapshotJson(Map<String, dynamic> json) {
   return base.copyWith(
     supabaseId: json['supabase_id'] as String? ?? base.supabaseId,
     fotoUrl: json['foto_url'] as String? ?? base.fotoUrl,
-    fcmToken: json['fcm_token'] as String? ?? base.fcmToken,
     appLastSeenAt:
         seenRaw == null ? base.appLastSeenAt : DateTime.tryParse(seenRaw),
   );

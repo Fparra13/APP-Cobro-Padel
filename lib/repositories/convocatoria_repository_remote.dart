@@ -1,7 +1,6 @@
-import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/convocatoria_plazo_respuesta.dart';
-import '../domain/cobro_logic.dart';
 import '../domain/player_invite_response.dart';
 import '../core/sport_type.dart';
 import '../core/supabase_helpers.dart';
@@ -14,6 +13,10 @@ import '../models/partido.dart';
 import '../services/convocatoria_notificacion_service.dart';
 import 'partido_repository_remote.dart';
 import '../utils/app_log.dart';
+
+/// Columnas de perfil seguras para embeds de convocatoria (sin fcm_token).
+const kProfileEmbedSafeCols =
+    'id,nombre,email,telefono,activo,role,foto_url,app_last_seen_at,created_at';
 
 /// Convocatorias contra Supabase.
 class ConvocatoriaRepositoryRemote {
@@ -51,7 +54,7 @@ class ConvocatoriaRepositoryRemote {
       // Una sola query de roster (antes: 2 round-trips por partido).
       final convRows = await _client
           .from('convocatoria_jugadores')
-          .select('*, profiles:jugador_id(*)')
+          .select('*, profiles:jugador_id($kProfileEmbedSafeCols)')
           .inFilter('partido_id', ids);
 
       final byPartido = <int, List<ConvocatoriaJugadorEntry>>{};
@@ -90,7 +93,7 @@ class ConvocatoriaRepositoryRemote {
 
       final convRows = await _client
           .from('convocatoria_jugadores')
-          .select('*, profiles:jugador_id(*)')
+          .select('*, profiles:jugador_id($kProfileEmbedSafeCols)')
           .eq('partido_id', partidoId)
           .order('es_suplente', ascending: true)
           .order('orden_espera', ascending: true);
@@ -187,13 +190,9 @@ class ConvocatoriaRepositoryRemote {
     ConvocatoriaJugadorInput input,
     int horasLimite, {
     bool conTiempoLimite = false,
-    String? tiempoLimitePreservado,
-    bool? notificadoVencimientoPreservado,
   }) {
     String? tiempoLimite;
-    if (tiempoLimitePreservado != null && tiempoLimitePreservado.isNotEmpty) {
-      tiempoLimite = tiempoLimitePreservado;
-    } else if (conTiempoLimite &&
+    if (conTiempoLimite &&
         !input.esSuplente &&
         input.estado == EstadoConfirmacion.invitado) {
       tiempoLimite = SupabaseParse.toTimestamptz(
@@ -206,19 +205,10 @@ class ConvocatoriaRepositoryRemote {
       'es_suplente': input.esSuplente,
       'orden_espera': input.ordenEspera,
       'tiempo_limite': tiempoLimite,
-      'notificado_vencimiento': notificadoVencimientoPreservado ?? false,
+      'notificado_vencimiento': false,
       'recordatorio_plazo_enviado': false,
     };
   }
-
-  EstadoConfirmacion _estadoTrasEdicion({
-    EstadoConfirmacion? prevEstado,
-    required EstadoConfirmacion inputEstado,
-  }) =>
-      CobroLogic.estadoTrasEdicionConvocatoria(
-        prevEstado: prevEstado,
-        inputEstado: inputEstado,
-      );
 
   /// Prioriza el perfil con login (auth) si el organizador invita un pre-registro.
   Future<String> _resolveJugadorIdForConvocatoria(String jugadorId) async {
@@ -274,12 +264,11 @@ class ConvocatoriaRepositoryRemote {
     return result;
   }
 
-  /// Inserta el roster en una sola llamada (tras resolver ids).
+  /// Inserta el roster inicial (crear convocatoria) en una sola llamada.
   Future<void> _insertarRosterBatch({
     required int partidoId,
     required List<ConvocatoriaJugadorInput> jugadores,
     required int horasLimite,
-    Map<String, Map<String, dynamic>>? snapshotPrevio,
   }) async {
     if (jugadores.isEmpty) return;
 
@@ -294,23 +283,6 @@ class ConvocatoriaRepositoryRemote {
       final resolvedId = idMap[input.jugadorId] ?? input.jugadorId;
       if (resolvedId.isEmpty || !seen.add(resolvedId)) continue;
 
-      final prev = snapshotPrevio == null
-          ? null
-          : (snapshotPrevio[resolvedId] ?? snapshotPrevio[input.jugadorId]);
-      final prevEstado = prev == null
-          ? null
-          : EstadoConfirmacion.fromDb(
-              prev['estado_confirmacion'] as String?,
-            );
-      final estado = snapshotPrevio == null
-          ? input.estado
-          : _estadoTrasEdicion(
-              prevEstado: prevEstado,
-              inputEstado: input.estado,
-            );
-      final conservarPlazo = snapshotPrevio != null &&
-          estado == EstadoConfirmacion.invitado;
-
       rows.add({
         'partido_id': partidoId,
         ..._rowForInput(
@@ -318,21 +290,126 @@ class ConvocatoriaRepositoryRemote {
             jugadorId: resolvedId,
             esSuplente: input.esSuplente,
             ordenEspera: input.ordenEspera,
-            estado: estado,
+            estado: input.estado,
           ),
           horasLimite,
-          tiempoLimitePreservado: conservarPlazo && prev != null
-              ? prev['tiempo_limite']?.toString()
-              : null,
-          notificadoVencimientoPreservado: conservarPlazo && prev != null
-              ? prev['notificado_vencimiento'] as bool?
-              : false,
         ),
       });
     }
 
     if (rows.isNotEmpty) {
       await _client.from('convocatoria_jugadores').insert(rows);
+    }
+  }
+
+  /// Sincroniza roster de forma incremental (RPC atómica; sin delete-all).
+  Future<void> _sincronizarRosterIncremental({
+    required int partidoId,
+    required List<ConvocatoriaJugadorInput> jugadores,
+  }) async {
+    final idMap = await _resolveJugadorIdsBatch(
+      jugadores.map((j) => j.jugadorId).toList(),
+    );
+
+    final payload = <Map<String, dynamic>>[];
+    final seen = <String>{};
+    for (final input in jugadores) {
+      final resolvedId = idMap[input.jugadorId] ?? input.jugadorId;
+      if (resolvedId.isEmpty || !seen.add(resolvedId)) continue;
+      payload.add({
+        'jugador_id': resolvedId,
+        'es_suplente': input.esSuplente,
+        'orden_espera': input.esSuplente ? input.ordenEspera : null,
+      });
+    }
+
+    try {
+      await _client.rpc(
+        'sincronizar_roster_convocatoria',
+        params: {
+          'p_partido_id': partidoId,
+          'p_jugadores': payload,
+        },
+      );
+    } on PostgrestException catch (e) {
+      // RPC aún no desplegada en este entorno: fallback incremental cliente.
+      if (e.code != 'PGRST202') rethrow;
+      await _sincronizarRosterIncrementalCliente(
+        partidoId: partidoId,
+        payload: payload,
+      );
+    }
+  }
+
+  /// Fallback sin RPC: insert/update de rol-orden / delete; no toca estados.
+  Future<void> _sincronizarRosterIncrementalCliente({
+    required int partidoId,
+    required List<Map<String, dynamic>> payload,
+  }) async {
+    final prevRows = await _client
+        .from('convocatoria_jugadores')
+        .select(
+          'id,jugador_id,es_suplente,orden_espera,tiempo_limite',
+        )
+        .eq('partido_id', partidoId);
+
+    final prevById = <String, Map<String, dynamic>>{};
+    for (final raw in prevRows as List) {
+      final map = Map<String, dynamic>.from(raw as Map);
+      final jid = map['jugador_id']?.toString();
+      if (jid != null && jid.isNotEmpty) prevById[jid] = map;
+    }
+
+    final desired = <String>{};
+    var enviada = prevById.values.any(
+      (r) =>
+          r['es_suplente'] != true &&
+          r['tiempo_limite'] != null &&
+          r['tiempo_limite'].toString().isNotEmpty,
+    );
+
+    for (final item in payload) {
+      final jid = item['jugador_id']?.toString() ?? '';
+      if (jid.isEmpty) continue;
+      desired.add(jid);
+      final esSuplente = item['es_suplente'] == true;
+      final orden = item['orden_espera'];
+      final prev = prevById[jid];
+      if (prev == null) {
+        await _client.from('convocatoria_jugadores').insert({
+          'partido_id': partidoId,
+          'jugador_id': jid,
+          'estado_confirmacion': EstadoConfirmacion.invitado.dbValue,
+          'es_suplente': esSuplente,
+          'orden_espera': esSuplente ? orden : null,
+          'tiempo_limite': enviada && !esSuplente
+              ? SupabaseParse.toTimestamptz(
+                  DateTime.now().add(const Duration(hours: 24)),
+                )
+              : null,
+          'notificado_vencimiento': false,
+          'recordatorio_plazo_enviado': false,
+        });
+      } else {
+        final prevSuplente = prev['es_suplente'] == true;
+        final prevOrden = prev['orden_espera'];
+        if (prevSuplente != esSuplente || prevOrden != orden) {
+          await _client.from('convocatoria_jugadores').update({
+            'es_suplente': esSuplente,
+            'orden_espera': esSuplente ? orden : null,
+          }).eq('partido_id', partidoId).eq('jugador_id', jid);
+        }
+      }
+    }
+
+    for (final jid in prevById.keys) {
+      if (!desired.contains(jid)) {
+        await _client
+            .from('convocatoria_jugadores')
+            .delete()
+            .eq('partido_id', partidoId)
+            .eq('jugador_id', jid);
+      }
     }
   }
 
@@ -669,19 +746,6 @@ class ConvocatoriaRepositoryRemote {
     SportType? sportType,
   }) async {
     await SupabaseHelpers.write('Actualizar convocatoria', () async {
-      final prevRows = await _client
-          .from('convocatoria_jugadores')
-          .select()
-          .eq('partido_id', partidoId);
-
-      final snapshot = <String, Map<String, dynamic>>{};
-      for (final row in prevRows as List) {
-        final jid = row['jugador_id']?.toString();
-        if (jid != null && jid.isNotEmpty) {
-          snapshot[jid] = Map<String, dynamic>.from(row);
-        }
-      }
-
       await _client.from('partidos').update({
         'fecha': SupabaseParse.toTimestamptz(fecha),
         'recinto': recinto,
@@ -695,16 +759,9 @@ class ConvocatoriaRepositoryRemote {
         if (sportType != null) 'sport_type': sportType.dbValue,
       }).eq('id', partidoId);
 
-      await _client
-          .from('convocatoria_jugadores')
-          .delete()
-          .eq('partido_id', partidoId);
-
-      await _insertarRosterBatch(
+      await _sincronizarRosterIncremental(
         partidoId: partidoId,
         jugadores: jugadores,
-        horasLimite: horasLimiteRespuesta,
-        snapshotPrevio: snapshot,
       );
     });
   }
@@ -807,7 +864,9 @@ class ConvocatoriaRepositoryRemote {
     return resumen.confirmadas;
   }
 
-  /// Invitaciones titular: recibidas / respondidas / confirmadas (histórico).
+  /// Invitaciones titular: recibidas / respondidas / confirmadas.
+  ///
+  /// Excluye encuentros `cancelado` (no aportan a tasa ni identidad).
   Future<MisInvitacionesResumen> getMisResumenInvitaciones() async {
     return SupabaseHelpers.guard('Mis invitaciones resumen', () async {
       final uid = SupabaseHelpers.currentUserId;
@@ -815,14 +874,21 @@ class ConvocatoriaRepositoryRemote {
 
       final rows = await _client
           .from('convocatoria_jugadores')
-          .select('estado_confirmacion')
+          .select('estado_confirmacion, partidos!inner(estado)')
           .eq('jugador_id', uid)
-          .eq('es_suplente', false);
+          .eq('es_suplente', false)
+          .neq('partidos.estado', EstadoPartido.cancelado.dbValue);
 
-      return resumenDesdeEstadosConfirmacion(
+      return resumenDesdeFilasConEstadoPartido(
         (rows as List).map((r) {
           final map = Map<String, dynamic>.from(r as Map);
-          return map['estado_confirmacion'] as String? ?? 'invitado';
+          final partidoEmbed = SupabaseParse.mapEmbed(map['partidos']);
+          return (
+            estadoConfirmacion:
+                map['estado_confirmacion'] as String? ?? 'invitado',
+            estadoPartido:
+                SupabaseParse.toStringOrNull(partidoEmbed?['estado']),
+          );
         }),
       );
     });
@@ -855,6 +921,9 @@ class ConvocatoriaRepositoryRemote {
   }
 
   /// Cancelaciones cuyo popup aún no cerró el jugador (SSOT en servidor).
+  ///
+  /// También es la única lista de cancelados que alimenta «Mis encuentros»:
+  /// tras marcar vista desaparecen del historial.
   Future<List<MiConvocatoria>> getCancelacionesJugadorPendientes() async {
     return SupabaseHelpers.guard('Cancelaciones pendientes', () async {
       final uid = SupabaseHelpers.currentUserId;
@@ -866,10 +935,23 @@ class ConvocatoriaRepositoryRemote {
           return _parseCancelacionesRpc(raw, uid);
         }
       } catch (_) {
-        // Fallback: sin columna/RPC, no bombardear con historial.
+        // Fallback si el RPC no está desplegado.
+      }
+
+      try {
+        final rows = await _client
+            .from('convocatoria_jugadores')
+            .select('*, partidos!inner(*)')
+            .eq('jugador_id', uid)
+            .eq('es_suplente', false)
+            .eq('estado_confirmacion', EstadoConfirmacion.confirmado.dbValue)
+            .eq('partidos.estado', EstadoPartido.cancelado.dbValue)
+            .isFilter('cancelacion_vista_en', null);
+        return _parseCancelacionesRpc(rows as List, uid);
+      } catch (_) {
+        // Sin columna/RPC: no listar cancelados en historial ni bombardear popup.
         return [];
       }
-      return [];
     });
   }
 
@@ -964,10 +1046,6 @@ class ConvocatoriaRepositoryRemote {
       final estadoEsperado = confirmo
           ? EstadoConfirmacion.confirmado
           : EstadoConfirmacion.rechazado;
-
-      try {
-        await _client.rpc('relink_convocatorias_por_email');
-      } catch (_) {}
 
       var actualizado = false;
       try {
@@ -1072,10 +1150,6 @@ class ConvocatoriaRepositoryRemote {
     required int partidoId,
     required EstadoConfirmacion estadoEsperado,
   }) async {
-    try {
-      await _client.rpc('relink_convocatorias_por_email');
-    } catch (_) {}
-
     final conv = await getMiConvocatoria(partidoId);
     if (conv == null) return false;
     return conv.entry.estado == estadoEsperado;
