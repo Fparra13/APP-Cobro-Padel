@@ -1208,6 +1208,8 @@ class TranslationMaps {
     'organizeInviteAlreadySent': 'La convocatoria ya fue enviada',
     'organizeSelectAtLeastOneStarter': 'Selecciona al menos un participante',
     'organizeInviteSentSnack': 'Invitación enviada',
+    'organizeInviteSentPartialNoticesSnack':
+        'Invitación enviada. Algunos avisos pueden no haberse entregado.',
     'organizeSendFailed': 'No se pudo enviar: {error}',
     'organizeNoConfirmedTitle': 'Sin confirmados',
     'organizeNoConfirmedBody':
@@ -3230,6 +3232,8 @@ class TranslationMaps {
     'organizeInviteAlreadySent': 'The invite was already sent',
     'organizeSelectAtLeastOneStarter': 'Select at least one participant',
     'organizeInviteSentSnack': 'Invitation sent',
+    'organizeInviteSentPartialNoticesSnack':
+        'Invitation sent. Some notices may not have been delivered.',
     'organizeSendFailed': 'Could not send: {error}',
     'organizeNoConfirmedTitle': 'No confirmed participants',
     'organizeNoConfirmedBody':
@@ -4037,7 +4041,7 @@ class TranslationMaps {
     'notifMatchPaidWithCreditTitle':
         '✅ Gathering settled with amount in your favor',
     'notifMatchPaidWithCreditBody':
-        'Your {sessionAmount} session is settled: we used {credit} from the amount in your favor.',
+        'Your {matchAmount} session is settled: we used {credit} from the amount in your favor.',
     'notifMatchPaidWithCreditRemaining':
         'You still have {amount} in your favor for upcoming sessions.',
     'notifMatchPaidWithCreditDetail':
@@ -5245,6 +5249,8 @@ class TranslationMaps {
     'organizeInviteAlreadySent': 'O convite já foi enviado',
     'organizeSelectAtLeastOneStarter': 'Selecione pelo menos um participante',
     'organizeInviteSentSnack': 'Convite enviado',
+    'organizeInviteSentPartialNoticesSnack':
+        'Convite enviado. Alguns avisos podem não ter sido entregues.',
     'organizeSendFailed': 'Não foi possível enviar: {error}',
     'organizeNoConfirmedTitle': 'Sem confirmados',
     'organizeNoConfirmedBody':

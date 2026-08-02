@@ -18,7 +18,11 @@
         android:label="Kloovi"
         android:requestLegacyExternalStorage="true"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        tools:replace="android:fullBackupContent">
         <activity
             android:name=".MainActivity"
             android:exported="true"

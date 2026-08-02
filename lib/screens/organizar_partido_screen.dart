@@ -13,6 +13,7 @@ import '../models/jugador.dart';
 import '../models/partido.dart';
 import '../domain/convocatoria_plazo_respuesta.dart';
 import '../domain/convocatoria_cupo_logic.dart';
+import '../domain/convocatoria_send_semantics.dart';
 import '../domain/estado_partido_publico.dart';
 import '../domain/jugador_list_priority.dart';
 import '../domain/partido_lifecycle.dart';
@@ -1146,27 +1147,33 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
 
     setState(() => _guardando = true);
     try {
-      if (!await _guardar(silencioso: true, actualizarGuardando: false)) {
+      // Persistencia crítica = save + plazos (tiempo_limite → enviada).
+      // Fallo de notificaciones NO revierte ni se trata como "no enviada".
+      final status = await ConvocatoriaSendSemantics.run(
+        save: () => _guardar(silencioso: true, actualizarGuardando: false),
+        activateDeadlines: () => context.repos.activarTiemposLimiteConvocatoria(
+          partidoId: _partidoId!,
+          horasLimite: _horasLimite,
+        ),
+        notify: () async {
+          final titularesJugadores = _titulares
+              .map(_jugadorPorId)
+              .whereType<Jugador>()
+              .toList();
+          await _notificaciones.notificarConvocatoriaTitulares(
+            titulares: titularesJugadores,
+            partidoId: _partidoId!,
+            fecha: _fechaPartido!,
+            horasLimite: _horasLimite,
+            recinto: recinto.nombre.trim(),
+            sportType: _sportType!,
+          );
+        },
+      );
+
+      if (!ConvocatoriaSendSemantics.isConsideredSent(status)) {
         return;
       }
-
-      await context.repos.activarTiemposLimiteConvocatoria(
-        partidoId: _partidoId!,
-        horasLimite: _horasLimite,
-      );
-
-      final titularesJugadores = _titulares
-          .map(_jugadorPorId)
-          .whereType<Jugador>()
-          .toList();
-      await _notificaciones.notificarConvocatoriaTitulares(
-        titulares: titularesJugadores,
-        partidoId: _partidoId!,
-        fecha: _fechaPartido!,
-        horasLimite: _horasLimite,
-        recinto: recinto.nombre.trim(),
-        sportType: _sportType!,
-      );
 
       if (!mounted) return;
       setState(() {
@@ -1175,7 +1182,11 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
       });
       _suscribirRealtime();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.tr('organizeInviteSentSnack'))),
+        SnackBar(
+          content: Text(
+            context.l10n.tr(ConvocatoriaSendSemantics.snackMessageKey(status)),
+          ),
+        ),
       );
       if (_titularesSinApp.isNotEmpty) {
         await ConvocatoriaWhatsAppSinAppSheet.show(
@@ -1185,6 +1196,9 @@ class _OrganizarPartidoScreenState extends State<OrganizarPartidoScreen> {
           estados: Map.from(_estados),
         );
       }
+      if (!mounted) return;
+      // Caller (Home / menú) refresca al recibir el resultado del push<bool>.
+      Navigator.of(context).pop(true);
     } catch (e) {
       _mostrarError(context.userError(e));
     } finally {
