@@ -60,6 +60,9 @@ dependencies:
   lottie: ^3.4.0
   firebase_crashlytics: ^4.3.10
   google_sign_in: ^7.2.0
+  in_app_purchase: 3.3.1
+  # Import directo de GooglePlayProductDetails / GooglePlayPurchaseParam.
+  in_app_purchase_android: 0.5.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

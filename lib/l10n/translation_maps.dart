@@ -1458,8 +1458,19 @@ class TranslationMaps {
     'paywallBenefitStats': 'Estadísticas del grupo',
     'paywallBenefitReminders': 'Recordatorios automáticos',
     'paywallStartTrialCta': 'Comenzar mis 14 días gratis',
+    'paywallPurchaseFounderCta': 'Obtener Plan Fundador',
     'paywallBillingSoonSnack':
         'Google Play Billing se integrará en la siguiente etapa.',
+    'paywallPurchasePendingValidation':
+        'Compra recibida. Pendiente de validación.',
+    'paywallRestorePendingValidation':
+        'Compra restaurada, pendiente de validación.',
+    'paywallBillingUnavailable':
+        'Google Play Billing no está disponible en este dispositivo.',
+    'paywallBillingConfigError':
+        'La oferta de Google Play no está configurada correctamente.',
+    'paywallPurchaseCanceled': 'Compra cancelada.',
+    'paywallPurchaseError': 'No se pudo completar la compra. Intenta de nuevo.',
     'paywallFreeTitle': 'Gratis',
     'paywallProTitle': 'Pro',
     'freeFeatureDebts': 'Ver pendientes y saldos',
@@ -3479,8 +3490,19 @@ class TranslationMaps {
     'paywallBenefitStats': 'Group statistics',
     'paywallBenefitReminders': 'Automatic reminders',
     'paywallStartTrialCta': 'Start my 14-day free trial',
+    'paywallPurchaseFounderCta': 'Get Founder Plan',
     'paywallBillingSoonSnack':
         'Google Play Billing will be integrated in the next stage.',
+    'paywallPurchasePendingValidation':
+        'Purchase received. Pending validation.',
+    'paywallRestorePendingValidation':
+        'Purchase restored, pending validation.',
+    'paywallBillingUnavailable':
+        'Google Play Billing is not available on this device.',
+    'paywallBillingConfigError':
+        'The Google Play offer is not configured correctly.',
+    'paywallPurchaseCanceled': 'Purchase canceled.',
+    'paywallPurchaseError': 'Could not complete the purchase. Try again.',
     'paywallFreeTitle': 'Free',
     'paywallProTitle': 'Pro',
     'freeFeatureDebts': 'View pending amounts and balances',
@@ -5500,8 +5522,20 @@ class TranslationMaps {
     'paywallBenefitStats': 'Estatísticas do grupo',
     'paywallBenefitReminders': 'Lembretes automáticos',
     'paywallStartTrialCta': 'Começar meus 14 dias grátis',
+    'paywallPurchaseFounderCta': 'Obter Plano Fundador',
     'paywallBillingSoonSnack':
         'O Google Play Billing será integrado na próxima etapa.',
+    'paywallPurchasePendingValidation':
+        'Compra recebida. Pendente de validação.',
+    'paywallRestorePendingValidation':
+        'Compra restaurada, pendente de validação.',
+    'paywallBillingUnavailable':
+        'O Google Play Billing não está disponível neste dispositivo.',
+    'paywallBillingConfigError':
+        'A oferta do Google Play não está configurada corretamente.',
+    'paywallPurchaseCanceled': 'Compra cancelada.',
+    'paywallPurchaseError':
+        'Não foi possível concluir a compra. Tente novamente.',
     'paywallFreeTitle': 'Grátis',
     'paywallProTitle': 'Pro',
     'freeFeatureDebts': 'Ver pendências e saldos',

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/billing/play_billing_phase.dart';
 import '../core/legal_urls.dart';
 import '../core/matchpay_design_tokens.dart';
 import '../core/paywall_catalog.dart';
@@ -188,7 +189,7 @@ abstract final class _PaywallUxCopy {
   }
 }
 
-/// Paywall visual Kloovi Pro (sin compra; Billing en una etapa posterior).
+/// Paywall Kloovi Pro — inicia compras Google Play; no otorga Pro localmente.
 Future<bool?> showPaywallSheet(
   BuildContext context, {
   required ProFeature feature,
@@ -220,17 +221,107 @@ class PaywallSheet extends StatefulWidget {
 
 class _PaywallSheetState extends State<PaywallSheet> {
   PaywallPlanId _selected = PaywallPlanId.yearly;
+  bool _busy = false;
+  PlayBillingPhase? _lastNotifiedPhase;
 
-  void _showBillingSoonSnack() {
-    final l10n = context.l10n;
+  void _snack(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.tr('paywallBillingSoonSnack'))),
+      SnackBar(content: Text(message)),
     );
   }
 
-  void _onStartTrial() => _showBillingSoonSnack();
+  void _notifyPhaseIfNeeded(SubscriptionService sub, MatchPayStrings l10n) {
+    final phase = sub.playBillingPhase;
+    if (phase == _lastNotifiedPhase) return;
+    if (phase == PlayBillingPhase.purchaseNeedsValidation ||
+        phase == PlayBillingPhase.restoreNeedsValidation) {
+      _lastNotifiedPhase = phase;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _snack(_messageForPhase(sub, l10n));
+      });
+    }
+  }
 
-  void _onRestorePurchases() => _showBillingSoonSnack();
+  String _messageForPhase(SubscriptionService sub, MatchPayStrings l10n) {
+    switch (sub.playBillingPhase) {
+      case PlayBillingPhase.purchaseNeedsValidation:
+        return l10n.tr('paywallPurchasePendingValidation');
+      case PlayBillingPhase.restoreNeedsValidation:
+        return l10n.tr('paywallRestorePendingValidation');
+      case PlayBillingPhase.unavailable:
+        return l10n.tr('paywallBillingUnavailable');
+      case PlayBillingPhase.configurationError:
+        return l10n.tr('paywallBillingConfigError');
+      case PlayBillingPhase.purchaseError:
+        if (sub.playBillingErrorCode == 'purchase_canceled') {
+          return l10n.tr('paywallPurchaseCanceled');
+        }
+        return l10n.tr('paywallPurchaseError');
+      case PlayBillingPhase.idle:
+        if (sub.playBillingErrorCode == 'purchase_canceled') {
+          return l10n.tr('paywallPurchaseCanceled');
+        }
+        return l10n.tr('paywallPurchaseError');
+      case PlayBillingPhase.loadingProducts:
+      case PlayBillingPhase.productsLoaded:
+      case PlayBillingPhase.purchasePending:
+      case PlayBillingPhase.restorePending:
+        return l10n.tr('paywallPurchaseError');
+    }
+  }
+
+  Future<void> _onPrimaryCta() async {
+    if (_busy) return;
+    final l10n = context.l10n;
+    final sub = context.read<SubscriptionService>();
+    setState(() => _busy = true);
+    try {
+      if (_selected == PaywallPlanId.monthly) {
+        await sub.purchaseMonthlyTrial();
+      } else {
+        await sub.purchaseFounderAnnual();
+      }
+      if (!mounted) return;
+      final phase = sub.playBillingPhase;
+      if (phase == PlayBillingPhase.purchasePending ||
+          phase == PlayBillingPhase.restorePending) {
+        // Flujo nativo de Play en curso; el stream actualizará el estado.
+        return;
+      }
+      if (phase == PlayBillingPhase.purchaseNeedsValidation ||
+          phase == PlayBillingPhase.restoreNeedsValidation ||
+          phase == PlayBillingPhase.unavailable ||
+          phase == PlayBillingPhase.configurationError ||
+          phase == PlayBillingPhase.purchaseError ||
+          phase == PlayBillingPhase.idle) {
+        _snack(_messageForPhase(sub, l10n));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _onRestorePurchases() async {
+    if (_busy) return;
+    final l10n = context.l10n;
+    final sub = context.read<SubscriptionService>();
+    setState(() => _busy = true);
+    try {
+      await sub.restorePurchases();
+      if (!mounted) return;
+      final phase = sub.playBillingPhase;
+      if (phase == PlayBillingPhase.restorePending) return;
+      if (phase == PlayBillingPhase.restoreNeedsValidation) {
+        _snack(l10n.tr('paywallRestorePendingValidation'));
+        return;
+      }
+      _snack(_messageForPhase(sub, l10n));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
@@ -241,8 +332,14 @@ class _PaywallSheetState extends State<PaywallSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final sub = context.watch<SubscriptionService>();
+    _notifyPhaseIfNeeded(sub, l10n);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final maxHeight = MediaQuery.sizeOf(context).height * 0.94;
+    final purchaseInFlight = sub.playBillingPhase ==
+            PlayBillingPhase.purchasePending ||
+        sub.playBillingPhase == PlayBillingPhase.restorePending ||
+        sub.playBillingPhase == PlayBillingPhase.loadingProducts;
+    final ctaBusy = _busy || purchaseInFlight;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -276,6 +373,14 @@ class _PaywallSheetState extends State<PaywallSheet> {
                         _PlansRow(
                           selected: _selected,
                           l10n: l10n,
+                          monthlyPrice:
+                              sub.monthlyPlayPrice ??
+                              PaywallCatalog.offerFor(PaywallPlanId.monthly)
+                                  .formattedPrice,
+                          founderPrice:
+                              sub.founderPlayPrice ??
+                              PaywallCatalog.offerFor(PaywallPlanId.yearly)
+                                  .formattedPrice,
                           onSelect: (id) => setState(() => _selected = id),
                         ),
                         const SizedBox(height: 22),
@@ -293,12 +398,23 @@ class _PaywallSheetState extends State<PaywallSheet> {
                             height: 58,
                             width: double.infinity,
                             child: FilledButton.icon(
-                              onPressed: _onStartTrial,
+                              onPressed: ctaBusy ? null : _onPrimaryCta,
                               style: _ctaStyle(),
-                              icon: const Icon(Icons.rocket_launch_rounded,
-                                  size: 22),
+                              icon: ctaBusy
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.4,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.rocket_launch_rounded,
+                                      size: 22),
                               label: Text(
-                                l10n.tr('paywallStartTrialCta'),
+                                _selected == PaywallPlanId.monthly
+                                    ? l10n.tr('paywallStartTrialCta')
+                                    : l10n.tr('paywallPurchaseFounderCta'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 16,
@@ -310,7 +426,8 @@ class _PaywallSheetState extends State<PaywallSheet> {
                           const SizedBox(height: 10),
                           Center(
                             child: TextButton(
-                              onPressed: _onRestorePurchases,
+                              onPressed:
+                                  ctaBusy ? null : _onRestorePurchases,
                               style: TextButton.styleFrom(
                                 foregroundColor: _KlooviBrand.tealDeep,
                                 textStyle: const TextStyle(
@@ -621,18 +738,24 @@ class _TrialBanner extends StatelessWidget {
 class _PlansRow extends StatelessWidget {
   final PaywallPlanId selected;
   final MatchPayStrings l10n;
+  final String monthlyPrice;
+  final String founderPrice;
   final ValueChanged<PaywallPlanId> onSelect;
 
   const _PlansRow({
     required this.selected,
     required this.l10n,
+    required this.monthlyPrice,
+    required this.founderPrice,
     required this.onSelect,
   });
 
   @override
   Widget build(BuildContext context) {
-    final yearly = PaywallCatalog.offerFor(PaywallPlanId.yearly);
-    final monthly = PaywallCatalog.offerFor(PaywallPlanId.monthly);
+    final yearly = PaywallCatalog.offerFor(PaywallPlanId.yearly)
+        .copyWith(formattedPrice: founderPrice);
+    final monthly = PaywallCatalog.offerFor(PaywallPlanId.monthly)
+        .copyWith(formattedPrice: monthlyPrice);
     final sideBySide = MediaQuery.sizeOf(context).width >= 360;
 
     if (!sideBySide) {

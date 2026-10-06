@@ -1,8 +1,10 @@
+import 'billing/play_product_ids.dart';
+
 /// Catálogo de ofertas del paywall Kloovi Pro.
 ///
-/// Hoy usa precios estáticos formateados. En la etapa de Play Billing se
-/// rellenará [formattedPrice] (y opcionalmente [formattedOriginalPrice])
-/// desde `ProductDetails.price` sin cambiar la UI.
+/// Precios estáticos son fallback visual. Si Play devolvió [ProductDetails],
+/// la UI puede mostrar el precio de tienda sin convertirlo en autoridad
+/// comercial (el contrato comercial sigue siendo Play Console + backend).
 enum PaywallPlanId {
   monthly,
   yearly,
@@ -11,14 +13,14 @@ enum PaywallPlanId {
 class PaywallPlanOffer {
   final PaywallPlanId id;
 
-  /// Precio visible (alineado con `ProductDetails.price` en Billing).
+  /// Precio visible fallback (si Play no devolvió producto).
   final String formattedPrice;
 
   /// Precio anterior tachado (promos futuras). Null = no mostrar.
   final String? formattedOriginalPrice;
 
-  /// Reservado para Product ID de Play; null hasta la etapa Billing.
-  final String? storeProductId;
+  /// Product ID de Google Play.
+  final String storeProductId;
 
   final bool isRecommended;
   final bool showFounderBadge;
@@ -27,7 +29,7 @@ class PaywallPlanOffer {
     required this.id,
     required this.formattedPrice,
     this.formattedOriginalPrice,
-    this.storeProductId,
+    required this.storeProductId,
     this.isRecommended = false,
     this.showFounderBadge = false,
   });
@@ -38,7 +40,6 @@ class PaywallPlanOffer {
     String? formattedOriginalPrice,
     bool clearFormattedOriginalPrice = false,
     String? storeProductId,
-    bool clearStoreProductId = false,
     bool? isRecommended,
     bool? showFounderBadge,
   }) {
@@ -48,9 +49,7 @@ class PaywallPlanOffer {
       formattedOriginalPrice: clearFormattedOriginalPrice
           ? null
           : (formattedOriginalPrice ?? this.formattedOriginalPrice),
-      storeProductId: clearStoreProductId
-          ? null
-          : (storeProductId ?? this.storeProductId),
+      storeProductId: storeProductId ?? this.storeProductId,
       isRecommended: isRecommended ?? this.isRecommended,
       showFounderBadge: showFounderBadge ?? this.showFounderBadge,
     );
@@ -64,12 +63,14 @@ abstract final class PaywallCatalog {
     PaywallPlanOffer(
       id: PaywallPlanId.yearly,
       formattedPrice: r'$14.990',
+      storeProductId: PlayProductIds.founderAnnual,
       isRecommended: true,
       showFounderBadge: true,
     ),
     PaywallPlanOffer(
       id: PaywallPlanId.monthly,
       formattedPrice: r'$2.990',
+      storeProductId: PlayProductIds.monthly,
     ),
   ];
 
