@@ -49,9 +49,10 @@ class TranslationMaps {
     'becomeOrganizerBody':
         'Invita a tu grupo, recibe confirmaciones y lleva los aportes sin planillas. Seguirás pudiendo participar cuando otro te convoque.',
     'becomeOrganizerCta': 'Probar con mi grupo',
-    'becomeOrganizerDone': 'Listo. Ya puedes organizar tus encuentros aquí.',
+    'becomeOrganizerDone':
+        'Listo. Ya eres organizador. Para crear encuentros nuevos necesitas Kloovi Pro.',
     'becomeOrganizerPaywallMessage':
-        'Para organizar encuentros y convocatorias necesitas Kloovi Pro.',
+        'Ser organizador es gratis. Para crear encuentros nuevos necesitas Kloovi Pro.',
     'becomeOrganizerBenefit1': 'Invitas a tu grupo',
     'becomeOrganizerBenefit2': 'Confirman sin que los persigas',
     'becomeOrganizerBenefit3': 'Aportes claros, sin planillas',
@@ -2078,9 +2079,10 @@ class TranslationMaps {
     'becomeOrganizerBody':
         'Invite your group, get confirmations, and track contributions without spreadsheets. You can still join when someone else hosts.',
     'becomeOrganizerCta': 'Try it with my group',
-    'becomeOrganizerDone': 'Done. You can organize your sessions here now.',
+    'becomeOrganizerDone':
+        'Done. You are now an organizer. Creating new sessions requires Kloovi Pro.',
     'becomeOrganizerPaywallMessage':
-        'To organize sessions and invites you need Kloovi Pro.',
+        'Becoming an organizer is free. Creating new sessions requires Kloovi Pro.',
     'becomeOrganizerBenefit1': 'Invite your group',
     'becomeOrganizerBenefit2': 'They confirm without you chasing',
     'becomeOrganizerBenefit3': 'Clear contributions, no spreadsheets',
@@ -4092,9 +4094,9 @@ class TranslationMaps {
         'Convide seu grupo, receba confirmações e acompanhe contribuições sem planilhas. Você continua podendo participar quando outro convocar.',
     'becomeOrganizerCta': 'Experimentar com meu grupo',
     'becomeOrganizerDone':
-        'Pronto. Agora você pode organizar seus encontros aqui.',
+        'Pronto. Agora você é organizador. Para criar novos encontros você precisa do Kloovi Pro.',
     'becomeOrganizerPaywallMessage':
-        'Para organizar encontros e convocatórias você precisa do Kloovi Pro.',
+        'Ser organizador é grátis. Para criar novos encontros você precisa do Kloovi Pro.',
     'becomeOrganizerBenefit1': 'Convide seu grupo',
     'becomeOrganizerBenefit2': 'Confirmam sem você ficar cobrando',
     'becomeOrganizerBenefit3': 'Contribuições claras, sem planilhas',

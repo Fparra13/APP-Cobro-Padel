@@ -60,8 +60,11 @@ class AuthService {
     _profileEpoch++;
   }
 
-  /// Jugador se convierte en organizador (misma cuenta; habilita crear partidos).
-  /// No es Pro: solo permiso RLS / shell organizador.
+  /// Jugador se convierte en organizador (misma cuenta).
+  ///
+  /// Solo cambia el rol (RPC `promover_a_organizador`) y habilita shell/RLS
+  /// de organizador. No concede Pro, no inicia trial y no autoriza crear
+  /// encuentros: eso sigue pasando por [FeatureGate] al crear.
   Future<void> becomeOrganizer() async {
     final client = _client;
     final uid = currentUser?.id;
