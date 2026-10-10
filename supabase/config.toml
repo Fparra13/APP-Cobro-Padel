@@ -7,3 +7,9 @@ verify_jwt = false
 
 [functions.delete-account]
 verify_jwt = true
+
+[functions.validate-play-purchase]
+verify_jwt = true
+
+[functions.play-billing-rtdn]
+verify_jwt = false
