@@ -61,16 +61,16 @@ abstract final class PaywallCatalog {
 
   static const List<PaywallPlanOffer> offers = [
     PaywallPlanOffer(
-      id: PaywallPlanId.yearly,
-      formattedPrice: r'$14.990',
-      storeProductId: PlayProductIds.founderAnnual,
-      isRecommended: true,
-      showFounderBadge: true,
-    ),
-    PaywallPlanOffer(
       id: PaywallPlanId.monthly,
       formattedPrice: r'$2.990',
       storeProductId: PlayProductIds.monthly,
+      isRecommended: true,
+    ),
+    PaywallPlanOffer(
+      id: PaywallPlanId.yearly,
+      formattedPrice: r'$14.990',
+      storeProductId: PlayProductIds.founderAnnual,
+      showFounderBadge: true,
     ),
   ];
 

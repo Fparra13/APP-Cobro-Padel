@@ -526,6 +526,7 @@ class _OrganizerShellState extends State<OrganizerShell>
     if (state == AppLifecycleState.resumed) {
       AppRepositories.notifyDataChanged();
       unawaited(_refreshMisCobrosCount());
+      unawaited(SubscriptionService.instance.refreshEntitlementBestEffort());
     }
   }
 
@@ -709,6 +710,7 @@ class _PlayerShellState extends State<PlayerShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       AppRepositories.notifyDataChanged();
       _refreshPendientes();
+      unawaited(SubscriptionService.instance.refreshEntitlementBestEffort());
     }
   }
 

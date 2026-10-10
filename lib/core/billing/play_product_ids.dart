@@ -8,7 +8,12 @@ abstract final class PlayProductIds {
   static const monthlyBasePlan = 'monthly';
   static const monthlyTrialOffer = 'trial-14d';
 
-  static const founderBasePlan = 'annual';
+  /// Base plan anual correcto (renovación anual) en Play Console.
+  static const founderBasePlan = 'founder-annual-v2';
+
+  /// Plan legacy mal configurado como mensual; no se usa para comprar.
+  /// El backend aún lo acepta al revalidar compras antiguas.
+  static const founderBasePlanLegacy = 'annual';
 
   static const Set<String> all = {monthly, founderAnnual};
 }

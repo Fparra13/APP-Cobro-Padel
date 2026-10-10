@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
-# Genera AAB (Play Store) + APK release firmados.
+# Genera AAB (Play Store) + APK release firmados → Supabase PROD (explícito).
 # Uso: ./tool/build_store.sh [version] [build_number]
-# Ejemplo: ./tool/build_store.sh 1.0.0 100
+# Ejemplo: ./tool/build_store.sh 1.0.6 17
+#
+# Lee ~/.config/kloovi/supabase-prod.env (fuera del repo).
+# NO usa defaults silenciosos de supabase_config.dart.
+# NO inyecta SUPABASE_SERVICE_ROLE_KEY.
+# Aborta si SUPABASE_URL apunta a DEV.
+#
+# Para AAB DEV / Internal Testing: ./tool/build_store_dev.sh
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+# shellcheck source=supabase_env_common.sh
+source "$(dirname "$0")/supabase_env_common.sh"
 
 VERSION="${1:-1.0.0}"
 BUILD_NUMBER="${2:-1}"
@@ -14,26 +24,29 @@ AAB_DIR="build/app/outputs/bundle/release"
 OUT_APK="klooviv${VERSION}.apk"
 OUT_AAB="klooviv${VERSION}.aab"
 
-DART_DEFINES=(
-  --dart-define=FIREBASE_API_KEY=AIzaSyCkgdPZrbDVJmvnmjx5WfVe4NUUGyiujiw
-  --dart-define=FIREBASE_APP_ID=1:1018372483361:android:1327a7f02a8a578aca7660
-  --dart-define=FIREBASE_MESSAGING_SENDER_ID=1018372483361
-  --dart-define=FIREBASE_PROJECT_ID=padel-cobro
-  --dart-define=GOOGLE_WEB_CLIENT_ID=1018372483361-j3kffsnkj7esf244evoqp0d6492j6jlb.apps.googleusercontent.com
-)
-
 if [[ ! -f android/key.properties ]]; then
-  echo "Falta android/key.properties (firma release)."
+  echo "Falta android/key.properties (firma release)." >&2
   exit 1
 fi
 
-echo "==> Building App Bundle (Play Store) v${VERSION}+${BUILD_NUMBER}"
+kloovi_load_prod_env || exit 1
+
+DART_DEFINES=(
+  --dart-define=SUPABASE_URL="$SUPABASE_URL"
+  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+  --dart-define=KLOOVI_ENV=prod
+)
+# shellcheck disable=SC2207
+DART_DEFINES+=($(kloovi_firebase_dart_defines))
+
+echo "==> Building App Bundle (PROD) v${VERSION}+${BUILD_NUMBER}"
+echo "    Supabase PROD ref guard: $KLOOVI_SUPABASE_PROD_REF"
 flutter build appbundle --release \
   "${DART_DEFINES[@]}" \
   --build-name="$VERSION" \
   --build-number="$BUILD_NUMBER"
 
-echo "==> Building APK (arm64) v${VERSION}+${BUILD_NUMBER}"
+echo "==> Building APK (arm64) v${VERSION}+${BUILD_NUMBER} [PROD]"
 flutter build apk --release \
   --split-per-abi \
   "${DART_DEFINES[@]}" \
@@ -44,7 +57,7 @@ cp "$AAB_DIR/app-release.aab" "$AAB_DIR/$OUT_AAB"
 cp "$APK_DIR/app-arm64-v8a-release.apk" "$APK_DIR/$OUT_APK"
 
 echo ""
-echo "Listo:"
+echo "Listo [PROD]:"
 ls -lh "$AAB_DIR/$OUT_AAB" "$APK_DIR/$OUT_APK"
 echo ""
 echo "Play Store → sube: $AAB_DIR/$OUT_AAB"

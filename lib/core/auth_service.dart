@@ -146,6 +146,10 @@ class AuthService {
           accesoIlimitado: _accesoIlimitado,
           email: _profileEmail,
         );
+        // Best-effort: entitlement comercial oficial (no bloquea perfil).
+        try {
+          await SubscriptionService.instance.refreshEntitlement();
+        } catch (_) {}
         return true;
       }
 
@@ -422,6 +426,7 @@ class AuthService {
     await _client?.auth.signOut();
     _clearCachedProfile();
     SubscriptionService.instance.clearProfileEntitlements();
+    await SubscriptionService.instance.clearCommercialEntitlement();
     if (uid != null) {
       await OfflineSnapshotStore.clearForUser(uid);
     }
@@ -449,7 +454,7 @@ class AuthService {
       );
     }
 
-    await SubscriptionService.instance.setProActive(false);
+    await SubscriptionService.instance.clearCommercialEntitlement();
     _clearCachedProfile();
     SubscriptionService.instance.clearProfileEntitlements();
     await OfflineSnapshotStore.clearForUser(uid);

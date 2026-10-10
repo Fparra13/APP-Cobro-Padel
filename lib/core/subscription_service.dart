@@ -1,59 +1,93 @@
 import 'package:flutter/foundation.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'billing/billing_entitlement.dart';
 import 'billing/play_billing_client.dart';
+import 'billing/play_billing_diag.dart';
 import 'billing/play_billing_phase.dart';
 import 'billing/play_product_ids.dart';
 import 'billing/play_purchase_payload.dart';
+import 'billing/play_purchase_validation_result.dart';
+import 'billing/play_purchase_validator.dart';
 
 /// Capacidades de suscripción Kloovi Pro (preparado para Play Store).
-enum ProFeature {
-  createMatch,
-  automateCharges,
-  viewStatistics,
-  managePlayers,
-}
+enum ProFeature { createMatch, automateCharges, viewStatistics, managePlayers }
 
-/// Estado de suscripción / trial / founder.
+/// Estado de suscripción / trial / Founder.
 ///
-/// ## Entitlement (legacy, no autoridad de compra Play)
-/// Acceso desbloqueado si:
-/// - `acceso_ilimitado` en profiles (founder/staff), o
-/// - email en allowlist local de founder, o
-/// - flag Pro/trial local `matchpay_pro_active`.
+/// ## Autoridad Pro
+/// - `profiles.acceso_ilimitado` (bypass administrativo), o
+/// - entitlement de Supabase (`get_my_billing_entitlement` /
+///   `validate-play-purchase`).
 ///
-/// ## Google Play Billing (capa nueva)
-/// [PlayBillingClient] inicia compras/restore. Una compra Play **no** otorga
-/// Pro aquí: falta `validate-play-purchase` + `get_my_billing_entitlement()`.
+/// `matchpay_pro_active` y allowlists locales de email **no** otorgan Pro.
 class SubscriptionService extends ChangeNotifier {
   static final SubscriptionService instance = SubscriptionService._();
 
-  SubscriptionService._({PlayBillingClient? playBilling})
-      : _playBillingOverride = playBilling;
+  SubscriptionService._({
+    PlayBillingClient? playBilling,
+    PlayPurchaseValidator? validator,
+  }) : _playBillingOverride = playBilling,
+       _validatorOverride = validator {
+    _wireValidationHandler();
+  }
 
-  /// Visible para tests con cliente inyectado.
+  /// Visible para tests con dependencias inyectadas.
   @visibleForTesting
-  factory SubscriptionService.forTesting(PlayBillingClient playBilling) {
-    return SubscriptionService._(playBilling: playBilling);
+  factory SubscriptionService.forTesting({
+    PlayBillingClient? playBilling,
+    PlayPurchaseValidator? validator,
+  }) {
+    return SubscriptionService._(
+      playBilling: playBilling,
+      validator: validator,
+    );
   }
 
   final PlayBillingClient? _playBillingOverride;
+  final PlayPurchaseValidator? _validatorOverride;
   PlayBillingClient? _playBillingLazy;
+  PlayPurchaseValidator? _validatorLazy;
 
-  PlayBillingClient get _playBilling =>
-      _playBillingOverride ?? (_playBillingLazy ??= PlayBillingClient());
+  /// Solo tests: inyecta validator en el singleton [instance].
+  @visibleForTesting
+  static PlayPurchaseValidator? debugValidatorOverride;
 
-  static const _keyProActive = 'matchpay_pro_active';
+  Future<BillingEntitlement>? _refreshInFlight;
 
-  /// Dueño / acceso permanente (defensa en cliente; la fuente de verdad es BD).
-  static const founderEmails = {'fparram13@gmail.com'};
+  void _wireValidationHandler() {
+    final client = _playBillingOverride ?? _playBillingLazy;
+    if (client != null) {
+      client.validationHandler = _onPlayNeedsValidation;
+    }
+  }
 
-  bool _proActive = false;
+  PlayBillingClient get _playBilling {
+    final client =
+        _playBillingOverride ?? (_playBillingLazy ??= PlayBillingClient());
+    client.validationHandler = _onPlayNeedsValidation;
+    return client;
+  }
+
+  PlayPurchaseValidator get _validator =>
+      debugValidatorOverride ??
+      _validatorOverride ??
+      (_validatorLazy ??= SupabasePlayPurchaseValidator());
+
+  static const _keyProCache = 'matchpay_pro_active';
+
   bool _accesoIlimitado = false;
   String? _email;
   bool _loaded = false;
+  BillingEntitlement _entitlement = BillingEntitlement.none;
+  PlayPurchaseValidationResult? _lastValidationResult;
 
   bool get isLoaded => _loaded;
+
+  BillingEntitlement get entitlement => _entitlement;
+  PlayPurchaseValidationResult? get lastValidationResult =>
+      _lastValidationResult;
 
   PlayBillingPhase get playBillingPhase => _playBilling.phase;
   String? get playBillingErrorCode => _playBilling.lastErrorCode;
@@ -64,22 +98,20 @@ class SubscriptionService extends ChangeNotifier {
   String? playFormattedPrice(String productId) =>
       _playBilling.formattedPriceFor(productId);
 
-  String? get monthlyPlayPrice =>
-      playFormattedPrice(PlayProductIds.monthly);
+  String? get monthlyPlayPrice => playFormattedPrice(PlayProductIds.monthly);
 
   String? get founderPlayPrice =>
       playFormattedPrice(PlayProductIds.founderAnnual);
 
-  bool get hasUnlimitedAccess {
-    if (_accesoIlimitado) return true;
-    final email = _email;
-    if (email == null || email.isEmpty) return false;
-    return founderEmails.contains(email);
-  }
+  /// Solo bypass administrativo de BD (`acceso_ilimitado`).
+  bool get hasUnlimitedAccess => _accesoIlimitado;
 
-  /// Pro / trial activo o founder (legacy + staff). No incluye compras Play
-  /// pendientes de validación backend.
-  bool get isPro => hasUnlimitedAccess || _proActive;
+  /// Pro oficial: staff/admin o entitlement comercial aún vigente.
+  ///
+  /// Si `expires_at` ya pasó, no concede Pro aunque `_entitlement.isPro`
+  /// siga en true (memoria obsoleta tras cancelación/expiración).
+  bool get isPro =>
+      hasUnlimitedAccess || _entitlement.grantsCommercialProNow();
 
   bool can(ProFeature feature) {
     switch (feature) {
@@ -92,8 +124,9 @@ class SubscriptionService extends ChangeNotifier {
   }
 
   Future<void> load() async {
+    // Cache UX se lee solo para compat; no concede Pro.
     final prefs = await SharedPreferences.getInstance();
-    _proActive = prefs.getBool(_keyProActive) ?? false;
+    prefs.getBool(_keyProCache);
     _loaded = true;
     notifyListeners();
 
@@ -103,16 +136,18 @@ class SubscriptionService extends ChangeNotifier {
       debugPrint('SubscriptionService Play Billing init failed: $e\n$st');
       notifyListeners();
     }
+
+    try {
+      await refreshEntitlement();
+    } catch (_) {
+      // Sin sesión o RPC fallida: no inventar Pro.
+    }
   }
 
-  /// Sincroniza entitlements desde `profiles` + email de sesión.
-  void syncFromProfile({
-    required bool accesoIlimitado,
-    String? email,
-  }) {
+  /// Sincroniza bypass administrativo desde `profiles`.
+  void syncFromProfile({required bool accesoIlimitado, String? email}) {
     final normalized = email?.trim().toLowerCase();
-    final changed =
-        _accesoIlimitado != accesoIlimitado || _email != normalized;
+    final changed = _accesoIlimitado != accesoIlimitado || _email != normalized;
     _accesoIlimitado = accesoIlimitado;
     _email = normalized;
     if (changed) notifyListeners();
@@ -125,17 +160,66 @@ class SubscriptionService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Solo para pruebas / flag local legacy. No usar como resultado de compra Play.
-  Future<void> setProActive(bool active) async {
-    if (hasUnlimitedAccess) {
-      _proActive = true;
-      notifyListeners();
-      return;
-    }
-    _proActive = active;
+  /// Limpia entitlement comercial local (logout / delete account).
+  Future<void> clearCommercialEntitlement() async {
+    _entitlement = BillingEntitlement.none;
+    _lastValidationResult = null;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyProActive, active);
+    await prefs.setBool(_keyProCache, false);
+  }
+
+  /// Refresca entitlement oficial desde `get_my_billing_entitlement()`.
+  ///
+  /// Coalescing: llamadas concurrentes comparten un solo RPC.
+  /// Si falla la red, relanza el error **sin** borrar el entitlement previo.
+  Future<BillingEntitlement> refreshEntitlement() {
+    final inFlight = _refreshInFlight;
+    if (inFlight != null) return inFlight;
+
+    final future = _refreshEntitlementOnce();
+    _refreshInFlight = future;
+    return future.whenComplete(() {
+      if (identical(_refreshInFlight, future)) {
+        _refreshInFlight = null;
+      }
+    });
+  }
+
+  Future<BillingEntitlement> _refreshEntitlementOnce() async {
+    final next = await _validator.fetchEntitlement();
+    _entitlement = next;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyProCache, next.isPro);
+    return next;
+  }
+
+  /// Best-effort para lifecycle / gates: no revoca en error de red.
+  Future<void> refreshEntitlementBestEffort() async {
+    try {
+      await refreshEntitlement();
+    } catch (e, st) {
+      debugPrint('refreshEntitlementBestEffort failed: $e\n$st');
+    }
+  }
+
+  /// Aplica un entitlement ya conocido (p.ej. respuesta de validate).
+  void applyEntitlement(BillingEntitlement entitlement) {
+    _entitlement = entitlement;
+    notifyListeners();
+  }
+
+  /// @deprecated No otorga Pro. Preferir [clearCommercialEntitlement].
+  @Deprecated(
+    'No authority for Pro. Use refreshEntitlement/clearCommercialEntitlement.',
+  )
+  Future<void> setProActive(bool active) async {
+    if (!active) {
+      await clearCommercialEntitlement();
+      return;
+    }
+    notifyListeners();
   }
 
   Future<void> reloadPlayProducts() =>
@@ -147,11 +231,48 @@ class SubscriptionService extends ChangeNotifier {
   Future<void> purchaseFounderAnnual() =>
       _playBilling.purchaseFounderAnnual(onChanged: notifyListeners);
 
-  /// Restaura compras Play. No otorga Pro; deja payload pendiente de validación.
+  /// Restaura compras Play y las envía al mismo flujo de validación.
   Future<bool> restorePurchases() async {
     await _playBilling.restorePurchases(onChanged: notifyListeners);
-    // Compat: callers antiguos esperaban bool. True solo si ya hay Pro legacy.
-    // Una restore Play exitosa sin validación backend NO implica Pro.
+    return isPro;
+  }
+
+  Future<bool> _onPlayNeedsValidation(
+    PlayPurchasePayload payload,
+    PurchaseDetails details,
+  ) async {
+    final result = await _validator.validate(payload);
+    _lastValidationResult = result;
+
+    if (!result.ok) {
+      _playBilling.reportValidationFailure(
+        result.errorCode?.name ?? 'validation_failed',
+        result.safeMessage ?? 'validation_failed',
+      );
+      KlooviBillingDiag.log('entitlement_result', {'is_pro': false});
+      notifyListeners();
+      return false;
+    }
+
+    if (result.entitlement != null) {
+      _entitlement = result.entitlement!;
+    } else {
+      await refreshEntitlement();
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyProCache, _entitlement.isPro);
+
+    if (result.shouldCompletePurchase && details.pendingCompletePurchase) {
+      try {
+        await _playBilling.completePurchase(details);
+      } catch (e, st) {
+        debugPrint('completePurchase after validation failed: $e\n$st');
+      }
+    }
+
+    KlooviBillingDiag.log('entitlement_result', {'is_pro': isPro});
+    notifyListeners();
     return isPro;
   }
 }

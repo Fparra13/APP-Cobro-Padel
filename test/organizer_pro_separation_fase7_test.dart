@@ -35,15 +35,17 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    SubscriptionService.debugValidatorOverride = null;
     final sub = SubscriptionService.instance;
     sub.clearProfileEntitlements();
-    await sub.setProActive(false);
+    await sub.clearCommercialEntitlement();
   });
 
   tearDown(() async {
+    SubscriptionService.debugValidatorOverride = null;
     final sub = SubscriptionService.instance;
     sub.clearProfileEntitlements();
-    await sub.setProActive(false);
+    await sub.clearCommercialEntitlement();
   });
 
   group('Organizer flow source contract', () {
@@ -172,7 +174,7 @@ void main() {
         (tester) async {
       final sub = SubscriptionService.instance;
       sub.syncFromProfile(accesoIlimitado: false, email: 'nopro@example.com');
-      await sub.setProActive(false);
+      await sub.clearCommercialEntitlement();
 
       bool? allowed;
       await tester.pumpWidget(

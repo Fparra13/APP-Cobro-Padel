@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/billing/play_billing_diag.dart';
 import '../core/billing/play_billing_phase.dart';
 import '../core/legal_urls.dart';
 import '../core/matchpay_design_tokens.dart';
@@ -111,61 +112,6 @@ abstract final class _PaywallUxCopy {
     }
   }
 
-  static String yearlyEquiv(BuildContext context) {
-    switch (Localizations.localeOf(context).languageCode) {
-      case 'en':
-        return 'Equals \$1,249 per month';
-      case 'pt':
-        return 'Equivale a \$1.249 por mês';
-      default:
-        return 'Equivale a \$1.249 al mes';
-    }
-  }
-
-  static String yearlySavings(BuildContext context) {
-    switch (Localizations.localeOf(context).languageCode) {
-      case 'en':
-        return 'More than 55% savings';
-      case 'pt':
-        return 'Mais de 55% de economia';
-      default:
-        return 'Más de 55% de ahorro';
-    }
-  }
-
-  static String launchOffer(BuildContext context) {
-    switch (Localizations.localeOf(context).languageCode) {
-      case 'en':
-        return 'Launch offer';
-      case 'pt':
-        return 'Oferta de lançamento';
-      default:
-        return 'Oferta de lanzamiento';
-    }
-  }
-
-  static String founderStripLine1(BuildContext context) {
-    switch (Localizations.localeOf(context).languageCode) {
-      case 'en':
-        return 'Only for the first';
-      case 'pt':
-        return 'Só para os primeiros';
-      default:
-        return 'Solo para los primeros';
-    }
-  }
-
-  static String founderStripLine2(BuildContext context) {
-    switch (Localizations.localeOf(context).languageCode) {
-      case 'en':
-        return '1,000 organizers';
-      case 'pt':
-        return '1.000 organizadores';
-      default:
-        return '1.000 organizadores';
-    }
-  }
-
   static String trialCancelLine(BuildContext context) {
     switch (Localizations.localeOf(context).languageCode) {
       case 'en':
@@ -174,17 +120,6 @@ abstract final class _PaywallUxCopy {
         return 'Cancele quando quiser. Sem compromisso.';
       default:
         return 'Cancela cuando quieras. Sin compromiso.';
-    }
-  }
-
-  static String monthlyFlex(BuildContext context) {
-    switch (Localizations.localeOf(context).languageCode) {
-      case 'en':
-        return 'No lock-in';
-      case 'pt':
-        return 'Sem permanência';
-      default:
-        return 'Sin permanencia';
     }
   }
 }
@@ -209,34 +144,42 @@ class PaywallSheet extends StatefulWidget {
   final ProFeature feature;
   final String? message;
 
-  const PaywallSheet({
-    super.key,
-    required this.feature,
-    this.message,
-  });
+  const PaywallSheet({super.key, required this.feature, this.message});
 
   @override
   State<PaywallSheet> createState() => _PaywallSheetState();
 }
 
 class _PaywallSheetState extends State<PaywallSheet> {
-  PaywallPlanId _selected = PaywallPlanId.yearly;
+  PaywallPlanId _selected = PaywallPlanId.monthly;
   bool _busy = false;
   PlayBillingPhase? _lastNotifiedPhase;
 
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _notifyPhaseIfNeeded(SubscriptionService sub, MatchPayStrings l10n) {
     final phase = sub.playBillingPhase;
     if (phase == _lastNotifiedPhase) return;
-    if (phase == PlayBillingPhase.purchaseNeedsValidation ||
-        phase == PlayBillingPhase.restoreNeedsValidation) {
-      _lastNotifiedPhase = phase;
+    _lastNotifiedPhase = phase;
+
+    if (phase == PlayBillingPhase.validationSucceeded && sub.isPro) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).pop(true);
+      });
+      return;
+    }
+
+    if (phase == PlayBillingPhase.validationFailed ||
+        phase == PlayBillingPhase.purchaseError ||
+        phase == PlayBillingPhase.unavailable ||
+        phase == PlayBillingPhase.configurationError ||
+        _isRestoreSettledWithoutUpdates(sub)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         _snack(_messageForPhase(sub, l10n));
@@ -244,12 +187,27 @@ class _PaywallSheetState extends State<PaywallSheet> {
     }
   }
 
+  bool _isRestoreSettledWithoutUpdates(SubscriptionService sub) {
+    if (sub.playBillingErrorCode != 'restore_no_updates') return false;
+    final phase = sub.playBillingPhase;
+    return phase == PlayBillingPhase.productsLoaded ||
+        phase == PlayBillingPhase.idle;
+  }
+
   String _messageForPhase(SubscriptionService sub, MatchPayStrings l10n) {
+    if (_isRestoreSettledWithoutUpdates(sub)) {
+      return l10n.tr('paywallRestoreNoUpdates');
+    }
     switch (sub.playBillingPhase) {
       case PlayBillingPhase.purchaseNeedsValidation:
+      case PlayBillingPhase.validating:
         return l10n.tr('paywallPurchasePendingValidation');
       case PlayBillingPhase.restoreNeedsValidation:
         return l10n.tr('paywallRestorePendingValidation');
+      case PlayBillingPhase.validationFailed:
+        return _messageForValidationError(sub, l10n);
+      case PlayBillingPhase.validationSucceeded:
+        return l10n.tr('paywallValidationSuccess');
       case PlayBillingPhase.unavailable:
         return l10n.tr('paywallBillingUnavailable');
       case PlayBillingPhase.configurationError:
@@ -272,11 +230,55 @@ class _PaywallSheetState extends State<PaywallSheet> {
     }
   }
 
+  String _messageForValidationError(
+    SubscriptionService sub,
+    MatchPayStrings l10n,
+  ) {
+    final code =
+        sub.lastValidationResult?.errorCode?.name ??
+        sub.playBillingErrorCode ??
+        '';
+    final detail = sub.lastValidationResult?.safeMessage ?? '';
+    if (detail == 'token_bound_to_other_user' ||
+        detail == 'founder_sold_out' ||
+        detail == 'founder_already_claimed' ||
+        detail == 'founder_token_taken' ||
+        code == 'conflict') {
+      return l10n.tr('paywallValidationConflict');
+    }
+    switch (code) {
+      case 'notAuthenticated':
+      case 'unauthorized':
+        return l10n.tr('paywallValidationUnauthorized');
+      case 'googlePlayFailed':
+        return l10n.tr('paywallValidationGoogleFailed');
+      case 'serverError':
+        return l10n.tr('paywallValidationServerError');
+      case 'networkError':
+        return l10n.tr('paywallValidationNetworkError');
+      case 'notPro':
+        return l10n.tr('paywallValidationNotPro');
+      case 'validation_timeout':
+        return l10n.tr('paywallValidationTimeout');
+      default:
+        return l10n.tr('paywallValidationFailed');
+    }
+  }
+
   Future<void> _onPrimaryCta() async {
-    if (_busy) return;
+    // Guard síncrono antes de cualquier await / rebuild: evita doble ejecución
+    // concurrente cuando dos taps llegan en el mismo frame.
+    if (_busy) {
+      KlooviBillingDiag.log('purchase_tap_skipped', {'reason': 'busy'});
+      return;
+    }
+    _busy = true;
     final l10n = context.l10n;
     final sub = context.read<SubscriptionService>();
-    setState(() => _busy = true);
+    KlooviBillingDiag.log('purchase_tap', {
+      'plan': _selected == PaywallPlanId.monthly ? 'monthly' : 'founder',
+    });
+    if (mounted) setState(() {});
     try {
       if (_selected == PaywallPlanId.monthly) {
         await sub.purchaseMonthlyTrial();
@@ -290,8 +292,17 @@ class _PaywallSheetState extends State<PaywallSheet> {
         // Flujo nativo de Play en curso; el stream actualizará el estado.
         return;
       }
+      if (phase == PlayBillingPhase.validationSucceeded && sub.isPro) {
+        Navigator.of(context).pop(true);
+        return;
+      }
       if (phase == PlayBillingPhase.purchaseNeedsValidation ||
           phase == PlayBillingPhase.restoreNeedsValidation ||
+          phase == PlayBillingPhase.validating) {
+        // Validación en curso / pendiente; el stream notificará el resultado.
+        return;
+      }
+      if (phase == PlayBillingPhase.validationFailed ||
           phase == PlayBillingPhase.unavailable ||
           phase == PlayBillingPhase.configurationError ||
           phase == PlayBillingPhase.purchaseError ||
@@ -299,7 +310,8 @@ class _PaywallSheetState extends State<PaywallSheet> {
         _snack(_messageForPhase(sub, l10n));
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _busy = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -307,17 +319,30 @@ class _PaywallSheetState extends State<PaywallSheet> {
     if (_busy) return;
     final l10n = context.l10n;
     final sub = context.read<SubscriptionService>();
+    KlooviBillingDiag.log('restore_tap');
     setState(() => _busy = true);
     try {
       await sub.restorePurchases();
       if (!mounted) return;
       final phase = sub.playBillingPhase;
-      if (phase == PlayBillingPhase.restorePending) return;
-      if (phase == PlayBillingPhase.restoreNeedsValidation) {
-        _snack(l10n.tr('paywallRestorePendingValidation'));
+      // restorePending solo debería verse mientras el Future aún corre.
+      if (phase == PlayBillingPhase.restorePending ||
+          phase == PlayBillingPhase.restoreNeedsValidation ||
+          phase == PlayBillingPhase.validating) {
         return;
       }
-      _snack(_messageForPhase(sub, l10n));
+      if (phase == PlayBillingPhase.validationSucceeded && sub.isPro) {
+        Navigator.of(context).pop(true);
+        return;
+      }
+      if (phase == PlayBillingPhase.validationFailed ||
+          phase == PlayBillingPhase.unavailable ||
+          phase == PlayBillingPhase.configurationError ||
+          phase == PlayBillingPhase.purchaseError ||
+          phase == PlayBillingPhase.idle ||
+          _isRestoreSettledWithoutUpdates(sub)) {
+        _snack(_messageForPhase(sub, l10n));
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -335,10 +360,13 @@ class _PaywallSheetState extends State<PaywallSheet> {
     _notifyPhaseIfNeeded(sub, l10n);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final maxHeight = MediaQuery.sizeOf(context).height * 0.94;
-    final purchaseInFlight = sub.playBillingPhase ==
-            PlayBillingPhase.purchasePending ||
+    final purchaseInFlight =
+        sub.playBillingPhase == PlayBillingPhase.purchasePending ||
         sub.playBillingPhase == PlayBillingPhase.restorePending ||
-        sub.playBillingPhase == PlayBillingPhase.loadingProducts;
+        sub.playBillingPhase == PlayBillingPhase.loadingProducts ||
+        sub.playBillingPhase == PlayBillingPhase.validating ||
+        sub.playBillingPhase == PlayBillingPhase.purchaseNeedsValidation ||
+        sub.playBillingPhase == PlayBillingPhase.restoreNeedsValidation;
     final ctaBusy = _busy || purchaseInFlight;
 
     return Padding(
@@ -359,10 +387,12 @@ class _PaywallSheetState extends State<PaywallSheet> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _PaywallHero(
-                          headlineBefore:
-                              _PaywallUxCopy.headlineBefore(context),
-                          headlineAccent:
-                              _PaywallUxCopy.headlineAccent(context),
+                          headlineBefore: _PaywallUxCopy.headlineBefore(
+                            context,
+                          ),
+                          headlineAccent: _PaywallUxCopy.headlineAccent(
+                            context,
+                          ),
                           body: _PaywallUxCopy.secondary(context),
                         ),
                         const SizedBox(height: 18),
@@ -375,12 +405,14 @@ class _PaywallSheetState extends State<PaywallSheet> {
                           l10n: l10n,
                           monthlyPrice:
                               sub.monthlyPlayPrice ??
-                              PaywallCatalog.offerFor(PaywallPlanId.monthly)
-                                  .formattedPrice,
+                              PaywallCatalog.offerFor(
+                                PaywallPlanId.monthly,
+                              ).formattedPrice,
                           founderPrice:
                               sub.founderPlayPrice ??
-                              PaywallCatalog.offerFor(PaywallPlanId.yearly)
-                                  .formattedPrice,
+                              PaywallCatalog.offerFor(
+                                PaywallPlanId.yearly,
+                              ).formattedPrice,
                           onSelect: (id) => setState(() => _selected = id),
                         ),
                         const SizedBox(height: 22),
@@ -409,8 +441,10 @@ class _PaywallSheetState extends State<PaywallSheet> {
                                         color: Colors.white,
                                       ),
                                     )
-                                  : const Icon(Icons.rocket_launch_rounded,
-                                      size: 22),
+                                  : const Icon(
+                                      Icons.rocket_launch_rounded,
+                                      size: 22,
+                                    ),
                               label: Text(
                                 _selected == PaywallPlanId.monthly
                                     ? l10n.tr('paywallStartTrialCta')
@@ -426,8 +460,7 @@ class _PaywallSheetState extends State<PaywallSheet> {
                           const SizedBox(height: 10),
                           Center(
                             child: TextButton(
-                              onPressed:
-                                  ctaBusy ? null : _onRestorePurchases,
+                              onPressed: ctaBusy ? null : _onRestorePurchases,
                               style: TextButton.styleFrom(
                                 foregroundColor: _KlooviBrand.tealDeep,
                                 textStyle: const TextStyle(
@@ -516,11 +549,11 @@ class _PaywallHero extends StatelessWidget {
           TextSpan(
             style: MatchPayTokens.titleMediumStyle(color: _KlooviBrand.petrol)
                 .copyWith(
-              fontSize: 16.5,
-              height: 1.32,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.25,
-            ),
+                  fontSize: 16.5,
+                  height: 1.32,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.25,
+                ),
             children: [
               TextSpan(text: headlineBefore),
               TextSpan(
@@ -533,8 +566,9 @@ class _PaywallHero extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           body,
-          style: MatchPayTokens.bodySmallStyle(color: _KlooviBrand.petrolMuted)
-              .copyWith(fontSize: 13, height: 1.4),
+          style: MatchPayTokens.bodySmallStyle(
+            color: _KlooviBrand.petrolMuted,
+          ).copyWith(fontSize: 13, height: 1.4),
         ),
       ],
     );
@@ -652,12 +686,13 @@ class _BenefitCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style:
-                      MatchPayTokens.titleSmallStyle(color: _KlooviBrand.petrol)
-                          .copyWith(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
-                  ),
+                      MatchPayTokens.titleSmallStyle(
+                        color: _KlooviBrand.petrol,
+                      ).copyWith(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                      ),
                 ),
               ),
             ],
@@ -667,8 +702,9 @@ class _BenefitCard extends StatelessWidget {
             description,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: MatchPayTokens.bodySmallStyle(color: _KlooviBrand.petrolMuted)
-                .copyWith(fontSize: 11, height: 1.25),
+            style: MatchPayTokens.bodySmallStyle(
+              color: _KlooviBrand.petrolMuted,
+            ).copyWith(fontSize: 11, height: 1.25),
           ),
         ],
       ),
@@ -706,19 +742,24 @@ class _TrialBanner extends StatelessWidget {
             children: [
               const Padding(
                 padding: EdgeInsets.only(top: 1),
-                child: Icon(Icons.check, size: 15, color: _KlooviBrand.tealDeep),
+                child: Icon(
+                  Icons.check,
+                  size: 15,
+                  color: _KlooviBrand.tealDeep,
+                ),
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   l10n.tr('paywallTrialFullAccess'),
-                  style: MatchPayTokens.bodySmallStyle(
-                    color: _KlooviBrand.petrol,
-                  ).copyWith(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    height: 1.25,
-                  ),
+                  style:
+                      MatchPayTokens.bodySmallStyle(
+                        color: _KlooviBrand.petrol,
+                      ).copyWith(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
                 ),
               ),
             ],
@@ -726,8 +767,9 @@ class _TrialBanner extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             _PaywallUxCopy.trialCancelLine(context),
-            style: MatchPayTokens.bodySmallStyle(color: _KlooviBrand.petrolMuted)
-                .copyWith(fontSize: 12, height: 1.25),
+            style: MatchPayTokens.bodySmallStyle(
+              color: _KlooviBrand.petrolMuted,
+            ).copyWith(fontSize: 12, height: 1.25),
           ),
         ],
       ),
@@ -752,57 +794,41 @@ class _PlansRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final yearly = PaywallCatalog.offerFor(PaywallPlanId.yearly)
-        .copyWith(formattedPrice: founderPrice);
-    final monthly = PaywallCatalog.offerFor(PaywallPlanId.monthly)
-        .copyWith(formattedPrice: monthlyPrice);
-    final sideBySide = MediaQuery.sizeOf(context).width >= 360;
+    final monthly = PaywallCatalog.offerFor(
+      PaywallPlanId.monthly,
+    ).copyWith(formattedPrice: monthlyPrice);
+    final founder = PaywallCatalog.offerFor(
+      PaywallPlanId.yearly,
+    ).copyWith(formattedPrice: founderPrice);
 
-    if (!sideBySide) {
-      return Column(
-        children: [
-          _PlanCard(
-            offer: yearly,
-            selected: selected == yearly.id,
-            l10n: l10n,
-            onTap: () => onSelect(yearly.id),
-          ),
-          const SizedBox(height: 12),
-          _PlanCard(
-            offer: monthly,
-            selected: selected == monthly.id,
-            l10n: l10n,
-            onTap: () => onSelect(monthly.id),
-          ),
-        ],
-      );
-    }
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            flex: 11,
-            child: _PlanCard(
-              offer: yearly,
-              selected: selected == yearly.id,
-              l10n: l10n,
-              onTap: () => onSelect(yearly.id),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 9,
-            child: _PlanCard(
-              offer: monthly,
-              selected: selected == monthly.id,
-              l10n: l10n,
-              onTap: () => onSelect(monthly.id),
-            ),
-          ),
-        ],
-      ),
+    // Mensual primero (jerarquía principal); Founder secundario debajo.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _PlanCard(
+          offer: monthly,
+          selected: selected == monthly.id,
+          l10n: l10n,
+          emphasized: true,
+          onTap: () => onSelect(monthly.id),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          l10n.tr('paywallFounderPrompt'),
+          textAlign: TextAlign.center,
+          style: MatchPayTokens.bodySmallStyle(
+            color: _KlooviBrand.petrolMuted,
+          ).copyWith(fontSize: 13, fontWeight: FontWeight.w600, height: 1.3),
+        ),
+        const SizedBox(height: 10),
+        _PlanCard(
+          offer: founder,
+          selected: selected == founder.id,
+          l10n: l10n,
+          emphasized: false,
+          onTap: () => onSelect(founder.id),
+        ),
+      ],
     );
   }
 }
@@ -811,178 +837,105 @@ class _PlanCard extends StatelessWidget {
   final PaywallPlanOffer offer;
   final bool selected;
   final MatchPayStrings l10n;
+  final bool emphasized;
   final VoidCallback onTap;
 
   const _PlanCard({
     required this.offer,
     required this.selected,
     required this.l10n,
+    required this.emphasized,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isYearly = offer.id == PaywallPlanId.yearly;
-    final period =
-        isYearly ? l10n.tr('paywallPerYear') : l10n.tr('paywallPerMonth');
-
-    final borderColor =
-        selected ? _KlooviBrand.tealDeep : _KlooviBrand.line;
-    final borderWidth = selected ? 2.0 : 1.0;
-    final shadows = selected
+    final isFounder = offer.id == PaywallPlanId.yearly;
+    final borderColor = selected ? _KlooviBrand.tealDeep : _KlooviBrand.line;
+    final borderWidth = selected ? 2.0 : (emphasized ? 1.5 : 1.0);
+    final shadows = selected || emphasized
         ? [
             BoxShadow(
-              color: _KlooviBrand.tealDeep.withValues(alpha: 0.14),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: _KlooviBrand.tealDeep.withValues(
+                alpha: selected ? 0.14 : 0.08,
+              ),
+              blurRadius: selected ? 16 : 10,
+              offset: const Offset(0, 5),
             ),
           ]
         : <BoxShadow>[];
 
-    if (isYearly) {
+    if (isFounder) {
       return Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             decoration: BoxDecoration(
               color: selected ? _KlooviBrand.mintWash : Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: borderColor, width: borderWidth),
-              boxShadow: shadows,
+              boxShadow: selected ? shadows : null,
             ),
-            clipBehavior: Clip.antiAlias,
             child: Stack(
               children: [
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ColoredBox(
-                      color: _KlooviBrand.tealDeep,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.star_rounded,
-                                size: 15, color: Colors.white),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: Text(
-                                l10n.tr('paywallFounderBadge').toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: 0.45,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    Text(
+                      l10n.tr('paywallFounderBadge'),
+                      style: MatchPayTokens.titleSmallStyle(
+                        color: _KlooviBrand.petrol,
+                      ).copyWith(fontWeight: FontWeight.w700, fontSize: 14),
                     ),
-                    ColoredBox(
-                      color: _KlooviBrand.mintWash,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                        child: Column(
-                          children: [
-                            Text(
-                              _PaywallUxCopy.launchOffer(context),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: _KlooviBrand.tealDeep,
-                                letterSpacing: -0.1,
-                                height: 1.2,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _PaywallUxCopy.founderStripLine1(context),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: _KlooviBrand.petrol,
-                                height: 1.2,
-                              ),
-                            ),
-                            Text(
-                              _PaywallUxCopy.founderStripLine2(context),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: _KlooviBrand.petrol,
-                                height: 1.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 6),
+                    Text.rich(
+                      TextSpan(
                         children: [
-                          Text.rich(
-                            TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: offer.formattedPrice,
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w800,
-                                    color: _KlooviBrand.tealDeep,
-                                    letterSpacing: -0.6,
-                                    height: 1,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: ' $period',
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: _KlooviBrand.petrolMuted,
-                                  ),
-                                ),
-                              ],
+                          TextSpan(
+                            text: offer.formattedPrice,
+                            style: TextStyle(
+                              fontSize: emphasized ? 22 : 18,
+                              fontWeight: FontWeight.w800,
+                              color: selected
+                                  ? _KlooviBrand.tealDeep
+                                  : _KlooviBrand.petrol,
+                              letterSpacing: -0.4,
+                              height: 1,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _PaywallUxCopy.yearlyEquiv(context),
-                            style: MatchPayTokens.bodySmallStyle(
-                              color: _KlooviBrand.petrolMuted,
-                            ).copyWith(fontSize: 12, height: 1.3),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _PaywallUxCopy.yearlySavings(context),
+                          TextSpan(
+                            text: ' ${l10n.tr('paywallPerYear')}',
                             style: const TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w800,
-                              color: _KlooviBrand.tealDeep,
-                              height: 1.2,
-                              letterSpacing: -0.2,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _KlooviBrand.petrolMuted,
                             ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      l10n.tr('paywallFounderLimit'),
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: _KlooviBrand.petrolMuted,
+                      ).copyWith(fontSize: 12, height: 1.3),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.tr('paywallFounderNoTrial'),
+                      style: MatchPayTokens.bodySmallStyle(
+                        color: _KlooviBrand.petrolMuted,
+                      ).copyWith(fontSize: 12, height: 1.3),
+                    ),
                   ],
                 ),
                 if (selected)
-                  const Positioned(
-                    top: 8,
-                    right: 8,
-                    child: _CornerCheck(),
-                  ),
+                  const Positioned(top: 0, right: 0, child: _CornerCheck()),
               ],
             ),
           ),
@@ -1006,62 +959,56 @@ class _PlanCard extends StatelessWidget {
           clipBehavior: Clip.antiAlias,
           child: Stack(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.tr('paywallPlanMonthly'),
-                      style: MatchPayTokens.titleSmallStyle(
-                        color: _KlooviBrand.petrol,
-                      ).copyWith(fontWeight: FontWeight.w700, fontSize: 14),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.tr('paywallMonthlyIdeal'),
-                      style: MatchPayTokens.bodySmallStyle(
-                        color: _KlooviBrand.petrolMuted,
-                      ).copyWith(fontSize: 12.5, height: 1.3),
-                    ),
-                    const SizedBox(height: 14),
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: offer.formattedPrice,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: _KlooviBrand.tealDeep,
-                              letterSpacing: -0.5,
-                              height: 1,
-                            ),
-                          ),
-                          TextSpan(
-                            text: ' $period',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: _KlooviBrand.petrolMuted,
-                            ),
-                          ),
-                        ],
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ColoredBox(
+                    color: _KlooviBrand.tealDeep,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                      child: Text(
+                        l10n.tr('paywallTrialTitle'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.2,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _Perk(l10n.tr('paywallMonthlyCancel')),
-                    const SizedBox(height: 4),
-                    _Perk(_PaywallUxCopy.monthlyFlex(context)),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.tr('paywallPlanMonthly'),
+                          style: MatchPayTokens.titleSmallStyle(
+                            color: _KlooviBrand.petrol,
+                          ).copyWith(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          l10n.tr('paywallMonthlyAfterPrice'),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: _KlooviBrand.tealDeep,
+                            letterSpacing: -0.2,
+                            height: 1.25,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _Perk(l10n.tr('paywallMonthlyCancel')),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               if (selected)
-                const Positioned(
-                  top: 10,
-                  right: 10,
-                  child: _CornerCheck(),
-                ),
+                const Positioned(top: 10, right: 10, child: _CornerCheck()),
             ],
           ),
         ),
@@ -1110,8 +1057,9 @@ class _Perk extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: MatchPayTokens.bodySmallStyle(color: _KlooviBrand.petrol)
-                .copyWith(fontSize: 12, height: 1.3, fontWeight: FontWeight.w600),
+            style: MatchPayTokens.bodySmallStyle(
+              color: _KlooviBrand.petrol,
+            ).copyWith(fontSize: 12, height: 1.3, fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -1161,8 +1109,9 @@ class _LegalFooterState extends State<_LegalFooter> {
 
   @override
   Widget build(BuildContext context) {
-    final base = MatchPayTokens.bodySmallStyle(color: _KlooviBrand.petrolMuted)
-        .copyWith(fontSize: 11.5, height: 1.4);
+    final base = MatchPayTokens.bodySmallStyle(
+      color: _KlooviBrand.petrolMuted,
+    ).copyWith(fontSize: 11.5, height: 1.4);
     final link = base.copyWith(
       color: _KlooviBrand.tealDeep,
       fontWeight: FontWeight.w600,

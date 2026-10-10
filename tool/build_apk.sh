@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Genera APK release (split por arquitectura → ~40% más liviano que universal).
+# Genera APK release (split por arquitectura) → Supabase PROD (explícito).
 # Uso: ./tool/build_apk.sh [version] [build_number]
 # Ejemplo: ./tool/build_apk.sh 1.0.0 1
+#
+# Requiere ~/.config/kloovi/supabase-prod.env (ver config/supabase-prod.env.example).
+# No usa defaults del código.
 #
 # Salida principal: klooviv{version}.apk  (arm64-v8a, teléfonos actuales)
 # También: klooviv{version}-arm32.apk       (dispositivos viejos)
@@ -10,6 +13,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# shellcheck source=supabase_env_common.sh
+source "$(dirname "$0")/supabase_env_common.sh"
+
 VERSION="${1:-1.0.0}"
 BUILD_NUMBER="${2:-1}"
 OUT_DIR="build/app/outputs/flutter-apk"
@@ -17,14 +23,17 @@ APK_ARM64="klooviv${VERSION}.apk"
 APK_ARM32="klooviv${VERSION}-arm32.apk"
 APK_X64="klooviv${VERSION}-x64.apk"
 
-DART_DEFINES=(
-  --dart-define=FIREBASE_API_KEY=AIzaSyCkgdPZrbDVJmvnmjx5WfVe4NUUGyiujiw
-  --dart-define=FIREBASE_APP_ID=1:1018372483361:android:1327a7f02a8a578aca7660
-  --dart-define=FIREBASE_MESSAGING_SENDER_ID=1018372483361
-  --dart-define=FIREBASE_PROJECT_ID=padel-cobro
-  --dart-define=GOOGLE_WEB_CLIENT_ID=1018372483361-j3kffsnkj7esf244evoqp0d6492j6jlb.apps.googleusercontent.com
-)
+kloovi_load_prod_env || exit 1
 
+DART_DEFINES=(
+  --dart-define=SUPABASE_URL="$SUPABASE_URL"
+  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+  --dart-define=KLOOVI_ENV=prod
+)
+# shellcheck disable=SC2207
+DART_DEFINES+=($(kloovi_firebase_dart_defines))
+
+echo "==> Building APK release v${VERSION}+${BUILD_NUMBER} [PROD]"
 flutter build apk --release \
   --split-per-abi \
   "${DART_DEFINES[@]}" \

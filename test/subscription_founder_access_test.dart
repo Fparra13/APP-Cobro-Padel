@@ -3,21 +3,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:matchpay/core/subscription_service.dart';
 
 void main() {
-  test('founder email tiene acceso ilimitado sin flag Pro', () {
+  test('email founder local NO otorga Pro (autoridad = backend/staff)', () {
     final sub = SubscriptionService.instance;
     sub.syncFromProfile(
       accesoIlimitado: false,
       email: 'fparram13@gmail.com',
     );
-    expect(sub.hasUnlimitedAccess, isTrue);
-    expect(sub.isPro, isTrue);
-    expect(sub.can(ProFeature.createMatch), isTrue);
+    expect(sub.hasUnlimitedAccess, isFalse);
+    expect(sub.isPro, isFalse);
+    expect(sub.can(ProFeature.createMatch), isFalse);
 
     sub.clearProfileEntitlements();
-    expect(sub.hasUnlimitedAccess, isFalse);
   });
 
-  test('acceso_ilimitado en perfil desbloquea sin email founder', () {
+  test('acceso_ilimitado en perfil desbloquea Pro (bypass admin)', () {
     final sub = SubscriptionService.instance;
     sub.syncFromProfile(
       accesoIlimitado: true,
@@ -25,6 +24,7 @@ void main() {
     );
     expect(sub.hasUnlimitedAccess, isTrue);
     expect(sub.isPro, isTrue);
+    expect(sub.can(ProFeature.createMatch), isTrue);
 
     sub.clearProfileEntitlements();
   });

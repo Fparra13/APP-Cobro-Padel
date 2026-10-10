@@ -22,8 +22,14 @@ PlayOfferCandidate _offer({
 
 void main() {
   group('PlayOfferSelection.monthly', () {
-    test('monthly + trial-14d → seleccionado', () {
+    test('monthly + trial-14d → seleccionado (prioridad sobre base)', () {
       final selected = PlayOfferSelection.selectMonthlyTrial([
+        _offer(
+          productId: PlayProductIds.monthly,
+          basePlanId: PlayProductIds.monthlyBasePlan,
+          offerId: null,
+          offerToken: 'monthly-base-token',
+        ),
         _offer(
           productId: PlayProductIds.monthly,
           basePlanId: 'other',
@@ -40,7 +46,27 @@ void main() {
       expect(selected.offerId, PlayProductIds.monthlyTrialOffer);
     });
 
-    test('monthly + otra offer → rechazado', () {
+    test('sin trial, base monthly con token → selecciona base', () {
+      final selected = PlayOfferSelection.selectMonthlyTrial([
+        _offer(
+          productId: PlayProductIds.monthly,
+          basePlanId: PlayProductIds.monthlyBasePlan,
+          offerId: null,
+          offerToken: 'monthly-base-token',
+        ),
+        _offer(
+          productId: PlayProductIds.monthly,
+          basePlanId: PlayProductIds.monthlyBasePlan,
+          offerId: 'promo-7d',
+          offerToken: 'promo-token',
+        ),
+      ]);
+      expect(selected.offerId, isNull);
+      expect(selected.basePlanId, PlayProductIds.monthlyBasePlan);
+      expect(selected.offerToken, 'monthly-base-token');
+    });
+
+    test('solo promo / sin trial ni base → rechazado recuperable', () {
       expect(
         () => PlayOfferSelection.selectMonthlyTrial([
           _offer(
@@ -53,38 +79,71 @@ void main() {
           isA<PlayBillingConfigurationException>().having(
             (e) => e.code,
             'code',
-            'missing_monthly_trial_offer',
+            'missing_monthly_purchasable_offer',
           ),
         ),
       );
     });
 
-    test('monthly sin trial-14d → rechazado', () {
+    test('base monthly sin token → rechazado', () {
       expect(
         () => PlayOfferSelection.selectMonthlyTrial([
           _offer(
             productId: PlayProductIds.monthly,
             basePlanId: PlayProductIds.monthlyBasePlan,
             offerId: null,
+            offerToken: '   ',
           ),
         ]),
-        throwsA(isA<PlayBillingConfigurationException>()),
+        throwsA(
+          isA<PlayBillingConfigurationException>().having(
+            (e) => e.code,
+            'code',
+            'missing_monthly_purchasable_offer',
+          ),
+        ),
       );
     });
   });
 
   group('PlayOfferSelection.founder', () {
-    test('founder annual base plan → seleccionado', () {
+    test('founder-annual-v2 → seleccionado; legacy annual ignorado', () {
       final selected = PlayOfferSelection.selectFounderAnnual([
+        _offer(
+          productId: PlayProductIds.founderAnnual,
+          basePlanId: PlayProductIds.founderBasePlanLegacy,
+          offerId: null,
+          offerToken: 'legacy-monthly-misconfigured',
+        ),
         _offer(
           productId: PlayProductIds.founderAnnual,
           basePlanId: PlayProductIds.founderBasePlan,
           offerId: null,
-          offerToken: 'founder-token',
+          offerToken: 'founder-v2-token',
         ),
       ]);
-      expect(selected.offerToken, 'founder-token');
+      expect(selected.offerToken, 'founder-v2-token');
+      expect(selected.basePlanId, 'founder-annual-v2');
       expect(selected.offerId, isNull);
+    });
+
+    test('solo legacy annual → rechazado (no comprar plan incorrecto)', () {
+      expect(
+        () => PlayOfferSelection.selectFounderAnnual([
+          _offer(
+            productId: PlayProductIds.founderAnnual,
+            basePlanId: PlayProductIds.founderBasePlanLegacy,
+            offerId: null,
+          ),
+        ]),
+        throwsA(
+          isA<PlayBillingConfigurationException>().having(
+            (e) => e.code,
+            'code',
+            'missing_founder_annual_base_plan',
+          ),
+        ),
+      );
     });
 
     test('founder con trial → rechazado', () {
