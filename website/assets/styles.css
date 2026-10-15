@@ -197,32 +197,24 @@ img {
   transform: translateY(-1px);
 }
 
-.store-badge.soon {
-  opacity: 0.96;
-}
-
-.soon-pill {
-  position: absolute;
-  top: -0.45rem;
-  right: -0.35rem;
-  padding: 0.22rem 0.5rem;
-  border-radius: 999px;
-  background: var(--lime);
-  color: var(--ink);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1;
-  box-shadow: 0 6px 16px rgba(46, 196, 182, 0.35);
-}
-
 .download-block {
   text-align: left;
 }
 
+.download-block .eyebrow {
+  margin: 0 0 0.55rem;
+}
+
 .download-block .store-badge {
-  margin-top: 0.35rem;
+  margin-top: 0.85rem;
+}
+
+.download-note {
+  margin: 1rem 0 0;
+  max-width: 42ch;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--ink-soft);
 }
 
 .footer-brand {

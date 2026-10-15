@@ -4,7 +4,7 @@ window.KLOOVI_LOCALES = {
     htmlLang: "es",
     metaTitleHome: "Kloovi — Organiza. Juega. Conecta.",
     metaDescHome:
-      "Kloovi ayuda a organizar encuentros y registrar aportes del grupo. No es una app financiera: no recibe ni procesa pagos.",
+      "Kloovi ya está disponible en Google Play. Organiza encuentros, confirma asistencia y registra aportes del grupo. No es una app financiera: no recibe ni procesa pagos.",
     metaTitlePrivacy: "Política de Privacidad — Kloovi",
     metaDescPrivacy:
       "Política de privacidad de Kloovi: qué datos tratamos y por qué no procesamos pagos.",
@@ -19,13 +19,15 @@ window.KLOOVI_LOCALES = {
     ctaHow: "Ver cómo funciona",
     ctaPrivacy: "Política de privacidad",
     eyebrow: "Organiza · Reúne · Comparte",
-    playSoon: "Pronto",
-    playBadgeAlt: "Consíguela en Google Play",
-    downloadTitle: "Consíguela en Google Play",
+    playBadgeAlt: "Descargar en Google Play",
+    downloadEyebrow: "Ya disponible",
+    downloadTitle: "Descarga Kloovi en Google Play",
     downloadSub:
-      "Estamos preparando la publicación. Mientras, escribe a hello@kloovi.app si quieres ser de los primeros.",
+      "Organiza encuentros, confirma quién juega y lleva el control de los aportes del grupo. Empieza hoy, gratis en Android.",
+    downloadNote:
+      "Disponible ahora para Android. Kloovi no recibe ni procesa pagos: solo ayuda a organizar y registrar aportes del grupo.",
     heroNote:
-      "Disponible pronto en Google Play. Kloovi no recibe dinero ni procesa pagos: solo te ayuda a registrar comprobantes y saldos del grupo.",
+      "Disponible en Google Play. Kloovi no recibe dinero ni procesa pagos: solo te ayuda a registrar comprobantes y saldos del grupo.",
     howTitle: "Todo lo que necesitas para organizar un encuentro",
     howSub:
       "Kloovi automatiza la organización de actividades grupales: convocatorias, confirmaciones, cálculo de aportes y seguimiento del grupo, todo desde un solo lugar.",
@@ -42,7 +44,7 @@ window.KLOOVI_LOCALES = {
     calloutBody:
       "Los aportes se realizan fuera de Kloovi. Cada participante registra su comprobante en la aplicación y el organizador lo revisa para confirmar el aporte. Kloovi solo administra el seguimiento de los aportes; nunca recibe ni procesa dinero.",
     contactTitle: "Contacto",
-    contactSub: "¿Dudas de privacidad, cuenta o publicación?",
+    contactSub: "¿Dudas de privacidad o de tu cuenta?",
     footerCopy: "© {year} Kloovi · kloovi.app",
     privacyH1: "Política de Privacidad",
     privacyMeta: "Última actualización: 15 de julio de 2026 · Responsable: Kloovi (kloovi.app)",
@@ -50,6 +52,7 @@ window.KLOOVI_LOCALES = {
     termsMeta: "Última actualización: 15 de julio de 2026 · Kloovi (kloovi.app)",
     backHome: "← Kloovi",
     navHow: "Cómo funciona",
+    navDownload: "Descargar",
     navPrivacy: "Privacidad",
     navTerms: "Términos",
     navHome: "Inicio",
@@ -251,7 +254,7 @@ window.KLOOVI_LOCALES = {
     htmlLang: "en",
     metaTitleHome: "Kloovi — Organize. Play. Connect.",
     metaDescHome:
-      "Kloovi helps organize gatherings and track group contributions. Not a financial app: we do not receive or process payments.",
+      "Kloovi is now on Google Play. Organize gatherings, confirm attendance, and track group contributions. Not a financial app: we do not receive or process payments.",
     metaTitlePrivacy: "Privacy Policy — Kloovi",
     metaDescPrivacy:
       "Kloovi privacy policy: what data we process and why we are not a payment processor.",
@@ -266,13 +269,15 @@ window.KLOOVI_LOCALES = {
     ctaHow: "See how it works",
     ctaPrivacy: "Privacy policy",
     eyebrow: "Organize · Gather · Share",
-    playSoon: "Soon",
-    playBadgeAlt: "Get it on Google Play",
-    downloadTitle: "Get it on Google Play",
+    playBadgeAlt: "Download on Google Play",
+    downloadEyebrow: "Available now",
+    downloadTitle: "Download Kloovi on Google Play",
     downloadSub:
-      "We’re preparing the listing. Meanwhile, email hello@kloovi.app if you want early access.",
+      "Organize gatherings, confirm who’s playing, and track group contributions. Start today—free on Android.",
+    downloadNote:
+      "Now available for Android. Kloovi does not receive or process payments—it only helps you organize and record group contributions.",
     heroNote:
-      "Coming soon on Google Play. Kloovi does not receive money or process payments—it only helps you record receipts and group balances.",
+      "Available on Google Play. Kloovi does not receive money or process payments—it only helps you record receipts and group balances.",
     howTitle: "Everything you need to organize a gathering",
     howSub:
       "Kloovi automates group activity organization: invitations, confirmations, contribution calculation, and group tracking—all in one place.",
@@ -289,7 +294,7 @@ window.KLOOVI_LOCALES = {
     calloutBody:
       "Contributions happen outside Kloovi. Each participant uploads their receipt in the app, and the organizer reviews it to confirm the contribution. Kloovi only tracks contributions; it never receives or processes money.",
     contactTitle: "Contact",
-    contactSub: "Questions about privacy, your account, or publishing?",
+    contactSub: "Questions about privacy or your account?",
     footerCopy: "© {year} Kloovi · kloovi.app",
     privacyH1: "Privacy Policy",
     privacyMeta: "Last updated: July 15, 2026 · Controller: Kloovi (kloovi.app)",
@@ -297,6 +302,7 @@ window.KLOOVI_LOCALES = {
     termsMeta: "Last updated: July 15, 2026 · Kloovi (kloovi.app)",
     backHome: "← Kloovi",
     navHow: "How it works",
+    navDownload: "Download",
     navPrivacy: "Privacy",
     navTerms: "Terms",
     navHome: "Home",
@@ -496,7 +502,7 @@ window.KLOOVI_LOCALES = {
     htmlLang: "pt",
     metaTitleHome: "Kloovi — Organiza. Joga. Conecta.",
     metaDescHome:
-      "Kloovi ajuda a organizar encontros e registrar contribuições do grupo. Não é um app financeiro: não recebe nem processa pagamentos.",
+      "A Kloovi já está disponível no Google Play. Organize encontros, confirme presença e registre contribuições do grupo. Não é um app financeiro: não recebe nem processa pagamentos.",
     metaTitlePrivacy: "Política de Privacidade — Kloovi",
     metaDescPrivacy:
       "Política de privacidade da Kloovi: quais dados tratamos e por que não processamos pagamentos.",
@@ -511,13 +517,15 @@ window.KLOOVI_LOCALES = {
     ctaHow: "Veja como funciona",
     ctaPrivacy: "Política de privacidade",
     eyebrow: "Organize · Reúna · Compartilhe",
-    playSoon: "Em breve",
-    playBadgeAlt: "Disponível no Google Play",
-    downloadTitle: "Disponível no Google Play",
+    playBadgeAlt: "Baixar no Google Play",
+    downloadEyebrow: "Já disponível",
+    downloadTitle: "Baixe a Kloovi no Google Play",
     downloadSub:
-      "Estamos preparando a publicação. Enquanto isso, escreva para hello@kloovi.app se quiser ser dos primeiros.",
+      "Organize encontros, confirme quem joga e acompanhe as contribuições do grupo. Comece hoje — grátis no Android.",
+    downloadNote:
+      "Disponível agora para Android. A Kloovi não recebe nem processa pagamentos: só ajuda a organizar e registrar contribuições do grupo.",
     heroNote:
-      "Em breve no Google Play. A Kloovi não recebe dinheiro nem processa pagamentos: só ajuda a registrar comprovantes e saldos do grupo.",
+      "Disponível no Google Play. A Kloovi não recebe dinheiro nem processa pagamentos: só ajuda a registrar comprovantes e saldos do grupo.",
     howTitle: "Tudo o que você precisa para organizar um encontro",
     howSub:
       "A Kloovi automatiza a organização de atividades em grupo: convocações, confirmações, cálculo de contribuições e acompanhamento do grupo, tudo em um só lugar.",
@@ -534,7 +542,7 @@ window.KLOOVI_LOCALES = {
     calloutBody:
       "As contribuições acontecem fora da Kloovi. Cada participante registra o comprovante no app e o organizador revisa para confirmar a contribuição. A Kloovi só acompanha as contribuições; nunca recebe nem processa dinheiro.",
     contactTitle: "Contato",
-    contactSub: "Dúvidas de privacidade, conta ou publicação?",
+    contactSub: "Dúvidas de privacidade ou da sua conta?",
     footerCopy: "© {year} Kloovi · kloovi.app",
     privacyH1: "Política de Privacidade",
     privacyMeta: "Última atualização: 15 de julho de 2026 · Responsável: Kloovi (kloovi.app)",
@@ -542,6 +550,7 @@ window.KLOOVI_LOCALES = {
     termsMeta: "Última atualização: 15 de julho de 2026 · Kloovi (kloovi.app)",
     backHome: "← Kloovi",
     navHow: "Como funciona",
+    navDownload: "Baixar",
     navPrivacy: "Privacidade",
     navTerms: "Termos",
     navHome: "Início",

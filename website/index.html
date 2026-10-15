@@ -6,7 +6,7 @@
     <title>Kloovi — Organiza. Juega. Conecta.</title>
     <meta
       name="description"
-      content="Kloovi ayuda a organizar encuentros y registrar aportes del grupo. No es una app financiera: no recibe ni procesa pagos."
+      content="Kloovi ya está disponible en Google Play. Organiza encuentros, confirma asistencia y registra aportes del grupo. No es una app financiera: no recibe ni procesa pagos."
     />
     <meta name="theme-color" content="#ffffff" />
     <meta property="og:title" content="Kloovi — Organiza. Juega. Conecta." />
@@ -28,7 +28,7 @@
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/assets/styles.css?v=20260719b" />
+    <link rel="stylesheet" href="/assets/styles.css?v=20261015a" />
   </head>
   <body data-page="home">
     <header class="site-header">
@@ -44,6 +44,13 @@
       </a>
       <nav class="nav" aria-label="Principal">
         <a href="#como" data-i18n="navHow">Cómo funciona</a>
+        <a
+          href="https://play.google.com/store/apps/details?id=com.kloovi.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-i18n="navDownload"
+          >Descargar</a
+        >
         <a href="/privacy" data-i18n="navPrivacy">Privacidad</a>
         <a href="/terms" data-i18n="navTerms">Términos</a>
         <div data-lang-switch></div>
@@ -66,9 +73,11 @@
           />
           <a
             class="hero-hotspot hero-hotspot-play"
-            href="#descargar"
+            href="https://play.google.com/store/apps/details?id=com.kloovi.app"
+            target="_blank"
+            rel="noopener noreferrer"
             data-i18n-aria="playBadgeAlt"
-            aria-label="Google Play"
+            aria-label="Descargar en Google Play"
           ></a>
           <a
             class="hero-hotspot hero-hotspot-how"
@@ -114,20 +123,28 @@
 
       <section class="section section-alt" id="descargar">
         <div class="wrap download-block">
-          <h2 data-i18n="downloadTitle">Consíguela en Google Play</h2>
+          <p class="eyebrow" data-i18n="downloadEyebrow">Ya disponible</p>
+          <h2 data-i18n="downloadTitle">Descarga Kloovi en Google Play</h2>
           <p class="sub" data-i18n="downloadSub">
-            Estamos preparando la publicación. Mientras, escribe a hello@kloovi.app si quieres ser de los primeros.
+            Organiza encuentros, confirma quién juega y lleva el control de los aportes del grupo. Empieza hoy, gratis en Android.
           </p>
-          <a class="store-badge soon" href="#descargar" aria-disabled="true">
+          <a
+            class="store-badge"
+            href="https://play.google.com/store/apps/details?id=com.kloovi.app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             <img
               src="/assets/brand/google-play-badge.png"
               width="200"
               height="60"
-              alt="Google Play"
+              alt="Descargar en Google Play"
               data-i18n-alt="playBadgeAlt"
             />
-            <span class="soon-pill" data-i18n="playSoon">Pronto</span>
           </a>
+          <p class="download-note" data-i18n="downloadNote">
+            Disponible ahora para Android. Kloovi no recibe ni procesa pagos: solo ayuda a organizar y registrar aportes del grupo.
+          </p>
         </div>
       </section>
 
@@ -135,7 +152,7 @@
         <div class="wrap">
           <h2 data-i18n="contactTitle">Contacto</h2>
           <p class="sub">
-            <span data-i18n="contactSub">¿Dudas de privacidad, cuenta o publicación?</span>
+            <span data-i18n="contactSub">¿Dudas de privacidad o de tu cuenta?</span>
             <a data-i18n-mailto href="mailto:hello@kloovi.app">hello@kloovi.app</a>
           </p>
         </div>
@@ -155,7 +172,7 @@
         </nav>
       </div>
     </footer>
-    <script src="/assets/locales.js?v=20260719b"></script>
-    <script src="/assets/i18n.js?v=20260719b"></script>
+    <script src="/assets/locales.js?v=20261015a"></script>
+    <script src="/assets/i18n.js?v=20261015a"></script>
   </body>
 </html>
